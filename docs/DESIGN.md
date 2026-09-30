@@ -324,6 +324,7 @@ is a problem.
 | Signal | signalmeow (from mautrix-signal) | Go | AGPL-3.0 | Linked device (QR) | Unofficial, tolerated |
 | Messenger | messagix (from mautrix-meta) | Go | AGPL-3.0 | Browser cookies | Against terms, ban risk |
 | Instagram | mautrix-instagram (Go, split out of mautrix-meta in August 2026) | Go | AGPL-3.0 | Browser cookies | Against terms, ban risk |
+| Google Voice | mautrix-gvoice | Go | AGPL-3.0 | Google sign-in in an in-app browser, cookies kept on device | Unofficial, tolerated; Beeper ships it |
 | Slack | Official Web API | Kotlin | n/a | OAuth | Official |
 
 PingMe's setup screen will state the risk level for each network in plain language
@@ -354,6 +355,13 @@ before the user connects it.
 - Telegram first, since it is officially supported and low risk.
 - WhatsApp next, highest demand.
 - Signal after that.
+- Google Voice. Same pairing-free model as the others: the user signs in to Google in
+  an in-app browser and PingMe keeps the session cookies in encrypted storage. Google
+  expires those sessions on its own schedule, so this connector leans on the
+  reconnection supervisor and the "Action needed" state just like RCS. Constraints as
+  of the library today: text and media messages only, no calls and no voicemail, and
+  new conversations must be started in the Google Voice app. Calls hand off to the
+  Google Voice app with a deep link. US only, since that is where Google Voice exists.
 
 ### Milestone 4: quality of life
 - Cross-network contact linking.
@@ -412,7 +420,11 @@ What this means in practice:
    thread and whether Instagram's hidden requests (filtered by Meta) are reachable at
    all, then decide whether to contribute folder support upstream or keep it in the
    PingMe connector.
-6. **Contact linking heuristics.** Phone numbers link RCS, WhatsApp, Signal, and Telegram
+6. **Google Voice gaps.** The bridge library cannot start a new conversation or push
+   notifications, both of which the Google Voice web client can do. Decide whether to
+   implement those in the PingMe connector against the same web endpoints or
+   contribute them upstream. Voicemail transcripts would be a natural addition too.
+7. **Contact linking heuristics.** Phone numbers link RCS, WhatsApp, Signal, and Telegram
    naturally. Meta accounts do not carry numbers. Defer.
 
 ---

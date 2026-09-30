@@ -347,7 +347,16 @@ library. Intensity Subtle keeps only Pick and Land. Off disables all of it.
   size warning as GIFs. Whether RCS voice notes sent through the pairing arrive with the
   voice-message presentation, or as a plain audio file, is an open question.
 
-### 5.7 Attachments
+### 5.7 Google Voice specifics
+
+Google Voice chats carry a "GV" network badge and behave like SMS: quoted-text
+replies, MMS-sized media, and reactions sent as text. New chat from the FAB lists
+Google Voice as a sender only once the connector can start conversations; until then
+the option is shown disabled with "Start this chat in the Google Voice app". Voice
+calls are not in scope, so the call icon in a Google Voice chat header deep-links to
+the Google Voice app.
+
+### 5.8 Attachments
 
 The "+" button opens a bottom sheet: Camera, Gallery, File, Location, Contact. Images
 support multi-select with captions. Everything reports send progress on the bubble.
@@ -455,19 +464,20 @@ reflects it.
 What the UI can offer per network. Connectors report these at runtime; this table is
 the expected result.
 
-| Feature | RCS via Google Messages | SMS/MMS native | WhatsApp | Telegram | Signal | Instagram |
-|---|---|---|---|---|---|---|
-| Reply to message | Yes | Quoted text | Yes | Yes | Yes | Yes |
-| Delete for me | Yes | Yes | Yes | Yes | Yes | Yes |
-| Delete for everyone | Open question | No | Yes, time limited | Yes | Yes, time limited | Yes, unsend |
-| Reactions, any emoji | Yes | Text fallback | Yes | Limited set | Yes | Yes |
-| GIF | Yes | MMS, size limited | Yes | Yes | Yes | Yes |
-| Voice note | Yes, presentation open question | MMS audio | Yes | Yes | Yes | Yes |
-| Typing indicator | Yes | No | Yes | Yes | Yes | Yes |
-| Read receipts | Yes | No | Yes | Yes | Yes | Yes |
-| Edit message | No | No | Yes, time limited | Yes | No | Yes, time limited |
-| Native pins | No | No | Yes | Yes | No | No |
-| Inbox folders | No | No | No | Folders (Telegram) | No | Primary, General, Requests |
+| Feature | RCS via Google Messages | SMS/MMS native | WhatsApp | Telegram | Signal | Instagram | Google Voice |
+|---|---|---|---|---|---|---|---|
+| Reply to message | Yes | Quoted text | Yes | Yes | Yes | Yes | Quoted text |
+| Delete for me | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Delete for everyone | Open question | No | Yes, time limited | Yes | Yes, time limited | Yes, unsend | No |
+| Reactions, any emoji | Yes | Text fallback | Yes | Limited set | Yes | Yes | Text fallback |
+| GIF | Yes | MMS, size limited | Yes | Yes | Yes | Yes | MMS, size limited |
+| Voice note | Yes, presentation open question | MMS audio | Yes | Yes | Yes | Yes | MMS audio |
+| Typing indicator | Yes | No | Yes | Yes | Yes | Yes | No |
+| Read receipts | Yes | No | Yes | Yes | Yes | Yes | No |
+| Edit message | No | No | Yes, time limited | Yes | No | Yes, time limited | No |
+| Native pins | No | No | Yes | Yes | No | No | No |
+| Inbox folders | No | No | No | Folders (Telegram) | No | Primary, General, Requests | No |
+| Start new conversation | Yes | Yes | Yes | Yes | Yes | Yes | Open question, library cannot today |
 
 ---
 
