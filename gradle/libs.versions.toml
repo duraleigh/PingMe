@@ -22,6 +22,7 @@ sqlite = "2.7.1"
 work = "2.12.0"
 datastore = "1.2.1"
 coil = "3.6.3"
+materialkolor = "5.0.1"
 media3 = "1.11.1"
 kotlinx-serialization = "1.11.0"
 kotlinx-coroutines = "1.11.0"
@@ -60,6 +61,10 @@ androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-mani
 androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
 androidx-compose-material3-adaptive-layout = { module = "androidx.compose.material3.adaptive:adaptive-layout", version.ref = "material3-adaptive" }
 androidx-compose-material3-adaptive-navigation = { module = "androidx.compose.material3.adaptive:adaptive-navigation", version.ref = "material3-adaptive" }
+
+# Colour schemes from a seed colour (Apache-2.0 Kotlin port of Material Color Utilities)
+materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }
+materialkolor-utilities = { module = "com.materialkolor:material-color-utilities", version.ref = "materialkolor" }
 
 # Storage and background work
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }

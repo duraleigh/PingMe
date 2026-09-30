@@ -7,9 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
@@ -20,11 +18,12 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import org.pingme.core.service.ConnectionService
 import org.pingme.core.store.AccountRepository
+import org.pingme.core.ui.theme.PingMeTheme
 import javax.inject.Inject
 
 /**
  * Phase 0 shell: a blank screen with the app name, enough to prove signing,
- * sideloading, and CI (BUILD_PLAN.md P0.6). The real theme arrives in P2.1.
+ * sideloading, and CI (BUILD_PLAN.md P0.6). The inbox replaces it in P2.3.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -35,7 +34,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { ConnectionService.startIfNeeded(this@MainActivity, accounts) }
         enableEdgeToEdge()
         setContent {
-            MaterialExpressiveTheme(motionScheme = MotionScheme.expressive()) {
+            PingMeTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
