@@ -46,7 +46,16 @@ allprojects {
     }
 }
 
+// Modules whose unit tests open the real database on the bundled SQLite.
+val sqliteTestModules = setOf(":core:store", ":core:service", ":connectors:demo")
+val sqliteVersion = libs.versions.sqlite.get()
+
 subprojects {
+    if (path in sqliteTestModules) {
+        extra["sqliteVersion"] = sqliteVersion
+        apply(from = rootProject.file("gradle/scripts/sqlite-host-natives.gradle.kts"))
+    }
+
     apply(plugin = "dev.detekt")
     extensions.configure<DetektExtension> {
         buildUponDefaultConfig.set(true)

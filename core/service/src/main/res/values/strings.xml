@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="channel_connection">Connection</string>
+    <string name="channel_messages">Messages</string>
+    <string name="connection_notification_title">PingMe is connected</string>
+    <string name="notification_new_message">New message</string>
+</resources>

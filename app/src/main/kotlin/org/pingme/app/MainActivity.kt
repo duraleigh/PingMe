@@ -15,14 +15,24 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.lifecycleScope
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import org.pingme.core.service.ConnectionService
+import org.pingme.core.store.AccountRepository
+import javax.inject.Inject
 
 /**
  * Phase 0 shell: a blank screen with the app name, enough to prove signing,
  * sideloading, and CI (BUILD_PLAN.md P0.6). The real theme arrives in P2.1.
  */
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var accounts: AccountRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycleScope.launch { ConnectionService.startIfNeeded(this@MainActivity, accounts) }
         enableEdgeToEdge()
         setContent {
             MaterialExpressiveTheme(motionScheme = MotionScheme.expressive()) {

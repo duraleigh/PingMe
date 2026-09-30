@@ -102,4 +102,46 @@ class MessageStoreTest : StoreTest() {
             )
             assertEquals(1, messages.get(MessageId("m"))?.attachments?.size)
         }
+
+    @Test
+    fun aReadReceiptMarksEarlierOutgoingMessagesRead() =
+        runTest {
+            seed()
+            val out = { id: String, at: kotlin.time.Instant, status: MessageStatus ->
+                message(id, "c", sentAt = at).copy(isOutgoing = true, status = status)
+            }
+            messages.upsert(out("o1", now - 3.minutes, MessageStatus.Delivered))
+            messages.upsert(out("o2", now - 2.minutes, MessageStatus.Sent))
+            messages.upsert(message("in", "c", sentAt = now - 1.minutes))
+            messages.upsert(out("o3", now, MessageStatus.Delivered))
+            messages.upsert(out("failed", now - 4.minutes, MessageStatus.Failed("x")))
+            messages.markOutgoingRead(ChatId("c"), MessageId("o2"))
+
+            suspend fun status(id: String) = messages.get(MessageId(id))?.status
+            assertEquals(MessageStatus.Read, status("o1"))
+            assertEquals(MessageStatus.Read, status("o2"))
+            assertEquals(MessageStatus.Delivered, status("in"))
+            assertEquals(MessageStatus.Delivered, status("o3"))
+            assertEquals(MessageStatus.Failed("x"), status("failed"))
+        }
+
+    @Test
+    fun aDownloadedAttachmentRemembersWhereItIs() =
+        runTest {
+            seed()
+            messages.upsert(message("m", "c", attachments = listOf(attachment("x", "a.pdf"))))
+            messages.setAttachmentLocalPath(
+                org.pingme.core.model
+                    .AttachmentId("x"),
+                "/files/a.pdf",
+            )
+            assertEquals(
+                "/files/a.pdf",
+                messages
+                    .attachment(
+                        org.pingme.core.model
+                            .AttachmentId("x"),
+                    )?.localPath,
+            )
+        }
 }

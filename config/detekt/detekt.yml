@@ -11,6 +11,11 @@ complexity:
     allowedFunctionsPerClass: 20
     ignoreAnnotated: ['Dao']
 
+style:
+  ReturnCount:
+    # Early "nothing to do" exits at the top of a function read better than nesting.
+    excludeGuardClauses: true
+
 naming:
   FunctionNaming:
     # Composable functions are PascalCase by Compose convention.

@@ -184,6 +184,9 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE id IN (:ids)")
     suspend fun getAll(ids: List<String>): List<MessageWithParts>
 
+    @Query("SELECT id FROM messages WHERE chatId = :chatId ORDER BY sentAt ASC, rowId ASC LIMIT 1")
+    suspend fun oldestId(chatId: String): String?
+
     @Query("SELECT rowId FROM messages WHERE id = :id")
     suspend fun rowIdFor(id: String): Long?
 
@@ -232,6 +235,35 @@ interface MessageDao {
         id: String,
         status: MessageStatus,
     )
+
+    /**
+     * A read receipt: every outgoing message in the chat sent up to and including [upToId]
+     * becomes Read. Messages already Read or still sending are left alone.
+     */
+    @Query(
+        """
+        UPDATE messages SET status = :read
+        WHERE chatId = :chatId AND isOutgoing = 1
+          AND sentAt <= (SELECT sentAt FROM messages WHERE id = :upToId)
+          AND status IN (:sent, :delivered)
+        """,
+    )
+    suspend fun markOutgoingRead(
+        chatId: String,
+        upToId: String,
+        read: MessageStatus = MessageStatus.Read,
+        sent: MessageStatus = MessageStatus.Sent,
+        delivered: MessageStatus = MessageStatus.Delivered,
+    )
+
+    @Query("UPDATE attachments SET localPath = :localPath WHERE id = :id")
+    suspend fun setAttachmentLocalPath(
+        id: String,
+        localPath: String,
+    )
+
+    @Query("SELECT * FROM attachments WHERE id = :id")
+    suspend fun attachment(id: String): AttachmentEntity?
 
     @Upsert
     suspend fun upsertReaction(reaction: ReactionEntity)

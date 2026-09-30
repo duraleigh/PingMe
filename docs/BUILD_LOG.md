@@ -459,3 +459,72 @@ Unit tests: `LoginFlowTest` and `ScopedIdsTest` (4 tests, all pass).
   arrives with the first network that has spaces (WhatsApp, Phase 6).
 
 **Next:** P1.4, the service skeleton.
+
+## P1.4 Service skeleton (done, 2026-09-30)
+
+`core/service`:
+- **`ConnectionService`**: the one foreground service ("PingMe is connected", a silent
+  minimum-priority notification), type `remoteMessaging`. It hosts the supervisor,
+  forwards network changes, and stops itself when no account needs a connection.
+  `MainActivity` starts it only when an account needs one.
+- **`ConnectorSupervisor`**: one coroutine per account. It connects, syncs the chat list
+  once connected, and writes every event through `EventApplier`.
+  - Retries wait 1 s, 2 s, 4 s, ..., up to 5 minutes (`Backoff`).
+  - A connection that worked and then dropped starts over at 1 s; a network change cuts
+    any wait short and starts over.
+  - `ActionNeededException`, a `State(ActionNeeded)` event, or missing credentials
+    stop retries and set "Action needed" on the account.
+  - Disabled accounts are never connected, and disabling disconnects.
+  - Unknown failures count as transient and are logged on the phone only.
+- **`EventApplier`**: turns connector events into store writes.
+  - Chat snapshots keep everything the user chose (pin, mute, archive, low priority,
+    obscure, name override, avatar source, merges).
+  - An incoming message adds to unread, bumps activity, and brings an archived chat
+    back; an outgoing one marks the chat read. History batches never count as unread.
+  - A message for a chat not yet known lands under a minimal chat until its snapshot
+    arrives.
+- **`TypingTracker`**: who is typing where, in memory only. It clears when their message
+  arrives, or after 6 s without an update.
+- **`NotificationRouter` (skeleton)**: outgoing, muted (a timed mute counts until it
+  ends), and low priority messages stay quiet. Obscured chats say "New message". The
+  rest post a plain notification on the `default` channel once notifications are
+  allowed. Full routing is P4.1.
+- **`KeystoreCredentialStore`**: the `CredentialStore` implementation. AES-256-GCM with
+  a key that lives only in the Android Keystore, one file per credential (named by
+  hash) in no-backup storage, written atomically.
+- **Workers (Hilt + WorkManager)**:
+  - `HistoryBackfillWorker`: pages of 50, 4 pages a run, continuing where the store ends.
+  - `MediaDownloadWorker`: saves the file path; retries up to 5 times.
+  - `ScheduledSendWorker`: sends due and late messages and swaps the pending bubble for
+    the sent one; retryable failures retry up to 5 times, others mark the message
+    Failed.
+  - `LinkPreviewWorker` and `ContactSyncWorker` are registered with empty bodies.
+    Their work is P4.3 and Phase 7 in the plan, and their code says so.
+- **App**: `PingMeApp` (`@HiltAndroidApp`) supplies the Hilt worker factory to
+  WorkManager (the default initializer is removed from the manifest). `MainActivity` is
+  a Hilt entry point.
+
+Tests: 25 in `core/service` (backoff, notification decisions, event applier,
+supervisor, credential store, workers), 42 in `core/store`, plus the earlier model and
+connector-API tests. Three deliberate supervisor breaks (retrying when the user must
+act, twice, and not resetting after a drop) failed the tests, then were reverted.
+
+**Deviations and decisions**
+- **Credential store now, not in P3.2.** The supervisor needs a `CredentialStore` to
+  connect anything, including the demo network. P3.2's "EncryptedFile / Keystore-
+  wrapped AES" is built here as Keystore-wrapped AES-GCM. Jetpack's EncryptedFile
+  (`security-crypto`) is deprecated, so it is not used.
+- **Network changes** come from `ConnectivityManager.registerDefaultNetworkCallback`.
+  The old network-change broadcast the plan mentions is deprecated and not delivered
+  to apps on current Android.
+- **Scheduled sends** moved to their own `ScheduledSendRepository`, to keep
+  `MessageRepository` focused. Store additions: read receipts marking outgoing messages
+  Read, attachment download paths, and the oldest message of a chat.
+- **Retry waits** go through a `RetryDelays` interface so tests use milliseconds. The
+  app binds the real `Backoff`.
+- detekt `ReturnCount` now ignores early "nothing to do" guard clauses.
+- **Not in this step:** reconnecting after a phone restart (a boot receiver) is not
+  in the plan's P1.4 list. Until it's added, connections resume the next time the app
+  opens. It belongs with notifications (P4) and is logged here so it isn't lost.
+
+**Next:** P1.5, the demo connector.

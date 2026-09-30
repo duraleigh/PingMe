@@ -13,6 +13,8 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 class ScheduledSendStoreTest : StoreTest() {
+    private val scheduled by lazy { ScheduledSendRepository(db) }
+
     private fun send(
         id: String,
         chat: String,
@@ -25,20 +27,20 @@ class ScheduledSendStoreTest : StoreTest() {
             val late = send("late", "c1", now - 1.hours)
             val onTime = send("on-time", "c1", now)
             val future = send("future", "c2", now + 1.minutes)
-            listOf(future, onTime, late).forEach { messages.upsertScheduled(it) }
-            assertEquals(listOf(late, onTime), messages.dueScheduled(now))
-            assertEquals(listOf(late, onTime, future), messages.scheduled().first())
-            assertEquals(listOf(future), messages.scheduledIn(ChatId("c2")).first())
+            listOf(future, onTime, late).forEach { scheduled.upsert(it) }
+            assertEquals(listOf(late, onTime), scheduled.due(now))
+            assertEquals(listOf(late, onTime, future), scheduled.all().first())
+            assertEquals(listOf(future), scheduled.inChat(ChatId("c2")).first())
         }
 
     @Test
     fun attemptsCountUpAndSentOnesAreRemoved() =
         runTest {
-            messages.upsertScheduled(send("m", "c", now))
-            messages.recordScheduledAttempt(MessageId("m"))
-            messages.recordScheduledAttempt(MessageId("m"))
-            assertEquals(2, messages.dueScheduled(now).single().attempts)
-            messages.deleteScheduled(MessageId("m"))
-            assertEquals(emptyList<ScheduledSend>(), messages.scheduled().first())
+            scheduled.upsert(send("m", "c", now))
+            scheduled.recordAttempt(MessageId("m"))
+            scheduled.recordAttempt(MessageId("m"))
+            assertEquals(2, scheduled.due(now).single().attempts)
+            scheduled.delete(MessageId("m"))
+            assertEquals(emptyList<ScheduledSend>(), scheduled.all().first())
         }
 }

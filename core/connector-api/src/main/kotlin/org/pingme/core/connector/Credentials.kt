@@ -26,3 +26,13 @@ interface CredentialStore {
 
     suspend fun delete(ref: String)
 }
+
+/**
+ * Thrown by [Connector.connect] (or its event flow) when the user must act, such as
+ * re-pairing after Google revoked the pairing. The supervisor stops retrying and shows
+ * "Action needed" with [reason], opening [deepLink] where Android allows (DESIGN.md 5.3).
+ */
+class ActionNeededException(
+    val reason: String,
+    val deepLink: String?,
+) : Exception(reason)

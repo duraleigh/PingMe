@@ -5,6 +5,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import org.pingme.core.model.Attachment
+import org.pingme.core.model.AttachmentId
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.MediaSaveJob
 import org.pingme.core.model.MediaSaveState
@@ -13,7 +15,6 @@ import org.pingme.core.model.MessageId
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.PersonId
 import org.pingme.core.model.Reaction
-import org.pingme.core.model.ScheduledSend
 import org.pingme.core.store.db.MessageDao
 import org.pingme.core.store.db.MessageFts
 import org.pingme.core.store.db.PingMeDatabase
@@ -24,7 +25,6 @@ import org.pingme.core.store.db.toEntity
 import org.pingme.core.store.db.toModel
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
@@ -34,7 +34,6 @@ class MessageRepository
         db: PingMeDatabase,
     ) {
         private val dao = db.messageDao()
-        private val scheduledDao = db.scheduledSendDao()
         private val mediaSaveDao = db.mediaSaveJobDao()
 
         /** The newest [limit] messages of a chat, newest first. */
@@ -47,6 +46,9 @@ class MessageRepository
 
         suspend fun get(id: MessageId): Message? = dao.get(id.value)?.toModel()
 
+        /** The oldest message PingMe has for a chat: where history backfill continues from. */
+        suspend fun oldest(chatId: ChatId): MessageId? = dao.oldestId(chatId.value)?.let(::MessageId)
+
         suspend fun upsert(message: Message) =
             dao.upsert(message.toEntity(), message.attachmentEntities(), message.reactionEntities())
 
@@ -54,6 +56,20 @@ class MessageRepository
             id: MessageId,
             status: MessageStatus,
         ) = dao.updateStatus(id.value, status)
+
+        /** A read receipt: outgoing messages up to [upTo] become Read. */
+        suspend fun markOutgoingRead(
+            chatId: ChatId,
+            upTo: MessageId,
+        ) = dao.markOutgoingRead(chatId.value, upTo.value)
+
+        suspend fun attachment(id: AttachmentId): Attachment? = dao.attachment(id.value)?.toModel()
+
+        /** Where a downloaded attachment now lives in app storage. */
+        suspend fun setAttachmentLocalPath(
+            id: AttachmentId,
+            localPath: String,
+        ) = dao.setAttachmentLocalPath(id.value, localPath)
 
         suspend fun addReaction(
             messageId: MessageId,
@@ -85,19 +101,6 @@ class MessageRepository
                     ids.mapNotNull { byId[it]?.toModel() }
                 }
         }
-
-        fun scheduled(): Flow<List<ScheduledSend>> = scheduledDao.observeAll().map { rows -> rows.map { it.toModel() } }
-
-        fun scheduledIn(chatId: ChatId): Flow<List<ScheduledSend>> =
-            scheduledDao.observeByChat(chatId.value).map { rows -> rows.map { it.toModel() } }
-
-        suspend fun dueScheduled(now: Instant): List<ScheduledSend> = scheduledDao.due(now).map { it.toModel() }
-
-        suspend fun upsertScheduled(send: ScheduledSend) = scheduledDao.upsert(send.toEntity())
-
-        suspend fun recordScheduledAttempt(messageId: MessageId) = scheduledDao.incrementAttempts(messageId.value)
-
-        suspend fun deleteScheduled(messageId: MessageId) = scheduledDao.delete(messageId.value)
 
         fun mediaSaveJobs(state: MediaSaveState): Flow<List<MediaSaveJob>> =
             mediaSaveDao.observeByState(state).map { rows -> rows.map { it.toModel() } }
