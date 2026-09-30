@@ -40,6 +40,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    lint {
+        warningsAsErrors = true
+        abortOnError = true
+    }
 }
 
 fun requiredEnv(name: String): String =

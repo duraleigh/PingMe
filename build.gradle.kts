@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.CommonExtension
+import dev.detekt.gradle.extensions.DetektExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+import org.jlleitschuh.gradle.ktlint.KtlintExtension
 
 plugins {
     alias(libs.plugins.android.application) apply false
@@ -13,6 +15,9 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.room) apply false
+    alias(libs.plugins.detekt) apply false
+    // Applied here too, so the root build scripts are checked as well.
+    alias(libs.plugins.ktlint)
 }
 
 // Shared by every module. The app targets the newest stable platform (API 37,
@@ -27,7 +32,25 @@ val expressiveOptIns = listOf(
     "androidx.compose.material3.ExperimentalMaterial3Api",
 )
 
+// Static checks (BUILD_PLAN.md P0.5). `./gradlew check` runs ktlintCheck, detekt,
+// Android lint, and the unit tests in every module.
+val ktlintVersion = libs.versions.ktlint.cli.get()
+val composeRulesDetekt = libs.compose.rules.detekt
+allprojects {
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+    extensions.configure<KtlintExtension> {
+        version.set(ktlintVersion)
+    }
+}
+
 subprojects {
+    apply(plugin = "dev.detekt")
+    extensions.configure<DetektExtension> {
+        buildUponDefaultConfig.set(true)
+        config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    }
+    dependencies.add("detektPlugins", composeRulesDetekt)
+
     listOf("com.android.application", "com.android.library").forEach { pluginId ->
         pluginManager.withPlugin(pluginId) {
             extensions.configure<CommonExtension>("android") {
