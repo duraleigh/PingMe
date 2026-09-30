@@ -322,7 +322,8 @@ is a problem.
 | WhatsApp | whatsmeow | Go | MPL-2.0 | Linked device (QR) | Against terms, bans are rare but possible |
 | Telegram | TDLib | C++ with Java binding | Boost | Phone number + code | Official, encouraged |
 | Signal | signalmeow (from mautrix-signal) | Go | AGPL-3.0 | Linked device (QR) | Unofficial, tolerated |
-| Messenger, Instagram | messagix (from mautrix-meta) | Go | AGPL-3.0 | Browser cookies | Against terms, ban risk |
+| Messenger | messagix (from mautrix-meta) | Go | AGPL-3.0 | Browser cookies | Against terms, ban risk |
+| Instagram | mautrix-instagram (Go, split out of mautrix-meta in August 2026) | Go | AGPL-3.0 | Browser cookies | Against terms, ban risk |
 | Slack | Official Web API | Kotlin | n/a | OAuth | Official |
 
 PingMe's setup screen will state the risk level for each network in plain language
@@ -358,7 +359,11 @@ before the user connects it.
 - Cross-network contact linking.
 - Search across all networks.
 - Backup and restore of the local database.
-- Messenger and Instagram, gated behind an explicit risk warning.
+- Instagram, gated behind an explicit risk warning, with inbox folder support
+  (Primary, General, Requests) and per-folder notification defaults. The bridge
+  library does not expose folders today, so the PingMe connector reads them from
+  the inbox and pending-inbox endpoints itself. See UI_DESIGN.md section 6.4.
+- Messenger, same gating.
 
 ---
 
@@ -402,7 +407,12 @@ What this means in practice:
    Acceptable for v1, but worth measuring early.
 4. **Should Go own more?** If the Kotlin-Go boundary becomes painful, the unified store
    and sync logic could move into Go, with Kotlin doing only UI. Decide after milestone 1.
-5. **Contact linking heuristics.** Phone numbers link RCS, WhatsApp, Signal, and Telegram
+5. **Instagram folders in the library.** The Go Instagram bridge does not surface
+   Primary, General, or Requests. Confirm which endpoint carries the folder for each
+   thread and whether Instagram's hidden requests (filtered by Meta) are reachable at
+   all, then decide whether to contribute folder support upstream or keep it in the
+   PingMe connector.
+6. **Contact linking heuristics.** Phone numbers link RCS, WhatsApp, Signal, and Telegram
    naturally. Meta accounts do not carry numbers. Defer.
 
 ---

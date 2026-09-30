@@ -385,6 +385,44 @@ notify.
 
 ---
 
+### 6.4 Instagram inbox folders
+
+Instagram sorts direct messages into three folders: Primary, General, and Requests.
+PingMe keeps that split and lets notifications differ per folder.
+
+**Where the folder comes from.** The connector reads each thread's folder from
+Instagram's inbox and pending-inbox endpoints and stores it as chat metadata. When
+Instagram moves a thread (a request is accepted, or the user moves a chat between
+Primary and General in the Instagram app), PingMe updates on the next sync.
+
+**How folders show in the inbox.**
+- Primary and General chats appear in the normal list and can be pinned like any
+  chat. A small "General" tag sits next to the Instagram network badge so the two are
+  telling apart at a glance.
+- Requests never appear in the main list or the pinned grid. They live under
+  Requests in the avatar menu, with a count, and each one offers Accept, Decline, and
+  Block. Accepting moves the chat into Primary immediately.
+- The Instagram filter in the bottom bar shows Primary and General together. A
+  long-press on it offers Primary only or General only, remembered until changed.
+
+**Notifications per folder.** Under Settings > Notifications > Instagram there are
+three independent rows, each with the full sound, vibration, and on-off controls from
+section 6.1:
+
+| Folder | Default |
+|---|---|
+| Primary | On, with sound |
+| General | Silent, badge only |
+| Requests | Off |
+
+So the answer to "only notify me for Primary" is the default. Each folder gets its
+own notification channel, and a per-chat override in Chat details still wins over the
+folder default, so one General chat can be loud while the rest stay silent.
+
+**Moving chats between folders.** Chat details has a "Move to Primary" or "Move to
+General" action for Instagram chats, sent through the connector so the Instagram app
+reflects it.
+
 ## 7. Accessibility
 
 - Every custom bubble style and colour choice is checked against a 4.5:1 contrast
@@ -402,18 +440,19 @@ notify.
 What the UI can offer per network. Connectors report these at runtime; this table is
 the expected result.
 
-| Feature | RCS via Google Messages | SMS/MMS native | WhatsApp | Telegram | Signal |
-|---|---|---|---|---|---|
-| Reply to message | Yes | Quoted text | Yes | Yes | Yes |
-| Delete for me | Yes | Yes | Yes | Yes | Yes |
-| Delete for everyone | Open question | No | Yes, time limited | Yes | Yes, time limited |
-| Reactions, any emoji | Yes | Text fallback | Yes | Limited set | Yes |
-| GIF | Yes | MMS, size limited | Yes | Yes | Yes |
-| Voice note | Yes, presentation open question | MMS audio | Yes | Yes | Yes |
-| Typing indicator | Yes | No | Yes | Yes | Yes |
-| Read receipts | Yes | No | Yes | Yes | Yes |
-| Edit message | No | No | Yes, time limited | Yes | No |
-| Native pins | No | No | Yes | Yes | No |
+| Feature | RCS via Google Messages | SMS/MMS native | WhatsApp | Telegram | Signal | Instagram |
+|---|---|---|---|---|---|---|
+| Reply to message | Yes | Quoted text | Yes | Yes | Yes | Yes |
+| Delete for me | Yes | Yes | Yes | Yes | Yes | Yes |
+| Delete for everyone | Open question | No | Yes, time limited | Yes | Yes, time limited | Yes, unsend |
+| Reactions, any emoji | Yes | Text fallback | Yes | Limited set | Yes | Yes |
+| GIF | Yes | MMS, size limited | Yes | Yes | Yes | Yes |
+| Voice note | Yes, presentation open question | MMS audio | Yes | Yes | Yes | Yes |
+| Typing indicator | Yes | No | Yes | Yes | Yes | Yes |
+| Read receipts | Yes | No | Yes | Yes | Yes | Yes |
+| Edit message | No | No | Yes, time limited | Yes | No | Yes, time limited |
+| Native pins | No | No | Yes | Yes | No | No |
+| Inbox folders | No | No | No | Folders (Telegram) | No | Primary, General, Requests |
 
 ---
 
@@ -427,5 +466,8 @@ the expected result.
    open-source-friendly alternative would be preferable if one is reliable.
 4. Should the reaction particle layer be capped on low-end devices automatically
    (based on frame timing) rather than only by the user's intensity setting?
-5. Whether to ship a "theme gallery" of community-contributed JSON themes inside the
+5. Whether Instagram's hidden requests (the ones Meta filters out of the Requests
+   tab) are reachable through the endpoints the connector uses, or only the visible
+   ones.
+6. Whether to ship a "theme gallery" of community-contributed JSON themes inside the
    app or only support import.
