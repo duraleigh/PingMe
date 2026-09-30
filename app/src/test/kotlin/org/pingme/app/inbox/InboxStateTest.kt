@@ -185,9 +185,10 @@ class InboxStateTest {
     fun timesReadNowThenClockThenWeekdayThenDate() {
         val utc = ZoneOffset.UTC
 
-        fun label(ago: kotlin.time.Duration) = timeLabel(now - ago, now, "now", utc, Locale.US)
+        // Java 20+ puts a narrow no-break space before AM; Java 17 a plain one. Either is right.
+        fun label(ago: kotlin.time.Duration) = timeLabel(now - ago, now, "now", utc, Locale.US).replace('\u202F', ' ')
         assertEquals("now", label(30.seconds))
-        assertEquals("9:00 AM", label(3.hours))
+        assertEquals("9:00 AM", label(3.hours))
         assertEquals("Mon", label(2.days))
         assertEquals("Sep 10", label(20.days))
         assertEquals("9/30/25", label(365.days))

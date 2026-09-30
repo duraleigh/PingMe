@@ -161,8 +161,11 @@ class NewChatViewModel
         fun remove(handle: String) = form.update { it.copy(members = it.members - handle) }
 
         fun createGroup() {
-            val s = state.value
-            run { actions.createGroup(requireNotNull(s.account), s.title.trim(), s.members) }
+            // The name and members come from the form itself, which always has the last keystroke;
+            // the combined screen state can be a step behind.
+            val typed = form.value
+            val account = requireNotNull(state.value.account)
+            run { actions.createGroup(account, typed.title.trim(), typed.members) }
         }
 
         private fun run(block: suspend () -> ChatId) {
