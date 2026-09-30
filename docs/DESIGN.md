@@ -236,7 +236,11 @@ Connectors translate between their network's own concepts and PingMe's unified m
 Stored locally in SQLite via Room.
 
 - **Account**: one connected login on one network. Holds connection state and a pointer to
-  encrypted credentials.
+  encrypted credentials. A network can have several accounts at once, for example a
+  personal Messenger login and a Facebook Page inbox, or two WhatsApp numbers. Each
+  account has its own display name, colour, notification defaults, and "show in
+  inbox" switch, and everything downstream (chats, unread counts, filters) is keyed
+  by account, never just by network.
 - **Chat**: a conversation. Belongs to one account. Has type (direct or group), title,
   participants, unread count, last activity.
 - **Message**: belongs to one chat. Has sender, timestamp, body, attachments, reply
@@ -327,6 +331,7 @@ is a problem.
 | Telegram | TDLib | C++ with Java binding | Boost | Phone number + code | Official, encouraged |
 | Signal | signalmeow (from mautrix-signal) | Go | AGPL-3.0 | Linked device (QR) | Unofficial, tolerated |
 | Messenger | messagix (from mautrix-meta) | Go | AGPL-3.0 | Browser cookies | Against terms, ban risk |
+| Facebook Page inbox | Meta Messenger Platform (Graph API), polled from the phone | Kotlin | n/a | Page access token from a Meta developer app the user creates | Official, no ban risk; 24-hour reply window applies |
 | Instagram | mautrix-instagram (Go, split out of mautrix-meta in August 2026) | Go | AGPL-3.0 | Browser cookies | Against terms, ban risk |
 | Google Voice | mautrix-gvoice | Go | AGPL-3.0 | Google sign-in in an in-app browser, cookies kept on device | Unofficial, tolerated; Beeper ships it |
 | Slack | Official Web API | Kotlin | n/a | OAuth | Official |
@@ -375,7 +380,15 @@ before the user connects it.
   (Primary, General, Requests) and per-folder notification defaults. The bridge
   library does not expose folders today, so the PingMe connector reads them from
   the inbox and pending-inbox endpoints itself. See UI_DESIGN.md section 6.4.
-- Messenger, same gating.
+- Messenger (personal account), same gating.
+- Facebook Page inbox through Meta's official Messenger Platform. The user creates a
+  Meta developer app, connects their own Page, and pastes the Page access token into
+  PingMe. PingMe has no server, so instead of webhooks it polls the Page's
+  conversations endpoint on a user-chosen interval. Constraints: replies to a person
+  are only allowed within 24 hours of their last message unless a Meta message tag
+  applies, and polling means seconds of delay rather than instant delivery. This is
+  the only Meta connector with no account risk, so it is the recommended path for
+  Pages.
 
 ---
 
@@ -432,7 +445,10 @@ What this means in practice:
    inactivity, and a fresh link normally starts with no history. Confirm whether the
    library exposes Signal's newer history transfer at link time, and make sure the
    supervisor surfaces an unlink as "Action needed" rather than a silent gap.
-8. **Contact linking heuristics.** Phone numbers link RCS, WhatsApp, Signal, and Telegram
+8. **Page inbox polling.** Pick a default polling interval for the Page connector that
+   balances delay against battery and Meta's rate limits, and decide whether to offer
+   a faster interval while the app is in the foreground.
+9. **Contact linking heuristics.** Phone numbers link RCS, WhatsApp, Signal, and Telegram
    naturally. Meta accounts do not carry numbers. Defer.
 
 ---

@@ -425,7 +425,7 @@ inbox" switch, on by default. Turned off:
   silent are separate choices.
 
 **Unread counting rule.** Every unread total in PingMe counts only chats that are
-visible in the inbox and not muted. Hidden folders, muted chats, and archived chats
+visible in the inbox, in accounts that are shown in the inbox, and not muted. Hidden folders, muted chats, and archived chats
 never contribute. This is one rule applied everywhere, not a special case for
 Instagram.
 
@@ -446,6 +446,39 @@ folder default, so one General chat can be loud while the rest stay silent.
 **Moving chats between folders.** Chat details has a "Move to Primary" or "Move to
 General" action for Instagram chats, sent through the connector so the Instagram app
 reflects it.
+
+### 6.5 Several accounts on one network
+
+A network can be connected more than once, and PingMe treats each connection as a
+separate account with its own identity. The motivating case is Facebook: a personal
+Messenger account and a Facebook Page inbox are two accounts on the Messenger
+network.
+
+**Naming and identity.** Each account gets a name the user can edit ("Messenger",
+"Page: Duraleigh") and its own badge colour, so the two are distinguishable in the
+list at a glance. The avatar menu lists every account with its connection state.
+
+**Independent settings per account**, under Settings > Accounts > that account:
+- Notifications: on, silent, or off, plus sound and vibration, as the network-level
+  defaults in section 6.1. Per-chat overrides still win.
+- Show in inbox: off hides every chat from that account from the list, the pinned
+  grid, all filters, and all unread counts, exactly as the Instagram General switch
+  in section 6.4. Hidden accounts stay reachable from the avatar menu.
+- Everything else that exists at network level (default sound, swipe actions,
+  appearance overrides) is available at account level too.
+
+So "notify me for my personal Messenger but not the Page, and keep the Page out of
+my unread counts" is two switches on the Page account: Notifications off, Show in
+inbox off. The Page remains one tap away in the avatar menu with its own count.
+
+**Filtering.** A network filter in the bottom bar covers all accounts on that network.
+A long-press on it lists the accounts so one can be shown alone, the same gesture
+used for Instagram folders.
+
+**Page inbox specifics.** Page conversations are polled rather than pushed, so the
+account row shows "checked 20 s ago" instead of a live connection state. Composer
+shows a small notice when a reply would fall outside Meta's 24-hour window, and the
+send button is disabled with that reason rather than failing after the fact.
 
 ## 7. Accessibility
 
@@ -477,6 +510,7 @@ the expected result.
 | Edit message | No | No | Yes, time limited | Yes | No | Yes, time limited | No |
 | Native pins | No | No | Yes | Yes | No | No | No |
 | Inbox folders | No | No | No | Folders (Telegram) | No | Primary, General, Requests | No |
+| Several accounts at once | One phone number | One SIM per account | Yes | Yes | Yes | Yes | Yes |
 | Start new conversation | Yes | Yes | Yes | Yes | Yes | Yes | Open question, library cannot today |
 
 ---
