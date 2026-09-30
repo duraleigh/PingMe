@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Launcher icon variants (UI_DESIGN.md 4.6): background, bubble, ping dot. -->
+<resources>
+    <color name="ic_launcher_light_background">#F4F1FB</color>
+    <color name="ic_launcher_light_bubble">#2F3DB5</color>
+    <color name="ic_launcher_light_ping">#FF6D5A</color>
+    <color name="ic_launcher_dark_background">#1B1B21</color>
+    <color name="ic_launcher_dark_bubble">#E4E1EC</color>
+    <color name="ic_launcher_dark_ping">#FF8A7A</color>
+    <color name="ic_launcher_sunset_background">#C2482A</color>
+    <color name="ic_launcher_sunset_bubble">#FFF3EC</color>
+    <color name="ic_launcher_sunset_ping">#FFD166</color>
+    <color name="ic_launcher_forest_background">#1F5D3A</color>
+    <color name="ic_launcher_forest_bubble">#EAF6EE</color>
+    <color name="ic_launcher_forest_ping">#FFB454</color>
+</resources>

@@ -12,6 +12,12 @@ complexity:
     ignoreAnnotated: ['Dao']
 
 style:
+  MagicNumber:
+    # UI code is made of sizes and colours: dp, sp, and ARGB literals in composables, enum
+    # values, and named declarations read better as they are. Elsewhere, numbers need names.
+    ignoreAnnotated: ['Composable', 'Preview']
+    ignoreEnums: true
+    ignorePropertyDeclaration: true
   ReturnCount:
     # Early "nothing to do" exits at the top of a function read better than nesting.
     excludeGuardClauses: true
@@ -41,6 +47,8 @@ Compose:
     # treatAsComposableLambda: MyComposableLambdaType
   CompositionLocalAllowlist:
     active: true
+    # The theme's own values (core/ui PingMeTheme), which is what CompositionLocals are for.
+    allowedCompositionLocals: LocalAppearance,LocalPingMeShapes,LocalNetworkPalette,LocalMessageTextStyle,LocalMotionIntensity
     # -- You can optionally define a list of CompositionLocals that are allowed here
     # allowedCompositionLocals: LocalSomething,LocalSomethingElse
   CompositionLocalNaming:

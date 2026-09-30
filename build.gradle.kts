@@ -47,7 +47,7 @@ allprojects {
 }
 
 // Modules whose unit tests open the real database on the bundled SQLite.
-val sqliteTestModules = setOf(":core:store", ":core:service")
+val sqliteTestModules = setOf(":core:store", ":core:service", ":app")
 val sqliteVersion = libs.versions.sqlite.get()
 
 subprojects {

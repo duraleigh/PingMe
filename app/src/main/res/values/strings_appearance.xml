@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- The Appearance studio (UI_DESIGN.md 3.5, 4). -->
+<resources>
+    <string name="appearance_title">Appearance</string>
+    <string name="back">Back</string>
+    <string name="reset">Reset</string>
+    <string name="done">Done</string>
+
+    <string name="appearance_section_colour">Colour</string>
+    <string name="appearance_section_shape">Shape</string>
+    <string name="appearance_section_layout">Layout and density</string>
+    <string name="appearance_section_fonts">Fonts</string>
+    <string name="appearance_section_motion">Motion and feedback</string>
+    <string name="appearance_section_icon">Icon and shortcuts</string>
+    <string name="appearance_section_file">Theme file</string>
+
+    <string name="appearance_contrast_title">Some text will be hard to read</string>
+    <string name="appearance_contrast_issue">%1$s: %2$.1f to 1 (needs 4.5 to 1)</string>
+
+    <string name="appearance_colour_source">Colour source</string>
+    <string name="colour_source_dynamic">Wallpaper</string>
+    <string name="colour_source_seed">One colour</string>
+    <string name="colour_source_preset">Preset</string>
+    <string name="colour_source_manual">Manual</string>
+    <string name="appearance_pick_seed">Pick the colour</string>
+    <string name="appearance_manual_primary">Primary</string>
+    <string name="appearance_manual_secondary">Secondary</string>
+    <string name="appearance_manual_tertiary">Tertiary</string>
+    <string name="appearance_manual_neutral">Neutral</string>
+    <string name="appearance_follows_primary">Follows primary</string>
+    <string name="appearance_mode">Light or dark</string>
+    <string name="mode_light">Light</string>
+    <string name="mode_dark">Dark</string>
+    <string name="mode_system">System</string>
+    <string name="appearance_amoled">Pure black in dark mode</string>
+    <string name="appearance_amoled_description">AMOLED screens save power on black</string>
+    <string name="appearance_contrast">Contrast</string>
+    <string name="contrast_standard">Standard</string>
+    <string name="contrast_medium">Medium</string>
+    <string name="contrast_high">High</string>
+    <string name="appearance_network_colours">Network colours</string>
+    <string name="appearance_bubble_colour">Bubble colour</string>
+    <string name="appearance_accent_colour">Badge and header colour</string>
+    <string name="appearance_sender_names">Sender names in groups</string>
+    <string name="sender_names_auto">Colourful</string>
+    <string name="sender_names_fixed">One colour</string>
+
+    <string name="appearance_shape_family">Shape family</string>
+    <string name="shape_round">Round</string>
+    <string name="shape_soft">Soft</string>
+    <string name="shape_sharp">Sharp</string>
+    <string name="shape_expressive">Expressive</string>
+    <string name="appearance_bubble_corner">Bubble corners</string>
+    <string name="appearance_bubble_tails">Bubble tails</string>
+    <string name="appearance_bubble_style">Bubble style</string>
+    <string name="bubble_tonal">Tonal</string>
+    <string name="bubble_outlined">Outlined</string>
+    <string name="bubble_filled">Filled</string>
+    <string name="bubble_gradient">Gradient</string>
+    <string name="bubble_pill">Pill</string>
+
+    <string name="appearance_density">Inbox density</string>
+    <string name="density_compact">Compact</string>
+    <string name="density_comfortable">Comfortable</string>
+    <string name="density_spacious">Spacious</string>
+    <string name="appearance_pinned">Pinned chats</string>
+    <string name="pinned_row">Row</string>
+    <string name="pinned_grid">Grid</string>
+    <string name="pinned_top">Top of list</string>
+    <string name="appearance_avatar_size">Avatar size</string>
+    <string name="appearance_avatars_in_chat">Avatars in chats</string>
+    <string name="appearance_wallpaper">Chat wallpaper</string>
+    <string name="wallpaper_none">None</string>
+    <string name="wallpaper_colour">Colour</string>
+    <string name="wallpaper_gradient">Gradient</string>
+    <string name="wallpaper_picture">Picture</string>
+    <string name="appearance_wallpaper_blur">Blur the picture</string>
+    <string name="appearance_wallpaper_choose">Choose a picture</string>
+    <string name="appearance_gradient_from">From</string>
+    <string name="appearance_gradient_to">To</string>
+    <string name="appearance_timestamps">Timestamps</string>
+    <string name="timestamps_always">Always</string>
+    <string name="timestamps_on_tap">On tap</string>
+    <string name="timestamps_grouped">Grouped</string>
+
+    <string name="appearance_ui_font">Interface font</string>
+    <string name="appearance_message_font">Message font</string>
+    <string name="appearance_import_font">Import a font</string>
+    <string name="appearance_font_size">Text size</string>
+    <string name="appearance_line_height">Line height</string>
+    <string name="appearance_emphasized">Emphasized headlines</string>
+    <string name="appearance_font_import_failed">That file could not be used as a font</string>
+
+    <string name="appearance_motion">Animation</string>
+    <string name="motion_off">Off</string>
+    <string name="motion_subtle">Subtle</string>
+    <string name="motion_full">Full</string>
+    <string name="motion_extra">Extra</string>
+    <string name="appearance_motion_system_off">Your phone\'s \"Remove animations\" setting is on, so animations stay off.</string>
+    <string name="appearance_haptics">Haptics</string>
+    <string name="haptics_off">Off</string>
+    <string name="haptics_light">Light</string>
+    <string name="haptics_strong">Strong</string>
+
+    <string name="appearance_app_icon">App icon</string>
+    <string name="appearance_swipe_right">Swipe right</string>
+    <string name="appearance_swipe_left">Swipe left</string>
+    <string name="swipe_pin">Pin</string>
+    <string name="swipe_archive">Archive</string>
+    <string name="swipe_mute">Mute</string>
+    <string name="swipe_mark_read">Read or unread</string>
+    <string name="swipe_low_priority">Low priority</string>
+    <string name="swipe_delete">Delete</string>
+    <string name="swipe_off">Off</string>
+
+    <string name="appearance_export">Export theme</string>
+    <string name="appearance_export_description">Save these settings as a file to share</string>
+    <string name="appearance_import">Import theme</string>
+    <string name="appearance_import_description">Use a theme file someone shared</string>
+    <string name="appearance_reset_all">Reset everything</string>
+    <string name="appearance_exported">Theme saved</string>
+    <string name="appearance_export_failed">The theme could not be saved</string>
+    <string name="appearance_imported">Theme applied</string>
+    <string name="appearance_import_failed">That file is not a PingMe theme</string>
+
+    <string name="picker_hue">Hue</string>
+    <string name="picker_colourfulness">Colourfulness</string>
+    <string name="picker_lightness">Lightness</string>
+
+    <string name="preview_sam">Sam Ortiz</string>
+    <string name="preview_incoming">Are you still coming tonight?</string>
+    <string name="preview_outgoing">Yes! Leaving at 7</string>
+    <string name="preview_whatsapp">Bringing dessert 🍰</string>
+    <string name="preview_sms">Running 5 min late</string>
+    <string name="preview_group">new mocks are up</string>
+    <string name="preview_priya">Priya</string>
+</resources>

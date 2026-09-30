@@ -600,3 +600,150 @@ demo 31). `./gradlew check`, `assembleDebug`, and `assembleRelease` pass.
 Phase 1 has no gate. **Next:** Phase 2, the UI against the demo connector, starting
 with P2.1 (theme). Gate G1 at the end of Phase 2 is the owner's first real look at the
 app.
+
+## P2.1 Theme (done, 2026-09-30)
+
+`core/ui/theme`:
+- **`PingMeTheme(appearance)`**: wraps `MaterialExpressiveTheme(colorScheme,
+  motionScheme, shapes, typography)`. It also provides what Material has no slot for,
+  read through `PingMeTheme.*`: the shape family's polygons, the network palette, the
+  message text style, the effective motion intensity, and emphasized headline and
+  chat-title styles.
+- **`Appearance`**: every theme choice, serializable to JSON for theme export and
+  import (P2.2).
+  - **Colour source:** Dynamic (Material You), Seed, one of 8 presets, or Manual.
+  - **Mode:** Light, Dark, or Follow system; plus AMOLED black and contrast
+    Standard/Medium/High.
+  - **Motion:** Off, Subtle, Full, or Extra. Off uses `MotionScheme.standard()` and the
+    rest `expressive()`; the system "remove animations" setting forces Off.
+  - **Shapes:** the Round, Soft, Sharp, or Expressive family.
+  - **Fonts:** separate UI and message fonts, text size and line height, emphasized
+    headlines, and per-network colour overrides.
+- **Colour** (`ColorSchemes.kt`): MaterialKolor 5.0.1 (Apache-2.0 Kotlin port of
+  Material Color Utilities) generates seed, preset, and manual schemes at each contrast
+  level, with AMOLED black surfaces. Dynamic colour uses Android's wallpaper scheme; on
+  Android 10 and 11 it falls back to the PingMe seed.
+- **Network palette** (`NetworkPalette`, UI_DESIGN.md 10.1):
+  - Signature colours come from the mockup: WhatsApp, Google Voice, Signal, Telegram,
+    Messenger (the Facebook Page inbox shares it), Instagram.
+  - Light mode is a soft pastel with dark text; dark mode is a deep tone with light
+    text.
+  - Google Messages follows the theme's primary. Its SMS fallback is the same hue with
+    70% of the colour drained out, outlined. Native SMS is neutral; the demo network
+    uses tertiary.
+  - Incoming bubbles are the same surface everywhere, and overrides replace a network's
+    colour.
+- **Shapes** (`PingMeShapes`): Material component shapes per family.
+  - Avatars are polygons: Circle (Round), Square (Soft), a slightly rounded square
+    (Sharp), Cookie9Sided (Expressive).
+  - Expressive pinned tiles cycle through cookie, clover, sunny, soft burst, and flower.
+  - Each family sets a default bubble corner.
+- **Type** (`Typography.kt`): Material 3's scale, including the 15 Expressive
+  emphasized styles, in the chosen font.
+  - Variable fonts get one instance per weight on the weight axis.
+  - An imported font is checked for an `fvar` table; if it has no weight axis, bold is
+    synthesized. A missing imported file falls back to Roboto Flex.
+- **Fonts**: Roboto Flex, Inter, Manrope, Nunito, Lexend, Atkinson Hyperlegible Next,
+  and JetBrains Mono, all variable, in `core/ui/src/main/res/font/` (3.5 MB). Their OFL
+  licences are in `licenses/fonts/`. Downloaded once from github.com/google/fonts; never
+  fetched at runtime.
+- `ThemeSample` with two `@Preview`s. The app's placeholder screen now uses
+  `PingMeTheme`.
+
+Tests (12, all passing):
+- **Network palette:** every outgoing and incoming bubble meets 4.5:1 across 8 presets
+  × light/dark × AMOLED × 3 contrast levels. Light tints are light and dark tones deep.
+  The greens (WhatsApp vs Google Voice) and blues (Signal vs Telegram) stay apart in
+  hue and lightness. The SMS fallback is less colourful and outlined. Overrides work.
+- **Colour schemes:** AMOLED gives black only in dark mode. Higher contrast
+  strengthens text, outline, and primary contrast. Dynamic colour works.
+- **Rendering:** every bundled font is variable. A Compose test renders the sample in
+  every shape family × colour source, every font at 130% size, every mode, and every
+  motion level. That also proves MaterialKolor works with material3 1.5.0-alpha29 at
+  runtime.
+- **Motion:** Off really uses the standard motion scheme.
+- **Screenshot:** a Robolectric test renders the sample to `build/screenshots/theme.png`.
+
+**Deviations and decisions**
+- **Atkinson Hyperlegible Next**, not the original Atkinson Hyperlegible: the original
+  has no variable version, and UI_DESIGN.md 4.4 asks for variable fonts only. Same
+  design family and licence.
+- **Dynamic colour at Medium or High contrast.** Android's wallpaper scheme has no
+  contrast setting, so the scheme is regenerated from the wallpaper's primary colour at
+  that contrast. At Standard contrast the wallpaper scheme is used exactly.
+- **Screenshots as tests.** Robolectric's native graphics render Compose to real
+  images, so every Phase 2 screen can be looked at here before the owner does.
+- **detekt for UI code:** `MagicNumber` ignores composables, previews, enum values, and
+  named declarations (dp, sp, and colour literals). The Compose rules' allowlist names
+  the five theme CompositionLocals.
+- New dependencies: `com.materialkolor:material-kolor` and `material-color-utilities`
+  5.0.1; Compose UI test and Robolectric for `core/ui`.
+
+**Next:** P2.2, the Appearance studio.
+
+## P2.2 Appearance studio (done, 2026-09-30)
+
+A home placeholder (until the inbox in P2.3) has one button, **Appearance**, which opens
+the studio. Settings > Appearance moves there in P2.6.
+
+The studio (`app/.../appearance/`):
+- **Live preview** at the top: a short conversation (incoming, RCS, SMS, WhatsApp, and
+  a group message with a sender name) drawn with the real bubbles, avatars, wallpaper
+  and fonts. It sits outside the scrolling list, so it stays in view while you change
+  things.
+- **Contrast warning** under the preview when any bubble or the wallpaper falls below
+  4.5:1, naming each one and its ratio (`contrastIssues` in `core/ui/theme`).
+- **Every control in UI_DESIGN.md section 4**, grouped as in the document:
+  - **Colour:** source (Wallpaper, One colour, Preset, Manual), with the seed picker,
+    the 8 preset swatches, or the four manual key colours (secondary, tertiary and
+    neutral follow primary until set); light/dark/system; pure black; contrast; bubble
+    and accent colour for each network, each with Reset; sender name colours.
+  - **Shape:** family, bubble corners (follows the family until moved, with Reset),
+    tails, bubble style (Tonal, Outlined, Filled, Gradient, Pill).
+  - **Layout:** inbox density, pinned chats (Row, Grid, Top of list), avatar size,
+    avatars in chat, wallpaper (none, colour, gradient, picture with blur), timestamps.
+  - **Fonts:** UI and message font, each chip drawn in its own font, plus **Import** for
+    any .ttf or .otf (copied into app storage); text size; line height; emphasized
+    headlines.
+  - **Motion:** intensity, with a note when the phone's "remove animations" setting
+    overrides it; haptics.
+  - **Icon and shortcuts:** five app icons (Default, Light, Dark, Sunset, Forest) shown
+    as the real launcher icons; swipe right and swipe left actions.
+  - **Theme file:** export to JSON, import from JSON, reset everything.
+- The colour picker is a bottom sheet with hue, colourfulness and lightness sliders (HCT,
+  so lightness stays even as the hue changes) and quick swatches.
+- **Storage:** the appearance is saved as JSON in the settings store and applied to the
+  whole app at once (`ThemeViewModel` in `MainActivity`). The theme file is the same
+  JSON. Unknown keys are ignored, so a file from a newer version still loads; a broken
+  file leaves the theme untouched and says so. An imported font or picture whose file has
+  gone falls back to the default.
+- **App icons:** five `activity-alias` entries in the manifest, one enabled at a time.
+- **Icons:** 84 Material Symbols Rounded drawables in `core/ui/res/drawable`
+  (Apache-2.0, `licenses/material-symbols-LICENSE.txt`), for this and later screens.
+- Navigation uses type-safe Navigation Compose routes (`PingMeNavHost`).
+
+Tests (14 new, all passing):
+- **Theme file:** every setting survives a save and load; a broken file gives the
+  default look; a file with unknown keys loads; missing fonts and pictures fall back.
+- **Contrast check:** the default look passes in light and dark; a mid-tone Filled
+  bubble and a white wallpaper in dark mode are flagged.
+- **Studio (Compose UI tests):** choosing Dark changes the look at once; the warning
+  shows for a bad combination and not for the default; Reset everything is reachable.
+- **App icon:** every variant has a launcher entry pointing at the app; switching
+  leaves only the chosen one on.
+- **Screenshot:** `app/build/screenshots/appearance.png`.
+
+**Deviations and decisions**
+- **Per-chat overrides** (bubble colour, wallpaper, font size, conversation shortcuts,
+  chat bubbles) are in Chat details, P2.5; the studio sets the app-wide defaults.
+- **Choice labels shrink to fit** instead of being cut off, so "Expressive" and "One
+  colour" fit on a phone.
+- Tidied for detekt and the Compose rules: `MessageBubble`'s slot above the text is now
+  named `header`; `BubbleStyling.kt` is `StyledBubble.kt` and `ContrastCheck.kt` is
+  `ContrastIssue.kt`.
+- New dependencies in `app`: Navigation Compose, Hilt ViewModel for Compose, lifecycle
+  Compose, kotlinx.serialization JSON, MaterialKolor utilities (for HCT); Robolectric and
+  Compose UI test for `app` tests. `app` host tests now load the bundled SQLite natives.
+
+**Next:** P2.3, the inbox.
+

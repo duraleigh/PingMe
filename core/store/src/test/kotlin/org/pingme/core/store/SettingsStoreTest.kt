@@ -69,4 +69,13 @@ class SettingsStoreTest : StoreTest() {
                 messages.mediaSaveJobs(MediaSaveState.DONE).first().map { it.attachmentId },
             )
         }
+
+    @Test
+    fun appearanceIsStoredAsJsonAndChangedAtomically() =
+        runTest {
+            assertEquals(null, settings.appearanceJson.first())
+            settings.updateAppearanceJson { current -> (current ?: "") + "a" }
+            settings.updateAppearanceJson { current -> (current ?: "") + "b" }
+            assertEquals("ab", settings.appearanceJson.first())
+        }
 }
