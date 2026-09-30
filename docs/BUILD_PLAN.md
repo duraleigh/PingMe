@@ -57,6 +57,25 @@ On the build machine (the Claude Code cloud container or the owner's computer):
 
 Record the exact versions installed in `docs/BUILD_LOG.md`.
 
+**Cloud sessions.** A Claude Code cloud session starts on a fresh machine every time,
+so tooling installed in one session is gone in the next. In this step also write
+`scripts/setup-cloud.sh`: an idempotent script that installs everything above
+non-interactively (JDK 17, Android command-line tools and the SDK packages, Go,
+gomobile), skipping anything already present, and finishes in a few minutes. Then
+tell the owner, in the build log, to paste its one-line invocation
+(`bash scripts/setup-cloud.sh`) into the environment's setup script in the cloud
+environment settings, so every later session starts ready. Until they do, run it
+by hand at the start of each session. Keep the SDK install minimal (one platform,
+one build-tools, one NDK) because the session's disk allowance is fixed.
+
+The environment's network access must allow the download hosts the build uses:
+`dl.google.com`, `maven.google.com`, `repo1.maven.org`, `repo.maven.apache.org`,
+`plugins.gradle.org`, `services.gradle.org`, `proxy.golang.org`, `sum.golang.org`,
+`storage.googleapis.com`, `github.com`, `objects.githubusercontent.com`,
+`fonts.google.com` (for the one-time font download). If a download is refused, name
+the host in the build log and ask the owner to allow it or broaden the network
+setting; do not work around it.
+
 ### P0.2 Repository scaffold
 
 Create the Gradle multi-module project matching `DESIGN.md` section 6.8:
