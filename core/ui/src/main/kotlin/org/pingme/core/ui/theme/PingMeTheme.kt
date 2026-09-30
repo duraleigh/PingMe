@@ -42,8 +42,8 @@ fun PingMeTheme(
         }
     val messageFamily = remember(appearance.messageFont) { fontFamilyFor(appearance.messageFont) }
     val palette =
-        remember(colorScheme, dark, appearance.contrast, appearance.networkColors) {
-            NetworkPalette(colorScheme, dark, appearance.contrast, appearance.networkColors)
+        remember(colorScheme, dark, appearance.contrast, appearance.networkColors, appearance.networkAccents) {
+            NetworkPalette(colorScheme, dark, appearance.contrast, appearance.networkColors, appearance.networkAccents)
         }
     CompositionLocalProvider(
         LocalAppearance provides appearance,

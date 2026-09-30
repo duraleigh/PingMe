@@ -23,9 +23,102 @@ data class Appearance(
     val fontScale: Float = 1f,
     val lineHeightScale: Float = 1f,
     val emphasizedHeadlines: Boolean = true,
-    /** Signature colour overrides per network (UI_DESIGN.md 4.1, 10.1), as ARGB. */
+    /** Outgoing bubble colour per network (UI_DESIGN.md 4.1, 10.1), as ARGB. */
     val networkColors: Map<NetworkId, Int> = emptyMap(),
-)
+    /** Accent colour per network for badges and the chat header (UI_DESIGN.md 4.1), as ARGB. */
+    val networkAccents: Map<NetworkId, Int> = emptyMap(),
+    val senderNameColors: SenderNameColors = SenderNameColors.AUTO,
+    /** Shape (UI_DESIGN.md 4.2). Bubble corner radius in dp; null follows the shape family. */
+    val bubbleCorner: Float? = null,
+    val bubbleTails: Boolean = true,
+    val bubbleStyle: BubbleStyle = BubbleStyle.TONAL,
+    // Layout and density (UI_DESIGN.md 4.3)
+    val inboxDensity: InboxDensity = InboxDensity.COMFORTABLE,
+    val pinnedStyle: PinnedStyle = PinnedStyle.GRID,
+    val avatarSize: Float = DEFAULT_AVATAR_SIZE,
+    val showAvatarsInChat: Boolean = true,
+    val wallpaper: ChatWallpaper = ChatWallpaper.None,
+    val timestamps: TimestampMode = TimestampMode.GROUPED,
+    // Motion and feedback (UI_DESIGN.md 4.5)
+    val haptics: Haptics = Haptics.LIGHT,
+    // Icon and shortcuts (UI_DESIGN.md 4.6)
+    val appIcon: AppIcon = AppIcon.DEFAULT,
+    val swipeRight: SwipeAction = SwipeAction.MARK_READ,
+    val swipeLeft: SwipeAction = SwipeAction.ARCHIVE,
+) {
+    companion object {
+        const val DEFAULT_AVATAR_SIZE = 48f
+        val AVATAR_SIZES = 32f..64f
+        val BUBBLE_CORNERS = 4f..28f
+        val FONT_SCALES = 0.8f..1.6f
+        val LINE_HEIGHTS = 0.9f..1.5f
+    }
+}
+
+/** Sender names in group chats: a colour per person, or one colour for all (UI_DESIGN.md 4.1). */
+@Serializable
+enum class SenderNameColors { AUTO, FIXED }
+
+/** UI_DESIGN.md 4.2. */
+@Serializable
+enum class BubbleStyle { TONAL, OUTLINED, FILLED, GRADIENT, PILL }
+
+/** UI_DESIGN.md 4.3. */
+@Serializable
+enum class InboxDensity { COMFORTABLE, COMPACT, SPACIOUS }
+
+/** How pinned chats show on the inbox (UI_DESIGN.md 3.1, 4.3). */
+@Serializable
+enum class PinnedStyle { ROW, GRID, TOP_OF_LIST }
+
+/** UI_DESIGN.md 4.3. */
+@Serializable
+enum class TimestampMode { ALWAYS, ON_TAP, GROUPED }
+
+/** UI_DESIGN.md 4.5. */
+@Serializable
+enum class Haptics { OFF, LIGHT, STRONG }
+
+/** What a swipe on an inbox row does (UI_DESIGN.md 3.1). Each direction is set on its own. */
+@Serializable
+enum class SwipeAction { PIN, ARCHIVE, MUTE, MARK_READ, LOW_PRIORITY, DELETE, OFF }
+
+/** App icon variants, switched through activity aliases (UI_DESIGN.md 4.6). */
+@Serializable
+enum class AppIcon(
+    val displayName: String,
+) {
+    DEFAULT("Indigo"),
+    LIGHT("Light"),
+    DARK("Dark"),
+    SUNSET("Sunset"),
+    FOREST("Forest"),
+}
+
+/** The chat background (UI_DESIGN.md 4.3). Per chat overrides come in Chat details (P2.5). */
+@Serializable
+sealed interface ChatWallpaper {
+    @Serializable
+    data object None : ChatWallpaper
+
+    @Serializable
+    data class Colour(
+        val argb: Int,
+    ) : ChatWallpaper
+
+    @Serializable
+    data class Gradient(
+        val from: Int,
+        val to: Int,
+    ) : ChatWallpaper
+
+    /** A picture copied into app storage; [blurred] softens it behind the bubbles. */
+    @Serializable
+    data class Image(
+        val path: String,
+        val blurred: Boolean,
+    ) : ChatWallpaper
+}
 
 /** Where the colour scheme comes from (UI_DESIGN.md 4.1). */
 @Serializable

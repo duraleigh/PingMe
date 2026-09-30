@@ -680,3 +680,70 @@ Tests (12, all passing):
   5.0.1; Compose UI test and Robolectric for `core/ui`.
 
 **Next:** P2.2, the Appearance studio.
+
+## P2.2 Appearance studio (done, 2026-09-30)
+
+A home placeholder (until the inbox in P2.3) has one button, **Appearance**, which opens
+the studio. Settings > Appearance moves there in P2.6.
+
+The studio (`app/.../appearance/`):
+- **Live preview** at the top: a short conversation (incoming, RCS, SMS, WhatsApp, and
+  a group message with a sender name) drawn with the real bubbles, avatars, wallpaper
+  and fonts. It sits outside the scrolling list, so it stays in view while you change
+  things.
+- **Contrast warning** under the preview when any bubble or the wallpaper falls below
+  4.5:1, naming each one and its ratio (`contrastIssues` in `core/ui/theme`).
+- **Every control in UI_DESIGN.md section 4**, grouped as in the document:
+  - **Colour:** source (Wallpaper, One colour, Preset, Manual), with the seed picker,
+    the 8 preset swatches, or the four manual key colours (secondary, tertiary and
+    neutral follow primary until set); light/dark/system; pure black; contrast; bubble
+    and accent colour for each network, each with Reset; sender name colours.
+  - **Shape:** family, bubble corners (follows the family until moved, with Reset),
+    tails, bubble style (Tonal, Outlined, Filled, Gradient, Pill).
+  - **Layout:** inbox density, pinned chats (Row, Grid, Top of list), avatar size,
+    avatars in chat, wallpaper (none, colour, gradient, picture with blur), timestamps.
+  - **Fonts:** UI and message font, each chip drawn in its own font, plus **Import** for
+    any .ttf or .otf (copied into app storage); text size; line height; emphasized
+    headlines.
+  - **Motion:** intensity, with a note when the phone's "remove animations" setting
+    overrides it; haptics.
+  - **Icon and shortcuts:** five app icons (Default, Light, Dark, Sunset, Forest) shown
+    as the real launcher icons; swipe right and swipe left actions.
+  - **Theme file:** export to JSON, import from JSON, reset everything.
+- The colour picker is a bottom sheet with hue, colourfulness and lightness sliders (HCT,
+  so lightness stays even as the hue changes) and quick swatches.
+- **Storage:** the appearance is saved as JSON in the settings store and applied to the
+  whole app at once (`ThemeViewModel` in `MainActivity`). The theme file is the same
+  JSON. Unknown keys are ignored, so a file from a newer version still loads; a broken
+  file leaves the theme untouched and says so. An imported font or picture whose file has
+  gone falls back to the default.
+- **App icons:** five `activity-alias` entries in the manifest, one enabled at a time.
+- **Icons:** 84 Material Symbols Rounded drawables in `core/ui/res/drawable`
+  (Apache-2.0, `licenses/material-symbols-LICENSE.txt`), for this and later screens.
+- Navigation uses type-safe Navigation Compose routes (`PingMeNavHost`).
+
+Tests (14 new, all passing):
+- **Theme file:** every setting survives a save and load; a broken file gives the
+  default look; a file with unknown keys loads; missing fonts and pictures fall back.
+- **Contrast check:** the default look passes in light and dark; a mid-tone Filled
+  bubble and a white wallpaper in dark mode are flagged.
+- **Studio (Compose UI tests):** choosing Dark changes the look at once; the warning
+  shows for a bad combination and not for the default; Reset everything is reachable.
+- **App icon:** every variant has a launcher entry pointing at the app; switching
+  leaves only the chosen one on.
+- **Screenshot:** `app/build/screenshots/appearance.png`.
+
+**Deviations and decisions**
+- **Per-chat overrides** (bubble colour, wallpaper, font size, conversation shortcuts,
+  chat bubbles) are in Chat details, P2.5; the studio sets the app-wide defaults.
+- **Choice labels shrink to fit** instead of being cut off, so "Expressive" and "One
+  colour" fit on a phone.
+- Tidied for detekt and the Compose rules: `MessageBubble`'s slot above the text is now
+  named `header`; `BubbleStyling.kt` is `StyledBubble.kt` and `ContrastCheck.kt` is
+  `ContrastIssue.kt`.
+- New dependencies in `app`: Navigation Compose, Hilt ViewModel for Compose, lifecycle
+  Compose, kotlinx.serialization JSON, MaterialKolor utilities (for HCT); Robolectric and
+  Compose UI test for `app` tests. `app` host tests now load the bundled SQLite natives.
+
+**Next:** P2.3, the inbox.
+

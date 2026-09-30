@@ -48,13 +48,14 @@ class NetworkPalette(
     private val dark: Boolean,
     private val contrast: ContrastLevel,
     private val overrides: Map<NetworkId, Int>,
+    private val accentOverrides: Map<NetworkId, Int> = emptyMap(),
 ) {
     /** Incoming bubbles: the same tonal surface on every network (UI_DESIGN.md 3.2). */
     val incoming = BubbleColors(scheme.surfaceContainerHigh, scheme.onSurface, null)
 
     /** The network's colour for badges and the chat header accent. */
     fun accent(network: NetworkId): Color {
-        val signature = signature(network)
+        val signature = accentOverrides[network]?.let(::Color) ?: signature(network)
         return if (dark) Hct.fromInt(signature.toArgb()).withTone(DARK_ACCENT_TONE).asColor() else signature
     }
 

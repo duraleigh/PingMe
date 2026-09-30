@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.pingme.core.model.KeywordRule
@@ -32,6 +33,17 @@ class SettingsRepository
             dataStore.edit { it[INSTAGRAM_SHOW_GENERAL] = show }
         }
 
+        /**
+         * The appearance (UI_DESIGN.md 4) as its theme-file JSON. The store keeps it opaque;
+         * the app encodes and decodes it. Null until the user changes anything.
+         */
+        val appearanceJson: Flow<String?> = dataStore.data.map { it[APPEARANCE] }
+
+        /** Changes the appearance atomically: [change] gets the current JSON and returns the new one. */
+        suspend fun updateAppearanceJson(change: (String?) -> String) {
+            dataStore.edit { it[APPEARANCE] = change(it[APPEARANCE]) }
+        }
+
         fun keywordRules(): Flow<List<KeywordRule>> = keywordDao.observeAll().map { rows -> rows.map { it.toModel() } }
 
         suspend fun upsertKeywordRule(rule: KeywordRule) = keywordDao.upsert(rule.toEntity())
@@ -40,5 +52,6 @@ class SettingsRepository
 
         private companion object {
             val INSTAGRAM_SHOW_GENERAL = booleanPreferencesKey("instagram_show_general")
+            val APPEARANCE = stringPreferencesKey("appearance")
         }
     }
