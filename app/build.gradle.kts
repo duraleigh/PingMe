@@ -14,10 +14,37 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Sideload signing (BUILD_PLAN.md P0.3). CI decodes the SIDELOAD_KEYSTORE_B64
+    // secret to a file and passes its path in SIDELOAD_KEYSTORE_FILE, with the other
+    // three secrets as they are. Without them (local builds) release falls back to
+    // the debug key. A half-configured CI fails instead, because an APK signed with
+    // the wrong key will not install over the owner's copy.
+    val sideloadKeystore = providers.environmentVariable("SIDELOAD_KEYSTORE_FILE").orNull
+    signingConfigs {
+        if (sideloadKeystore != null) {
+            create("sideload") {
+                storeFile = file(sideloadKeystore)
+                storePassword = requiredEnv("SIDELOAD_KEYSTORE_PASSWORD")
+                keyAlias = requiredEnv("SIDELOAD_KEY_ALIAS")
+                keyPassword = requiredEnv("SIDELOAD_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName(if (sideloadKeystore != null) "sideload" else "debug")
+        }
+    }
+
     buildFeatures {
         compose = true
     }
 }
+
+fun requiredEnv(name: String): String =
+    providers.environmentVariable(name).orNull?.takeIf { it.isNotEmpty() }
+        ?: throw GradleException("SIDELOAD_KEYSTORE_FILE is set but $name is missing or empty")
 
 dependencies {
     implementation(project(":core:model"))

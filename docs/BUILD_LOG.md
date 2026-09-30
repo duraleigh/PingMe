@@ -170,3 +170,26 @@ passed afterwards. A local (non-cloud) run exits immediately.
 
 **Important:** new sessions start from the default branch, `main`. The hook takes
 effect only once this branch is merged into `main`.
+
+## P0.3 Signing for sideloading (done, 2026-09-30)
+
+The owner created the keystore and the four secrets earlier (see the P0.3 entry at
+the top). `app/build.gradle.kts` now signs `release` with them when present:
+
+- `SIDELOAD_KEYSTORE_FILE`: path to the decoded keystore. **This is not a secret.**
+  CI (P0.4) decodes `SIDELOAD_KEYSTORE_B64` to a temporary file and sets this.
+- `SIDELOAD_KEYSTORE_PASSWORD`, `SIDELOAD_KEY_ALIAS`, `SIDELOAD_KEY_PASSWORD`: the
+  secrets, passed through as they are.
+
+Without `SIDELOAD_KEYSTORE_FILE` (local builds) release is signed with the debug key,
+as the plan says. If the file is set but any of the other three is missing or empty,
+the build fails with a message naming it. It does not fall back, because an APK
+signed with the debug key would not install over the owner's copy.
+
+Tested with a throwaway key (never the real one): no variables gave the "Android
+Debug" certificate; all four gave the test key's certificate; a missing password
+failed with "SIDELOAD_KEYSTORE_FILE is set but SIDELOAD_KEYSTORE_PASSWORD is missing
+or empty". The output is now `app/build/outputs/apk/release/app-release.apk`, the
+path P0.4 uploads. `./gradlew check` passes.
+
+**Next:** P0.4, the CI workflow (waiting on the owner's go-ahead).
