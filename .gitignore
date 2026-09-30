@@ -1,0 +1,14 @@
+# Gradle and build output
+.gradle/
+build/
+.kotlin/
+# Local machine config
+local.properties
+.idea/
+*.iml
+.DS_Store
+# Signing material never enters the repo
+*.jks
+*.keystore
+# gomobile output (built in CI and locally, never committed)
+gobridge/build/
