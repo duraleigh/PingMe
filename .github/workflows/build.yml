@@ -95,12 +95,13 @@ jobs:
           fi
           echo "SIDELOAD_KEYSTORE_FILE=$keystore" >> "$GITHUB_ENV"
 
-      - name: Lint, unit tests, release build
+      - name: Static checks, unit tests, release build
         env:
           SIDELOAD_KEYSTORE_PASSWORD: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
           SIDELOAD_KEY_ALIAS: ${{ secrets.SIDELOAD_KEY_ALIAS }}
           SIDELOAD_KEY_PASSWORD: ${{ secrets.SIDELOAD_KEY_PASSWORD }}
-        run: ./gradlew lint testDebugUnitTest assembleRelease
+        # check = ktlintCheck, detekt, Android lint, unit tests (BUILD_PLAN.md P0.5).
+        run: ./gradlew check assembleRelease
 
       - name: Name the APK
         id: apk

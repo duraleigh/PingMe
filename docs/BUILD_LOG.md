@@ -228,3 +228,41 @@ path P0.4 uploads. `./gradlew check` passes.
   locally against a throwaway key: a good key, a key with wrapped base64 lines, a
   wrong password, and non-base64 input all behave as intended. The workflow's first
   real run is on this push.
+
+## P0.5 Static checks (done, 2026-09-30)
+
+`./gradlew check` now runs, in every module: ktlint (`ktlintCheck`, including the
+build scripts), detekt, Android lint, and all unit tests. CI runs
+`./gradlew check assembleRelease`.
+
+- **ktlint**: Gradle plugin 14.2.0 (supports AGP 9 built-in Kotlin), ktlint 1.8.0,
+  `ktlint_official` style via `.editorconfig`. `@Composable` functions are exempt
+  from the function-naming rule.
+- **detekt**: **2.0.0-alpha.6**, default rule set (`buildUponDefaultConfig`) plus
+  the Compose rules (`io.nlopez.compose.rules:detekt` 0.6.7). Config is in
+  `config/detekt/detekt.yml`. The Compose rule block is copied from compose-rules'
+  docs. Its opt-in `Material2` rule is switched on to enforce CLAUDE.md rule 10.
+  detekt's own `FunctionNaming` ignores `@Composable` functions.
+- **Android lint**: `warningsAsErrors = true` and `abortOnError = true` for `app`.
+
+**Deviation: detekt alpha.** The last stable detekt, 1.23.8, embeds Kotlin 2.0.21,
+which cannot reliably parse this project's Kotlin 2.4 and predates AGP 9's built-in
+Kotlin. Every maintained Compose-rules release (0.5.0 onward) targets detekt 2.0
+alphas. detekt 2.0.0-alpha.6 embeds Kotlin 2.4.10 and is tested against AGP 9.3
+built-in Kotlin. It is build tooling only and ships nothing in the APK.
+
+**Lint findings fixed (both became errors under warningsAsErrors):**
+- `DataExtractionRules`: added `data_extraction_rules.xml` (Android 12+) and
+  `backup_rules.xml` (Android 10 and 11). Both exclude everything from Android
+  backup and device transfer. Keystore-wrapped credentials cannot move to another
+  phone anyway (DESIGN.md 6.5), and Phase 8 builds PingMe's own encrypted backup.
+- `MissingApplicationIcon`: added a **placeholder** adaptive launcher icon (white
+  chat bubble with a coral "ping" dot on indigo, plus a monochrome layer for themed
+  icons). The design docs do not specify an icon. The owner can supply a real one
+  later.
+
+**Proven to fire** by planting violations and removing them: ktlint (wildcard
+import, spacing, indentation), detekt (`EmptyIfBlock`, `MagicNumber`), Compose rules
+(`ModifierMissing` on a composable without a modifier; `Material2` on
+`androidx.compose.material.Button`), and lint (the two findings above failed the build
+before they were fixed).
