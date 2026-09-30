@@ -14,8 +14,9 @@ if [ ! -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
 fi
 SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 yes | "$SDKM" --licenses >/dev/null 2>&1 || true
-"$SDKM" "platform-tools" "platforms;android-35" "build-tools;35.0.0" >/dev/null 2>&1 || true
-( "$SDKM" "ndk;27.2.12479018" >/dev/null 2>&1 && ln -sfn "$ANDROID_HOME/ndk/27.2.12479018" /opt/android-ndk ) || true &
+# compileSdk/targetSdk 37.2; build-tools 36.0.0 is AGP 9.4's default, 37.0.0 the newest.
+"$SDKM" "platform-tools" "platforms;android-37.2" "build-tools;36.0.0" "build-tools;37.0.0" >/dev/null 2>&1 || true
+( "$SDKM" "ndk;27.3.13750724" >/dev/null 2>&1 && ln -sfn "$ANDROID_HOME/ndk/27.3.13750724" /opt/android-ndk ) || true &
 ( go install golang.org/x/mobile/cmd/gomobile@latest && "$(go env GOPATH)/bin/gomobile" init ) || true &
 wait
 cat >> ~/.bashrc <<'PROFILE'
