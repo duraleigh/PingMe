@@ -27,14 +27,17 @@ val sdkMinor = 2
 val minSdkLevel = 29
 val javaVersion = JavaVersion.VERSION_17
 
-val expressiveOptIns = listOf(
-    "androidx.compose.material3.ExperimentalMaterial3ExpressiveApi",
-    "androidx.compose.material3.ExperimentalMaterial3Api",
-)
+val expressiveOptIns =
+    listOf(
+        "androidx.compose.material3.ExperimentalMaterial3ExpressiveApi",
+        "androidx.compose.material3.ExperimentalMaterial3Api",
+    )
 
 // Static checks (BUILD_PLAN.md P0.5). `./gradlew check` runs ktlintCheck, detekt,
 // Android lint, and the unit tests in every module.
-val ktlintVersion = libs.versions.ktlint.cli.get()
+val ktlintVersion =
+    libs.versions.ktlint.cli
+        .get()
 val composeRulesDetekt = libs.compose.rules.detekt
 allprojects {
     apply(plugin = "org.jlleitschuh.gradle.ktlint")

@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+package org.pingme.core.store
+
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import org.pingme.core.model.KeywordRule
+import org.pingme.core.model.KeywordRuleId
+import org.pingme.core.store.db.PingMeDatabase
+import org.pingme.core.store.db.toEntity
+import org.pingme.core.store.db.toModel
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/** App settings: preferences DataStore for switches, the database for keyword rules. */
+@Singleton
+class SettingsRepository
+    @Inject
+    constructor(
+        private val dataStore: DataStore<Preferences>,
+        db: PingMeDatabase,
+    ) {
+        private val keywordDao = db.keywordRuleDao()
+
+        /** "Show General in inbox" for Instagram, on by default (UI_DESIGN.md 6.4). */
+        val instagramShowGeneral: Flow<Boolean> = dataStore.data.map { it[INSTAGRAM_SHOW_GENERAL] ?: true }
+
+        suspend fun setInstagramShowGeneral(show: Boolean) {
+            dataStore.edit { it[INSTAGRAM_SHOW_GENERAL] = show }
+        }
+
+        fun keywordRules(): Flow<List<KeywordRule>> = keywordDao.observeAll().map { rows -> rows.map { it.toModel() } }
+
+        suspend fun upsertKeywordRule(rule: KeywordRule) = keywordDao.upsert(rule.toEntity())
+
+        suspend fun deleteKeywordRule(id: KeywordRuleId) = keywordDao.delete(id.value)
+
+        private companion object {
+            val INSTAGRAM_SHOW_GENERAL = booleanPreferencesKey("instagram_show_general")
+        }
+    }

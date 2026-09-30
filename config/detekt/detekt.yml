@@ -4,6 +4,13 @@
 # The Compose block is copied from compose-rules 0.6.7 docs/detekt.md, with the
 # Material2 check switched on.
 
+complexity:
+  TooManyFunctions:
+    # DAOs mirror the tables, one query per function, and each repository is the single
+    # front door to its part of the store (BUILD_PLAN.md P1.2).
+    allowedFunctionsPerClass: 20
+    ignoreAnnotated: ['Dao']
+
 naming:
   FunctionNaming:
     # Composable functions are PascalCase by Compose convention.

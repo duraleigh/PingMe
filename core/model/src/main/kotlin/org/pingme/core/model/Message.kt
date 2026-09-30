@@ -83,6 +83,8 @@ data class Attachment(
     val id: AttachmentId,
     val kind: AttachmentKind,
     val mimeType: String,
+    /** The file's name as sent; indexed for search (BUILD_PLAN.md P1.2, attachmentNames). */
+    val fileName: String?,
     val sizeBytes: Long,
     /** File in app storage once downloaded; media is fetched lazily (DESIGN.md 6.3). */
     val localPath: String?,

@@ -103,6 +103,7 @@ class SerializationTest {
                                 id = AttachmentId("a-1"),
                                 kind = AttachmentKind.VOICE,
                                 mimeType = "audio/ogg",
+                                fileName = "voice.ogg",
                                 sizeBytes = 12_345,
                                 localPath = "/data/voice.ogg",
                                 remoteRef = "remote-a-1",

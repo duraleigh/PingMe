@@ -347,3 +347,66 @@ case (5 tests, all pass).
   several accounts.
 
 **Next:** P1.2, the Room store.
+
+## P1.2 Store (done, 2026-09-30)
+
+`core/store`: Room database `pingme.db` (schema exported to `core/store/schemas/`),
+DAOs returning `Flow`s, and the five repositories the UI and service talk to:
+`AccountRepository`, `ChatRepository` (chats, spaces, unread totals),
+`MessageRepository` (messages, search, scheduled sends, media-save jobs),
+`ContactRepository` (people, merge links), `SettingsRepository` (preferences
+DataStore `settings`, plus keyword rules). A Hilt `StoreModule` provides the database,
+the DataStore, and a `Clock`.
+
+Tables: accounts, chats (+ `chat_participants`), messages, attachments, reactions,
+persons, spaces (+ `space_chats`), `scheduled_sends`, `keyword_rules`,
+`merge_links`, `media_save_jobs`, and the FTS5 index `message_fts`. Foreign keys
+cascade: deleting an account removes its chats, messages, and people; deleting a
+chat removes its messages. Saving an existing row updates it in place and never
+cascades.
+
+**Unread rule**: implemented once, as `ChatRepository.unreadTotals()`. It returns
+the total plus per-account, per-network, and per-space breakdowns. It counts only
+chats that are not archived, not low priority, not muted, not in Requests, and not in
+Instagram General while General is hidden, and only in accounts shown in the inbox.
+
+**Search**: an FTS5 index over message body, sender name, and attachment file
+names. Triggers keep it in sync when messages, attachments, or people change. Every
+word the user types becomes a quoted prefix term, so typed input can never break the
+query. Case and accents are ignored ("cafe" finds "Café").
+
+Tests: 38 unit tests (Robolectric, in-memory database on the same bundled SQLite as
+the app), covering every DAO through its repository, the unread rule, cascade
+behaviour, and every search trigger. A deliberate break of the unread rule and of the
+chat-scoped search was caught by the tests, then reverted.
+
+**Deviations and decisions**
+- **Bundled SQLite (`androidx.sqlite:sqlite-bundled` 2.7.1).** The plan asks for
+  FTS5, which Android's own SQLite does not include, and Room has no FTS5 entities.
+  The app ships its own SQLite through Room's bundled driver. The FTS5 table and its
+  triggers are plain SQL created on open (`MessageFts`), and search uses a raw query.
+  Side benefit: the same SQLite version on every phone. Cost: about 1 to 2 MB of APK
+  per CPU type.
+- **Host tests of the bundled SQLite.** The Android build of the library cannot load
+  on the build machine. `core/store/build.gradle.kts` extracts the host build
+  (`sqlite-bundled-jvm`, same version) and points the loader's two documented system
+  properties at it for unit tests only.
+- The index is contentless (`contentless_delete=1`): it stores only the index, not a
+  second copy of every message. Messages have an internal integer `rowId` key, since
+  SQLite can renumber implicit rowids.
+- If the index is ever missing when the database opens, it is recreated and rebuilt
+  from the messages (tested).
+- A timed mute stops hiding a chat from the unread totals once it ends, but the totals
+  only refresh on the next database change. A job that clears expired mutes can come
+  with notifications (P4.1).
+- `instagramShowGeneral` is one app-wide switch, as the plan's rule states. If the
+  owner later wants it per Instagram account, the rule's query takes a list instead.
+- Model additions for the store: `Attachment.fileName` (indexed as attachment names),
+  and `KeywordRule`/`KeywordScope`, `ScheduledSend`, `MergeLink`, `MediaSaveJob`/
+  `MediaSaveState` in `core/model`.
+- detekt `TooManyFunctions`: `@Dao` interfaces are exempt and classes may have 20
+  functions, since each repository is the single front door to its part of the store.
+- New libraries: `sqlite-bundled` 2.7.1, Robolectric 4.17 (tests run on API 35),
+  androidx.test core 1.7.0.
+
+**Next:** P1.3, the connector API.
