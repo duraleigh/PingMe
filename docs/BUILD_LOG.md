@@ -149,3 +149,24 @@ kotlinx-coroutines 1.11.0, desugar_jdk_libs 2.1.5. compileSdk is API 37 minor 2
   P0.5 turns lint warnings into errors for `app`, so P0.5 must resolve them.
 
 **Next:** P0.3, wire the release signing config to the four existing secrets.
+
+## P0.1 follow-up: setup runs from a SessionStart hook (2026-09-30)
+
+The owner cannot be expected to paste the setup script into the environment settings,
+and the builder cannot edit those settings. So `.claude/settings.json` now registers
+`.claude/hooks/session-start.sh`, which runs `scripts/setup-cloud.sh` at the start of
+every cloud session (it does nothing on local machines) and exports `ANDROID_HOME`,
+`ANDROID_NDK_HOME`, and `PATH` for the session. The environment's Setup script field
+is no longer needed and can stay empty.
+
+The script now skips anything already installed, adds its `~/.bashrc` lines only
+once, and writes the Maven Central mirror init script from P0.2 into `~/.gradle`
+(cloud sessions only; CI and local machines are unaffected).
+
+Tested: a cloud run with everything installed takes under a second. A run with the
+SDK, NDK, and gomobile removed reinstalled platform android-37.2, build-tools 36.0.0
+and 37.0.0, NDK 27.3.13750724, and gomobile in 41 s. `./gradlew check assembleRelease`
+passed afterwards. A local (non-cloud) run exits immediately.
+
+**Important:** new sessions start from the default branch, `main`. The hook takes
+effect only once this branch is merged into `main`.
