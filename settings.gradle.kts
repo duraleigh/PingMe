@@ -29,6 +29,8 @@ include(
     ":core:model",
     ":core:store",
     ":core:connector-api",
+    // Shared test code: ConnectorContractTest, used by every connector's tests.
+    ":core:connector-contract",
     ":core:service",
     ":core:ui",
 )

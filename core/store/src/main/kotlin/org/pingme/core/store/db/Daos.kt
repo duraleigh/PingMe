@@ -1,0 +1,440 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+package org.pingme.core.store.db
+
+import androidx.room.Dao
+import androidx.room.Embedded
+import androidx.room.Insert
+import androidx.room.Query
+import androidx.room.RawQuery
+import androidx.room.Relation
+import androidx.room.RoomRawQuery
+import androidx.room.Transaction
+import androidx.room.Update
+import androidx.room.Upsert
+import kotlinx.coroutines.flow.Flow
+import org.pingme.core.model.ChatFolder
+import org.pingme.core.model.ConnectionState
+import org.pingme.core.model.MediaSaveState
+import org.pingme.core.model.MessageStatus
+import org.pingme.core.model.NetworkId
+import kotlin.time.Instant
+
+@Dao
+interface AccountDao {
+    @Query("SELECT * FROM accounts ORDER BY displayName")
+    fun observeAll(): Flow<List<AccountEntity>>
+
+    @Query("SELECT * FROM accounts WHERE id = :id")
+    fun observe(id: String): Flow<AccountEntity?>
+
+    @Query("SELECT * FROM accounts WHERE id = :id")
+    suspend fun get(id: String): AccountEntity?
+
+    @Upsert
+    suspend fun upsert(account: AccountEntity)
+
+    @Query("UPDATE accounts SET state = :state WHERE id = :id")
+    suspend fun updateState(
+        id: String,
+        state: ConnectionState,
+    )
+
+    @Query("DELETE FROM accounts WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
+data class ChatWithParticipants(
+    @Embedded val chat: ChatEntity,
+    @Relation(parentColumn = "id", entityColumn = "chatId")
+    val participants: List<ChatParticipantEntity>,
+)
+
+/** One row of the unread counting rule (see ChatDao.unreadRows). */
+data class UnreadRow(
+    val accountId: String,
+    val network: NetworkId,
+    val spaceId: String?,
+    val unread: Int,
+)
+
+@Dao
+interface ChatDao {
+    @Transaction
+    @Query("SELECT * FROM chats ORDER BY lastActivityAt DESC")
+    fun observeAll(): Flow<List<ChatWithParticipants>>
+
+    @Transaction
+    @Query("SELECT * FROM chats WHERE id = :id")
+    fun observe(id: String): Flow<ChatWithParticipants?>
+
+    @Transaction
+    @Query("SELECT * FROM chats WHERE id = :id")
+    suspend fun get(id: String): ChatWithParticipants?
+
+    /**
+     * The main inbox list: chats that are not archived, not low priority, not message
+     * requests, not a hidden Instagram General chat, from accounts shown in the inbox
+     * (UI_DESIGN.md 3.1, 6.4, 6.5, 10.7).
+     */
+    @Transaction
+    @Query(
+        """
+        SELECT c.* FROM chats c JOIN accounts a ON a.id = c.accountId
+        WHERE c.isArchived = 0 AND c.isLowPriority = 0
+          AND (c.folder IS NULL OR c.folder != 'REQUESTS')
+          AND (c.folder IS NULL OR c.folder != 'GENERAL' OR :showGeneral)
+          AND a.showInInbox = 1
+        ORDER BY c.lastActivityAt DESC
+        """,
+    )
+    fun observeInbox(showGeneral: Boolean): Flow<List<ChatWithParticipants>>
+
+    @Transaction
+    @Query("SELECT * FROM chats WHERE isArchived = 1 ORDER BY lastActivityAt DESC")
+    fun observeArchived(): Flow<List<ChatWithParticipants>>
+
+    @Transaction
+    @Query("SELECT * FROM chats WHERE isLowPriority = 1 ORDER BY lastActivityAt DESC")
+    fun observeLowPriority(): Flow<List<ChatWithParticipants>>
+
+    @Transaction
+    @Query("SELECT * FROM chats WHERE folder = :folder ORDER BY lastActivityAt DESC")
+    fun observeFolder(folder: ChatFolder): Flow<List<ChatWithParticipants>>
+
+    @Transaction
+    @Query("SELECT * FROM chats WHERE accountId = :accountId ORDER BY lastActivityAt DESC")
+    fun observeByAccount(accountId: String): Flow<List<ChatWithParticipants>>
+
+    /**
+     * The unread counting rule (BUILD_PLAN.md P1.2, UI_DESIGN.md 6.4), grouped so every badge
+     * can be summed from it: only chats that are not archived, not low priority, not muted
+     * (a timed mute counts until [now]), not message requests, not a hidden General chat,
+     * in accounts shown in the inbox.
+     */
+    @Query(
+        """
+        SELECT c.accountId AS accountId, a.network AS network, c.spaceId AS spaceId,
+               SUM(c.unreadCount) AS unread
+        FROM chats c JOIN accounts a ON a.id = c.accountId
+        WHERE c.unreadCount > 0
+          AND c.isArchived = 0
+          AND c.isLowPriority = 0
+          AND NOT (c.isMuted = 1 AND (c.muteUntil IS NULL OR c.muteUntil > :now))
+          AND (c.folder IS NULL OR c.folder != 'REQUESTS')
+          AND (c.folder IS NULL OR c.folder != 'GENERAL' OR :showGeneral)
+          AND a.showInInbox = 1
+        GROUP BY c.accountId, c.spaceId
+        """,
+    )
+    fun observeUnreadRows(
+        now: Instant,
+        showGeneral: Boolean,
+    ): Flow<List<UnreadRow>>
+
+    @Upsert
+    suspend fun upsertChat(chat: ChatEntity)
+
+    @Query("DELETE FROM chat_participants WHERE chatId = :chatId")
+    suspend fun deleteParticipants(chatId: String)
+
+    @Insert
+    suspend fun insertParticipants(participants: List<ChatParticipantEntity>)
+
+    @Transaction
+    suspend fun upsert(
+        chat: ChatEntity,
+        participants: List<ChatParticipantEntity>,
+    ) {
+        upsertChat(chat)
+        deleteParticipants(chat.id)
+        insertParticipants(participants)
+    }
+
+    @Query("DELETE FROM chats WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
+data class MessageWithParts(
+    @Embedded val message: MessageEntity,
+    @Relation(parentColumn = "id", entityColumn = "messageId")
+    val attachments: List<AttachmentEntity>,
+    @Relation(parentColumn = "id", entityColumn = "messageId")
+    val reactions: List<ReactionEntity>,
+)
+
+@Dao
+interface MessageDao {
+    /** The newest [limit] messages of a chat, newest first. */
+    @Transaction
+    @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY sentAt DESC, rowId DESC LIMIT :limit")
+    fun observeLatest(
+        chatId: String,
+        limit: Int,
+    ): Flow<List<MessageWithParts>>
+
+    @Transaction
+    @Query("SELECT * FROM messages WHERE id = :id")
+    fun observe(id: String): Flow<MessageWithParts?>
+
+    @Transaction
+    @Query("SELECT * FROM messages WHERE id = :id")
+    suspend fun get(id: String): MessageWithParts?
+
+    @Transaction
+    @Query("SELECT * FROM messages WHERE id IN (:ids)")
+    suspend fun getAll(ids: List<String>): List<MessageWithParts>
+
+    @Query("SELECT id FROM messages WHERE chatId = :chatId ORDER BY sentAt ASC, rowId ASC LIMIT 1")
+    suspend fun oldestId(chatId: String): String?
+
+    @Query("SELECT rowId FROM messages WHERE id = :id")
+    suspend fun rowIdFor(id: String): Long?
+
+    @Insert
+    suspend fun insertMessage(message: MessageEntity): Long
+
+    @Update
+    suspend fun updateMessage(message: MessageEntity)
+
+    @Query("DELETE FROM attachments WHERE messageId = :messageId")
+    suspend fun deleteAttachments(messageId: String)
+
+    @Insert
+    suspend fun insertAttachments(attachments: List<AttachmentEntity>)
+
+    @Query("DELETE FROM reactions WHERE messageId = :messageId")
+    suspend fun deleteReactions(messageId: String)
+
+    @Insert
+    suspend fun insertReactions(reactions: List<ReactionEntity>)
+
+    /**
+     * Inserts or updates a message with its attachments and reactions. Updates keep the row
+     * (and its rowId) in place instead of replacing it, so nothing cascades by accident.
+     */
+    @Transaction
+    suspend fun upsert(
+        message: MessageEntity,
+        attachments: List<AttachmentEntity>,
+        reactions: List<ReactionEntity>,
+    ) {
+        val rowId = rowIdFor(message.id)
+        if (rowId == null) {
+            insertMessage(message.copy(rowId = 0))
+        } else {
+            updateMessage(message.copy(rowId = rowId))
+        }
+        deleteAttachments(message.id)
+        insertAttachments(attachments)
+        deleteReactions(message.id)
+        insertReactions(reactions)
+    }
+
+    @Query("UPDATE messages SET status = :status WHERE id = :id")
+    suspend fun updateStatus(
+        id: String,
+        status: MessageStatus,
+    )
+
+    /**
+     * A read receipt: every outgoing message in the chat sent up to and including [upToId]
+     * becomes Read. Messages already Read or still sending are left alone.
+     */
+    @Query(
+        """
+        UPDATE messages SET status = :read
+        WHERE chatId = :chatId AND isOutgoing = 1
+          AND sentAt <= (SELECT sentAt FROM messages WHERE id = :upToId)
+          AND status IN (:sent, :delivered)
+        """,
+    )
+    suspend fun markOutgoingRead(
+        chatId: String,
+        upToId: String,
+        read: MessageStatus = MessageStatus.Read,
+        sent: MessageStatus = MessageStatus.Sent,
+        delivered: MessageStatus = MessageStatus.Delivered,
+    )
+
+    @Query("UPDATE attachments SET localPath = :localPath WHERE id = :id")
+    suspend fun setAttachmentLocalPath(
+        id: String,
+        localPath: String,
+    )
+
+    @Query("SELECT * FROM attachments WHERE id = :id")
+    suspend fun attachment(id: String): AttachmentEntity?
+
+    @Upsert
+    suspend fun upsertReaction(reaction: ReactionEntity)
+
+    @Query("DELETE FROM reactions WHERE messageId = :messageId AND senderId = :senderId AND emoji = :emoji")
+    suspend fun deleteReaction(
+        messageId: String,
+        senderId: String,
+        emoji: String,
+    )
+
+    @Query("DELETE FROM messages WHERE id = :id")
+    suspend fun delete(id: String)
+
+    /** Full-text search. Build the query with [searchQuery]; results are message IDs, best first. */
+    @RawQuery(observedEntities = [MessageEntity::class, AttachmentEntity::class, PersonEntity::class])
+    fun observeSearchIds(query: RoomRawQuery): Flow<List<String>>
+
+    companion object {
+        /** Messages matching [match] (an FTS5 expression), newest first, optionally in one chat. */
+        fun searchQuery(
+            match: String,
+            chatId: String?,
+            limit: Int,
+        ): RoomRawQuery {
+            val inChat = if (chatId != null) "AND m.chatId = ?" else ""
+            val sql =
+                "SELECT m.id FROM ${MessageFts.TABLE} f JOIN messages m ON m.rowId = f.rowid " +
+                    "WHERE ${MessageFts.TABLE} MATCH ? $inChat ORDER BY m.sentAt DESC LIMIT ?"
+            return RoomRawQuery(sql) { statement ->
+                var index = 1
+                statement.bindText(index++, match)
+                if (chatId != null) statement.bindText(index++, chatId)
+                statement.bindLong(index, limit.toLong())
+            }
+        }
+    }
+}
+
+@Dao
+interface PersonDao {
+    @Query("SELECT * FROM persons WHERE id = :id")
+    suspend fun get(id: String): PersonEntity?
+
+    @Query("SELECT * FROM persons WHERE id = :id")
+    fun observe(id: String): Flow<PersonEntity?>
+
+    @Query("SELECT * FROM persons WHERE accountId = :accountId ORDER BY displayName")
+    fun observeByAccount(accountId: String): Flow<List<PersonEntity>>
+
+    @Query("SELECT * FROM persons WHERE phoneNumber = :phoneNumber")
+    suspend fun byPhoneNumber(phoneNumber: String): List<PersonEntity>
+
+    @Query("SELECT * FROM persons WHERE contactId = :contactId")
+    fun observeByContact(contactId: String): Flow<List<PersonEntity>>
+
+    @Upsert
+    suspend fun upsert(person: PersonEntity)
+
+    @Query("DELETE FROM persons WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
+data class SpaceWithChats(
+    @Embedded val space: SpaceEntity,
+    @Relation(parentColumn = "id", entityColumn = "spaceId")
+    val chats: List<SpaceChatEntity>,
+)
+
+@Dao
+interface SpaceDao {
+    @Transaction
+    @Query("SELECT * FROM spaces ORDER BY title")
+    fun observeAll(): Flow<List<SpaceWithChats>>
+
+    @Transaction
+    @Query("SELECT * FROM spaces WHERE id = :id")
+    suspend fun get(id: String): SpaceWithChats?
+
+    @Upsert
+    suspend fun upsertSpace(space: SpaceEntity)
+
+    @Query("DELETE FROM space_chats WHERE spaceId = :spaceId")
+    suspend fun deleteChats(spaceId: String)
+
+    @Insert
+    suspend fun insertChats(chats: List<SpaceChatEntity>)
+
+    @Transaction
+    suspend fun upsert(
+        space: SpaceEntity,
+        chats: List<SpaceChatEntity>,
+    ) {
+        upsertSpace(space)
+        deleteChats(space.id)
+        insertChats(chats)
+    }
+
+    @Query("DELETE FROM spaces WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
+@Dao
+interface ScheduledSendDao {
+    @Query("SELECT * FROM scheduled_sends ORDER BY sendAt")
+    fun observeAll(): Flow<List<ScheduledSendEntity>>
+
+    @Query("SELECT * FROM scheduled_sends WHERE chatId = :chatId ORDER BY sendAt")
+    fun observeByChat(chatId: String): Flow<List<ScheduledSendEntity>>
+
+    /** Sends whose time has come, including late ones (UI_DESIGN.md 10.13). */
+    @Query("SELECT * FROM scheduled_sends WHERE sendAt <= :now ORDER BY sendAt")
+    suspend fun due(now: Instant): List<ScheduledSendEntity>
+
+    @Query("SELECT * FROM scheduled_sends WHERE messageId = :messageId")
+    suspend fun get(messageId: String): ScheduledSendEntity?
+
+    @Upsert
+    suspend fun upsert(send: ScheduledSendEntity)
+
+    @Query("UPDATE scheduled_sends SET attempts = attempts + 1 WHERE messageId = :messageId")
+    suspend fun incrementAttempts(messageId: String)
+
+    @Query("DELETE FROM scheduled_sends WHERE messageId = :messageId")
+    suspend fun delete(messageId: String)
+}
+
+@Dao
+interface KeywordRuleDao {
+    @Query("SELECT * FROM keyword_rules ORDER BY pattern")
+    fun observeAll(): Flow<List<KeywordRuleEntity>>
+
+    @Upsert
+    suspend fun upsert(rule: KeywordRuleEntity)
+
+    @Query("DELETE FROM keyword_rules WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
+@Dao
+interface MergeLinkDao {
+    @Query("SELECT * FROM merge_links ORDER BY confirmedAt")
+    fun observeAll(): Flow<List<MergeLinkEntity>>
+
+    @Query("SELECT * FROM merge_links WHERE contactId = :contactId")
+    suspend fun forContact(contactId: String): List<MergeLinkEntity>
+
+    @Query("SELECT * FROM merge_links WHERE personId = :personId")
+    suspend fun forPerson(personId: String): List<MergeLinkEntity>
+
+    @Upsert
+    suspend fun upsert(link: MergeLinkEntity)
+
+    @Query("DELETE FROM merge_links WHERE personId = :personId AND contactId = :contactId")
+    suspend fun delete(
+        personId: String,
+        contactId: String,
+    )
+}
+
+@Dao
+interface MediaSaveJobDao {
+    @Query("SELECT * FROM media_save_jobs WHERE state = :state")
+    fun observeByState(state: MediaSaveState): Flow<List<MediaSaveJobEntity>>
+
+    @Query("SELECT * FROM media_save_jobs WHERE attachmentId = :attachmentId")
+    suspend fun get(attachmentId: String): MediaSaveJobEntity?
+
+    @Upsert
+    suspend fun upsert(job: MediaSaveJobEntity)
+
+    @Query("DELETE FROM media_save_jobs WHERE attachmentId = :attachmentId")
+    suspend fun delete(attachmentId: String)
+}

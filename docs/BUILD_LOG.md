@@ -293,3 +293,310 @@ uninstall first. The builder will send that APK with Phase 1.
 
 Phase 1 must not start until the owner reports G0 results (BUILD_PLAN.md rule 1).
 **Next:** wait for G0 results, then P1.1.
+
+## Working agreement with the owner (2026-09-30)
+
+- The builder moves through plan steps without asking permission for each one. It
+  still stops at every gate (G0, G1, ...) for the owner's phone test, and asks only
+  when a decision is truly the owner's (for example, narrowing a feature).
+- The builder merges its own pull requests into `main` once CI is green. The owner
+  does not press Merge.
+- Talk to the owner in plain, simple language: short steps, no jargon.
+
+## Gate G0 result (2026-09-30)
+
+Owner report: `pingme-cf3c293.apk` installed on the phone and opened, showing
+"PingMe". **G0 passed.** Signing, sideloading, and CI are proven for a first install.
+
+Still open: the update test (installing a newer build over this one without
+uninstalling). It needs a second CI build, so it rides with the first Phase 1 APK.
+
+**Next:** P1.1, core model.
+
+## P1.1 Model (done, 2026-09-30)
+
+`core/model` (plain Kotlin/JVM, kotlinx-serialization, no Android imports) holds every
+type from the plan: the ID value classes, `NetworkId`, `Account`, `ConnectionState`,
+`Chat`, `ChatKind`, `ChatFolder`, `Message`, `MessageKind`, `MessageStatus`,
+`Transport`, `Attachment`, `Reaction`, `Quote`, `LinkPreview`, `Person`, `Space`,
+`Capabilities`, `NotificationMode`, `AvatarSource`. Times are `kotlin.time.Instant`
+(stable since Kotlin 2.3; no opt-in).
+
+`SerializationTest` round-trips every type through JSON, including every sealed-class
+case (5 tests, all pass).
+
+**Deviations and decisions** (all additions or sharper types; nothing narrowed):
+- Added `AttachmentId`. The plan's `Attachment` has an `id` and P1.2's `MediaSaveJob`
+  refers to it, but the plan lists no ID type for it.
+- Added `AttachmentKind` (image, video, audio, voice, GIF, sticker, file, contact,
+  location) for `Attachment.kind`. The plan names the field without a type.
+- `Capabilities` follows the capability matrix in UI_DESIGN.md section 8, which the
+  plan says wins where they differ:
+  - `reply` is `ReplyRule` (`NATIVE` or `QUOTED_TEXT`), not a yes/no, because SMS and
+    Google Voice reply with quoted text.
+  - `gif` and `voiceNote` are `MediaRule` (`NATIVE`, `MMS_SIZE_LIMITED`,
+    `UNSUPPORTED`).
+  - `deleteForEveryone` and `edit` are `TimeLimit?`: null means unsupported,
+    `Unlimited` or `Within(duration)` otherwise.
+  - `calls` is `CallRule(audio, video)`, each a `CallMethod`, matching the table in
+    UI_DESIGN.md 10.17.
+- `ReactionRule` cases are `AnyEmoji`, `Set(allowed)`, `TextFallback`. `Any` was
+  renamed so it doesn't shadow Kotlin's `Any`.
+- `Space.accountId` is nullable. It is null only for `CUSTOM` spaces, which
+  UI_DESIGN.md 10.4 lets the user build "from any chats", including chats from
+  several accounts.
+
+**Next:** P1.2, the Room store.
+
+## P1.2 Store (done, 2026-09-30)
+
+`core/store`: Room database `pingme.db` (schema exported to `core/store/schemas/`),
+DAOs returning `Flow`s, and the five repositories the UI and service talk to:
+`AccountRepository`, `ChatRepository` (chats, spaces, unread totals),
+`MessageRepository` (messages, search, scheduled sends, media-save jobs),
+`ContactRepository` (people, merge links), `SettingsRepository` (preferences
+DataStore `settings`, plus keyword rules). A Hilt `StoreModule` provides the database,
+the DataStore, and a `Clock`.
+
+Tables: accounts, chats (+ `chat_participants`), messages, attachments, reactions,
+persons, spaces (+ `space_chats`), `scheduled_sends`, `keyword_rules`,
+`merge_links`, `media_save_jobs`, and the FTS5 index `message_fts`. Foreign keys
+cascade: deleting an account removes its chats, messages, and people; deleting a
+chat removes its messages. Saving an existing row updates it in place and never
+cascades.
+
+**Unread rule**: implemented once, as `ChatRepository.unreadTotals()`. It returns
+the total plus per-account, per-network, and per-space breakdowns. It counts only
+chats that are not archived, not low priority, not muted, not in Requests, and not in
+Instagram General while General is hidden, and only in accounts shown in the inbox.
+
+**Search**: an FTS5 index over message body, sender name, and attachment file
+names. Triggers keep it in sync when messages, attachments, or people change. Every
+word the user types becomes a quoted prefix term, so typed input can never break the
+query. Case and accents are ignored ("cafe" finds "Café").
+
+Tests: 38 unit tests (Robolectric, in-memory database on the same bundled SQLite as
+the app), covering every DAO through its repository, the unread rule, cascade
+behaviour, and every search trigger. A deliberate break of the unread rule and of the
+chat-scoped search was caught by the tests, then reverted.
+
+**Deviations and decisions**
+- **Bundled SQLite (`androidx.sqlite:sqlite-bundled` 2.7.1).** The plan asks for
+  FTS5, which Android's own SQLite does not include, and Room has no FTS5 entities.
+  The app ships its own SQLite through Room's bundled driver. The FTS5 table and its
+  triggers are plain SQL created on open (`MessageFts`), and search uses a raw query.
+  Side benefit: the same SQLite version on every phone. Cost: about 1 to 2 MB of APK
+  per CPU type.
+- **Host tests of the bundled SQLite.** The Android build of the library cannot load
+  on the build machine. `core/store/build.gradle.kts` extracts the host build
+  (`sqlite-bundled-jvm`, same version) and points the loader's two documented system
+  properties at it for unit tests only.
+- The index is contentless (`contentless_delete=1`): it stores only the index, not a
+  second copy of every message. Messages have an internal integer `rowId` key, since
+  SQLite can renumber implicit rowids.
+- If the index is ever missing when the database opens, it is recreated and rebuilt
+  from the messages (tested).
+- A timed mute stops hiding a chat from the unread totals once it ends, but the totals
+  only refresh on the next database change. A job that clears expired mutes can come
+  with notifications (P4.1).
+- `instagramShowGeneral` is one app-wide switch, as the plan's rule states. If the
+  owner later wants it per Instagram account, the rule's query takes a list instead.
+- Model additions for the store: `Attachment.fileName` (indexed as attachment names),
+  and `KeywordRule`/`KeywordScope`, `ScheduledSend`, `MergeLink`, `MediaSaveJob`/
+  `MediaSaveState` in `core/model`.
+- detekt `TooManyFunctions`: `@Dao` interfaces are exempt and classes may have 20
+  functions, since each repository is the single front door to its part of the store.
+- New libraries: `sqlite-bundled` 2.7.1, Robolectric 4.17 (tests run on API 35),
+  androidx.test core 1.7.0.
+
+**Next:** P1.3, the connector API.
+
+## P1.3 Connector API (done, 2026-09-30)
+
+`core/connector-api`:
+- **`Connector`**: the plan's interface. Operations a network cannot do throw
+  `UnsupportedCapabilityException(reason)`, and the reason is shown to the user.
+- **`ChatSnapshot`, `MessageSnapshot`**: what the network says. Local-only choices
+  (pin, mute, low priority, obscure, name override, merge) stay out of snapshots.
+- **`OutgoingMessage`, `OutgoingAttachment`**: serializable, so a scheduled send
+  survives a restart. **`SendResult`**: `Sent` or `Failed(reason, retryable)`.
+- **`ConnectorEvent`**: every kind the plan lists; each event names its account.
+- **`LoginFlow`**: steps plus `respond(stepId, value)`, with a `loginFlow { }` script
+  builder. Answers to an older step are ignored.
+- **`Credentials`, `CredentialStore`**: the interface only. The encrypted
+  implementation comes with P3.2's Keystore work.
+- **`ConnectorRegistry`**: fed by a Hilt map multibinding keyed by `@NetworkKey`, and
+  declared with `@Multibinds` so it works before any connector exists.
+
+`core/connector-contract` (new, test-only module): `ConnectorContractTest`, which every
+connector's tests extend with a `Harness` around their fake transport. It covers login
+to Done, the Connected state, synced chats belonging to the account, paging history
+backwards, send, incoming messages as events, typing, reactions (any, set, and text
+fallback), delete for me and for everyone, starting a conversation, and disconnect.
+When a capability is missing, the test asserts that the operation throws with a
+reason, so every test checks something for every connector. The demo connector (P1.5)
+is the first to run it.
+
+Unit tests: `LoginFlowTest` and `ScopedIdsTest` (4 tests, all pass).
+
+**Deviations and additions**
+- **Account-scoped IDs.** Chat, message, attachment, person, and space IDs are
+  `"<account id>/<network id>"` (`ScopedIds.kt`). Any ID then says which account it
+  belongs to, which the plan's signatures need (for example `syncMessages(chatId, ...)`
+  must know the account). Two accounts on one network never collide.
+- `startConversation` takes an `accountId` as well as the handle. A network can have
+  several accounts (UI_DESIGN.md 6.5), so the handle alone cannot say which one
+  starts the chat.
+- **Login steps beyond the plan's five.** `Choose` (Google Messages offers QR or Google
+  account pairing, P3.2) and `Failed` (a login that cannot finish). `WaitForConfirmation`
+  carries an optional `emoji` for the emoji-match step.
+- **Extra event `MessageRemoved`.** A message deleted on the network's side, such as on
+  the phone in Google Messages, must disappear here too (UI_DESIGN.md 5.3).
+- **Contract test location.** It lives in its own module, not in `connector-api` test
+  fixtures, because AGP supports Kotlin in test fixtures only behind an experimental
+  flag.
+- Spaces are only an ID on `ChatSnapshot` for now. Space metadata (community names)
+  arrives with the first network that has spaces (WhatsApp, Phase 6).
+
+**Next:** P1.4, the service skeleton.
+
+## P1.4 Service skeleton (done, 2026-09-30)
+
+`core/service`:
+- **`ConnectionService`**: the one foreground service ("PingMe is connected", a silent
+  minimum-priority notification), type `remoteMessaging`. It hosts the supervisor,
+  forwards network changes, and stops itself when no account needs a connection.
+  `MainActivity` starts it only when an account needs one.
+- **`ConnectorSupervisor`**: one coroutine per account. It connects, syncs the chat list
+  once connected, and writes every event through `EventApplier`.
+  - Retries wait 1 s, 2 s, 4 s, ..., up to 5 minutes (`Backoff`).
+  - A connection that worked and then dropped starts over at 1 s; a network change cuts
+    any wait short and starts over.
+  - `ActionNeededException`, a `State(ActionNeeded)` event, or missing credentials
+    stop retries and set "Action needed" on the account.
+  - Disabled accounts are never connected, and disabling disconnects.
+  - Unknown failures count as transient and are logged on the phone only.
+- **`EventApplier`**: turns connector events into store writes.
+  - Chat snapshots keep everything the user chose (pin, mute, archive, low priority,
+    obscure, name override, avatar source, merges).
+  - An incoming message adds to unread, bumps activity, and brings an archived chat
+    back; an outgoing one marks the chat read. History batches never count as unread.
+  - A message for a chat not yet known lands under a minimal chat until its snapshot
+    arrives.
+- **`TypingTracker`**: who is typing where, in memory only. It clears when their message
+  arrives, or after 6 s without an update.
+- **`NotificationRouter` (skeleton)**: outgoing, muted (a timed mute counts until it
+  ends), and low priority messages stay quiet. Obscured chats say "New message". The
+  rest post a plain notification on the `default` channel once notifications are
+  allowed. Full routing is P4.1.
+- **`KeystoreCredentialStore`**: the `CredentialStore` implementation. AES-256-GCM with
+  a key that lives only in the Android Keystore, one file per credential (named by
+  hash) in no-backup storage, written atomically.
+- **Workers (Hilt + WorkManager)**:
+  - `HistoryBackfillWorker`: pages of 50, 4 pages a run, continuing where the store ends.
+  - `MediaDownloadWorker`: saves the file path; retries up to 5 times.
+  - `ScheduledSendWorker`: sends due and late messages and swaps the pending bubble for
+    the sent one; retryable failures retry up to 5 times, others mark the message
+    Failed.
+  - `LinkPreviewWorker` and `ContactSyncWorker` are registered with empty bodies.
+    Their work is P4.3 and Phase 7 in the plan, and their code says so.
+- **App**: `PingMeApp` (`@HiltAndroidApp`) supplies the Hilt worker factory to
+  WorkManager (the default initializer is removed from the manifest). `MainActivity` is
+  a Hilt entry point.
+
+Tests: 25 in `core/service` (backoff, notification decisions, event applier,
+supervisor, credential store, workers), 40 in `core/store`, plus the earlier model and
+connector-API tests. Three deliberate supervisor breaks (retrying when the user must
+act, twice, and not resetting after a drop) failed the tests, then were reverted.
+
+**Deviations and decisions**
+- **Credential store now, not in P3.2.** The supervisor needs a `CredentialStore` to
+  connect anything, including the demo network. P3.2's "EncryptedFile / Keystore-
+  wrapped AES" is built here as Keystore-wrapped AES-GCM. Jetpack's EncryptedFile
+  (`security-crypto`) is deprecated, so it is not used.
+- **Network changes** come from `ConnectivityManager.registerDefaultNetworkCallback`.
+  The old network-change broadcast the plan mentions is deprecated and not delivered
+  to apps on current Android.
+- **Scheduled sends** moved to their own `ScheduledSendRepository`, to keep
+  `MessageRepository` focused. Store additions: read receipts marking outgoing messages
+  Read, attachment download paths, and the oldest message of a chat.
+- **Retry waits** go through a `RetryDelays` interface so tests use milliseconds. The
+  app binds the real `Backoff`.
+- detekt `ReturnCount` now ignores early "nothing to do" guard clauses.
+- **Not in this step:** reconnecting after a phone restart (a boot receiver) is not
+  in the plan's P1.4 list. Until it's added, connections resume the next time the app
+  opens. It belongs with notifications (P4) and is logged here so it isn't lost.
+
+**Next:** P1.5, the demo connector.
+
+## P1.5 Demo connector (done, 2026-09-30)
+
+`connectors/demo`, included by the app in debug builds only (`debugImplementation`),
+added to the `ConnectorRegistry` through Hilt:
+- **Cast and chats** (`DemoSeed`): 13 people and 14 chats, including Sam Ortiz, the
+  Design team, Mom, Dad, and Book club.
+  - Direct and group chats, unread and read.
+  - A reply with a quote, reactions, pictures, a voice note, an animated GIF, a file,
+    and a link preview.
+  - One Instagram-style General chat and one message request, and enough chats to fill
+    the pinned grid.
+- **Live activity** (`DemoNetwork`): someone types, then messages, every ~25 s.
+  - What you send turns Delivered, then Read (with a read receipt), and sometimes gets
+    a reaction or a typed reply.
+- **Runtime controls** (`DemoControls`): every capability flag, live activity on or
+  off, and the timings. `FULL` and `MINIMAL` (SMS-like) presets.
+- **Login** (`DemoLogin`): the QR path and the sign-in path together show every step
+  kind.
+  - The QR refreshes once; the emoji-match step shows 🦊.
+  - Code "000000" is refused with an error; cancelling ends in Failed.
+- **`DemoSimulator`** (`demoConnector.simulate`): makes someone message, type, or react
+  on command, for UI tests.
+- **Media** (`DemoMedia`): pictures (PNG), the GIF, and the voice note (WAV) are
+  generated in code, so the demo never touches the internet (CLAUDE.md rule 8). Tests
+  decode each with the JDK's own decoders.
+
+Tests: 31, all passing.
+- `ConnectorContractTest` runs twice: `DemoContractTest` with every capability, and
+  `DemoMinimalContractTest` with the minimal set, so every "unsupported" path runs too.
+- Plus login, media, and network tests.
+- A deliberate break (typing accepted while switched off) was caught by the minimal
+  contract run, then reverted.
+
+**Decisions**
+- The demo's in-app web page is `about:blank`, so no website is contacted.
+- detekt: `DemoMedia` suppresses `MagicNumber` for the whole file, since a byte-level
+  PNG/GIF/WAV writer's numbers are the formats' fields. The connector is split into
+  `DemoConnector` (the contract), `DemoNetwork` (the pretend server), and
+  `DemoSimulator`, to keep each class a readable size.
+- There is no screen yet to add a demo account. The setup flow is P2.7, so a debug
+  build still opens to the blank screen until Phase 2.
+
+**Next:** P1.6, Phase 1 acceptance (the migration test harness remains).
+
+## P1.6 Acceptance for Phase 1 (done, 2026-09-30)
+
+Every item on the plan's list passes:
+- **Unit tests for the unread rule** (`UnreadRuleTest`, 7 tests), **merge-link
+  logic** (`ContactStoreTest`: confirm, look up by contact or person, remove), and
+  **every DAO** (through the repositories, in `core/store`).
+- **The contract test passes against the demo connector**: `DemoContractTest` and
+  `DemoMinimalContractTest`, 11 checks each.
+- **Schema exported** (`core/store/schemas/.../1.json`) **and a migration test harness**
+  (`MigrationTest`, with the migrations list still empty):
+  - Every schema version from 1 to current must have its exported schema.
+  - Every version must upgrade through `PingMeDatabase.MIGRATIONS` to exactly the
+    current schema.
+  - A migrated database must open in Room with search working.
+  - Checked by bumping the version with no migration: two of the three tests failed.
+
+Totals: 108 unit tests, all passing (model 5, store 43, connector API 4, service 25,
+demo 31). `./gradlew check`, `assembleDebug`, and `assembleRelease` pass.
+
+**Implementation notes**
+- `PingMeDatabase.VERSION` is the one place the schema version lives.
+- The exported schemas become unit-test assets through AGP 9's variant API. The old
+  `sourceSets` accessor fails on AGP 9's new DSL.
+
+Phase 1 has no gate. **Next:** Phase 2, the UI against the demo connector, starting
+with P2.1 (theme). Gate G1 at the end of Phase 2 is the owner's first real look at the
+app.
