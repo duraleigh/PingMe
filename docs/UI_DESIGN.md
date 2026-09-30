@@ -164,6 +164,8 @@ Reached from the chat header. Sections:
 - **Appearance**: this chat's colour, bubble style, wallpaper, and font size override.
 - **Reactions**: this chat's quick-reaction set override.
 - Members (groups), pinned messages, search in chat.
+- Avatar source (Google Contacts photo or a network profile photo) and an editable
+  display name, section 10.18.
 - Pin chat, archive, block, delete chat.
 
 ### 3.5 Appearance studio (Settings > Appearance)
@@ -573,7 +575,7 @@ A **space** is a named group of chats that PingMe shows as one unit.
 
 Spaces appear in the avatar menu and can be promoted into the bottom bar, which
 becomes user-configurable: any mix of network filters, spaces, and Low priority, up
-to five items. Inside a space the inbox shows only that space's chats, with the same
+to five items. Decided. Inside a space the inbox shows only that space's chats, with the same
 pinned grid and list. Unread counts for a space follow the counting rule in section
 6.4.
 
@@ -688,11 +690,22 @@ Chats with the same person on different networks can be merged into one thread.
 - Group chats are never merged.
 - Pins, low priority, mute, obscure, and notification settings apply to the merged
   chat as a whole.
+- The merged chat's details let the user pick **which avatar** represents the person:
+  the Google Contacts photo (default) or the profile photo from any of the merged
+  networks, shown side by side as choices. Changing it changes the avatar in the
+  inbox, the pinned grid, the chat header, and notifications.
+- The merged chat's **name** is editable. It starts as the contact's name from Google
+  Contacts and can be overridden with anything, for example "Sam (work)". The
+  override applies everywhere the chat is shown and never changes the contact in
+  Google Contacts.
+- Merge suggestions are exactly that: PingMe proposes, the user confirms. There is no
+  automatic merging, and group chats never merge. Decided.
 
 ### 10.16 Keep all media
 
 Settings > Storage > "Save all incoming media" downloads every attachment as it
-arrives, to app-private storage by default or a user-chosen folder. Ephemeral media
+arrives, including ephemeral media wherever the network delivers it (decided, with
+the per-network table below as the honest limit), to app-private storage by default or a user-chosen folder. Ephemeral media
 is saved wherever the network actually delivers the bytes to a linked device. Where
 it does not, PingMe cannot save what it never receives. Current state per network:
 
@@ -729,6 +742,26 @@ it does not, PingMe cannot save what it never receives. Current state per networ
 The immediate WhatsApp, Signal, and Telegram calls depend on the person being in the
 phone's contacts with that app's contact sync on. When they are not, the icon opens
 the app to that person instead, and the button's long-press explains why.
+
+Decided behaviour for the rest: the icon always does the most direct thing the
+service allows. For Google Voice, Messenger, and Meet that is "dial immediately" if
+device testing finds an intent for it, otherwise "open the app to that person". For
+Instagram it is "open the thread", which is all Instagram allows, and the icon
+carries that as its long-press explanation.
+
+### 10.18 Avatars from Google Contacts
+
+Every person's avatar comes from Google Contacts first. PingMe matches people to
+contacts by phone number for RCS, SMS, WhatsApp, Signal, Telegram, and Google Voice,
+and by the links the user makes by hand for Instagram and Messenger. The match uses
+Android's contacts provider, so it covers Google Contacts and any other synced
+account, and it needs the contacts permission, asked once during setup with a plain
+explanation.
+
+Fallback order when there is no contact photo: the network's profile photo, then a
+coloured tile with initials in the chosen shape. For an unmerged chat the user can
+still switch that chat to the network's photo from Chat details. Contact photos
+refresh when the contact changes.
 
 ## 11. Open questions
 
