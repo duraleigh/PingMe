@@ -410,3 +410,52 @@ chat-scoped search was caught by the tests, then reverted.
   androidx.test core 1.7.0.
 
 **Next:** P1.3, the connector API.
+
+## P1.3 Connector API (done, 2026-09-30)
+
+`core/connector-api`:
+- **`Connector`**: the plan's interface. Operations a network cannot do throw
+  `UnsupportedCapabilityException(reason)`, and the reason is shown to the user.
+- **`ChatSnapshot`, `MessageSnapshot`**: what the network says. Local-only choices
+  (pin, mute, low priority, obscure, name override, merge) stay out of snapshots.
+- **`OutgoingMessage`, `OutgoingAttachment`**: serializable, so a scheduled send
+  survives a restart. **`SendResult`**: `Sent` or `Failed(reason, retryable)`.
+- **`ConnectorEvent`**: every kind the plan lists; each event names its account.
+- **`LoginFlow`**: steps plus `respond(stepId, value)`, with a `loginFlow { }` script
+  builder. Answers to an older step are ignored.
+- **`Credentials`, `CredentialStore`**: the interface only. The encrypted
+  implementation comes with P3.2's Keystore work.
+- **`ConnectorRegistry`**: fed by a Hilt map multibinding keyed by `@NetworkKey`, and
+  declared with `@Multibinds` so it works before any connector exists.
+
+`core/connector-contract` (new, test-only module): `ConnectorContractTest`, which every
+connector's tests extend with a `Harness` around their fake transport. It covers login
+to Done, the Connected state, synced chats belonging to the account, paging history
+backwards, send, incoming messages as events, typing, reactions (any, set, and text
+fallback), delete for me and for everyone, starting a conversation, and disconnect.
+When a capability is missing, the test asserts that the operation throws with a
+reason, so every test checks something for every connector. The demo connector (P1.5)
+is the first to run it.
+
+Unit tests: `LoginFlowTest` and `ScopedIdsTest` (4 tests, all pass).
+
+**Deviations and additions**
+- **Account-scoped IDs.** Chat, message, attachment, person, and space IDs are
+  `"<account id>/<network id>"` (`ScopedIds.kt`). Any ID then says which account it
+  belongs to, which the plan's signatures need (for example `syncMessages(chatId, ...)`
+  must know the account). Two accounts on one network never collide.
+- `startConversation` takes an `accountId` as well as the handle. A network can have
+  several accounts (UI_DESIGN.md 6.5), so the handle alone cannot say which one
+  starts the chat.
+- **Login steps beyond the plan's five.** `Choose` (Google Messages offers QR or Google
+  account pairing, P3.2) and `Failed` (a login that cannot finish). `WaitForConfirmation`
+  carries an optional `emoji` for the emoji-match step.
+- **Extra event `MessageRemoved`.** A message deleted on the network's side, such as on
+  the phone in Google Messages, must disappear here too (UI_DESIGN.md 5.3).
+- **Contract test location.** It lives in its own module, not in `connector-api` test
+  fixtures, because AGP supports Kotlin in test fixtures only behind an experimental
+  flag.
+- Spaces are only an ID on `ChatSnapshot` for now. Space metadata (community names)
+  arrives with the first network that has spaces (WhatsApp, Phase 6).
+
+**Next:** P1.4, the service skeleton.
