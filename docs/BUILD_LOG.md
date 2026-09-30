@@ -266,3 +266,30 @@ import, spacing, indentation), detekt (`EmptyIfBlock`, `MagicNumber`), Compose r
 (`ModifierMissing` on a composable without a modifier; `Material2` on
 `androidx.compose.material.Button`), and lint (the two findings above failed the build
 before they were fixed).
+
+## P0.6 Acceptance for Phase 0: stopped at Gate G0 (2026-09-30)
+
+Builder side, all verified:
+- `./gradlew check` passes on a fresh clone with the build cache off.
+- CI is green on push and pull request for `cf3c293`, and produced the signed APK
+  `pingme-cf3c293.apk` (run 36751138974). Download (sign in to GitHub first):
+  https://github.com/duraleigh/PingMe/actions/runs/36751138974/artifacts/11115225225
+
+**Gate G0, owner's phone test.** Not done yet; the builder cannot do it.
+
+1. Open the download link above on the phone and download `pingme-cf3c293.apk`.
+2. Open it. If the phone asks, allow your browser (or Files) to install unknown apps,
+   then go back and tap Install.
+3. The home screen shows an indigo icon with a white chat bubble and an orange dot,
+   named "PingMe".
+4. Open it: a plain screen with the word "PingMe" in the middle. In dark mode the
+   screen is dark.
+5. Report back: did it install, and did it open as described? Screenshots of anything
+   odd help.
+
+Update test (proves the signing key, the point of this gate): after the next CI build
+exists, install it over this one. It must say "Update" or install without asking to
+uninstall first. The builder will send that APK with Phase 1.
+
+Phase 1 must not start until the owner reports G0 results (BUILD_PLAN.md rule 1).
+**Next:** wait for G0 results, then P1.1.
