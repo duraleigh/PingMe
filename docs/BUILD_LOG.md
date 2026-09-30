@@ -528,3 +528,47 @@ act, twice, and not resetting after a drop) failed the tests, then were reverted
   opens. It belongs with notifications (P4) and is logged here so it isn't lost.
 
 **Next:** P1.5, the demo connector.
+
+## P1.5 Demo connector (done, 2026-09-30)
+
+`connectors/demo`, included by the app in debug builds only (`debugImplementation`),
+added to the `ConnectorRegistry` through Hilt:
+- **Cast and chats** (`DemoSeed`): 13 people and 14 chats, including Sam Ortiz, the
+  Design team, Mom, Dad, and Book club.
+  - Direct and group chats, unread and read.
+  - A reply with a quote, reactions, pictures, a voice note, an animated GIF, a file,
+    and a link preview.
+  - One Instagram-style General chat and one message request, and enough chats to fill
+    the pinned grid.
+- **Live activity** (`DemoNetwork`): someone types, then messages, every ~25 s.
+  - What you send turns Delivered, then Read (with a read receipt), and sometimes gets
+    a reaction or a typed reply.
+- **Runtime controls** (`DemoControls`): every capability flag, live activity on or
+  off, and the timings. `FULL` and `MINIMAL` (SMS-like) presets.
+- **Login** (`DemoLogin`): the QR path and the sign-in path together show every step
+  kind.
+  - The QR refreshes once; the emoji-match step shows 🦊.
+  - Code "000000" is refused with an error; cancelling ends in Failed.
+- **`DemoSimulator`** (`demoConnector.simulate`): makes someone message, type, or react
+  on command, for UI tests.
+- **Media** (`DemoMedia`): pictures (PNG), the GIF, and the voice note (WAV) are
+  generated in code, so the demo never touches the internet (CLAUDE.md rule 8). Tests
+  decode each with the JDK's own decoders.
+
+Tests: 31, all passing.
+- `ConnectorContractTest` runs twice: `DemoContractTest` with every capability, and
+  `DemoMinimalContractTest` with the minimal set, so every "unsupported" path runs too.
+- Plus login, media, and network tests.
+- A deliberate break (typing accepted while switched off) was caught by the minimal
+  contract run, then reverted.
+
+**Decisions**
+- The demo's in-app web page is `about:blank`, so no website is contacted.
+- detekt: `DemoMedia` suppresses `MagicNumber` for the whole file, since a byte-level
+  PNG/GIF/WAV writer's numbers are the formats' fields. The connector is split into
+  `DemoConnector` (the contract), `DemoNetwork` (the pretend server), and
+  `DemoSimulator`, to keep each class a readable size.
+- There is no screen yet to add a demo account. The setup flow is P2.7, so a debug
+  build still opens to the blank screen until Phase 2.
+
+**Next:** P1.6, Phase 1 acceptance (the migration test harness remains).
