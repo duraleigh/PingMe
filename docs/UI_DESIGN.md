@@ -51,7 +51,7 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 | Connected button group | Inbox filters (All, Unread, per network) |
 | FAB menu | Inbox: New chat, New group, Scan QR |
 | Horizontal floating toolbar | Chat screen: contextual actions during multi-select |
-| Split button | Send button with a dropdown for Schedule and Send as SMS |
+| Split button | Send button with a dropdown for Send later and Send as SMS |
 | Loading indicator (shape-morphing) | Sync, history backfill, pairing |
 | Toggle buttons | Chat settings, reaction set editor |
 | Sliders (expressive) | Font size, corner radius, animation intensity |
@@ -89,8 +89,9 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   Users can choose a grid, a row, or "pinned at top of list" style. Up to 12 pins.
 - **List items**: avatar, name, last message preview, network badge, time, unread badge,
   mute icon. Sender name shown in previews for groups.
-- **Swipe actions**: left and right swipes are user-assignable from Pin, Archive, Mute,
-  Mark read, Delete.
+- **Swipe actions**: left and right swipes are user-assignable from Pin or unpin, Archive,
+  Mute or unmute, Mark read or unread, Low priority, Delete. Each direction can be
+  set independently, and either can be turned off.
 - **Filters**: connected button group. The set of networks shown is whatever is
   connected.
 - **FAB menu**: expands into New chat, New group, and Scan QR (for pairing flows).
@@ -126,8 +127,10 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 +----------------------------------------------+
 ```
 
-- **Bubbles**: Material 3 tonal surfaces by default. Outgoing uses primary container,
-  incoming uses surface container high. Consecutive messages from the same sender are
+- **Bubbles**: incoming bubbles are Material 3 tonal surfaces (surface container
+  high) on every network. Outgoing bubbles take the colour of the network the message
+  went out on, so a glance at your own bubble says which service carried it. See
+  section 10.1 for the palette and the RCS versus SMS distinction. Consecutive messages from the same sender are
   grouped with tighter spacing and only the last bubble carries the tail.
 - **Status**: sending, sent, delivered, read, failed. Failed messages show a retry
   button and a "send as SMS" option where applicable.
@@ -194,7 +197,7 @@ them.
 - Dynamic colour from wallpaper, seed colour, curated presets, or manual palette.
 - Light, dark, AMOLED black, follow system.
 - Contrast level.
-- Outgoing and incoming bubble colours (per chat).
+- Outgoing bubble colour per network (defaults in section 10.1) and per chat.
 - Per-network accent colour used in badges and the header.
 - Sender name colours in groups: auto-assigned or fixed.
 
@@ -515,7 +518,219 @@ the expected result.
 
 ---
 
-## 9. Open questions
+## 10. Feature additions, round two
+
+Everything in this section is in the plan. Items that carry a per-network caveat say
+so in place.
+
+### 10.1 Outgoing bubble colour by network
+
+Each network has a signature colour. Outgoing bubbles use a light tonal tint of it in
+light mode with dark text, and a deeper tone in dark mode with light text, so the
+4.5:1 contrast rule holds. The greens and the blues are deliberately far apart in
+lightness and hue so they stay distinguishable side by side, and every colour also
+has a network badge next to it.
+
+| Network | Signature | Light-mode bubble | Note |
+|---|---|---|---|
+| Google Messages, RCS | Device dynamic primary | Primary container, full saturation | Follows the phone's theme |
+| Google Messages, SMS fallback | Same hue, desaturated | Primary container at reduced chroma, outlined edge, "SMS" tag on the bubble | Instantly reads as "this one fell back" |
+| WhatsApp | Bright green | Light mint tint | |
+| Google Voice | Deep teal-green | Light teal tint, darker text | Clearly a different green from WhatsApp |
+| Signal | Signal blue | Light periwinkle tint | |
+| Telegram | Sky blue | Light sky tint | Lighter and cooler than Signal |
+| Messenger | Messenger blue-violet | Light lavender-blue tint | Between Signal and Instagram |
+| Instagram | Magenta-pink | Light pink tint | |
+| Native SMS mode | Neutral | Surface container highest | |
+
+All of these are defaults. The Appearance studio can override any network's colour,
+and a per-chat override wins over both.
+
+### 10.2 Theme and colour
+
+Already in section 4.1 and restated here because it was asked for explicitly: Light,
+Dark, and Follow system, plus dynamic colour taken from the phone's wallpaper
+(Material You) as the default colour source.
+
+### 10.3 Privacy toggles: read receipts and typing
+
+Settings > Privacy has two switches, each with a per-network override:
+
+- **Send read receipts.** Off means PingMe never tells the network a message was
+  read. Side effect the UI states plainly: the chat also stays unread in that
+  network's own app, because "read" is the same signal.
+- **Show when I am typing.** Off means no typing events are sent.
+
+Neither affects what PingMe shows about other people.
+
+### 10.4 Spaces: WhatsApp communities and Telegram topics
+
+A **space** is a named group of chats that PingMe shows as one unit.
+- A WhatsApp community becomes a space containing its announcement group and every
+  linked group.
+- A Telegram forum group becomes a space with one chat per topic.
+- Users can also make their own spaces from any chats.
+
+Spaces appear in the avatar menu and can be promoted into the bottom bar, which
+becomes user-configurable: any mix of network filters, spaces, and Low priority, up
+to five items. Inside a space the inbox shows only that space's chats, with the same
+pinned grid and list. Unread counts for a space follow the counting rule in section
+6.4.
+
+### 10.5 Double-tap reaction
+
+Double-tapping a bubble sends the user's chosen quick reaction, default ❤️. It is set
+in Settings > Reactions, can be overridden per chat, and plays the Reaction Burst.
+Where a network does not allow that emoji, the double-tap falls back to the first
+allowed emoji in the quick set and says so once.
+
+### 10.6 One-time codes
+
+Incoming messages are scanned on the phone for one-time codes. When one is found:
+- The notification gets a "Copy code" action.
+- With "Auto-copy one-time codes" on (off by default), the code is copied to the
+  clipboard the moment it arrives and a small toast confirms it. Android allows
+  clipboard writes from a background service, so this works while PingMe is not
+  open.
+- The clipboard entry is marked sensitive so Android hides it from clipboard
+  previews.
+
+### 10.7 Low priority
+
+Any chat can be marked Low priority from its swipe action, the long-press menu, or
+Chat details. Low priority chats:
+- leave the main list and pinned grid and live under Low priority, reachable from
+  the avatar menu or the bottom bar,
+- are muted,
+- never count toward any unread total,
+- still match notification keywords (section 10.9) if the user allows that.
+
+This replaces neither Archive (out of sight, unmuted, returns on new message) nor
+Mute (in sight, silent). It is the third option: out of sight and silent.
+
+### 10.8 Flippy reactions
+
+When someone reacts to a message, the chat's row in the inbox flips over for a
+moment to show the emoji large, then flips back to the preview. Under Settings >
+Motion as "Flippy reactions", on by default at Full and Extra intensity, off at
+Subtle and Off.
+
+### 10.9 Notification keywords
+
+Settings > Notifications > Keywords holds a list of words or phrases. Each entry has:
+- match options: whole word, case-insensitive, and which networks or chats it
+  applies to,
+- its own sound and vibration, via its own notification channel,
+- "Override Low priority and mute" on or off.
+
+When an incoming message matches, the keyword rule's notification fires even if the
+chat is otherwise silent, and the notification names the keyword that matched.
+
+### 10.10 Obscured chats
+
+Chat details > Privacy > "Obscure messages" blurs every bubble in that chat. Tapping
+a bubble reveals it for a few seconds, then it blurs again. The chat's inbox preview
+and its notifications are also hidden ("New message" only), and the chat is excluded
+from the recent-apps screenshot when the system supports secure surfaces.
+
+### 10.11 Clean links
+
+Outgoing links are stripped of tracking parameters before sending, using the
+open-source ClearURLs rule set kept up to date in the app. Incoming links are shown
+cleaned, with the original kept and available from the link's long-press menu.
+Settings > Privacy has "Clean links I send" (on) and "Clean links I receive" (on).
+
+### 10.12 Link previews
+
+Links render as a preview card with title, description, and image. Where the network
+sends preview data with the message (WhatsApp, Telegram, Signal, Instagram,
+Messenger), PingMe uses that and fetches nothing. Otherwise PingMe fetches the page's
+metadata from the phone. Because that reveals the phone's IP address to the site,
+Settings > Privacy > "Generate link previews" offers Always, Only on Wi-Fi, and
+Never. Previews are cached with the message.
+
+### 10.13 Send later
+
+Long-press the send button, or use the split button's dropdown, to schedule. The
+picker offers, in one sheet:
+- quick chips: In 1 hour, This evening, Tomorrow morning, Tomorrow at this time,
+  Next Monday morning,
+- a date and time picker,
+- a plain-text field that understands phrases like "friday 6pm" or "in 45 minutes".
+
+Scheduled messages show in the chat as a pending bubble with a clock, editable and
+cancellable until they go. PingMe has no server, so sending happens from the phone
+using an exact alarm. If the phone is off or the network is disconnected at that
+moment, PingMe sends as soon as it can and notifies the user that it went late.
+
+### 10.14 Search in chat
+
+The search icon in the chat header opens a search bar with type chips: Text, Photos,
+Videos, Links, Files, Voice notes, GIFs, plus a sender filter in groups and a date
+jump. Text search uses a local full-text index over everything PingMe has synced.
+Media chips show a grid. Results jump to the message in place with a highlight
+pulse. Global search on the inbox uses the same index across all chats.
+
+### 10.15 Merged chats
+
+Chats with the same person on different networks can be merged into one thread.
+- A merged chat shows every message from its underlying chats in one timeline, each
+  bubble carrying its network colour (section 10.1) and badge.
+- The composer shows a network chip on the left of the text field with the current
+  service. Tap it to switch for the next messages. The chip is red-lined when that
+  service is disconnected.
+- Each person has a default service, set in the merged chat's details, and the chip
+  starts there.
+- PingMe suggests merges when phone numbers match across RCS, SMS, WhatsApp, Signal,
+  Telegram, and Google Voice. It never merges on its own; the user confirms. Instagram
+  and Messenger identities are linked by hand.
+- Merged chats can be split again from Chat details.
+- Group chats are never merged.
+- Pins, low priority, mute, obscure, and notification settings apply to the merged
+  chat as a whole.
+
+### 10.16 Keep all media
+
+Settings > Storage > "Save all incoming media" downloads every attachment as it
+arrives, to app-private storage by default or a user-chosen folder. Ephemeral media
+is saved wherever the network actually delivers the bytes to a linked device. Where
+it does not, PingMe cannot save what it never receives. Current state per network:
+
+| Network | Ordinary media | View-once or disappearing media |
+|---|---|---|
+| RCS via Google Messages | Saved | Not a feature of RCS |
+| WhatsApp | Saved | Delivery to linked devices has been switched on and off by WhatsApp; best effort |
+| Signal | Saved | Not delivered to linked devices; cannot be saved |
+| Telegram | Saved | Self-destruct is client-enforced; saved |
+| Instagram | Saved | Delivered to the client; saved. Instagram may notify the sender the way it does for screenshots |
+| Messenger | Saved | Same as Instagram |
+| Google Voice | Saved | Not a feature |
+
+### 10.17 Chat header: name, info, calls
+
+- **Tapping the name** opens Chat details (section 3.4).
+- **An info button** in Chat details opens the person's card in the phone's contacts
+  app, via the contact lookup Android provides, for anyone matched to a contact.
+  Unmatched people get "Add to contacts".
+- **Phone icon and video icon** sit beside the overflow menu. Each places a call on
+  the service the chat is currently using and, where Android allows it, starts the
+  call immediately rather than opening a dial screen:
+
+| Service | Audio | Video |
+|---|---|---|
+| Google Messages, SMS, merged chat on those | Dials the number immediately in the default dialer (needs the phone-call permission, asked once) | Opens Google Meet calling to that number, immediately where Meet exposes it |
+| WhatsApp | Starts a WhatsApp call immediately, using the call entry WhatsApp registers in the phone's contacts | Same, video |
+| Signal | Same mechanism, immediate | Same, video |
+| Telegram | Same mechanism, immediate | Same, video |
+| Google Voice | Opens Google Voice to that person; whether it can dial immediately is an open question | Not offered |
+| Instagram | Opens the Instagram thread; Instagram exposes no call intent | Same |
+| Messenger | Opens the Messenger thread; immediate calling is an open question | Same |
+
+The immediate WhatsApp, Signal, and Telegram calls depend on the person being in the
+phone's contacts with that app's contact sync on. When they are not, the icon opens
+the app to that person instead, and the button's long-press explains why.
+
+## 11. Open questions
 
 1. Does deleting a message through the Google Messages pairing delete it on the phone,
    and does Google expose "delete for everyone" for RCS to paired devices?
@@ -525,8 +740,10 @@ the expected result.
    open-source-friendly alternative would be preferable if one is reliable.
 4. Should the reaction particle layer be capped on low-end devices automatically
    (based on frame timing) rather than only by the user's intensity setting?
-5. Whether Instagram's hidden requests (the ones Meta filters out of the Requests
+5. Whether Google Voice, Messenger, and Google Meet expose intents that start a call
+   immediately, or only open the app to the person. Needs testing on a device.
+6. Whether Instagram's hidden requests (the ones Meta filters out of the Requests
    tab) are reachable through the endpoints the connector uses, or only the visible
    ones.
-6. Whether to ship a "theme gallery" of community-contributed JSON themes inside the
+7. Whether to ship a "theme gallery" of community-contributed JSON themes inside the
    app or only support import.

@@ -373,7 +373,10 @@ before the user connects it.
   Google Voice app with a deep link. US only, since that is where Google Voice exists.
 
 ### Milestone 4: quality of life
-- Cross-network contact linking.
+- Cross-network contact linking and merged chats (UI_DESIGN.md section 10.15).
+- Send later, search in chat, low priority, notification keywords, obscured chats,
+  clean links, link previews, keep-all-media, spaces, and the call buttons
+  (UI_DESIGN.md section 10).
 - Search across all networks.
 - Backup and restore of the local database.
 - Instagram, gated behind an explicit risk warning, with inbox folder support
