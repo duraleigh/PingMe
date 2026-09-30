@@ -13,6 +13,15 @@ android {
     }
 }
 
+// The migration test reads the exported schemas as test assets.
+androidComponents {
+    onVariants { variant ->
+        variant.hostTests.values.forEach { test ->
+            test.sources.assets?.addStaticSourceDirectory("$projectDir/schemas")
+        }
+    }
+}
+
 room {
     schemaDirectory("$projectDir/schemas")
 }

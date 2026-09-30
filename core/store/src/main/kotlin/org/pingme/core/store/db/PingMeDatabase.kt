@@ -25,7 +25,7 @@ import kotlinx.coroutines.Dispatchers
         MergeLinkEntity::class,
         MediaSaveJobEntity::class,
     ],
-    version = 1,
+    version = PingMeDatabase.VERSION,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -50,6 +50,9 @@ abstract class PingMeDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "pingme.db"
+
+        /** The schema version. Bump it with a migration in [MIGRATIONS] and an exported schema. */
+        const val VERSION = 1
 
         /** Schema migrations, oldest first. Empty until the schema first changes (BUILD_PLAN.md P1.6). */
         val MIGRATIONS = emptyArray<androidx.room.migration.Migration>()

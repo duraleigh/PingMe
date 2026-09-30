@@ -572,3 +572,31 @@ Tests: 31, all passing.
   build still opens to the blank screen until Phase 2.
 
 **Next:** P1.6, Phase 1 acceptance (the migration test harness remains).
+
+## P1.6 Acceptance for Phase 1 (done, 2026-09-30)
+
+Every item on the plan's list passes:
+- **Unit tests for the unread rule** (`UnreadRuleTest`, 7 tests), **merge-link
+  logic** (`ContactStoreTest`: confirm, look up by contact or person, remove), and
+  **every DAO** (through the repositories, in `core/store`).
+- **The contract test passes against the demo connector**: `DemoContractTest` and
+  `DemoMinimalContractTest`, 11 checks each.
+- **Schema exported** (`core/store/schemas/.../1.json`) **and a migration test harness**
+  (`MigrationTest`, with the migrations list still empty):
+  - Every schema version from 1 to current must have its exported schema.
+  - Every version must upgrade through `PingMeDatabase.MIGRATIONS` to exactly the
+    current schema.
+  - A migrated database must open in Room with search working.
+  - Checked by bumping the version with no migration: two of the three tests failed.
+
+Totals: 108 unit tests, all passing (model 5, store 43, connector API 4, service 25,
+demo 31). `./gradlew check`, `assembleDebug`, and `assembleRelease` pass.
+
+**Implementation notes**
+- `PingMeDatabase.VERSION` is the one place the schema version lives.
+- The exported schemas become unit-test assets through AGP 9's variant API. The old
+  `sourceSets` accessor fails on AGP 9's new DSL.
+
+Phase 1 has no gate. **Next:** Phase 2, the UI against the demo connector, starting
+with P2.1 (theme). Gate G1 at the end of Phase 2 is the owner's first real look at the
+app.
