@@ -192,4 +192,39 @@ failed with "SIDELOAD_KEYSTORE_FILE is set but SIDELOAD_KEYSTORE_PASSWORD is mis
 or empty". The output is now `app/build/outputs/apk/release/app-release.apk`, the
 path P0.4 uploads. `./gradlew check` passes.
 
-**Next:** P0.4, the CI workflow (waiting on the owner's go-ahead).
+**Next:** P0.4, the CI workflow (owner approved it on 2026-09-30).
+
+## P0.4 CI (2026-09-30)
+
+`.github/workflows/build.yml`, on every push, every pull request, and tags `v*`:
+
+1. JDK 17 (Temurin), the exact SDK packages (`platforms;android-37.2`,
+   `build-tools;36.0.0`), and Gradle with caching.
+2. Go bridge: skipped until `gobridge/build.sh` exists (P3.1). After that it is
+   rebuilt only when a file under `gobridge/` changes; the AAR is cached by that hash.
+   That rebuild step sets up Go (from `gobridge/go.mod`, modules cached by
+   `gobridge/go.sum`), NDK 27.3, and gomobile.
+3. Decodes `SIDELOAD_KEYSTORE_B64` and checks that the keystore opens with
+   `SIDELOAD_KEYSTORE_PASSWORD`. If not, the run fails with a message saying which
+   secret to re-paste. Pushes and tags require the secrets. Pull requests from forks
+   get no secrets, so they warn and use the debug key.
+4. `./gradlew lint testDebugUnitTest assembleRelease`.
+5. Uploads the signed APK as `pingme-<short-sha>.apk`, or `pingme-<tag>.apk` on a tag.
+6. On a `v*` tag, a second job creates the GitHub release with that APK attached.
+
+**Deviations and decisions**
+
+- Action versions (latest releases): checkout v7, setup-java v6, setup-go v7,
+  cache v6, upload-artifact v7, download-artifact v8, gradle/actions v6.
+- The APK is uploaded with `archive: false` (upload-artifact v7), so the download is
+  the `.apk` itself, not a zip. It opens straight from a phone.
+- setup-gradle defaults to a commercial caching service; the workflow selects its
+  open-source `basic` cache (GitHub Actions cache) instead.
+- Go and gomobile are set up only when the bridge needs building, rather than on
+  every run. Before P3.1 there is nothing for them to do.
+- The plan says to run `lint testDebugUnitTest`. When P0.5 adds the `check` alias,
+  CI switches to `./gradlew check`.
+- Checked locally: `actionlint` 1.7.12 reports no problems. The keystore step was run
+  locally against a throwaway key: a good key, a key with wrapped base64 lines, a
+  wrong password, and non-base64 input all behave as intended. The workflow's first
+  real run is on this push.

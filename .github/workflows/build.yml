@@ -1,0 +1,145 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Builds, checks, and signs PingMe on every push and pull request (BUILD_PLAN.md P0.4).
+# The signed APK is uploaded as an artifact named pingme-<short-sha>.apk. A tag v*
+# also publishes a GitHub release with the APK attached, which is what the owner
+# installs.
+name: build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      apk: ${{ steps.apk.outputs.name }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # The runner image ships an Android SDK with licences accepted. Install exactly
+      # the packages the build uses so AGP never has to fetch them mid-build.
+      - name: Android SDK packages
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-37.2" "build-tools;36.0.0" > /dev/null
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      # Go bridge (P3.1). Rebuilt only when anything under gobridge/ changes; the AAR
+      # is cached under that hash otherwise. Skipped until gobridge/build.sh exists.
+      - name: Go bridge cache
+        id: gobridge-cache
+        if: hashFiles('gobridge/build.sh') != ''
+        uses: actions/cache@v6
+        with:
+          path: gobridge/build
+          key: gobridge-${{ hashFiles('gobridge/**') }}
+
+      - uses: actions/setup-go@v7
+        if: hashFiles('gobridge/build.sh') != '' && steps.gobridge-cache.outputs.cache-hit != 'true'
+        with:
+          go-version-file: gobridge/go.mod
+          cache-dependency-path: gobridge/go.sum
+
+      - name: Build Go bridge
+        if: hashFiles('gobridge/build.sh') != '' && steps.gobridge-cache.outputs.cache-hit != 'true'
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.3.13750724" > /dev/null
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.3.13750724"
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+          cd gobridge && ./build.sh
+
+      # Release builds are signed with the owner's sideload key so updates install
+      # over the previous version. A missing or broken key fails the build on pushes
+      # and tags; pull requests from forks get no secrets and fall back to the debug key.
+      - name: Sideload keystore
+        env:
+          SIDELOAD_KEYSTORE_B64: ${{ secrets.SIDELOAD_KEYSTORE_B64 }}
+          SIDELOAD_KEYSTORE_PASSWORD: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$SIDELOAD_KEYSTORE_B64" ]; then
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "::warning::No signing secrets for this pull request; release APK uses the debug key."
+              exit 0
+            fi
+            echo "::error::Secret SIDELOAD_KEYSTORE_B64 is missing or empty."
+            exit 1
+          fi
+          keystore="$RUNNER_TEMP/pingme-sideload.jks"
+          if ! printf '%s' "$SIDELOAD_KEYSTORE_B64" | base64 --decode --ignore-garbage > "$keystore"; then
+            echo "::error::SIDELOAD_KEYSTORE_B64 is not valid base64. Re-paste it from the password manager."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$keystore" -storepass "$SIDELOAD_KEYSTORE_PASSWORD" > /dev/null 2>&1; then
+            echo "::error::The keystore from SIDELOAD_KEYSTORE_B64 does not open with SIDELOAD_KEYSTORE_PASSWORD."
+            exit 1
+          fi
+          echo "SIDELOAD_KEYSTORE_FILE=$keystore" >> "$GITHUB_ENV"
+
+      - name: Lint, unit tests, release build
+        env:
+          SIDELOAD_KEYSTORE_PASSWORD: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
+          SIDELOAD_KEY_ALIAS: ${{ secrets.SIDELOAD_KEY_ALIAS }}
+          SIDELOAD_KEY_PASSWORD: ${{ secrets.SIDELOAD_KEY_PASSWORD }}
+        run: ./gradlew lint testDebugUnitTest assembleRelease
+
+      - name: Name the APK
+        id: apk
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            name="pingme-${{ github.ref_name }}.apk"
+          else
+            name="pingme-${GITHUB_SHA::7}.apk"
+          fi
+          cp app/build/outputs/apk/release/app-release.apk "$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      # Uploaded as the bare .apk (not zipped) so it installs straight from a phone.
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.apk.outputs.name }}
+          archive: false
+          if-no-files-found: error
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/pingme-sideload.jks"
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build.outputs.apk }}
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" "${{ needs.build.outputs.apk }}" \
+            --repo "${{ github.repository }}" \
+            --title "PingMe ${{ github.ref_name }}" \
+            --generate-notes
