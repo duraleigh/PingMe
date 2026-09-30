@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PingMe Inbox</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&family=Lexend:wght@300..800&family=Nunito:wght@300..900&display=swap">
+<style>
+body{margin:0;background:#fbf8ff}
+a{color:#1c1b22;text-decoration:none}a:hover{color:#1c1b22}
+button{font:inherit;cursor:pointer;border:0;background:none;padding:0;color:inherit}
+.row{display:flex;align-items:center;gap:14px;padding:9px 20px;transition:background .2s}
+.row:hover{background:#f3eff9}
+.badge{min-width:22px;height:22px;padding:0 7px;border-radius:11px;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.net{font-size:11px;font-weight:700;letter-spacing:.3px;padding:2px 7px;border-radius:8px;background:#ebe6f2;color:#49454f}
+.status{display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:14px;font-size:12px;font-weight:700}
+.status.ok{background:#dcefe3;color:#1a4d31}
+.status.warn{background:#fbe9c8;color:#5a3d00}
+.status.bad{background:#fadad6;color:#7a1f14}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.status.warn .dot{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:.5}}
+.fab{width:60px;height:60px;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(28,27,34,.25);transition:border-radius .35s cubic-bezier(.2,1.4,.3,1),transform .35s cubic-bezier(.2,1.4,.3,1)}
+.fab:active{transform:scale(.9)}
+.fab.open{border-radius:50%;transform:rotate(45deg)}
+.fabitem{display:flex;align-items:center;gap:12px;animation:rise .35s cubic-bezier(.2,1.4,.3,1) both}
+.fabitem:nth-child(1){animation-delay:.08s}.fabitem:nth-child(2){animation-delay:.04s}
+@keyframes rise{0%{transform:translateY(24px) scale(.8);opacity:0}100%{transform:none;opacity:1}}
+.pill{height:44px;padding:0 18px;border-radius:22px;background:#fff;box-shadow:0 4px 16px rgba(28,27,34,.18);font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;color:#1c1b22}
+.pintile{display:flex;flex-direction:column;align-items:center;gap:5px;width:62px;flex:none;animation:pop .4s cubic-bezier(.2,1.4,.3,1) both}
+@keyframes pop{0%{transform:scale(.6);opacity:0}100%{transform:none;opacity:1}}
+.pinbtn{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;color:#79747e;transition:transform .3s cubic-bezier(.2,1.4,.3,1)}
+.pinbtn:active{transform:scale(.8) rotate(-20deg)}
+.navbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#49454f;transition:transform .25s cubic-bezier(.2,1.4,.3,1)}
+.navbtn:active{transform:scale(.9)}
+.navind{width:56px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;transition:background .25s,transform .35s cubic-bezier(.2,1.6,.3,1)}
+.navbtn.on .navind{transform:scaleX(1.08)}
+.typing{position:absolute;right:-8px;bottom:-4px;height:20px;padding:0 6px;border-radius:10px;background:#fff;box-shadow:0 2px 6px rgba(28,27,34,.25);display:flex;align-items:center;gap:3px;animation:pop .35s cubic-bezier(.2,1.5,.3,1) both}
+.typing span{width:5px;height:5px;border-radius:50%;display:inline-block;animation:tp 1s ease-in-out infinite}
+.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+@keyframes tp{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-3px);opacity:1}}
+.rowwrap{position:relative;overflow:hidden}
+.under{position:absolute;inset:0;display:flex;align-items:center;padding:0 24px;font-size:13px;font-weight:800;color:#fff;gap:8px}
+.rowa{display:flex;align-items:center;gap:14px;padding:9px 20px;background:#fbf8ff;position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.rowa.snap{transition:transform .35s cubic-bezier(.2,1.4,.3,1)}
+.rowa.held{background:#f1ecf7;transform:scale(.98)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fbf8ff;border-radius:28px 28px 0 0;padding:12px 16px 28px 16px;box-shadow:0 -8px 32px rgba(28,27,34,.18);animation:up .35s cubic-bezier(.2,1.2,.3,1) both}
+@keyframes up{0%{transform:translateY(60px);opacity:0}100%{transform:none;opacity:1}}
+.handle{width:36px;height:4px;border-radius:2px;background:#c9c3d2;margin:0 auto 12px auto}
+.act{display:flex;align-items:center;gap:14px;height:50px;padding:0 12px;border-radius:16px;font-size:15px;font-weight:600;width:100%;box-sizing:border-box;text-align:left}
+.act:hover{background:#f1ecf7}
+.snack{position:absolute;left:16px;right:16px;bottom:92px;background:#2f2c38;color:#fff;border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:12px;font-size:14px;box-shadow:0 8px 24px rgba(28,27,34,.3);animation:up .3s ease-out both;z-index:5}
+.mutei{color:#79747e;display:inline-flex}
+.menu{position:absolute;right:12px;top:78px;width:220px;background:#fff;border-radius:20px;box-shadow:0 12px 36px rgba(28,27,34,.25);padding:8px;animation:pop .25s cubic-bezier(.2,1.4,.3,1) both;transform-origin:top right}
+.mi{display:flex;align-items:center;gap:12px;height:46px;padding:0 12px;border-radius:14px;font-size:14px;font-weight:600;width:100%;box-sizing:border-box;text-align:left}
+.mi:hover{background:#f1ecf7}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #fbf8ff; color: #1c1b22; display: flex; flex-direction: column; font-family: {{fontFamily}}">
+
+  <div style="display: flex; align-items: center; gap: 10px; padding: 28px 12px 2px 20px">
+    <div style="font-size: 17px; font-weight: 800; letter-spacing: -.3px">PingMe</div>
+    <button class="status {{health.cls}}" onClick="{{cycleHealth}}"><span class="dot"></span>{{health.label}}</button>
+    <div style="flex: 1 1 0"></div>
+    <button aria-label="Search" style="width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></button>
+    <button aria-label="Account and settings" onClick="{{toggleMenu}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><div style="width: 34px; height: 34px; border-radius: {{avatarRadius}}; background: {{accent}}; color: #fff; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center">CA</div></button>
+  </div>
+
+  <div style="flex: 1 1 0; overflow: auto; padding-bottom: 110px">
+    <sc-if value="{{hasPins}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 20px 6px 20px">
+        <sc-for list="{{pinned}}" as="p" hint-placeholder-count="4">
+          <a href="Chat.dc.html" class="pintile" onPointerDown="{{p.down}}" onPointerUp="{{p.up}}" onPointerCancel="{{p.up}}" onClick="{{p.click}}" style="touch-action: pan-y; user-select: none">
+            <div style="position: relative">
+              <div style="width: 54px; height: 54px; border-radius: {{avatarRadius}}; background: {{p.color}}; color: #fff; font-weight: 800; font-size: 19px; display: flex; align-items: center; justify-content: center">{{p.initials}}</div>
+              <sc-if value="{{p.hasUnread}}" hint-placeholder-val="{{ false }}">
+                <div class="badge" style="position: absolute; top: -4px; right: -6px; background: {{accent}}; border: 2px solid #fbf8ff">{{p.unread}}</div>
+              </sc-if>
+              <sc-if value="{{p.typing}}" hint-placeholder-val="{{ false }}">
+                <div class="typing" style="color: {{accent}}"><span style="background: currentColor"></span><span style="background: currentColor"></span><span style="background: currentColor"></span></div>
+              </sc-if>
+            </div>
+            <div style="font-size: 12px; font-weight: 600; max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{p.short}}</div>
+          </a>
+        </sc-for>
+      </div>
+      <div style="height: 1px; background: #e8e2f0; margin: 4px 20px 6px 20px"></div>
+    </sc-if>
+
+    <sc-for list="{{chats}}" as="c" hint-placeholder-count="6">
+      <div class="rowwrap">
+        <div class="under" style="justify-content: flex-start; background: {{accent}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"></path></svg>{{c.readAction}}</div>
+        <div class="under" style="justify-content: flex-end; background: #7a5c00; opacity: {{c.leftOpacity}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"></rect><path d="M5 9v11h14V9M10 13h4"></path></svg>Archive</div>
+        <a href="Chat.dc.html" class="rowa {{c.rowCls}}" onPointerDown="{{c.down}}" onPointerMove="{{c.move}}" onPointerUp="{{c.up}}" onPointerCancel="{{c.up}}" onClick="{{c.click}}" style="transform: translateX({{c.dx}}px)">
+          <div style="position: relative; flex: none">
+            <div style="width: 52px; height: 52px; border-radius: {{avatarRadius}}; background: {{c.color}}; color: #fff; font-weight: 800; font-size: 18px; display: flex; align-items: center; justify-content: center">{{c.initials}}</div>
+            <sc-if value="{{c.typing}}" hint-placeholder-val="{{ false }}">
+              <div class="typing" style="color: {{accent}}"><span style="background: currentColor"></span><span style="background: currentColor"></span><span style="background: currentColor"></span></div>
+            </sc-if>
+          </div>
+          <div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div style="font-size: 16px; font-weight: {{c.weight}}; flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{c.name}}</div>
+              <sc-if value="{{c.muted}}" hint-placeholder-val="{{ false }}"><span class="mutei"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 9-5M18 13v3l2 2H4l2-2M3 3l18 18"></path></svg></span></sc-if>
+              <span class="net">{{c.net}}</span>
+              <div style="font-size: 12px; color: {{c.timeColor}}; font-weight: 600">{{c.time}}</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div style="font-size: 14px; color: {{c.previewColor}}; flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: {{c.previewWeight}}">{{c.preview}}</div>
+              <sc-if value="{{c.hasUnread}}" hint-placeholder-val="{{ false }}">
+                <div class="badge" style="background: {{accent}}">{{c.unread}}</div>
+              </sc-if>
+            </div>
+          </div>
+        </a>
+      </div>
+    </sc-for>
+    <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 40px 24px; text-align: center; color: #49454f; font-size: 14px">Nothing here for this filter.</div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ false }}">
+    <button aria-label="Dismiss" onClick="{{closeSheet}}" style="position: absolute; inset: 0; background: rgba(28,27,34,.45)"></button>
+    <div class="sheet">
+      <div class="handle"></div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 4px 12px 12px 12px">
+        <div style="width: 40px; height: 40px; border-radius: {{avatarRadius}}; background: {{sheet.color}}; color: #fff; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center">{{sheet.initials}}</div>
+        <div><div style="font-size: 16px; font-weight: 800">{{sheet.name}}</div><div style="font-size: 12px; color: #49454f">{{sheet.net}}</div></div>
+      </div>
+      <button class="act" onClick="{{sheet.pin}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l5 5-4 1-3 3 1 5-3 1-3-4-5 5-1-1 5-5-4-3 1-3 5 1 3-3z"></path></svg>{{sheet.pinLabel}}</button>
+      <button class="act" onClick="{{sheet.read}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"></path></svg>{{sheet.readLabel}}</button>
+      <button class="act" onClick="{{sheet.mute}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 21h4"></path></svg>{{sheet.muteLabel}}</button>
+      <button class="act" onClick="{{sheet.archive}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"></rect><path d="M5 9v11h14V9M10 13h4"></path></svg>Archive</button>
+      <button class="act" onClick="{{sheet.low}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"></path></svg>Low priority</button>
+      <button class="act" onClick="{{closeSheet}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"></path></svg>Obscure messages</button>
+      <button class="act" onClick="{{sheet.del}}" style="color: #a8332f"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>Delete chat</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{snack}}" hint-placeholder-val="{{ false }}">
+    <div class="snack"><span style="flex: 1">{{snackText}}</span><sc-if value="{{snackUndo}}" hint-placeholder-val="{{ false }}"><button onClick="{{undo}}" style="font-weight: 800; color: #d6c9ff">Undo</button></sc-if></div>
+  </sc-if>
+
+  <sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+    <button aria-label="Close menu" onClick="{{toggleMenu}}" style="position: absolute; inset: 0; background: rgba(28,27,34,.12)"></button>
+    <div class="menu">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px 12px 12px">
+        <div style="width: 40px; height: 40px; border-radius: {{avatarRadius}}; background: {{accent}}; color: #fff; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center">CA</div>
+        <div><div style="font-size: 14px; font-weight: 800">Clay</div><div style="font-size: 12px; color: #49454f">3 networks connected</div></div>
+      </div>
+      <button class="mi" onClick="{{toggleMenu}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>Settings</button>
+      <button class="mi" onClick="{{toggleMenu}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-1-2 0-3 3 0 4-1a9 9 0 0 0-6-12z"></path><circle cx="8" cy="10" r="1.2"></circle><circle cx="12" cy="7" r="1.2"></circle><circle cx="16" cy="9" r="1.2"></circle></svg>Appearance</button>
+      <button class="mi" onClick="{{toggleMenu}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 21h4"></path></svg>Notifications</button>
+      <button class="mi" onClick="{{toggleMenu}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M3 10h18M8 15h3"></path></svg>Accounts</button>
+      <button class="mi" onClick="{{toggleMenu}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1 10-10-3-3L5 16z"></path><path d="M13 7l3 3"></path></svg>Archived</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{fabOpen}}" hint-placeholder-val="{{ false }}">
+    <button aria-label="Close menu" onClick="{{toggleFab}}" style="position: absolute; inset: 0; background: rgba(251,248,255,.6); backdrop-filter: blur(4px)"></button>
+    <div style="position: absolute; right: 20px; bottom: 170px; display: flex; flex-direction: column; align-items: flex-end; gap: 12px">
+      <button class="fabitem" onClick="{{toggleFab}}"><span class="pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="7" height="7" rx="1.5"></rect><rect x="14" y="4" width="7" height="7" rx="1.5"></rect><rect x="3" y="15" width="7" height="7" rx="1.5"></rect><path d="M15 15h3v3M21 21h-3"></path></svg>Scan QR</span></button>
+      <button class="fabitem" onClick="{{toggleFab}}"><span class="pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"></circle><circle cx="17" cy="9" r="2.5"></circle><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 15c3 0 6 1.5 6 4"></path></svg>New group</span></button>
+      <button class="fabitem" onClick="{{toggleFab}}"><span class="pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 5h16v11H9l-5 4z"></path></svg>New chat</span></button>
+    </div>
+  </sc-if>
+
+  <button class="fab {{fabCls}}" aria-label="New" onClick="{{toggleFab}}" style="position: absolute; right: 20px; bottom: 94px; background: {{accent}}; border-radius: {{fabRadius}}"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 76px; background: #f1ecf7; display: flex; align-items: center; padding: 0 8px 10px 8px">
+    <sc-for list="{{filters}}" as="f" hint-placeholder-count="5">
+      <button class="navbtn {{f.cls}}" onClick="{{f.pick}}" style="color: {{f.color}}">
+        <span class="navind" style="background: {{f.bg}}">
+          <sc-if value="{{f.isAll}}" hint-placeholder-val="{{ true }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"></path></svg></sc-if>
+          <sc-if value="{{f.isUnread}}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"></path><circle cx="18" cy="6" r="3.5" fill="currentColor" stroke="none"></circle></svg></sc-if>
+          <sc-if value="{{f.isRcs}}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"></rect><path d="M10 18h4"></path></svg></sc-if>
+          <sc-if value="{{f.isWa}}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z"></path><path d="M9 9c0 4 2 6 6 6l1-2-2-1-1 1c-1 0-2-1-2-2l1-1-1-2z" fill="currentColor" stroke="none"></path></svg></sc-if>
+          <sc-if value="{{f.isTg}}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4L3 11l6 2 2 6 3-4 5 3z"></path><path d="M9 13l9-7"></path></svg></sc-if>
+        </span>{{f.label}}
+      </button>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5a3fcf","options":["#5a3fcf","#0b7a6a","#c2482a","#1f5fbf"],"section":"Theme"},"shape":{"editor":"enum","default":"expressive","options":["round","soft","expressive"],"section":"Theme"},"font":{"editor":"enum","default":"Manrope","options":["Manrope","Lexend","Nunito"],"section":"Theme"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      filter: 'All',
+      fabOpen: false,
+      menuOpen: false,
+      health: 0,
+      pins: { sam: true, mom: true, work: true, fam: true, dad: true },
+      muted: {},
+      gone: {},
+      unreadOverride: {},
+      dragId: null,
+      dragX: 0,
+      heldId: null,
+      sheetId: null,
+      snack: '',
+      snackUndo: null,
+    };
+    this.startX = 0;
+    this.longTimer = null;
+    this.suppress = false;
+    this.timers = [];
+  }
+  componentWillUnmount() { this.timers.forEach((t) => clearTimeout(t)); clearTimeout(this.longTimer); }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  toast(text, undo) {
+    this.setState({ snack: text, snackUndo: undo || null });
+    this.later(() => { if (this.state.snack === text) this.setState({ snack: '', snackUndo: null }); }, 4000);
+  }
+  unreadOf(c) { return this.state.unreadOverride[c.id] !== undefined ? this.state.unreadOverride[c.id] : c.unread; }
+  toggleRead(c) {
+    const now = this.unreadOf(c);
+    this.setState({ unreadOverride: { ...this.state.unreadOverride, [c.id]: now > 0 ? 0 : 1 }, sheetId: null });
+  }
+  hide(c, label) {
+    const prev = this.state.gone;
+    this.setState({ gone: { ...prev, [c.id]: true }, sheetId: null });
+    this.toast(c.name + ' ' + label, () => this.setState({ gone: { ...this.state.gone, [c.id]: false }, snack: '', snackUndo: null }));
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#5a3fcf';
+    const shape = this.props.shape ?? 'expressive';
+    const font = this.props.font ?? 'Manrope';
+    const radii = { round: '50%', soft: '30%', expressive: '62% 38% 46% 54% / 55% 48% 52% 45%' };
+    const avatarRadius = radii[shape] || radii.expressive;
+    const fabRadius = shape === 'round' ? '30px' : (shape === 'soft' ? '20px' : '28px 12px 28px 12px');
+    const fontFamily = font + ', system-ui, sans-serif';
+
+    const data = [
+      { id: 'sam', name: 'Sam Ortiz', short: 'Sam', initials: 'SO', color: '#0b7a6a', net: 'RCS', time: 'now', preview: 'Are you still coming tonight?', unread: 2, typing: true },
+      { id: 'work', name: 'Design team', short: 'Work', initials: 'DT', color: '#1f5fbf', net: 'WhatsApp', time: '12:40', preview: 'Priya: new mocks are up', unread: 5 },
+      { id: 'mom', name: 'Mom', short: 'Mom', initials: 'M', color: '#c2482a', net: 'RCS', time: '11:02', preview: 'Love you, drive safe', unread: 0 },
+      { id: 'fam', name: 'Family', short: 'Fam', initials: 'F', color: '#8a3d9a', net: 'Telegram', time: '09:15', preview: 'Dad: who has the cooler?', unread: 1 },
+      { id: 'dad', name: 'Dad', short: 'Dad', initials: 'D', color: '#5f6b1f', net: 'SMS', time: 'Tue', preview: 'Call me when you can', unread: 0 },
+      { id: 'priya', name: 'Priya Nair', short: 'Priya', initials: 'PN', color: '#a8332f', net: 'WhatsApp', time: 'Tue', preview: 'You: sending the file now', unread: 0, typing: true },
+      { id: 'lena', name: 'Lena K.', short: 'Lena', initials: 'LK', color: '#2a6f97', net: 'Signal', time: 'Mon', preview: 'Voice note · 0:14', unread: 0 },
+      { id: 'bank', name: 'Bank alerts', short: 'Bank', initials: 'B', color: '#5a5a66', net: 'SMS', time: 'Sun', preview: 'Your statement is ready', unread: 0 },
+      { id: 'jo', name: 'Jo Reyes', short: 'Jo', initials: 'JR', color: '#7a4a1f', net: 'Telegram', time: 'Sun', preview: 'Sent a photo', unread: 0 },
+    ];
+
+    const filterDefs = [
+      { label: 'All', key: 'All', isAll: true },
+      { label: 'Unread', key: 'Unread', isUnread: true },
+      { label: 'RCS', key: 'RCS', isRcs: true },
+      { label: 'WhatsApp', key: 'WhatsApp', isWa: true },
+      { label: 'Telegram', key: 'Telegram', isTg: true },
+    ];
+    const filters = filterDefs.map((f) => {
+      const on = this.state.filter === f.key;
+      return {
+        ...f,
+        cls: on ? 'on' : '',
+        color: on ? accent : '#49454f',
+        bg: on ? 'color-mix(in oklab, ' + accent + ' 22%, white)' : 'transparent',
+        pick: () => this.setState({ filter: f.key }),
+      };
+    });
+
+    const matches = (c) => {
+      if (this.state.gone[c.id]) return false;
+      if (this.state.filter === 'All') return true;
+      if (this.state.filter === 'Unread') return this.unreadOf(c) > 0;
+      return c.net === this.state.filter;
+    };
+
+    const gestures = (c) => ({
+      down: (e) => {
+        this.startX = e.clientX;
+        this.suppress = false;
+        if (e.currentTarget && e.currentTarget.setPointerCapture) { try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {} }
+        clearTimeout(this.longTimer);
+        this.setState({ dragId: c.id, dragX: 0, heldId: null });
+        this.longTimer = setTimeout(() => {
+          this.suppress = true;
+          this.setState({ heldId: c.id });
+          this.longTimer = setTimeout(() => this.setState({ sheetId: c.id, heldId: null, dragId: null, dragX: 0 }), 140);
+        }, 420);
+      },
+      move: (e) => {
+        if (this.state.dragId !== c.id) return;
+        const dx = Math.max(-140, Math.min(140, e.clientX - this.startX));
+        if (Math.abs(dx) > 8) { clearTimeout(this.longTimer); if (this.state.heldId) this.setState({ heldId: null }); }
+        if (dx !== this.state.dragX) this.setState({ dragX: dx });
+      },
+      up: () => {
+        clearTimeout(this.longTimer);
+        const dx = this.state.dragX;
+        if (this.state.dragId === c.id && Math.abs(dx) > 72) {
+          this.suppress = true;
+          this.setState({ dragId: null, dragX: 0, heldId: null });
+          if (dx > 0) { this.toggleRead(c); } else { this.hide(c, 'archived'); }
+          return;
+        }
+        this.setState({ dragId: null, dragX: 0, heldId: null });
+      },
+      click: (e) => { if (this.suppress) { e.preventDefault(); this.suppress = false; } },
+    });
+
+    const decorate = (c) => {
+      const unread = this.unreadOf(c);
+      const dragging = this.state.dragId === c.id;
+      return {
+        ...c,
+        ...gestures(c),
+        unread,
+        typing: !!c.typing,
+        preview: c.typing ? 'typing' : c.preview,
+        previewColor: c.typing ? accent : '#49454f',
+        hasUnread: unread > 0,
+        muted: !!this.state.muted[c.id],
+        weight: unread > 0 ? 800 : 600,
+        previewWeight: unread > 0 || c.typing ? 700 : 400,
+        timeColor: unread > 0 ? accent : '#79747e',
+        dx: dragging ? this.state.dragX : 0,
+        rowCls: (dragging ? '' : 'snap ') + (this.state.heldId === c.id ? 'held' : ''),
+        leftOpacity: dragging && this.state.dragX < 0 ? 1 : 0,
+        readAction: unread > 0 ? 'Mark read' : 'Mark unread',
+      };
+    };
+
+    const pinned = data.filter((c) => this.state.pins[c.id] && matches(c)).map(decorate);
+    const visible = data.filter((c) => !this.state.pins[c.id] && matches(c)).map(decorate);
+
+    const target = data.find((c) => c.id === this.state.sheetId);
+    const sheet = target ? {
+      ...target,
+      pinLabel: this.state.pins[target.id] ? 'Unpin' : 'Pin to top',
+      readLabel: this.unreadOf(target) > 0 ? 'Mark as read' : 'Mark as unread',
+      muteLabel: this.state.muted[target.id] ? 'Unmute' : 'Mute',
+      pin: () => this.setState({ pins: { ...this.state.pins, [target.id]: !this.state.pins[target.id] }, sheetId: null }),
+      read: () => this.toggleRead(target),
+      mute: () => this.setState({ muted: { ...this.state.muted, [target.id]: !this.state.muted[target.id] }, sheetId: null }),
+      archive: () => this.hide(target, 'archived'),
+      low: () => this.hide(target, 'moved to Low priority'),
+      del: () => this.hide(target, 'deleted'),
+    } : { name: '', net: '', initials: '', color: '#000', pinLabel: '', readLabel: '', muteLabel: '' };
+
+    const healthStates = [
+      { label: 'Connected', cls: 'ok' },
+      { label: 'RCS reconnecting', cls: 'warn' },
+      { label: 'RCS needs attention', cls: 'bad' },
+    ];
+
+    return {
+      accent, avatarRadius, fabRadius, fontFamily,
+      filters,
+      chats: visible,
+      empty: visible.length === 0 && pinned.length === 0,
+      pinned,
+      hasPins: pinned.length > 0,
+      health: healthStates[this.state.health % 3],
+      cycleHealth: () => this.setState({ health: this.state.health + 1 }),
+      fabOpen: this.state.fabOpen,
+      fabCls: this.state.fabOpen ? 'open' : '',
+      toggleFab: () => this.setState({ fabOpen: !this.state.fabOpen, menuOpen: false }),
+      menuOpen: this.state.menuOpen,
+      toggleMenu: () => this.setState({ menuOpen: !this.state.menuOpen, fabOpen: false }),
+      sheetOpen: !!target,
+      sheet,
+      closeSheet: () => this.setState({ sheetId: null }),
+      snack: this.state.snack.length > 0,
+      snackText: this.state.snack,
+      snackUndo: !!this.state.snackUndo,
+      undo: () => { if (this.state.snackUndo) this.state.snackUndo(); },
+    };
+  }
+}
+</script>
+</body>
+</html>

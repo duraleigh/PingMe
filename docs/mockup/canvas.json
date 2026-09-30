@@ -1,0 +1,55 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Chat.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Chat",
+      "w": 390,
+      "x": 470,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Inbox",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-30T12:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "s1": {
+      "fill": "purple",
+      "text": "Press Play on either screen.\n\nInbox: the bottom bar filters by network. Tap the status pill at the top to cycle connection states. Tap your avatar for the settings menu. Swipe a row right to mark read or unread, left to archive (with undo). Press and hold a row or a pinned tile for the action sheet: pin, read, mute, archive, low priority, obscure, delete. Animated dots on an avatar mean that person is typing right now. Tap any chat or pinned tile to open the Chat screen.\n\nChat: this is a merged chat. The chip left of the GIF button shows the service the next message goes out on; tap it to switch. Outgoing bubbles are coloured by service, and SMS fallback is outlined with an SMS tag. The phone and video icons in the header show what each service would do. Tap a bubble for the reaction bar and actions (stands in for long-press). Pick a reaction to see the burst. Reply, Voice reply, Pin, Delete with undo, GIF sheet, and the attach sheet all work.\n\nTweaks (top of the panel): accent colour, shape family, font, animation intensity.",
+      "w": 300,
+      "x": 940,
+      "y": 0
+    },
+    "t1": {
+      "kind": "title1",
+      "maxW": 860,
+      "text": "PingMe clickable prototype",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Chat.dc.html"
+  ],
+  "pages": [],
+  "title": "PingMe Mockup"
+}

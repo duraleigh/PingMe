@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PingMe Chat</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&family=Lexend:wght@300..800&family=Nunito:wght@300..900&display=swap">
+<style>
+body{margin:0;background:#fbf8ff}
+a{color:#1c1b22;text-decoration:none}a:hover{color:#1c1b22}
+button{font:inherit;cursor:pointer;border:0;background:none;padding:0;color:inherit;text-align:left}
+input{font:inherit}
+.msgwrap{display:flex;flex-direction:column;padding:3px 16px}
+.bubble{max-width:280px;padding:10px 14px;font-size:15px;line-height:1.35;position:relative;transition:transform .2s}
+.bubble:active{transform:scale(.97)}
+.pop{animation:pop .45s cubic-bezier(.2,1.4,.3,1) both}
+@keyframes pop{0%{transform:translateY(16px) scale(.85);opacity:0}100%{transform:none;opacity:1}}
+.wobble{animation:wobble .6s cubic-bezier(.2,1.6,.3,1) both}
+@keyframes wobble{0%{transform:scale(1)}25%{transform:scale(1.12,.86)}50%{transform:scale(.94,1.08)}75%{transform:scale(1.04,.97)}100%{transform:scale(1)}}
+.quote{border-left:3px solid currentColor;padding:4px 10px;margin:0 0 6px 0;border-radius:6px;font-size:13px;opacity:.8;background:rgba(28,27,34,.06)}
+.rx{display:flex;gap:4px;margin-top:-6px;padding:0 6px}
+.rxchip{height:26px;padding:0 9px;border-radius:13px;background:#fff;border:1px solid #e2dcea;font-size:13px;font-weight:700;display:flex;align-items:center;gap:4px;box-shadow:0 1px 3px rgba(28,27,34,.12);animation:pop .4s cubic-bezier(.2,1.4,.3,1) both}
+.wave{display:flex;align-items:center;gap:2px;height:28px;flex:1}
+.bar{width:3px;border-radius:2px;background:currentColor;opacity:.55}
+.b1{height:6px}.b2{height:12px}.b3{height:20px}.b4{height:26px}.b5{height:16px}.b6{height:9px}
+.wave.playing .bar{animation:bounce .7s ease-in-out infinite alternate}
+.wave.playing .bar:nth-child(odd){animation-delay:.15s}
+.wave.playing .bar:nth-child(3n){animation-delay:.3s}
+@keyframes bounce{0%{transform:scaleY(.5)}100%{transform:scaleY(1.3)}}
+.typing span{width:7px;height:7px;border-radius:50%;background:#79747e;display:inline-block;animation:tp 1s ease-in-out infinite}
+.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+@keyframes tp{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-5px);opacity:1}}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fbf8ff;border-radius:28px 28px 0 0;padding:12px 16px 28px 16px;box-shadow:0 -8px 32px rgba(28,27,34,.18);animation:up .35s cubic-bezier(.2,1.2,.3,1) both}
+@keyframes up{0%{transform:translateY(60px);opacity:0}100%{transform:none;opacity:1}}
+.handle{width:36px;height:4px;border-radius:2px;background:#c9c3d2;margin:0 auto 12px auto}
+.act{display:flex;align-items:center;gap:14px;height:52px;padding:0 12px;border-radius:16px;font-size:15px;font-weight:600;width:100%;box-sizing:border-box}
+.act:hover{background:#f1ecf7}
+.act.off{opacity:.45}
+.rxbar{display:flex;gap:4px;padding:6px;background:#fff;border-radius:32px;box-shadow:0 8px 28px rgba(28,27,34,.22);animation:pop .35s cubic-bezier(.2,1.5,.3,1) both}
+.rxbtn{width:46px;height:46px;border-radius:23px;font-size:26px;display:flex;align-items:center;justify-content:center;transition:transform .2s cubic-bezier(.2,1.6,.3,1)}
+.rxbtn:hover{transform:scale(1.25) translateY(-4px);background:#f1ecf7}
+.rxbtn:active{transform:scale(1.6)}
+.pickgrid{display:grid;grid-template-columns:repeat(8, minmax(0, 1fr));gap:2px;padding:8px}
+.pick{height:40px;font-size:24px;display:flex;align-items:center;justify-content:center;border-radius:12px}
+.pick:hover{background:#f1ecf7;transform:scale(1.2)}
+.burst{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pt{position:absolute;left:50%;top:52%;font-size:26px;animation:fly .85s cubic-bezier(.15,.85,.25,1) forwards}
+@keyframes fly{0%{transform:translate(-50%,-50%) scale(.3) rotate(0);opacity:1}75%{opacity:1}100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.5) rotate(var(--r));opacity:0}}
+.p1{--dx:-150px;--dy:-190px;--r:-60deg}.p2{--dx:150px;--dy:-200px;--r:50deg}.p3{--dx:-170px;--dy:-40px;--r:-30deg}.p4{--dx:175px;--dy:-30px;--r:40deg}
+.p5{--dx:-120px;--dy:130px;--r:-80deg}.p6{--dx:125px;--dy:140px;--r:70deg}.p7{--dx:-30px;--dy:-240px;--r:20deg}.p8{--dx:40px;--dy:190px;--r:-20deg}
+.p9{--dx:-90px;--dy:-260px;--r:-100deg}.p10{--dx:95px;--dy:-250px;--r:90deg}.p11{--dx:-185px;--dy:60px;--r:-15deg}.p12{--dx:185px;--dy:70px;--r:25deg}
+.p13{--dx:-60px;--dy:220px;--r:60deg}.p14{--dx:70px;--dy:-120px;--r:-45deg}.p15{--dx:-200px;--dy:-130px;--r:110deg}.p16{--dx:200px;--dy:-140px;--r:-110deg}
+.cf{position:absolute;left:50%;top:52%;width:10px;height:14px;border-radius:3px;animation:fly .95s ease-out forwards}
+.c1{--dx:-110px;--dy:-300px;--r:400deg}.c2{--dx:120px;--dy:-310px;--r:-380deg}.c3{--dx:-220px;--dy:-100px;--r:300deg}.c4{--dx:230px;--dy:-90px;--r:-320deg}
+.c5{--dx:-160px;--dy:200px;--r:260deg}.c6{--dx:160px;--dy:210px;--r:-240deg}.c7{--dx:-20px;--dy:-340px;--r:500deg}.c8{--dx:30px;--dy:280px;--r:-460deg}
+.c9{--dx:-260px;--dy:20px;--r:200deg}.c10{--dx:260px;--dy:30px;--r:-200deg}.c11{--dx:-80px;--dy:-220px;--r:600deg}.c12{--dx:90px;--dy:-200px;--r:-620deg}
+.ghost{position:absolute;left:50%;top:52%;font-size:130px;animation:ghost 1s ease-out forwards}
+@keyframes ghost{0%{transform:translate(-50%,-50%) scale(.2);opacity:.95}100%{transform:translate(-50%,-150%) scale(1.5);opacity:0}}
+.glow{position:absolute;inset:0;pointer-events:none;animation:glow 1s ease-out forwards}
+@keyframes glow{0%{box-shadow:inset 0 0 0 0 transparent}30%{box-shadow:inset 0 0 90px 30px var(--g)}100%{box-shadow:inset 0 0 0 0 transparent}}
+.rec{animation:blink 1s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.snack{position:absolute;left:16px;right:16px;bottom:96px;background:#2f2c38;color:#fff;border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:12px;font-size:14px;box-shadow:0 8px 24px rgba(28,27,34,.3);animation:up .3s ease-out both}
+.gif{width:96px;height:96px;border-radius:16px;display:flex;align-items:flex-end;padding:8px;box-sizing:border-box;color:#fff;font-size:12px;font-weight:800;transition:transform .2s cubic-bezier(.2,1.6,.3,1)}
+.gif:hover{transform:scale(1.06)}
+.ico{width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;flex:none}
+.opt{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;font-weight:600;flex:1}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #fbf8ff; color: #1c1b22; display: flex; flex-direction: column; font-family: {{fontFamily}}">
+
+  <div style="display: flex; align-items: center; gap: 8px; padding: 30px 8px 8px 4px; background: #f7f3fc">
+    <a href="Main.dc.html" aria-label="Back" class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="width: 44px; height: 44px; border-radius: {{avatarRadius}}; background: #0b7a6a; color: #fff; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center">SO</div>
+    <div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+      <div style="font-size: 18px; font-weight: 800; line-height: 1.1">Sam Ortiz</div>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #49454f">
+        <span style="font-weight: 800; letter-spacing: .3px; padding: 1px 6px; border-radius: 6px; color: #fff; background: {{netColor}}">{{netLabel}}</span>
+        <span>typing</span><span class="typing"><span></span><span></span><span></span></span>
+      </div>
+    </div>
+    <button class="ico" aria-label="Audio call" onClick="{{callAudio}}" style="width: 44px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"></path></svg></button>
+    <button class="ico" aria-label="Video call" onClick="{{callVideo}}" style="width: 44px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="3"></rect><path d="M16 10l5-3v10l-5-3z"></path></svg></button>
+    <button class="ico" aria-label="More" style="width: 44px"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg></button>
+  </div>
+
+  <sc-if value="{{hasPin}}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: #ebe6f2; font-size: 13px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l5 5-4 1-3 3 1 5-3 1-3-4-5 5-1-1 5-5-4-3 1-3 5 1 3-3z"></path></svg>
+      <div style="flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"><span style="font-weight: 800">Pinned · </span>{{pinText}}</div>
+      <button aria-label="Unpin" onClick="{{unpin}}" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+  </sc-if>
+
+  <div style="flex: 1 1 0; overflow: auto; padding: 12px 0 8px 0; display: flex; flex-direction: column; justify-content: flex-end">
+    <div style="text-align: center; font-size: 12px; font-weight: 700; color: #79747e; padding: 4px 0 10px 0">Today</div>
+    <sc-for list="{{messages}}" as="m" hint-placeholder-count="6">
+      <div class="msgwrap" style="align-items: {{m.align}}">
+        <button class="bubble {{m.cls}}" onClick="{{m.open}}" style="background: {{m.bg}}; color: {{m.fg}}; border-radius: {{m.radius}}; border: {{m.border}}">
+          <sc-if value="{{m.showSms}}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; top: -9px; right: 10px; font-size: 9px; font-weight: 800; letter-spacing: .5px; padding: 1px 6px; border-radius: 6px; background: #fbf8ff; border: 1.5px solid {{m.tagColor}}; color: {{m.tagColor}}">SMS</div>
+          </sc-if>
+          <sc-if value="{{m.hasQuote}}" hint-placeholder-val="{{ false }}">
+            <div class="quote"><div style="font-weight: 800; font-size: 12px">{{m.quoteName}}</div>{{m.quoteText}}</div>
+          </sc-if>
+          <sc-if value="{{m.isText}}" hint-placeholder-val="{{ true }}">
+            <div>{{m.text}}</div>
+          </sc-if>
+          <sc-if value="{{m.isDeleted}}" hint-placeholder-val="{{ false }}">
+            <div style="font-style: italic; opacity: .6; display: flex; align-items: center; gap: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M5.5 5.5l13 13"></path></svg>Message deleted</div>
+          </sc-if>
+          <sc-if value="{{m.isVoice}}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; align-items: center; gap: 10px; width: 240px">
+              <span class="ico" style="width: 40px; height: 40px; background: {{accent}}; color: #fff" onClick="{{m.play}}">
+                <sc-if value="{{m.playing}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg></sc-if>
+                <sc-if value="{{m.notPlaying}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l12-7z"></path></svg></sc-if>
+              </span>
+              <div class="wave {{m.playCls}}"><span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span><span class="bar b4"></span><span class="bar b5"></span><span class="bar b6"></span><span class="bar b2"></span><span class="bar b4"></span><span class="bar b3"></span><span class="bar b1"></span><span class="bar b5"></span><span class="bar b3"></span><span class="bar b6"></span><span class="bar b2"></span><span class="bar b4"></span><span class="bar b1"></span><span class="bar b3"></span><span class="bar b5"></span><span class="bar b2"></span><span class="bar b1"></span></div>
+              <span style="font-size: 12px; font-weight: 700; opacity: .8">{{m.duration}}</span>
+              <span style="font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 8px; background: rgba(28,27,34,.08)">1.5x</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{m.isGif}}" hint-placeholder-val="{{ false }}">
+            <div style="width: 200px; height: 150px; border-radius: 12px; background: {{m.gifColor}}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #fff">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M10 9v6l5-3z"></path></svg>
+              <div style="font-size: 12px; font-weight: 800; letter-spacing: 1px">GIF · {{m.text}}</div>
+            </div>
+          </sc-if>
+          <div style="display: flex; justify-content: flex-end; align-items: center; gap: 4px; font-size: 11px; opacity: .65; margin-top: 4px">{{m.time}}
+            <sc-if value="{{m.isOut}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l4 4 8-8M10 16l2 2 10-10"></path></svg><span>{{m.status}}</span></sc-if>
+          </div>
+        </button>
+        <sc-if value="{{m.hasRx}}" hint-placeholder-val="{{ false }}">
+          <div class="rx">
+            <sc-for list="{{m.rx}}" as="r" hint-placeholder-count="2">
+              <span class="rxchip">{{r.e}} {{r.n}}</span>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{hasReply}}" hint-placeholder-val="{{ false }}">
+    <div style="margin: 0 12px; padding: 8px 12px; background: #ebe6f2; border-radius: 16px 16px 4px 4px; display: flex; align-items: center; gap: 10px; border-left: 4px solid {{accent}}; animation: up .25s ease-out both">
+      <div style="flex: 1 1 0; min-width: 0; font-size: 13px"><div style="font-weight: 800; color: {{accent}}">Replying to {{replyName}}</div><div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #49454f">{{replyText}}</div></div>
+      <button aria-label="Cancel reply" onClick="{{cancelReply}}" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{notRecording}}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; align-items: flex-end; gap: 6px; padding: 8px 12px 28px 12px; background: #fbf8ff">
+      <button class="ico" aria-label="Attach" onClick="{{openAttach}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+      <div style="flex: 1 1 0; display: flex; align-items: center; gap: 6px; height: 52px; border-radius: 26px; background: #ebe6f2; padding: 0 6px 0 14px">
+        <button aria-label="Switch service" onClick="{{openNet}}" style="font-size: 11px; font-weight: 800; letter-spacing: .3px; padding: 4px 8px; border-radius: 9px; color: #fff; background: {{netColor}}; display: flex; align-items: center; gap: 4px">{{netLabel}}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+        <button aria-label="GIF" onClick="{{openGif}}" style="font-size: 12px; font-weight: 800; padding: 3px 6px; border-radius: 7px; border: 2px solid #49454f; color: #49454f">GIF</button>
+        <input value="{{draft}}" onChange="{{onDraft}}" placeholder="Message" aria-label="Message" style="flex: 1 1 0; min-width: 0; height: 40px; border: 0; background: transparent; outline: none; font-size: 15px; color: #1c1b22">
+      </div>
+      <sc-if value="{{hasDraft}}" hint-placeholder-val="{{ false }}">
+        <button class="ico" aria-label="Send" onClick="{{send}}" style="width: 52px; height: 52px; background: {{accent}}; color: #fff; border-radius: {{fabRadius}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l18-8-8 18-2-8z"></path></svg></button>
+      </sc-if>
+      <sc-if value="{{noDraft}}" hint-placeholder-val="{{ true }}">
+        <button class="ico" aria-label="Record voice note" onClick="{{startRec}}" style="width: 52px; height: 52px; background: {{accent}}; color: #fff; border-radius: {{fabRadius}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{recording}}" hint-placeholder-val="{{ false }}">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px 28px 12px; background: #fbf8ff">
+      <button class="ico" aria-label="Cancel recording" onClick="{{cancelRec}}" style="background: #fadad6; color: #7a1f14"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg></button>
+      <div style="flex: 1 1 0; height: 52px; border-radius: 26px; background: #ebe6f2; display: flex; align-items: center; gap: 10px; padding: 0 16px; color: {{accent}}">
+        <span class="rec" style="width: 10px; height: 10px; border-radius: 5px; background: #c2482a"></span>
+        <div class="wave playing"><span class="bar b2"></span><span class="bar b4"></span><span class="bar b3"></span><span class="bar b5"></span><span class="bar b1"></span><span class="bar b4"></span><span class="bar b6"></span><span class="bar b2"></span><span class="bar b3"></span><span class="bar b5"></span><span class="bar b1"></span><span class="bar b4"></span><span class="bar b2"></span><span class="bar b6"></span><span class="bar b3"></span></div>
+        <span style="font-size: 14px; font-weight: 800; color: #1c1b22">{{recTime}}</span>
+      </div>
+      <button class="ico" aria-label="Send voice note" onClick="{{sendRec}}" style="width: 52px; height: 52px; background: {{accent}}; color: #fff; border-radius: {{fabRadius}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l18-8-8 18-2-8z"></path></svg></button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{overlay}}" hint-placeholder-val="{{ false }}">
+    <button aria-label="Dismiss" onClick="{{closeOverlay}}" style="position: absolute; inset: 0; background: rgba(28,27,34,.45); backdrop-filter: blur(6px)"></button>
+    <div style="position: absolute; left: 0; right: 0; top: 150px; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 0 16px; pointer-events: none">
+      <div class="rxbar" style="pointer-events: auto">
+        <sc-for list="{{quick}}" as="q" hint-placeholder-count="6">
+          <button class="rxbtn" onClick="{{q.pick}}">{{q.e}}</button>
+        </sc-for>
+        <button class="rxbtn" aria-label="More reactions" onClick="{{openPicker}}" style="background: #ebe6f2"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+      </div>
+      <sc-if value="{{picker}}" hint-placeholder-val="{{ false }}">
+        <div style="pointer-events: auto; background: #fff; border-radius: 24px; box-shadow: 0 8px 28px rgba(28,27,34,.22); width: 100%; animation: pop .3s cubic-bezier(.2,1.4,.3,1) both">
+          <div style="padding: 12px 16px 0 16px; font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #49454f">ANY EMOJI</div>
+          <div class="pickgrid">
+            <sc-for list="{{more}}" as="q" hint-placeholder-count="16">
+              <button class="pick" onClick="{{q.pick}}">{{q.e}}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <div class="bubble" style="pointer-events: auto; background: {{activeBg}}; color: #1c1b22; border-radius: 22px; box-shadow: 0 8px 28px rgba(28,27,34,.25)">{{activeText}}</div>
+    </div>
+    <div class="sheet" style="pointer-events: auto">
+      <div class="handle"></div>
+      <button class="act" onClick="{{doReply}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-5-5 5-5"></path><path d="M4 9h9a7 7 0 0 1 7 7v3"></path></svg>Reply</button>
+      <button class="act" onClick="{{doVoiceReply}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>Voice reply</button>
+      <button class="act" onClick="{{closeOverlay}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5h10"></path></svg>Copy</button>
+      <button class="act" onClick="{{closeOverlay}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4l5 5-5 5"></path><path d="M20 9h-9a7 7 0 0 0-7 7v3"></path></svg>Forward</button>
+      <button class="act" onClick="{{doPin}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l5 5-4 1-3 3 1 5-3 1-3-4-5 5-1-1 5-5-4-3 1-3 5 1 3-3z"></path></svg>Pin in chat</button>
+      <button class="act" onClick="{{openDelete}}" style="color: #a8332f"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>Delete</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{deleteSheet}}" hint-placeholder-val="{{ false }}">
+    <button aria-label="Dismiss" onClick="{{closeDelete}}" style="position: absolute; inset: 0; background: rgba(28,27,34,.45)"></button>
+    <div class="sheet">
+      <div class="handle"></div>
+      <div style="font-size: 20px; font-weight: 800; padding: 4px 12px 12px 12px">Delete message?</div>
+      <button class="act" onClick="{{deleteForMe}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg><div><div>Delete for me</div><div style="font-size: 12px; font-weight: 500; color: #49454f">Also removed from Google Messages on this phone</div></div></button>
+      <button class="act {{dfeCls}}" onClick="{{dfe}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M5.5 5.5l13 13"></path></svg><div><div>Delete for everyone</div><div style="font-size: 12px; font-weight: 500; color: #49454f">{{dfeNote}}</div></div></button>
+      <button class="act" onClick="{{closeDelete}}" style="justify-content: center; color: {{accent}}">Cancel</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{gifOpen}}" hint-placeholder-val="{{ false }}">
+    <button aria-label="Dismiss" onClick="{{closeGif}}" style="position: absolute; inset: 0; background: rgba(28,27,34,.45)"></button>
+    <div class="sheet">
+      <div class="handle"></div>
+      <div style="display: flex; align-items: center; gap: 8px; height: 44px; border-radius: 22px; background: #ebe6f2; padding: 0 16px; margin-bottom: 14px; color: #49454f; font-size: 14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>Search Tenor</div>
+      <div style="font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #49454f; padding: 0 4px 8px 4px">TRENDING</div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{gifs}}" as="g" hint-placeholder-count="6">
+          <button class="gif" style="background: {{g.color}}; width: 100%" onClick="{{g.pick}}">{{g.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{attachOpen}}" hint-placeholder-val="{{ false }}">
+    <button aria-label="Dismiss" onClick="{{closeAttach}}" style="position: absolute; inset: 0; background: rgba(28,27,34,.45)"></button>
+    <div class="sheet">
+      <div class="handle"></div>
+      <div style="display: flex; gap: 4px; padding: 4px 0 8px 0">
+        <button class="opt" onClick="{{closeAttach}}"><span class="ico" style="width: 56px; height: 56px; background: color-mix(in oklab, {{accent}} 20%, white); border-radius: {{avatarRadius}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></span>Camera</button>
+        <button class="opt" onClick="{{closeAttach}}"><span class="ico" style="width: 56px; height: 56px; background: color-mix(in oklab, {{accent}} 20%, white); border-radius: {{avatarRadius}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M3 16l5-5 4 4 3-3 6 6"></path><circle cx="16" cy="9" r="1.5"></circle></svg></span>Gallery</button>
+        <button class="opt" onClick="{{closeAttach}}"><span class="ico" style="width: 56px; height: 56px; background: color-mix(in oklab, {{accent}} 20%, white); border-radius: {{avatarRadius}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></span>File</button>
+        <button class="opt" onClick="{{closeAttach}}"><span class="ico" style="width: 56px; height: 56px; background: color-mix(in oklab, {{accent}} 20%, white); border-radius: {{avatarRadius}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 21s-6-6-6-11a6 6 0 0 1 12 0c0 5-6 11-6 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg></span>Location</button>
+        <button class="opt" onClick="{{closeAttach}}"><span class="ico" style="width: 56px; height: 56px; background: color-mix(in oklab, {{accent}} 20%, white); border-radius: {{avatarRadius}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg></span>Contact</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{netOpen}}" hint-placeholder-val="{{ false }}">
+    <button aria-label="Dismiss" onClick="{{closeNet}}" style="position: absolute; inset: 0; background: rgba(28,27,34,.45)"></button>
+    <div class="sheet">
+      <div class="handle"></div>
+      <div style="font-size: 18px; font-weight: 800; padding: 0 12px 2px 12px">Send to Sam using</div>
+      <div style="font-size: 12px; color: #49454f; padding: 0 12px 10px 12px">Merged chat · default is RCS</div>
+      <sc-for list="{{nets}}" as="n" hint-placeholder-count="6">
+        <button class="act" onClick="{{n.pick}}" style="{{n.rowStyle}}"><span style="width: 26px; height: 26px; border-radius: 8px; background: {{n.color}}; flex: none"></span><div style="flex: 1">{{n.name}}</div><div style="font-size: 12px; color: #49454f">{{n.note}}</div></button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{toast}}" hint-placeholder-val="{{ false }}">
+    <div class="snack" style="bottom: 110px"><span style="flex: 1">{{toastText}}</span></div>
+  </sc-if>
+
+  <sc-if value="{{snack}}" hint-placeholder-val="{{ false }}">
+    <div class="snack"><span style="flex: 1">Message deleted</span><button onClick="{{undo}}" style="font-weight: 800; color: #d6c9ff">Undo</button></div>
+  </sc-if>
+
+  <sc-if value="{{burst}}" hint-placeholder-val="{{ false }}">
+    <div class="burst">
+      <sc-if value="{{glow}}" hint-placeholder-val="{{ false }}"><div class="glow" style="--g: {{glowColor}}"></div></sc-if>
+      <div class="ghost">{{burstEmoji}}</div>
+      <sc-if value="{{particles}}" hint-placeholder-val="{{ true }}">
+        <span class="pt p1">{{burstEmoji}}</span><span class="pt p2">{{burstEmoji}}</span><span class="pt p3">{{burstEmoji}}</span><span class="pt p4">{{burstEmoji}}</span><span class="pt p5">{{burstEmoji}}</span><span class="pt p6">{{burstEmoji}}</span><span class="pt p7">{{burstEmoji}}</span><span class="pt p8">{{burstEmoji}}</span><span class="pt p9">{{burstEmoji}}</span><span class="pt p10">{{burstEmoji}}</span><span class="pt p11">{{burstEmoji}}</span><span class="pt p12">{{burstEmoji}}</span><span class="pt p13">{{burstEmoji}}</span><span class="pt p14">{{burstEmoji}}</span><span class="pt p15">{{burstEmoji}}</span><span class="pt p16">{{burstEmoji}}</span>
+        <span class="cf c1" style="background: {{accent}}"></span><span class="cf c2" style="background: #c2482a"></span><span class="cf c3" style="background: {{accent}}"></span><span class="cf c4" style="background: #e8a33d"></span><span class="cf c5" style="background: {{accent}}"></span><span class="cf c6" style="background: #c2482a"></span><span class="cf c7" style="background: #e8a33d"></span><span class="cf c8" style="background: {{accent}}"></span><span class="cf c9" style="background: #c2482a"></span><span class="cf c10" style="background: {{accent}}"></span><span class="cf c11" style="background: #e8a33d"></span><span class="cf c12" style="background: #c2482a"></span>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5a3fcf","options":["#5a3fcf","#0b7a6a","#c2482a","#1f5fbf"],"section":"Theme"},"shape":{"editor":"enum","default":"expressive","options":["round","soft","expressive"],"section":"Theme"},"font":{"editor":"enum","default":"Manrope","options":["Manrope","Lexend","Nunito"],"section":"Theme"},"intensity":{"editor":"enum","default":"extra","options":["off","subtle","full","extra"],"section":"Motion"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      messages: [
+        { id: 1, dir: 'in', kind: 'text', text: 'Hey! Did you see the new place on Elm?', time: '18:02', rx: [] },
+        { id: 2, dir: 'out', kind: 'text', text: 'Yes, the one with the green door? Looked great', time: '18:04', status: 'Read', net: 'rcs', rx: [{ e: '❤️', n: 1 }] },
+        { id: 3, dir: 'in', kind: 'voice', duration: '0:12', time: '18:05', rx: [] },
+        { id: 4, dir: 'in', kind: 'text', text: 'Are you still coming tonight?', time: '18:06', rx: [] },
+        { id: 5, dir: 'out', kind: 'text', text: 'Yes! Leaving at 7', time: '18:07', status: 'Read', net: 'rcs', quote: { name: 'Sam', text: 'Are you still coming tonight?' }, rx: [{ e: '🔥', n: 2 }] },
+        { id: 6, dir: 'in', kind: 'gif', text: 'excited dance', gifColor: '#8a3d9a', time: '18:07', rx: [{ e: '😂', n: 1 }] },
+        { id: 7, dir: 'out', kind: 'text', text: 'Signal is bad in the garage, texting instead', time: '18:09', status: 'Sent', net: 'sms', rx: [] },
+        { id: 8, dir: 'out', kind: 'text', text: 'Sent you the pin on WhatsApp too', time: '18:10', status: 'Read', net: 'whatsapp', rx: [] },
+      ],
+      nextId: 9,
+      net: 'rcs',
+      netOpen: false,
+      toast: '',
+      active: null,
+      overlay: false,
+      picker: false,
+      deleteSheet: false,
+      replyTo: null,
+      draft: '',
+      recording: false,
+      recSecs: 0,
+      burst: false,
+      burstEmoji: '',
+      wobbleId: null,
+      newId: null,
+      gifOpen: false,
+      attachOpen: false,
+      snack: false,
+      backup: null,
+      pinnedMsg: { text: 'Address: 42 Elm St, buzzer 3' },
+      playingId: null,
+    };
+    this.timers = [];
+  }
+  componentWillUnmount() { this.timers.forEach((t) => clearTimeout(t)); if (this.recTimer) clearInterval(this.recTimer); }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  findActive() { return this.state.messages.find((m) => m.id === this.state.active); }
+  addMessage(msg) {
+    const id = this.state.nextId;
+    const full = { id, dir: 'out', time: 'now', status: 'Sent', rx: [], net: this.state.net, ...msg, quote: this.state.replyTo };
+    this.setState({ messages: [...this.state.messages, full], nextId: id + 1, replyTo: null, draft: '', newId: id });
+    this.later(() => this.setState({ messages: this.state.messages.map((m) => m.id === id ? { ...m, status: 'Read' } : m) }), 1400);
+  }
+  react(emoji) {
+    const intensity = this.props.intensity ?? 'extra';
+    const id = this.state.active;
+    const messages = this.state.messages.map((m) => {
+      if (m.id !== id) return m;
+      const has = m.rx.find((r) => r.e === emoji);
+      const rx = has ? m.rx.map((r) => r.e === emoji ? { ...r, n: r.n + 1 } : r) : [...m.rx, { e: emoji, n: 1 }];
+      return { ...m, rx };
+    });
+    const fire = intensity !== 'off';
+    this.setState({ messages, overlay: false, picker: false, active: null, burst: fire, burstEmoji: emoji, wobbleId: fire ? id : null });
+    if (fire) this.later(() => this.setState({ burst: false, wobbleId: null }), 1000);
+  }
+  startRecording() {
+    this.setState({ recording: true, recSecs: 0 });
+    this.recTimer = setInterval(() => this.setState({ recSecs: this.state.recSecs + 1 }), 1000);
+  }
+  stopRecording() { if (this.recTimer) clearInterval(this.recTimer); this.recTimer = null; }
+  fmt(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  netTable(accent) {
+    return {
+      rcs:       { name: 'Google Messages · RCS', label: 'RCS', color: accent, bg: 'color-mix(in oklab, ' + accent + ' 24%, white)', border: '0', dfe: false, note: 'Default', call: 'Dialing Sam in the phone app', video: 'Starting a Google Meet call with Sam' },
+      sms:       { name: 'Google Messages · SMS', label: 'SMS', color: 'color-mix(in oklab, ' + accent + ' 55%, #79747e)', bg: 'color-mix(in oklab, ' + accent + ' 9%, white)', border: '1.5px solid color-mix(in oklab, ' + accent + ' 35%, white)', dfe: false, note: 'Fallback', call: 'Dialing Sam in the phone app', video: 'Starting a Google Meet call with Sam' },
+      whatsapp:  { name: 'WhatsApp', label: 'WhatsApp', color: '#1fa855', bg: '#d9f7e3', border: '0', dfe: true, note: '', call: 'Starting a WhatsApp voice call with Sam', video: 'Starting a WhatsApp video call with Sam' },
+      gvoice:    { name: 'Google Voice', label: 'Voice', color: '#0b6e62', bg: '#cfeae6', border: '0', dfe: false, note: '', call: 'Opening Google Voice to call Sam', video: 'Video calls are not available on Google Voice' },
+      signal:    { name: 'Signal', label: 'Signal', color: '#3a76f0', bg: '#dde6fb', border: '0', dfe: true, note: '', call: 'Starting a Signal voice call with Sam', video: 'Starting a Signal video call with Sam' },
+      telegram:  { name: 'Telegram', label: 'Telegram', color: '#1b8ac4', bg: '#d8f0fb', border: '0', dfe: true, note: '', call: 'Starting a Telegram voice call with Sam', video: 'Starting a Telegram video call with Sam' },
+      messenger: { name: 'Messenger', label: 'Messenger', color: '#5b5bd6', bg: '#e2e0fb', border: '0', dfe: true, note: '', call: 'Opening Messenger to call Sam', video: 'Opening Messenger to video call Sam' },
+      instagram: { name: 'Instagram', label: 'Instagram', color: '#d6247a', bg: '#fde0ec', border: '0', dfe: true, note: '', call: 'Opening the Instagram thread (Instagram allows no direct calls)', video: 'Opening the Instagram thread (Instagram allows no direct calls)' },
+    };
+  }
+  showToast(text) { this.setState({ toast: text }); this.later(() => this.setState({ toast: '' }), 2200); }
+  renderVals() {
+    const accent = this.props.accent ?? '#5a3fcf';
+    const shape = this.props.shape ?? 'expressive';
+    const font = this.props.font ?? 'Manrope';
+    const intensity = this.props.intensity ?? 'extra';
+    const radii = { round: '50%', soft: '30%', expressive: '62% 38% 46% 54% / 55% 48% 52% 45%' };
+    const avatarRadius = radii[shape] || radii.expressive;
+    const fabRadius = shape === 'round' ? '26px' : (shape === 'soft' ? '16px' : '24px 10px 24px 10px');
+    const fontFamily = font + ', system-ui, sans-serif';
+    const r = shape === 'soft' ? 14 : 22;
+    const T = this.netTable(accent);
+    const cur = T[this.state.net] || T.rcs;
+    const outBg = cur.bg;
+    const inBg = '#ebe6f2';
+
+    const messages = this.state.messages.map((m) => {
+      const isOut = m.dir === 'out';
+      const playing = this.state.playingId === m.id;
+      const mt = T[m.net] || T.rcs;
+      return {
+        ...m,
+        isOut,
+        align: isOut ? 'flex-end' : 'flex-start',
+        bg: isOut ? mt.bg : inBg,
+        border: isOut ? mt.border : '0',
+        showSms: isOut && m.net === 'sms',
+        tagColor: mt.color,
+        fg: '#1c1b22',
+        radius: isOut ? r + 'px ' + r + 'px 6px ' + r + 'px' : r + 'px ' + r + 'px ' + r + 'px 6px',
+        cls: (this.state.wobbleId === m.id ? 'wobble ' : '') + (this.state.newId === m.id ? 'pop' : ''),
+        isText: m.kind === 'text',
+        isVoice: m.kind === 'voice',
+        isGif: m.kind === 'gif',
+        isDeleted: m.kind === 'deleted',
+        hasQuote: !!m.quote,
+        quoteName: m.quote ? m.quote.name : '',
+        quoteText: m.quote ? m.quote.text : '',
+        hasRx: m.rx.length > 0,
+        playing, notPlaying: !playing,
+        playCls: playing ? 'playing' : '',
+        open: () => { if (m.kind !== 'deleted') this.setState({ active: m.id, overlay: true, picker: false }); },
+        play: () => this.setState({ playingId: playing ? null : m.id }),
+      };
+    });
+
+    const active = this.findActive();
+    const activeText = active ? (active.kind === 'text' ? active.text : (active.kind === 'voice' ? 'Voice note · ' + active.duration : 'GIF · ' + active.text)) : '';
+    const quickSet = ['❤️', '😂', '👍', '😮', '😢', '🔥'];
+    const moreSet = ['🎉', '👏', '🙏', '💯', '🥹', '😍', '🤣', '😭', '😡', '🤔', '👀', '🫡', '🫶', '💀', '✨', '🙌', '🤝', '😴', '🍕', '🎂', '🏆', '🚀', '🌈', '🐶'];
+    const glowColor = 'color-mix(in oklab, ' + accent + ' 70%, transparent)';
+
+    return {
+      accent, avatarRadius, fabRadius, fontFamily,
+      messages,
+      hasPin: !!this.state.pinnedMsg,
+      pinText: this.state.pinnedMsg ? this.state.pinnedMsg.text : '',
+      unpin: () => this.setState({ pinnedMsg: null }),
+      hasReply: !!this.state.replyTo,
+      replyName: this.state.replyTo ? this.state.replyTo.name : '',
+      replyText: this.state.replyTo ? this.state.replyTo.text : '',
+      cancelReply: () => this.setState({ replyTo: null }),
+      draft: this.state.draft,
+      hasDraft: this.state.draft.trim().length > 0,
+      noDraft: this.state.draft.trim().length === 0,
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      send: () => this.addMessage({ kind: 'text', text: this.state.draft.trim() }),
+      recording: this.state.recording,
+      notRecording: !this.state.recording,
+      recTime: this.fmt(this.state.recSecs),
+      startRec: () => this.startRecording(),
+      cancelRec: () => { this.stopRecording(); this.setState({ recording: false }); },
+      sendRec: () => { const d = this.fmt(Math.max(1, this.state.recSecs)); this.stopRecording(); this.setState({ recording: false }); this.addMessage({ kind: 'voice', duration: d }); },
+      overlay: this.state.overlay,
+      picker: this.state.picker,
+      openPicker: () => this.setState({ picker: !this.state.picker }),
+      closeOverlay: () => this.setState({ overlay: false, picker: false, active: null }),
+      activeText,
+      activeBg: active && active.dir === 'out' ? (T[active.net] || T.rcs).bg : inBg,
+      quick: quickSet.map((e) => ({ e, pick: () => this.react(e) })),
+      more: moreSet.map((e) => ({ e, pick: () => this.react(e) })),
+      doReply: () => {
+        const a = this.findActive();
+        this.setState({ overlay: false, active: null, replyTo: { name: a.dir === 'out' ? 'You' : 'Sam', text: a.kind === 'text' ? a.text : (a.kind === 'voice' ? 'Voice note · ' + a.duration : 'GIF · ' + a.text) } });
+      },
+      doVoiceReply: () => {
+        const a = this.findActive();
+        this.setState({ overlay: false, active: null, replyTo: { name: a.dir === 'out' ? 'You' : 'Sam', text: a.kind === 'text' ? a.text : (a.kind === 'voice' ? 'Voice note · ' + a.duration : 'GIF · ' + a.text) } });
+        this.startRecording();
+      },
+      doPin: () => { const a = this.findActive(); this.setState({ overlay: false, active: null, pinnedMsg: { text: a.kind === 'text' ? a.text : (a.kind === 'voice' ? 'Voice note · ' + a.duration : 'GIF · ' + a.text) } }); },
+      deleteSheet: this.state.deleteSheet,
+      openDelete: () => this.setState({ overlay: false, deleteSheet: true }),
+      closeDelete: () => this.setState({ deleteSheet: false, active: null }),
+      deleteForMe: () => {
+        const id = this.state.active;
+        const idx = this.state.messages.findIndex((m) => m.id === id);
+        const backup = { msg: this.state.messages[idx], idx };
+        this.setState({ messages: this.state.messages.filter((m) => m.id !== id), deleteSheet: false, active: null, snack: true, backup });
+        this.later(() => this.setState({ snack: false, backup: null }), 5000);
+      },
+      dfeCls: cur.dfe ? '' : 'off',
+      dfeNote: cur.dfe ? 'Within the time limit ' + cur.name + ' allows' : 'Not available on ' + cur.name,
+      dfe: () => {
+        if (!cur.dfe) return;
+        const id = this.state.active;
+        this.setState({ messages: this.state.messages.map((m) => m.id === id ? { ...m, kind: 'deleted', rx: [] } : m), deleteSheet: false, active: null });
+      },
+      netLabel: cur.label,
+      netColor: cur.color,
+      netOpen: this.state.netOpen,
+      openNet: () => this.setState({ netOpen: true }),
+      closeNet: () => this.setState({ netOpen: false }),
+      nets: Object.keys(T).map((k) => ({
+        key: k, name: T[k].name, color: T[k].color, note: k === this.state.net ? 'Current' : T[k].note,
+        rowStyle: k === this.state.net ? 'background:#f1ecf7' : '',
+        pick: () => this.setState({ net: k, netOpen: false }),
+      })),
+      toast: this.state.toast.length > 0,
+      toastText: this.state.toast,
+      callAudio: () => this.showToast(cur.call),
+      callVideo: () => this.showToast(cur.video),
+      snack: this.state.snack,
+      undo: () => {
+        const b = this.state.backup; if (!b) return;
+        const list = [...this.state.messages]; list.splice(b.idx, 0, b.msg);
+        this.setState({ messages: list, snack: false, backup: null, newId: b.msg.id });
+      },
+      gifOpen: this.state.gifOpen,
+      openGif: () => this.setState({ gifOpen: true }),
+      closeGif: () => this.setState({ gifOpen: false }),
+      gifs: [
+        { label: 'happy dance', color: '#8a3d9a' }, { label: 'thumbs up', color: '#0b7a6a' }, { label: 'mind blown', color: '#c2482a' },
+        { label: 'slow clap', color: '#1f5fbf' }, { label: 'on my way', color: '#5f6b1f' }, { label: 'popcorn', color: '#a8332f' },
+      ].map((g) => ({ ...g, pick: () => { this.setState({ gifOpen: false }); this.addMessage({ kind: 'gif', text: g.label, gifColor: g.color }); } })),
+      attachOpen: this.state.attachOpen,
+      openAttach: () => this.setState({ attachOpen: true }),
+      closeAttach: () => this.setState({ attachOpen: false }),
+      burst: this.state.burst,
+      burstEmoji: this.state.burstEmoji,
+      particles: intensity === 'full' || intensity === 'extra',
+      glow: intensity === 'extra',
+      glowColor,
+    };
+  }
+}
+</script>
+</body>
+</html>
