@@ -10,12 +10,14 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.Credentials
 import org.pingme.core.connector.OutgoingMessage
 import org.pingme.core.connector.SendResult
+import org.pingme.core.connector.UnsupportedCapabilityException
 import org.pingme.core.connector.chat
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
@@ -69,6 +71,27 @@ class DemoNetworkTest {
             assertTrue(messages.any { it.reactions.isNotEmpty() })
             assertTrue(messages.any { it.linkPreview != null })
             assertTrue(messages.any { it.isOutgoing } && messages.any { !it.isOutgoing })
+        }
+
+    @Test
+    fun groupsCanBeMadeAndPeopleBlocked() =
+        runBlocking {
+            val group = demo.createGroup(account.id, "Book club", listOf("+15550100", "ana"))
+            val made = demo.syncChats(account.id).single { it.id == group }
+            assertEquals(ChatKind.GROUP, made.kind)
+            assertEquals("Book club", made.title)
+            assertEquals(listOf("+15550100", "ana"), made.participants.map { it.networkHandle })
+
+            demo.block(group)
+            assertTrue(demo.syncChats(account.id).none { it.id == group })
+
+            controls.update { it.copy(capabilities = DemoControls.MINIMAL) }
+            assertThrows(UnsupportedCapabilityException::class.java) {
+                runBlocking { demo.createGroup(account.id, "No", listOf("x")) }
+            }
+            val other = demo.syncChats(account.id).first().id
+            assertThrows(UnsupportedCapabilityException::class.java) { runBlocking { demo.block(other) } }
+            Unit
         }
 
     @Test

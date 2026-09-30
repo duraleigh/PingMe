@@ -747,3 +747,103 @@ Tests (14 new, all passing):
 
 **Next:** P2.3, the inbox.
 
+## P2.3 Inbox (done, 2026-09-30)
+
+The inbox is the home screen now (`app/.../inbox/`), built to the plan's list and the
+mockup in `docs/mockup/Main.dc.html`:
+- **Top bar:** small wordmark, status pill, search, and the avatar menu. Inset by the
+  status bar only.
+  - The pill reads Connected, "RCS reconnecting" (pulsing dot), or "RCS needs
+    attention". With a demo account, tapping it cycles through the three.
+  - The menu: Settings, Appearance, Notifications, Accounts, Archived, Low priority,
+    Requests, General, each space, and Edit bottom bar. Lists show their counts.
+- **Health chip** under the bar, only while an account is reconnecting or needs
+  attention. "Tap to fix" opens the app or page the account's problem points at.
+- **Pinned chats:** a grid of five per row (the default), a sideways row, or at the top
+  of the list, per the Appearance setting. Tiles use the shape family's pinned shapes,
+  with unread badges and typing dots. Up to 12 pins; pinned chats leave the list.
+- **Rows:** avatar with typing dots, name, mute icon, network badge (RCS or SMS by the
+  last message), "General" tag, time, preview ("You: ...", "Priya: ..." in groups,
+  "Photo" and so on, "New message" when obscured), unread badge. Density and avatar
+  size follow Appearance.
+- **Swipes** (`AnchoredDraggable`): each direction does what Appearance says. The
+  coloured layer underneath names the action, a haptic tick marks the point of no
+  return, and the row springs back. Screen readers get the same actions.
+- **Press and hold** (`combinedClickable`) on a row or tile: the action sheet (Pin,
+  Mark read, Mute, Archive, Low priority, Obscure, Delete). Every action works both
+  ways (unpin, unarchive, ...).
+- **Undo:** Archive and Low priority can be undone from the snackbar. Delete hides the
+  chat at once and only deletes once the snackbar has gone.
+- **Bottom bar** (`ShortNavigationBar`): All, then up to four of Unread, networks,
+  spaces, and Low priority, with unread badges from the one counting rule.
+  - Long-press a network to narrow it to one account (when there are several) or, for
+    Instagram, Primary or General. The choice is remembered.
+- **+ menu** (`FloatingActionButtonMenu`): New chat, New group, Scan QR.
+- **Flippy reactions:** when someone else reacts, the row flips to show the emoji for
+  900 ms, at Full and Extra motion.
+- **Wide screens:** `NavigableListDetailPaneScaffold` puts the chat beside the list, and
+  a `WideNavigationRail` replaces the bottom bar.
+
+Also built here, because the inbox's buttons lead to them and no other step makes them:
+- **Lists from the menu:** Archived, Low priority, Requests (with Accept, Decline,
+  Block), General, and each space.
+- **Search:** chat names and message text (full-text index) across every network.
+- **New chat and New group:** pick an account, type a number or name or pick someone
+  known.
+
+Underneath:
+- Store: the newest message of every chat (for previews), and a few one-time queries.
+- Service: `ChatActions` (pin up to 12, reorder, read with a read marker to the
+  network, mute, archive, low priority, obscure, delete, start chat, make group,
+  answer requests, block) and `ReactionFeed` (other people's reactions, live).
+- The bottom-bar choices are saved as JSON in the settings store.
+
+Tests (31 new; 161 in the app and changed modules, all passing):
+- **Filtering:** pins leave the list in order; Unread skips read and muted chats;
+  network filters and narrowing, including Instagram folders; spaces; hidden deletes;
+  badges; the default bar; time labels.
+- **Chat actions:** pin limit and order; read marker sent; archive and low priority
+  unpin; mute, obscure, delete; only other people's reactions flip.
+- **Inbox UI against the demo network:** requests stay out; press and hold pins;
+  swipe right marks read; swipe left archives, and Undo brings it back; the Unread
+  button; the status pill and chip; the reaction flip; search and the menu.
+- **Other screens against the demo network:** accept a request into Primary; open an
+  archived chat; search finds a message; a new chat and a new group open.
+- **Demo:** groups can be made and people blocked, and both switch off with the
+  capability.
+- **Screenshots:** `app/build/screenshots/inbox-light.png`, `inbox-dark.png`,
+  `inbox-wide.png`. Previews for phone light, phone dark, and tablet.
+
+**Deviations and decisions**
+- **Connector API:** added `createGroup` and `block`, with `createGroup` and `block`
+  capabilities. DESIGN.md 6.2 says connectors must create groups, and UI_DESIGN.md 6.4
+  gives requests a Block button, but the P1.3 interface had neither. The demo network
+  does both; the real networks come later.
+- **Scan QR** shows "Scan QR arrives with account setup" for now. UI_DESIGN.md says it
+  is "for pairing flows", which is account setup (P2.7). **Question for the owner**
+  (below).
+- **Settings, Notifications, Accounts** in the menu are greyed out until P2.6 builds
+  them.
+- **Opening a chat** shows a stand-in with the chat's name until the chat screen
+  (P2.4, next).
+- **All** is always the first bar button, so the user picks up to four more (five in
+  all, as the mockup shows).
+- **Delete chat** removes it from this phone only; the network keeps its copy.
+- **Network marks:** no brand logos are bundled, so a network's bar icon is its short
+  name on its colour.
+- The "Flippy reactions" switch itself arrives with Settings > Motion (P2.6); until
+  then flips follow the motion level.
+- **The phone build shows an empty inbox** until account setup (P2.7) can add the demo
+  account. The tests add it directly.
+- **detekt:** `TooManyFunctions` no longer counts functions a class must implement from
+  an interface (every connector implements all 20 `Connector` calls).
+- **Tests:** UI tests that wait on database work run the main thread's queue while
+  waiting, as a phone does. Tests that open the database share one Robolectric graphics
+  mode, because the SQLite library can only be loaded once per test run.
+- New dependencies in `app`: `adaptive-layout` and `adaptive-navigation` 1.3.0.
+
+**Question for the owner:** what should "Scan QR" on the + button do? Two options:
+open "add an account" (for networks that pair by QR code), or scan someone's QR code
+to start a chat with them. Until you say, it shows the note above.
+
+**Next:** P2.4, the chat screen.

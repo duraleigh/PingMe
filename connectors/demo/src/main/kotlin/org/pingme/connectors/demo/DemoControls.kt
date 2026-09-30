@@ -55,6 +55,8 @@ class DemoControls {
                 nativePins = true,
                 folders = true,
                 startConversation = true,
+                createGroup = true,
+                block = true,
                 multiAccount = true,
                 calls = CallRule(CallMethod.CONTACT_APP_CALL, CallMethod.CONTACT_APP_CALL),
             )
@@ -74,6 +76,8 @@ class DemoControls {
                 nativePins = false,
                 folders = false,
                 startConversation = false,
+                createGroup = false,
+                block = false,
                 multiAccount = false,
                 calls = CallRule(CallMethod.DIALER, CallMethod.MEET),
             )

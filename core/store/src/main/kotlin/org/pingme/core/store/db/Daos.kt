@@ -15,8 +15,10 @@ import kotlinx.coroutines.flow.Flow
 import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.MediaSaveState
+import org.pingme.core.model.MessageKind
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.NetworkId
+import org.pingme.core.model.Transport
 import kotlin.time.Instant
 
 @Dao
@@ -29,6 +31,9 @@ interface AccountDao {
 
     @Query("SELECT * FROM accounts WHERE id = :id")
     suspend fun get(id: String): AccountEntity?
+
+    @Query("SELECT * FROM accounts ORDER BY displayName")
+    suspend fun getAll(): List<AccountEntity>
 
     @Upsert
     suspend fun upsert(account: AccountEntity)
@@ -55,6 +60,17 @@ data class UnreadRow(
     val network: NetworkId,
     val spaceId: String?,
     val unread: Int,
+)
+
+/** The newest message of one chat (see MessageDao.observeLastMessages). */
+data class LastMessageRow(
+    val chatId: String,
+    val body: String?,
+    val kind: MessageKind,
+    val isOutgoing: Boolean,
+    val transport: Transport,
+    val sentAt: Instant,
+    val senderName: String?,
 )
 
 @Dao
@@ -88,6 +104,11 @@ interface ChatDao {
         """,
     )
     fun observeInbox(showGeneral: Boolean): Flow<List<ChatWithParticipants>>
+
+    /** Pinned chats in grid order. */
+    @Transaction
+    @Query("SELECT * FROM chats WHERE isPinned = 1 ORDER BY pinOrder")
+    suspend fun pinned(): List<ChatWithParticipants>
 
     @Transaction
     @Query("SELECT * FROM chats WHERE isArchived = 1 ORDER BY lastActivityAt DESC")
@@ -186,6 +207,27 @@ interface MessageDao {
 
     @Query("SELECT id FROM messages WHERE chatId = :chatId ORDER BY sentAt ASC, rowId ASC LIMIT 1")
     suspend fun oldestId(chatId: String): String?
+
+    @Query("SELECT id FROM messages WHERE chatId = :chatId ORDER BY sentAt DESC, rowId DESC LIMIT 1")
+    suspend fun newestId(chatId: String): String?
+
+    /** The newest message of every chat, for inbox previews (UI_DESIGN.md 3.1). */
+    @Query(
+        """
+        SELECT m.chatId AS chatId, m.body AS body, m.kind AS kind, m.isOutgoing AS isOutgoing,
+               m.transport AS transport, m.sentAt AS sentAt, p.displayName AS senderName
+        FROM messages m LEFT JOIN persons p ON p.id = m.senderId
+        WHERE m.rowId = (
+            SELECT x.rowId FROM messages x WHERE x.chatId = m.chatId
+            ORDER BY x.sentAt DESC, x.rowId DESC LIMIT 1
+        )
+        """,
+    )
+    fun observeLastMessages(): Flow<List<LastMessageRow>>
+
+    /** Who "you" are in a chat: the sender of any of your own messages there. */
+    @Query("SELECT senderId FROM messages WHERE chatId = :chatId AND isOutgoing = 1 LIMIT 1")
+    suspend fun selfSenderId(chatId: String): String?
 
     @Query("SELECT rowId FROM messages WHERE id = :id")
     suspend fun rowIdFor(id: String): Long?

@@ -10,6 +10,9 @@ complexity:
     # front door to its part of the store (BUILD_PLAN.md P1.2).
     allowedFunctionsPerClass: 20
     ignoreAnnotated: ['Dao']
+    # A connector must implement every call of the Connector interface (DESIGN.md 6.2);
+    # those are not a sign of a class doing too much.
+    ignoreOverridden: true
 
 style:
   MagicNumber:
