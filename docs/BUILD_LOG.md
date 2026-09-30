@@ -505,7 +505,7 @@ Unit tests: `LoginFlowTest` and `ScopedIdsTest` (4 tests, all pass).
   a Hilt entry point.
 
 Tests: 25 in `core/service` (backoff, notification decisions, event applier,
-supervisor, credential store, workers), 42 in `core/store`, plus the earlier model and
+supervisor, credential store, workers), 40 in `core/store`, plus the earlier model and
 connector-API tests. Three deliberate supervisor breaks (retrying when the user must
 act, twice, and not resetting after a drop) failed the tests, then were reverted.
 
