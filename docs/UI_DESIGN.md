@@ -405,6 +405,21 @@ Primary and General in the Instagram app), PingMe updates on the next sync.
 - The Instagram filter in the bottom bar shows Primary and General together. A
   long-press on it offers Primary only or General only, remembered until changed.
 
+**Hiding General entirely.** Settings > Accounts > Instagram has a "Show General in
+inbox" switch, on by default. Turned off:
+- General chats disappear from the main list, the pinned grid, and every filter.
+- They stop counting toward every unread number: the filter badges in the bottom bar,
+  the app icon badge, and the "Unread" filter.
+- They stay reachable under General in the avatar menu, next to Requests, with their
+  own count so nothing is lost.
+- Their notifications follow the General row in section 6.4 as before, so hidden and
+  silent are separate choices.
+
+**Unread counting rule.** Every unread total in PingMe counts only chats that are
+visible in the inbox and not muted. Hidden folders, muted chats, and archived chats
+never contribute. This is one rule applied everywhere, not a special case for
+Instagram.
+
 **Notifications per folder.** Under Settings > Notifications > Instagram there are
 three independent rows, each with the full sound, vibration, and on-off controls from
 section 6.1:
