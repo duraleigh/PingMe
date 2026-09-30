@@ -312,3 +312,38 @@ Still open: the update test (installing a newer build over this one without
 uninstalling). It needs a second CI build, so it rides with the first Phase 1 APK.
 
 **Next:** P1.1, core model.
+
+## P1.1 Model (done, 2026-09-30)
+
+`core/model` (plain Kotlin/JVM, kotlinx-serialization, no Android imports) holds every
+type from the plan: the ID value classes, `NetworkId`, `Account`, `ConnectionState`,
+`Chat`, `ChatKind`, `ChatFolder`, `Message`, `MessageKind`, `MessageStatus`,
+`Transport`, `Attachment`, `Reaction`, `Quote`, `LinkPreview`, `Person`, `Space`,
+`Capabilities`, `NotificationMode`, `AvatarSource`. Times are `kotlin.time.Instant`
+(stable since Kotlin 2.3; no opt-in).
+
+`SerializationTest` round-trips every type through JSON, including every sealed-class
+case (5 tests, all pass).
+
+**Deviations and decisions** (all additions or sharper types; nothing narrowed):
+- Added `AttachmentId`. The plan's `Attachment` has an `id` and P1.2's `MediaSaveJob`
+  refers to it, but the plan lists no ID type for it.
+- Added `AttachmentKind` (image, video, audio, voice, GIF, sticker, file, contact,
+  location) for `Attachment.kind`. The plan names the field without a type.
+- `Capabilities` follows the capability matrix in UI_DESIGN.md section 8, which the
+  plan says wins where they differ:
+  - `reply` is `ReplyRule` (`NATIVE` or `QUOTED_TEXT`), not a yes/no, because SMS and
+    Google Voice reply with quoted text.
+  - `gif` and `voiceNote` are `MediaRule` (`NATIVE`, `MMS_SIZE_LIMITED`,
+    `UNSUPPORTED`).
+  - `deleteForEveryone` and `edit` are `TimeLimit?`: null means unsupported,
+    `Unlimited` or `Within(duration)` otherwise.
+  - `calls` is `CallRule(audio, video)`, each a `CallMethod`, matching the table in
+    UI_DESIGN.md 10.17.
+- `ReactionRule` cases are `AnyEmoji`, `Set(allowed)`, `TextFallback`. `Any` was
+  renamed so it doesn't shadow Kotlin's `Any`.
+- `Space.accountId` is nullable. It is null only for `CUSTOM` spaces, which
+  UI_DESIGN.md 10.4 lets the user build "from any chats", including chats from
+  several accounts.
+
+**Next:** P1.2, the Room store.
