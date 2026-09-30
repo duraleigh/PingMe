@@ -424,7 +424,11 @@ What this means in practice:
    notifications, both of which the Google Voice web client can do. Decide whether to
    implement those in the PingMe connector against the same web endpoints or
    contribute them upstream. Voicemail transcripts would be a natural addition too.
-7. **Contact linking heuristics.** Phone numbers link RCS, WhatsApp, Signal, and Telegram
+7. **Signal history and unlinking.** Signal unlinks a device after about a month of
+   inactivity, and a fresh link normally starts with no history. Confirm whether the
+   library exposes Signal's newer history transfer at link time, and make sure the
+   supervisor surfaces an unlink as "Action needed" rather than a silent gap.
+8. **Contact linking heuristics.** Phone numbers link RCS, WhatsApp, Signal, and Telegram
    naturally. Meta accounts do not carry numbers. Defer.
 
 ---
