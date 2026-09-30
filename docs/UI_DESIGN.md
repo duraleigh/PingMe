@@ -92,8 +92,13 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 - **Swipe actions**: left and right swipes are user-assignable from Pin or unpin, Archive,
   Mute or unmute, Mark read or unread, Low priority, Delete. Each direction can be
   set independently, and either can be turned off.
-- **Filters**: connected button group. The set of networks shown is whatever is
-  connected.
+- **Press and hold** on any row or pinned tile opens an action sheet for that chat:
+  Pin or unpin, Mark read or unread, Mute or unmute, Archive, Low priority, Obscure
+  messages, Delete chat. There is no per-row pin icon; pinning lives here and in the
+  swipe actions, which keeps every row free of chrome.
+- **Status bar**: content is drawn edge to edge and the top bar is inset by exactly the
+  system status bar height, 24 dp on most phones, and nothing more.
+- **Filters**: the bottom bar, section 3.1 above, and section 10.4 for spaces.
 - **FAB menu**: expands into New chat, New group, and Scan QR (for pairing flows).
 - **Connection health chip**: when any connector is not Connected, a slim chip appears
   under the app bar: "RCS reconnecting" or "RCS needs attention, tap to fix". This is
