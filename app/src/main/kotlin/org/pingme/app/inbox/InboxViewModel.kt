@@ -155,9 +155,6 @@ class InboxViewModel
             action: ChatAction,
         ) = rowActions.perform(row, action)
 
-        /** Scan QR is part of account setup (BUILD_PLAN.md P2.7); until then, say so. */
-        fun scanQrLater() = rowActions.tell(R.string.scan_qr_coming)
-
         /** The demo network's status pill cycles Connected, reconnecting, needs attention (BUILD_PLAN.md P2.3). */
         fun cycleDemoState() {
             viewModelScope.launch {

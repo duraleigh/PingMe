@@ -90,7 +90,6 @@
     <string name="fab_close">Close</string>
     <string name="fab_new_chat">New chat</string>
     <string name="fab_new_group">New group</string>
-    <string name="fab_scan_qr">Scan QR</string>
 
     <!-- Avatar menu lists -->
     <string name="list_empty_archived">Nothing archived</string>
@@ -124,5 +123,4 @@
     <!-- Chat pane until P2.4 -->
     <string name="chat_coming">The chat screen arrives in the next build step.</string>
     <string name="chat_pick_one">Pick a chat</string>
-    <string name="scan_qr_coming">Scan QR arrives with account setup.</string>
 </resources>

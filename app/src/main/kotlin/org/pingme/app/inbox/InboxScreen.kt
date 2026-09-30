@@ -50,14 +50,9 @@ class InboxNavigation(
     val onSearch: () -> Unit,
     val onNewChat: () -> Unit,
     val onNewGroup: () -> Unit,
-    /** Null until account setup exists (P2.7): the inbox then explains instead. */
-    val onScanQr: (() -> Unit)?,
     val onFix: (Account) -> Unit,
     val menu: MenuActions,
 )
-
-private fun InboxNavigation.withScanQr(fallback: () -> Unit) =
-    if (onScanQr != null) this else InboxNavigation(onOpenChat, onSearch, onNewChat, onNewGroup, fallback, onFix, menu)
 
 /** The inbox with its view model. */
 @Composable
@@ -87,7 +82,7 @@ fun InboxRoute(
                 bar = BarActions(viewModel::select, viewModel::narrow),
                 onSaveBar = viewModel::setBarItems,
             ),
-        navigation = navigation.withScanQr { viewModel.scanQrLater() },
+        navigation = navigation,
         reactions = viewModel.reactions,
         snackbar = snackbar,
         modifier = modifier,
@@ -140,7 +135,6 @@ fun InboxScreen(
                     { fabOpen = it },
                     navigation.onNewChat,
                     navigation.onNewGroup,
-                    { navigation.onScanQr?.invoke() },
                 )
             },
             snackbarHost = { SnackbarHost(snackbar) },

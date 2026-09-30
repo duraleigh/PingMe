@@ -108,8 +108,6 @@ private fun InboxHome(
                         onSearch = { nav.navigate(Search) },
                         onNewChat = { nav.navigate(NewChatRoute(group = false)) },
                         onNewGroup = { nav.navigate(NewChatRoute(group = true)) },
-                        // Scan QR belongs to account setup (P2.7); until then the inbox says so.
-                        onScanQr = null,
                         onFix = { account -> fix(context, account) },
                         menu =
                             MenuActions(

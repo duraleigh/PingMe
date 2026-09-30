@@ -109,7 +109,9 @@ class InboxDestinationsTest {
         compose.setContent {
             PingMeTheme { NewChatRoute({}, { opened += it }, viewModel = demo.newChatViewModel(group = false)) }
         }
+        waitForText("Name, number, or username")
         compose.onNode(hasSetTextAction()).performTextInput("+15550123")
+        waitForText("Start a chat with +15550123")
         compose.onNodeWithText("Start a chat with +15550123").performClick()
         waitFor { opened.isNotEmpty() }
         assertEquals("+15550123", runBlocking { demo.chats.get(opened.single())?.title })
@@ -123,6 +125,7 @@ class InboxDestinationsTest {
         waitForText("Group name")
         compose.onNodeWithText("Group name").performTextInput("Trip")
         compose.onNodeWithText("Name, number, or username").performTextInput("ana")
+        waitForText("Add ana")
         compose.onNodeWithText("Add ana").performClick()
         compose.onNodeWithText("Make the group").performClick()
         waitFor { opened.isNotEmpty() }

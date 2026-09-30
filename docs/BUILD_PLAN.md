@@ -304,7 +304,8 @@ Everything in `UI_DESIGN.md` 3.1 as finalised in this conversation:
   Low priority, Obscure, Delete). Use `combinedClickable(onLongClick)`.
 - Bottom bar: user-configurable up to five items from networks, spaces, Low
   priority; long-press a network item to narrow to one account or folder.
-- FAB menu (`FloatingActionButtonMenu`): New chat, New group, Scan QR.
+- FAB menu (`FloatingActionButtonMenu`): New chat, New group. (Scan QR removed by the
+  owner, 2026-09-30.)
 - Connection health chip only when any account is not Connected.
 - Flippy reactions: row flips to show an incoming reaction for 900 ms.
 - Adaptive: list-detail on wide screens via `ListDetailPaneScaffold`.

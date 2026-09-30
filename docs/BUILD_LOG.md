@@ -778,7 +778,7 @@ mockup in `docs/mockup/Main.dc.html`:
   spaces, and Low priority, with unread badges from the one counting rule.
   - Long-press a network to narrow it to one account (when there are several) or, for
     Instagram, Primary or General. The choice is remembered.
-- **+ menu** (`FloatingActionButtonMenu`): New chat, New group, Scan QR.
+- **+ menu** (`FloatingActionButtonMenu`): New chat and New group.
 - **Flippy reactions:** when someone else reacts, the row flips to show the emoji for
   900 ms, at Full and Extra motion.
 - **Wide screens:** `NavigableListDetailPaneScaffold` puts the chat beside the list, and
@@ -819,9 +819,8 @@ Tests (31 new; 161 in the app and changed modules, all passing):
   capabilities. DESIGN.md 6.2 says connectors must create groups, and UI_DESIGN.md 6.4
   gives requests a Block button, but the P1.3 interface had neither. The demo network
   does both; the real networks come later.
-- **Scan QR** shows "Scan QR arrives with account setup" for now. UI_DESIGN.md says it
-  is "for pairing flows", which is account setup (P2.7). **Question for the owner**
-  (below).
+- **No Scan QR.** The owner removed it from the + menu (2026-09-30); UI_DESIGN.md and
+  BUILD_PLAN.md are updated to match.
 - **Settings, Notifications, Accounts** in the menu are greyed out until P2.6 builds
   them.
 - **Opening a chat** shows a stand-in with the chat's name until the chat screen
@@ -841,9 +840,5 @@ Tests (31 new; 161 in the app and changed modules, all passing):
   waiting, as a phone does. Tests that open the database share one Robolectric graphics
   mode, because the SQLite library can only be loaded once per test run.
 - New dependencies in `app`: `adaptive-layout` and `adaptive-navigation` 1.3.0.
-
-**Question for the owner:** what should "Scan QR" on the + button do? Two options:
-open "add an account" (for networks that pair by QR code), or scan someone's QR code
-to start a chat with them. Until you say, it shows the note above.
 
 **Next:** P2.4, the chat screen.

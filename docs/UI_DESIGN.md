@@ -49,7 +49,7 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 |---|---|
 | Large flexible top app bar | Inbox header, collapses to a compact bar on scroll |
 | Connected button group | Inbox filters (All, Unread, per network) |
-| FAB menu | Inbox: New chat, New group, Scan QR |
+| FAB menu | Inbox: New chat, New group |
 | Horizontal floating toolbar | Chat screen: contextual actions during multi-select |
 | Split button | Send button with a dropdown for Send later and Send as SMS |
 | Loading indicator (shape-morphing) | Sync, history backfill, pairing |
@@ -99,7 +99,8 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 - **Status bar**: content is drawn edge to edge and the top bar is inset by exactly the
   system status bar height, 24 dp on most phones, and nothing more.
 - **Filters**: the bottom bar, section 3.1 above, and section 10.4 for spaces.
-- **FAB menu**: expands into New chat, New group, and Scan QR (for pairing flows).
+- **FAB menu**: expands into New chat and New group. (Scan QR was removed by the
+  owner, 2026-09-30.)
 - **Connection health chip**: when any connector is not Connected, a slim chip appears
   under the app bar: "RCS reconnecting" or "RCS needs attention, tap to fix". This is
   the single place connection state surfaces on the home screen.

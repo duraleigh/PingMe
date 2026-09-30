@@ -337,7 +337,7 @@ fun EditBarSheet(
     }
 }
 
-/** The + menu (BUILD_PLAN.md P2.3): New chat, New group, Scan QR. */
+/** The + menu (UI_DESIGN.md 3.1): New chat and New group. Scan QR was dropped by the owner. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NewMenu(
@@ -345,7 +345,6 @@ fun NewMenu(
     onExpandedChange: (Boolean) -> Unit,
     onNewChat: () -> Unit,
     onNewGroup: () -> Unit,
-    onScanQr: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val newLabel = stringResource(if (expanded) R.string.fab_close else R.string.fab_new)
@@ -364,7 +363,6 @@ fun NewMenu(
         },
     ) {
         listOf(
-            Triple(R.string.fab_scan_qr, UiR.drawable.ic_qr_code_scanner, onScanQr),
             Triple(R.string.fab_new_group, UiR.drawable.ic_group_add, onNewGroup),
             Triple(R.string.fab_new_chat, UiR.drawable.ic_chat, onNewChat),
         ).forEach { (label, icon, action) ->
