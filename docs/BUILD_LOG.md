@@ -302,3 +302,13 @@ Phase 1 must not start until the owner reports G0 results (BUILD_PLAN.md rule 1)
 - The builder merges its own pull requests into `main` once CI is green. The owner
   does not press Merge.
 - Talk to the owner in plain, simple language: short steps, no jargon.
+
+## Gate G0 result (2026-09-30)
+
+Owner report: `pingme-cf3c293.apk` installed on the phone and opened, showing
+"PingMe". **G0 passed.** Signing, sideloading, and CI are proven for a first install.
+
+Still open: the update test (installing a newer build over this one without
+uninstalling). It needs a second CI build, so it rides with the first Phase 1 APK.
+
+**Next:** P1.1, core model.
