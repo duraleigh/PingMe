@@ -91,6 +91,22 @@ interface Connector {
         personHandle: String,
     ): ChatId
 
+    /**
+     * Makes a new group called [title] with [personHandles] on [accountId] (DESIGN.md 6.2).
+     * Throws when `capabilities.createGroup` is false.
+     */
+    suspend fun createGroup(
+        accountId: AccountId,
+        title: String,
+        personHandles: List<String>,
+    ): ChatId
+
+    /**
+     * Blocks the other side of [chatId] on the network (UI_DESIGN.md 6.4) and ends the
+     * chat there. Throws when `capabilities.block` is false.
+     */
+    suspend fun block(chatId: ChatId)
+
     /** Instagram only: moves a chat between Primary and General. */
     suspend fun moveFolder(
         chatId: ChatId,

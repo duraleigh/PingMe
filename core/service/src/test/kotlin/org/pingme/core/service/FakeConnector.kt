@@ -48,6 +48,8 @@ class FakeConnector : Connector {
             nativePins = false,
             folders = false,
             startConversation = false,
+            createGroup = false,
+            block = false,
             multiAccount = true,
             calls = CallRule(CallMethod.NONE, CallMethod.NONE),
         )
@@ -59,6 +61,7 @@ class FakeConnector : Connector {
     var history: List<MessageSnapshot> = emptyList()
     var sendResult: (OutgoingMessage) -> SendResult = { SendResult.Failed("not scripted", retryable = false) }
     var download: (Attachment) -> File = { error("not scripted") }
+    val readMarkers = CopyOnWriteArrayList<Pair<ChatId, MessageId>>()
 
     override fun loginFlow(): LoginFlow = throw UnsupportedCapabilityException("not used")
 
@@ -104,7 +107,9 @@ class FakeConnector : Connector {
     override suspend fun markRead(
         chatId: ChatId,
         upTo: MessageId,
-    ) = Unit
+    ) {
+        readMarkers += chatId to upTo
+    }
 
     override suspend fun setTyping(
         chatId: ChatId,
@@ -122,6 +127,14 @@ class FakeConnector : Connector {
         accountId: AccountId,
         personHandle: String,
     ): ChatId = throw UnsupportedCapabilityException("not used")
+
+    override suspend fun createGroup(
+        accountId: AccountId,
+        title: String,
+        personHandles: List<String>,
+    ): ChatId = throw UnsupportedCapabilityException("not used")
+
+    override suspend fun block(chatId: ChatId) = throw UnsupportedCapabilityException("not used")
 
     override suspend fun moveFolder(
         chatId: ChatId,

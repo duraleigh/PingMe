@@ -66,6 +66,7 @@ abstract class ServiceTest {
     protected lateinit var messages: MessageRepository
     protected lateinit var contacts: ContactRepository
     protected lateinit var typing: TypingTracker
+    protected lateinit var reactionFeed: ReactionFeed
     protected lateinit var applier: EventApplier
     protected lateinit var router: NotificationRouter
 
@@ -85,7 +86,8 @@ abstract class ServiceTest {
         messages = MessageRepository(db)
         contacts = ContactRepository(db)
         typing = TypingTracker(scope)
-        applier = EventApplier(accounts, chats, messages, contacts, typing)
+        reactionFeed = ReactionFeed()
+        applier = EventApplier(accounts, chats, messages, contacts, typing, reactionFeed)
         router = NotificationRouter(context, chats, clock)
     }
 

@@ -36,6 +36,18 @@ class MessageRepository
         private val dao = db.messageDao()
         private val mediaSaveDao = db.mediaSaveJobDao()
 
+        /** The newest message of every chat, keyed by chat, for inbox previews (UI_DESIGN.md 3.1). */
+        fun lastMessages(): Flow<Map<ChatId, LastMessage>> =
+            dao.observeLastMessages().map { rows ->
+                rows.associate { row ->
+                    ChatId(row.chatId) to
+                        LastMessage(row.body, row.kind, row.isOutgoing, row.transport, row.sentAt, row.senderName)
+                }
+            }
+
+        /** Who "you" are in [chatId], known once you have sent anything there. */
+        suspend fun selfIn(chatId: ChatId): PersonId? = dao.selfSenderId(chatId.value)?.let(::PersonId)
+
         /** The newest [limit] messages of a chat, newest first. */
         fun latest(
             chatId: ChatId,
@@ -48,6 +60,8 @@ class MessageRepository
 
         /** The oldest message PingMe has for a chat: where history backfill continues from. */
         suspend fun oldest(chatId: ChatId): MessageId? = dao.oldestId(chatId.value)?.let(::MessageId)
+
+        suspend fun newest(chatId: ChatId): MessageId? = dao.newestId(chatId.value)?.let(::MessageId)
 
         suspend fun upsert(message: Message) =
             dao.upsert(message.toEntity(), message.attachmentEntities(), message.reactionEntities())

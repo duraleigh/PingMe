@@ -25,6 +25,10 @@ data class Capabilities(
     val nativePins: Boolean,
     val folders: Boolean,
     val startConversation: Boolean,
+    /** New groups can be made from PingMe (DESIGN.md 6.2). */
+    val createGroup: Boolean,
+    /** People can be blocked from PingMe (UI_DESIGN.md 6.4, 3.4). */
+    val block: Boolean,
     val multiAccount: Boolean,
     val calls: CallRule,
 )

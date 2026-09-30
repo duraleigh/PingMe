@@ -72,6 +72,27 @@ class MessageStoreTest : StoreTest() {
         }
 
     @Test
+    fun eachChatPreviewsItsNewestMessageAndWhoSentIt() =
+        runTest {
+            seed()
+            chats.upsert(chat("d", "a"))
+            contacts.upsert(person("p-sam", "a", "Sam Ortiz"))
+            messages.upsert(message("m1", "c", body = "older", sentAt = now - 2.minutes))
+            messages.upsert(message("m2", "c", body = "newest"))
+            // Backfilled history arrives later but is older: it must not become the preview.
+            messages.upsert(message("m0", "c", body = "ancient", sentAt = now - 9.minutes))
+            messages.upsert(message("m3", "d", body = "from nobody we know", sender = "p-unknown"))
+
+            val last = messages.lastMessages().first()
+            assertEquals("newest", last.getValue(ChatId("c")).body)
+            assertEquals("Sam Ortiz", last.getValue(ChatId("c")).senderName)
+            assertNull(last.getValue(ChatId("d")).senderName)
+            assertNull("no you yet", messages.selfIn(ChatId("c")))
+            messages.upsert(message("m4", "c", sender = "p-me").copy(isOutgoing = true))
+            assertEquals(PersonId("p-me"), messages.selfIn(ChatId("c")))
+        }
+
+    @Test
     fun statusAndReactionsChangeInPlace() =
         runTest {
             seed()

@@ -236,23 +236,53 @@ class DemoConnector(
         if (!capabilities.startConversation) {
             throw UnsupportedCapabilityException("Starting chats is turned off on the demo network")
         }
+        return openChat(
+            accountId,
+            "new-${personHandle.filter(Char::isLetterOrDigit)}",
+            ChatKind.DIRECT,
+            personHandle,
+            listOf(personHandle),
+        )
+    }
+
+    override suspend fun createGroup(
+        accountId: AccountId,
+        title: String,
+        personHandles: List<String>,
+    ): ChatId {
+        if (!capabilities.createGroup) {
+            throw UnsupportedCapabilityException("Making groups is turned off on the demo network")
+        }
+        return openChat(accountId, "group-${UUID.randomUUID()}", ChatKind.GROUP, title, personHandles)
+    }
+
+    override suspend fun block(chatId: ChatId) {
+        if (!capabilities.block) throw UnsupportedCapabilityException("Blocking is turned off on the demo network")
+        val world = world(chatId.accountId)
+        synchronized(world) {
+            world.chats.remove(chatId)?.let { world.blocked += it.participants }
+        }
+        server.emit(world, ConnectorEvent.ChatRemoved(world.accountId, chatId))
+    }
+
+    /** Finds or makes a chat on the demo network with people known only by their handles. */
+    private suspend fun openChat(
+        accountId: AccountId,
+        remote: String,
+        kind: ChatKind,
+        title: String,
+        handles: List<String>,
+    ): ChatId {
         val world = world(accountId)
-        val remote = "new-${personHandle.filter(Char::isLetterOrDigit)}"
         val chat =
             synchronized(world) {
-                val person =
-                    Person(accountId.person(remote), accountId, personHandle, personHandle, personHandle, null, null)
-                world.people[person.id] = person
+                val people =
+                    handles.map { handle ->
+                        val id = accountId.person(handle.filter(Char::isLetterOrDigit).ifEmpty { handle })
+                        world.people.getOrPut(id) { Person(id, accountId, handle, handle, handle, null, null) }
+                    }
                 world.chats.getOrPut(accountId.chat(remote)) {
-                    DemoWorld.ChatState(
-                        accountId.chat(remote),
-                        ChatKind.DIRECT,
-                        personHandle,
-                        listOf(person.id),
-                        0,
-                        null,
-                        remote,
-                    )
+                    DemoWorld.ChatState(accountId.chat(remote), kind, title, people.map { it.id }, 0, null, remote)
                 }
             }
         world.messages.getOrPut(chat.id) { mutableListOf() }

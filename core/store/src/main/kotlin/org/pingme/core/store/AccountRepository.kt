@@ -28,6 +28,8 @@ class AccountRepository
 
         suspend fun get(id: AccountId): Account? = dao.get(id.value)?.toModel()
 
+        suspend fun getAll(): List<Account> = dao.getAll().map { it.toModel() }
+
         suspend fun upsert(account: Account) = dao.upsert(account.toEntity())
 
         suspend fun updateState(

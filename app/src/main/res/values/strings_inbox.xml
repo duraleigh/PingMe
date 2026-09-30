@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="inbox_search">Search</string>
+    <string name="inbox_chat_actions">Chat actions</string>
+    <string name="inbox_account_menu">Account and settings</string>
+    <plurals name="inbox_networks_connected">
+        <item quantity="one">%d network connected</item>
+        <item quantity="other">%d networks connected</item>
+    </plurals>
+
+    <!-- Status pill and health chip (UI_DESIGN.md 3.1) -->
+    <string name="status_connected">Connected</string>
+    <string name="status_no_accounts">No accounts</string>
+    <string name="status_reconnecting">%1$s reconnecting</string>
+    <string name="status_attention">%1$s needs attention</string>
+    <string name="health_reconnecting">%1$s reconnecting</string>
+    <string name="health_attention">%1$s needs attention, tap to fix</string>
+
+    <!-- Avatar menu -->
+    <string name="menu_settings">Settings</string>
+    <string name="menu_appearance">Appearance</string>
+    <string name="menu_notifications">Notifications</string>
+    <string name="menu_accounts">Accounts</string>
+    <string name="menu_archived">Archived</string>
+    <string name="menu_low_priority">Low priority</string>
+    <string name="menu_requests">Requests</string>
+    <string name="menu_general">General</string>
+    <string name="menu_edit_bar">Edit bottom bar</string>
+
+    <!-- Bottom bar -->
+    <string name="bar_all">All</string>
+    <string name="bar_unread">Unread</string>
+    <string name="bar_low_priority">Low priority</string>
+    <string name="bar_show_all_accounts">All accounts</string>
+    <string name="bar_show_both_folders">Primary and General</string>
+    <string name="bar_primary_only">Primary only</string>
+    <string name="bar_general_only">General only</string>
+    <string name="bar_edit_title">Bottom bar</string>
+    <string name="bar_edit_hint">All is always first. Pick up to four more.</string>
+    <string name="bar_edit_full">That is four already. Remove one first.</string>
+
+    <!-- Rows -->
+    <string name="inbox_now">now</string>
+    <string name="inbox_you">You: %1$s</string>
+    <string name="inbox_sender">%1$s: %2$s</string>
+    <string name="inbox_hidden_preview">New message</string>
+    <string name="inbox_no_messages">No messages yet</string>
+    <string name="inbox_typing">typing…</string>
+    <string name="inbox_muted">Muted</string>
+    <string name="inbox_folder_general">General</string>
+    <plurals name="inbox_unread">
+        <item quantity="one">%d unread message</item>
+        <item quantity="other">%d unread messages</item>
+    </plurals>
+    <string name="inbox_empty_filter">Nothing here for this filter.</string>
+    <string name="inbox_empty">No chats yet. Tap + to start one.</string>
+    <string name="kind_voice">Voice message</string>
+    <string name="kind_gif">GIF</string>
+    <string name="kind_image">Photo</string>
+    <string name="kind_video">Video</string>
+    <string name="kind_file">File</string>
+    <string name="kind_location">Location</string>
+    <string name="kind_contact">Contact</string>
+    <string name="kind_sticker">Sticker</string>
+    <string name="kind_deleted">This message was deleted</string>
+
+    <!-- Actions (swipes and the long-press sheet) -->
+    <string name="action_pin">Pin to top</string>
+    <string name="action_unpin">Unpin</string>
+    <string name="action_read">Mark as read</string>
+    <string name="action_unread">Mark as unread</string>
+    <string name="action_mute">Mute</string>
+    <string name="action_unmute">Unmute</string>
+    <string name="action_archive">Archive</string>
+    <string name="action_unarchive">Unarchive</string>
+    <string name="action_low_priority">Low priority</string>
+    <string name="action_not_low_priority">Not low priority</string>
+    <string name="action_obscure">Obscure messages</string>
+    <string name="action_unobscure">Stop obscuring</string>
+    <string name="action_delete">Delete chat</string>
+    <string name="undo">Undo</string>
+    <string name="inbox_archived">%1$s archived</string>
+    <string name="inbox_low_priority_done">%1$s moved to Low priority</string>
+    <string name="inbox_deleted">%1$s deleted</string>
+    <string name="inbox_pin_limit">You can pin up to 12 chats</string>
+
+    <!-- FAB menu -->
+    <string name="fab_new">New</string>
+    <string name="fab_close">Close</string>
+    <string name="fab_new_chat">New chat</string>
+    <string name="fab_new_group">New group</string>
+
+    <!-- Avatar menu lists -->
+    <string name="list_empty_archived">Nothing archived</string>
+    <string name="list_empty_low_priority">No low-priority chats</string>
+    <string name="list_empty_requests">No message requests</string>
+    <string name="list_empty_general">Nothing in General</string>
+    <string name="list_empty_space">No chats in this space yet</string>
+    <string name="request_accept">Accept</string>
+    <string name="request_decline">Decline</string>
+    <string name="request_block">Block</string>
+    <string name="request_not_possible">%1$s: that is not possible on this network</string>
+
+    <!-- Search -->
+    <string name="search_hint">Search chats and messages</string>
+    <string name="search_chats">Chats</string>
+    <string name="search_messages">Messages</string>
+    <string name="search_nothing">Nothing found for “%1$s”</string>
+
+    <!-- New chat and New group -->
+    <string name="new_chat_on">On</string>
+    <string name="new_chat_who">Name, number, or username</string>
+    <string name="new_chat_start">Start a chat with %1$s</string>
+    <string name="new_chat_failed">That did not work. Check the number or name and try again.</string>
+    <string name="new_chat_no_accounts">None of your accounts can start new chats from PingMe.</string>
+    <string name="new_group_no_accounts">None of your accounts can make groups from PingMe.</string>
+    <string name="new_group_name">Group name</string>
+    <string name="new_group_add">Add %1$s</string>
+    <string name="new_group_remove">Remove %1$s</string>
+    <string name="new_group_create">Make the group</string>
+
+    <!-- Chat pane until P2.4 -->
+    <string name="chat_coming">The chat screen arrives in the next build step.</string>
+    <string name="chat_pick_one">Pick a chat</string>
+</resources>

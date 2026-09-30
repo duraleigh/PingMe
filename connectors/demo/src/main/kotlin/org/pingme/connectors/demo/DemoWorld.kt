@@ -31,6 +31,9 @@ internal class DemoWorld(
     val messages = mutableMapOf<ChatId, MutableList<Message>>()
     val deletedForEveryone = mutableSetOf<MessageId>()
 
+    /** People blocked from PingMe; they never write again. */
+    val blocked = mutableSetOf<PersonId>()
+
     /** Events for the open session, if any. Buffered so bursts are never dropped. */
     val events = MutableSharedFlow<ConnectorEvent>(extraBufferCapacity = EVENT_BUFFER)
 

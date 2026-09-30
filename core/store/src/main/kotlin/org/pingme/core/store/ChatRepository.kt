@@ -70,6 +70,9 @@ class ChatRepository
 
         suspend fun get(id: ChatId): Chat? = dao.get(id.value)?.toModel()
 
+        /** Pinned chats in grid order. */
+        suspend fun pinned(): List<Chat> = dao.pinned().map { it.toModel() }
+
         suspend fun upsert(chat: Chat) = dao.upsert(chat.toEntity(), chat.participantEntities())
 
         /** Reads, changes, and writes one chat atomically (pin, mute, archive, ...). */

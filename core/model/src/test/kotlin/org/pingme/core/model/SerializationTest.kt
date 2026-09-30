@@ -174,6 +174,8 @@ class SerializationTest {
                             nativePins = false,
                             folders = true,
                             startConversation = false,
+                            createGroup = false,
+                            block = false,
                             multiAccount = true,
                             calls = CallRule(audio = CallMethod.DIALER, video = CallMethod.MEET),
                         ),

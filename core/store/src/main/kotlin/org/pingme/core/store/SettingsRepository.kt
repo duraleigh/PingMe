@@ -44,6 +44,16 @@ class SettingsRepository
             dataStore.edit { it[APPEARANCE] = change(it[APPEARANCE]) }
         }
 
+        /**
+         * The inbox bottom bar (UI_DESIGN.md 3.1, 10.4): its items and, per network, which account
+         * or folder a long-press narrowed it to. Opaque JSON like the appearance; null until set.
+         */
+        val inboxBarJson: Flow<String?> = dataStore.data.map { it[INBOX_BAR] }
+
+        suspend fun updateInboxBarJson(change: (String?) -> String) {
+            dataStore.edit { it[INBOX_BAR] = change(it[INBOX_BAR]) }
+        }
+
         fun keywordRules(): Flow<List<KeywordRule>> = keywordDao.observeAll().map { rows -> rows.map { it.toModel() } }
 
         suspend fun upsertKeywordRule(rule: KeywordRule) = keywordDao.upsert(rule.toEntity())
@@ -53,5 +63,6 @@ class SettingsRepository
         private companion object {
             val INSTAGRAM_SHOW_GENERAL = booleanPreferencesKey("instagram_show_general")
             val APPEARANCE = stringPreferencesKey("appearance")
+            val INBOX_BAR = stringPreferencesKey("inbox_bar")
         }
     }

@@ -30,6 +30,7 @@ class EventApplier
         private val messages: MessageRepository,
         private val contacts: ContactRepository,
         private val typing: TypingTracker,
+        private val reactionFeed: ReactionFeed,
     ) {
         suspend fun apply(event: ConnectorEvent) {
             when (event) {
@@ -50,6 +51,7 @@ class EventApplier
                         messages.removeReaction(event.messageId, event.reaction.senderId, event.reaction.emoji)
                     } else {
                         messages.addReaction(event.messageId, event.reaction)
+                        announceIfFromSomeoneElse(event)
                     }
                 }
 
@@ -86,6 +88,14 @@ class EventApplier
             snapshot.participants.forEach { contacts.upsert(it) }
             val existing = chats.get(snapshot.id)
             chats.upsert(existing?.withSnapshot(snapshot) ?: snapshot.toNewChat())
+        }
+
+        /** Your own reactions, echoed back by the network, do not flip the row. */
+        private suspend fun announceIfFromSomeoneElse(event: ConnectorEvent.ReactionChanged) {
+            val chatId = messages.get(event.messageId)?.chatId ?: return
+            if (event.reaction.senderId != messages.selfIn(chatId)) {
+                reactionFeed.emit(IncomingReaction(chatId, event.reaction.emoji))
+            }
         }
 
         private suspend fun applyNewMessage(snapshot: MessageSnapshot) {
