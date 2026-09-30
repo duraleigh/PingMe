@@ -46,7 +46,7 @@ and wait for the owner to test on the phone.
 
 On the build machine (the Claude Code cloud container or the owner's computer):
 
-- JDK 17 (Temurin). `java -version` must print 17.
+- JDK 17 or 21. Cloud sessions come with OpenJDK 21 preinstalled; use it.
 - Android command-line tools, then via `sdkmanager`: `platform-tools`,
   `platforms;android-35` (or the newest stable), `build-tools;35.0.0` (or newest),
   `ndk;27.x` (newest LTS).
@@ -57,18 +57,17 @@ On the build machine (the Claude Code cloud container or the owner's computer):
 
 Record the exact versions installed in `docs/BUILD_LOG.md`.
 
-**Cloud sessions.** A Claude Code cloud session starts on a fresh machine every time,
-so tooling installed in one session is gone in the next. In this step also write
-`scripts/setup-cloud.sh`: an idempotent script that installs everything above
-non-interactively (JDK 17, Android command-line tools and the SDK packages, Go,
-gomobile), skipping anything already present, and finishes in a few minutes. Then
-tell the owner, in the build log, to paste its one-line invocation
-(`bash scripts/setup-cloud.sh`) into the environment's setup script in the cloud
-environment settings, so every later session starts ready. Until they do, run it
-by hand at the start of each session. Keep the SDK install minimal (one platform,
-one build-tools, one NDK) because the session's disk allowance is fixed.
+**Cloud sessions.** The owner has a cloud environment named PingMe whose setup
+script is `scripts/setup-cloud.sh` (already in the repo) and whose network access is
+Full. Cloud machines come with OpenJDK 21, Gradle, and Go; the script adds the
+Android SDK, NDK 27, and gomobile under `/opt/android-sdk` and `/opt/android-ndk`.
+At the start of P0.1, run `check-tools`, `sdkmanager --list_installed`, and
+`gomobile version` to confirm the script worked. If a piece is missing, install it by
+hand for this session, fix the script, commit it, and tell the owner in the build log
+to paste the new version into the environment settings.
 
-The environment's network access must allow the download hosts the build uses:
+If the environment is ever set to Trusted instead of Full, these are the hosts the
+build needs and a refused one must be named in the build log:
 `dl.google.com`, `maven.google.com`, `repo1.maven.org`, `repo.maven.apache.org`,
 `plugins.gradle.org`, `services.gradle.org`, `proxy.golang.org`, `sum.golang.org`,
 `storage.googleapis.com`, `github.com`, `objects.githubusercontent.com`,
