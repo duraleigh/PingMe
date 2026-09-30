@@ -111,6 +111,9 @@ battery-friendly.
 
 ### 5.1 The unified inbox
 
+Screen-by-screen UI design, customisation, and per-feature behaviour live in
+[UI_DESIGN.md](UI_DESIGN.md).
+
 - One list of conversations across all connected networks, sorted by latest activity.
 - Each conversation shows a small network badge (RCS, SMS, WhatsApp, ...).
 - Filters: all, unread, per network.
