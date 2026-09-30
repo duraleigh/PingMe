@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Window theme only. Everything drawn is themed by Compose (MaterialExpressiveTheme). -->
+<resources>
+    <style name="Theme.PingMe" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
