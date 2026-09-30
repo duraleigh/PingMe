@@ -293,3 +293,12 @@ uninstall first. The builder will send that APK with Phase 1.
 
 Phase 1 must not start until the owner reports G0 results (BUILD_PLAN.md rule 1).
 **Next:** wait for G0 results, then P1.1.
+
+## Working agreement with the owner (2026-09-30)
+
+- The builder moves through plan steps without asking permission for each one. It
+  still stops at every gate (G0, G1, ...) for the owner's phone test, and asks only
+  when a decision is truly the owner's (for example, narrowing a feature).
+- The builder merges its own pull requests into `main` once CI is green. The owner
+  does not press Merge.
+- Talk to the owner in plain, simple language: short steps, no jargon.
