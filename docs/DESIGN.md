@@ -33,6 +33,10 @@ pass through infrastructure that PingMe controls.
 - Discord. Discord bans user-token clients outright and enforces it. Left out until
   that changes.
 - iMessage. No workable path from Android.
+- Snapchat. No open-source library exists, Snap has locked accounts for third-party
+  client use since 2014 and enforces it, the app uses device attestation that blocks
+  paired-device or cookie approaches, and disappearing messages conflict with a
+  stored unified inbox. Revisit only if a maintained library appears.
 - A PingMe cloud service, web app, or desktop app.
 
 ---
