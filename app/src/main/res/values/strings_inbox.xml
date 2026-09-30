@@ -120,7 +120,45 @@
     <string name="new_group_remove">Remove %1$s</string>
     <string name="new_group_create">Make the group</string>
 
-    <!-- Chat pane until P2.4 -->
-    <string name="chat_coming">The chat screen arrives in the next build step.</string>
+    <!-- Wide screens before a chat is picked -->
     <string name="chat_pick_one">Pick a chat</string>
+
+    <!-- Chat (P2.4) -->
+    <string name="chat_today">Today</string>
+    <string name="chat_yesterday">Yesterday</string>
+    <string name="chat_new_messages">New messages</string>
+    <string name="chat_edited">edited</string>
+    <string name="chat_not_sent">Not sent: %1$s</string>
+    <string name="chat_retry">Retry</string>
+    <string name="status_sending">Sending</string>
+    <string name="status_sent">Sent</string>
+    <string name="status_delivered">Delivered</string>
+    <string name="status_read">Read</string>
+    <string name="status_failed">Not sent</string>
+    <string name="status_scheduled">Scheduled</string>
+    <string name="chat_details">Chat details</string>
+    <string name="chat_search">Search in chat</string>
+    <string name="chat_more">More</string>
+    <string name="chat_call">Call</string>
+    <string name="chat_video_call">Video call</string>
+    <string name="chat_one_typing">%1$s is typing…</string>
+    <string name="chat_many_typing">Several people are typing…</string>
+    <plurals name="chat_members">
+        <item quantity="one">%d person</item>
+        <item quantity="other">%d people</item>
+    </plurals>
+    <string name="chat_calls_unavailable">This chat can\'t place calls from this phone</string>
+    <string name="chat_call_opened_app">Opened the app: it has no direct call button</string>
+    <string name="chat_message_hint">Message</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_replying_to">Replying to %1$s</string>
+    <string name="chat_cancel_reply">Cancel reply</string>
+    <string name="chat_pinned">Pinned</string>
+    <string name="chat_unpin">Unpin</string>
+    <string name="chat_to_newest">Newest messages</string>
+    <plurals name="chat_new_below">
+        <item quantity="one">%d new message</item>
+        <item quantity="other">%d new messages</item>
+    </plurals>
+    <string name="you">You</string>
 </resources>

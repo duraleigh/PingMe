@@ -24,7 +24,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import org.pingme.app.appearance.AppearanceRoute
-import org.pingme.app.chat.ChatPane
+import org.pingme.app.chat.ChatRoute
 import org.pingme.app.chat.NoChatPicked
 import org.pingme.app.inbox.ChatListRoute
 import org.pingme.app.inbox.InboxNavigation
@@ -61,9 +61,8 @@ fun PingMeNavHost(modifier: Modifier = Modifier) {
     NavHost(nav, startDestination = Home, modifier = modifier) {
         composable<Home> { InboxHome(nav) }
         composable<OpenChat> { entry ->
-            val chats: ChatsViewModel = hiltViewModel()
             val id = ChatId(entry.arguments?.getString("chatId").orEmpty())
-            ChatPane(id, chats.repository::chat, onBack = { nav.popBackStack() })
+            ChatRoute(id, onBack = { nav.popBackStack() })
         }
         composable<AppearanceStudio> { AppearanceRoute(onBack = { nav.popBackStack() }) }
         composable<ChatListRoute> {
@@ -89,10 +88,7 @@ fun PingMeNavHost(modifier: Modifier = Modifier) {
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
-private fun InboxHome(
-    nav: NavController,
-    chats: ChatsViewModel = hiltViewModel(),
-) {
+private fun InboxHome(nav: NavController) {
     val navigator = rememberListDetailPaneScaffoldNavigator<String>()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -125,9 +121,8 @@ private fun InboxHome(
                 if (id == null) {
                     NoChatPicked()
                 } else {
-                    ChatPane(
+                    ChatRoute(
                         ChatId(id),
-                        chats.repository::chat,
                         onBack =
                             if (navigator.canNavigateBack()) {
                                 (
@@ -160,11 +155,3 @@ private fun fix(
         // Nothing on this phone opens it; Settings > Accounts (P2.6) is the other way to fix it.
     }
 }
-
-/** Gives screens the chat store without a view model of their own. */
-@HiltViewModel
-class ChatsViewModel
-    @Inject
-    constructor(
-        val repository: ChatRepository,
-    ) : ViewModel()

@@ -3,6 +3,8 @@ package org.pingme.app.inbox
 
 import android.os.Looper
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -127,6 +129,8 @@ class InboxDestinationsTest {
         compose.onNodeWithText("Name, number, or username").performTextInput("ana")
         waitForText("Add ana")
         compose.onNodeWithText("Add ana").performClick()
+        // The button turns on once the member shows as a chip.
+        waitFor { compose.onAllNodes(hasText("Make the group") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Make the group").performClick()
         waitFor { opened.isNotEmpty() }
         val group = runBlocking { demo.chats.get(opened.single()) }!!

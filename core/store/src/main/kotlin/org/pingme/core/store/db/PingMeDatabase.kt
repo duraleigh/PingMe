@@ -4,8 +4,10 @@ package org.pingme.core.store.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import kotlinx.coroutines.Dispatchers
 
 /** `pingme.db` (BUILD_PLAN.md P1.2). Schemas are exported to core/store/schemas. */
@@ -24,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
         KeywordRuleEntity::class,
         MergeLinkEntity::class,
         MediaSaveJobEntity::class,
+        PinnedMessageEntity::class,
     ],
     version = PingMeDatabase.VERSION,
     exportSchema = true,
@@ -52,10 +55,10 @@ abstract class PingMeDatabase : RoomDatabase() {
         const val NAME = "pingme.db"
 
         /** The schema version. Bump it with a migration in [MIGRATIONS] and an exported schema. */
-        const val VERSION = 1
+        const val VERSION = 2
 
-        /** Schema migrations, oldest first. Empty until the schema first changes (BUILD_PLAN.md P1.6). */
-        val MIGRATIONS = emptyArray<androidx.room.migration.Migration>()
+        /** Schema migrations, oldest first (BUILD_PLAN.md P1.6). MigrationTest checks every one. */
+        val MIGRATIONS: Array<Migration> = arrayOf(PinnedMessages)
 
         /** Applies the settings every PingMe database needs, on-disk or in-memory. */
         fun configure(builder: Builder<PingMeDatabase>): PingMeDatabase =
@@ -70,5 +73,17 @@ abstract class PingMeDatabase : RoomDatabase() {
                         }
                     },
                 ).build()
+    }
+}
+
+/** 1 to 2 (P2.4): pinned messages, local to the phone (UI_DESIGN.md 5.1). */
+private object PinnedMessages : Migration(1, 2) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `pinned_messages` (`messageId` TEXT NOT NULL, `chatId` TEXT NOT NULL, " +
+                "`pinnedAt` INTEGER NOT NULL, PRIMARY KEY(`messageId`), FOREIGN KEY(`messageId`) REFERENCES " +
+                "`messages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_pinned_messages_chatId` ON `pinned_messages` (`chatId`)")
     }
 }

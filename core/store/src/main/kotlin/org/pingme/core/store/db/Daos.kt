@@ -225,6 +225,22 @@ interface MessageDao {
     )
     fun observeLastMessages(): Flow<List<LastMessageRow>>
 
+    /** Pinned messages of a chat, newest pin first (UI_DESIGN.md 5.1). */
+    @Transaction
+    @Query(
+        """
+        SELECT m.* FROM messages m JOIN pinned_messages p ON p.messageId = m.id
+        WHERE p.chatId = :chatId ORDER BY p.pinnedAt DESC, p.rowid DESC
+        """,
+    )
+    fun observePinned(chatId: String): Flow<List<MessageWithParts>>
+
+    @Upsert
+    suspend fun pin(pin: PinnedMessageEntity)
+
+    @Query("DELETE FROM pinned_messages WHERE messageId = :messageId")
+    suspend fun unpin(messageId: String)
+
     /** Who "you" are in a chat: the sender of any of your own messages there. */
     @Query("SELECT senderId FROM messages WHERE chatId = :chatId AND isOutgoing = 1 LIMIT 1")
     suspend fun selfSenderId(chatId: String): String?

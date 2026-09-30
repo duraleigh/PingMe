@@ -10,11 +10,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import org.pingme.app.chat.ChatViewModel
+import org.pingme.app.chat.MediaRequests
 import org.pingme.connectors.demo.DemoConnector
 import org.pingme.connectors.demo.DemoControls
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.connector.CredentialStore
+import org.pingme.core.connector.chat
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.ConnectionState
@@ -22,12 +26,14 @@ import org.pingme.core.model.NetworkId
 import org.pingme.core.model.NotificationMode
 import org.pingme.core.service.ChatActions
 import org.pingme.core.service.EventApplier
+import org.pingme.core.service.MessageActions
 import org.pingme.core.service.ReactionFeed
 import org.pingme.core.service.TypingTracker
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
 import org.pingme.core.store.MessageRepository
+import org.pingme.core.store.PinnedMessageRepository
 import org.pingme.core.store.SettingsRepository
 import org.pingme.core.store.db.PingMeDatabase
 import java.io.File
@@ -55,7 +61,10 @@ class DemoInbox(
     val applier = EventApplier(accounts, chats, messages, contacts, typing, reactions)
     val controls = DemoControls()
     val demo = DemoConnector(controls, MemoryCredentials(), dir.resolve("media"), Clock.System)
-    val actions = ChatActions(chats, messages, accounts, ConnectorRegistry(mapOf(NetworkId.DEMO to demo)), applier)
+    val registry = ConnectorRegistry(mapOf(NetworkId.DEMO to demo))
+    val actions = ChatActions(chats, messages, accounts, registry, applier)
+    val pins = PinnedMessageRepository(db)
+    val messageActions = MessageActions(chats, messages, pins, accounts, registry, applier, Clock.System)
     val account =
         Account(
             AccountId("demo"),
@@ -94,6 +103,34 @@ class DemoInbox(
 
     fun listViewModel(route: ChatListRoute) =
         ChatListViewModel(chats, messages, accounts, typing, actions, Clock.System, route.toSavedState())
+
+    /** Downloads straight through the demo connector instead of WorkManager. */
+    private val media =
+        object : MediaRequests(context) {
+            override fun download(id: org.pingme.core.model.AttachmentId) {
+                scope.launch {
+                    val attachment = messages.attachment(id) ?: return@launch
+                    // A test may end mid-download and delete its folder; that download simply stops.
+                    val file = runCatching { demo.downloadAttachment(attachment) }.getOrNull() ?: return@launch
+                    messages.setAttachmentLocalPath(id, file.absolutePath)
+                }
+            }
+        }
+
+    fun chatViewModel(remote: String) =
+        ChatViewModel(
+            account.id.chat(remote).value,
+            chats,
+            messages,
+            pins,
+            accounts,
+            contacts,
+            typing,
+            registry,
+            actions,
+            messageActions,
+            media,
+        )
 
     fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle())
 

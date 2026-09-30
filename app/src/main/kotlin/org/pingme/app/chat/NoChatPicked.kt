@@ -25,40 +25,6 @@ import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatId
 import org.pingme.core.ui.R as UiR
 
-/**
- * Stands in for the chat screen, which is BUILD_PLAN.md P2.4, so opening a chat from the
- * inbox already lands somewhere real: the chat's name and a back arrow. Replaced in P2.4.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ChatPane(
-    chatId: ChatId,
-    chat: (ChatId) -> kotlinx.coroutines.flow.Flow<Chat?>,
-    onBack: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
-    val current by remember(chatId) { chat(chatId) }.collectAsStateWithLifecycle(null)
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(current?.let { it.nameOverride ?: it.title }.orEmpty()) },
-                navigationIcon = {
-                    if (onBack != null) {
-                        IconButton(
-                            onClick = onBack,
-                        ) { Icon(painterResource(UiR.drawable.ic_arrow_back), stringResource(R.string.back)) }
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).padding(24.dp), contentAlignment = Alignment.Center) {
-            Text(stringResource(R.string.chat_coming), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
 /** The wide-screen detail pane before any chat is picked. */
 @Composable
 fun NoChatPicked(modifier: Modifier = Modifier) {
