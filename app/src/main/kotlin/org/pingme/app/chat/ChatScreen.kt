@@ -138,7 +138,7 @@ fun ChatRoute(
         snackbar = snackbar,
     )
     org.pingme.app.chat.attach
-        .HeldBackDialog(held, viewModel::answerHeldBack)
+        .HeldBackDialog(held, viewModel::answerHeldBack, viewModel::shrinkHeldBack)
 }
 
 private fun placeCall(

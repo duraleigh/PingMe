@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -163,6 +164,10 @@ internal fun composerHooks(
     outbox = viewModel.outbox,
     voice = viewModel.voice.takeIf { state.capabilities?.voiceNote?.let { it != MediaRule.UNSUPPORTED } == true },
     onVoiceTooShort = { onNotice(R.string.voice_too_short) },
+    gifs = viewModel.gifs.takeIf { state.capabilities?.gif?.let { it != MediaRule.UNSUPPORTED } == true },
+    gifPicks =
+        org.pingme.app.chat.gif
+            .GifPicks(viewModel::sendGif, viewModel::sendFavourite),
     onSendSms =
         if (state.account?.network == org.pingme.core.model.NetworkId.GMESSAGES) {
             { text -> viewModel.send(text, forceSms = true) }
@@ -189,6 +194,7 @@ private val SEND_SIZE = 52.dp
 internal fun HeldBackDialog(
     held: org.pingme.app.chat.HeldBack?,
     onAnswer: (send: Boolean) -> Unit,
+    onShrink: () -> Unit,
 ) {
     val waiting = held ?: return
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -200,6 +206,12 @@ internal fun HeldBackDialog(
         title = { Text(stringResource(R.string.mms_too_big_title)) },
         text = { Text(stringResource(R.string.mms_too_big_body, size)) },
         confirmButton = { TextButton({ onAnswer(true) }) { Text(stringResource(R.string.mms_send_anyway)) } },
-        dismissButton = { TextButton({ onAnswer(false) }) { Text(stringResource(android.R.string.cancel)) } },
+        dismissButton = {
+            Row {
+                TextButton({ onAnswer(false) }) { Text(stringResource(android.R.string.cancel)) }
+                // An online GIF can go in its smaller size instead (UI_DESIGN.md 5.5).
+                if (waiting.shrink != null) TextButton(onShrink) { Text(stringResource(R.string.mms_shrink)) }
+            }
+        },
     )
 }

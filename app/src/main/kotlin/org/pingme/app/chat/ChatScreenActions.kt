@@ -51,6 +51,9 @@ class ComposerHooks(
     /** Voice notes; null where the network cannot take them. */
     val voice: org.pingme.app.chat.voice.VoiceNotes? = null,
     val onVoiceTooShort: () -> Unit = {},
+    /** The GIF button's picker; null where the network cannot take GIFs. */
+    val gifs: org.pingme.app.chat.gif.GifSearch? = null,
+    val gifPicks: org.pingme.app.chat.gif.GifPicks? = null,
 )
 
 /** What a message row needs besides the message. */

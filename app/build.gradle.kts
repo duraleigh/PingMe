@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -6,6 +8,21 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.kotlin.serialization)
 }
+
+// The GIPHY key for GIF search (UI_DESIGN.md 5.5) is never committed: CI passes the
+// GIPHY_API_KEY secret, and local builds read giphy.apiKey from local.properties. Without
+// one, GIF search is off and the picker offers favourites only.
+val localProperties =
+    Properties().apply {
+        rootProject
+            .file("local.properties")
+            .takeIf { it.exists() }
+            ?.inputStream()
+            ?.use { load(it) }
+    }
+val giphyKey =
+    providers.environmentVariable("GIPHY_API_KEY").orNull?.takeIf { it.isNotBlank() }
+        ?: localProperties.getProperty("giphy.apiKey").orEmpty()
 
 android {
     namespace = "org.pingme.app"
@@ -15,6 +32,7 @@ android {
         versionCode = 1
         versionName = "0.0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "GIPHY_API_KEY", "\"$giphyKey\"")
     }
 
     // Sideload signing (BUILD_PLAN.md P0.3). CI decodes the SIDELOAD_KEYSTORE_B64
@@ -42,6 +60,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     lint {

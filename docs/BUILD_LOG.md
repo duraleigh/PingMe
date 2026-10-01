@@ -842,3 +842,61 @@ Tests (31 new; 161 in the app and changed modules, all passing):
 - New dependencies in `app`: `adaptive-layout` and `adaptive-navigation` 1.3.0.
 
 **Next:** P2.4, the chat screen.
+
+## P2.4 Chat screen (in progress, 2026-10-01)
+
+Built in parts on PR #6, each part green before it was pushed.
+
+- **Part 1:** header, message list with grouping, tails, day separators, the
+  new-messages divider, scroll-to-bottom pill, pinned banner, reply strip, composer.
+  Pinned messages got their own table (schema version 2, with a migration).
+- **Part 2:** press and hold (reaction bar and action card), double-tap reaction, the
+  emoji picker (Unicode emoji-test 18.0, licence in `licenses/`), Reaction Burst at each
+  intensity, swipe right to reply, delete for me (with Undo) and for everyone, edit,
+  pin, forward, copy, share, info, and multi-select. `Connector` gained `edit`.
+- **Part 3a, attachments:** Camera, Gallery, File, Location, Contact; picks wait above
+  the composer and go with the text as caption; upload progress on the bubble
+  (`Connector.send` gained a progress callback); split send button with Send as SMS
+  in Google Messages chats.
+  - Location uses the phone's own location service and is sent as a GeoJSON point;
+    the bubble shows the coordinates and opens the maps app. No map image is drawn,
+    because that would need a map server.
+- **Part 3b, voice notes:** hold to record, slide left to cancel, slide up to lock;
+  playback with waveform, scrubbing, 1x / 1.5x / 2x and the earpiece when raised;
+  Voice reply in the action sheet.
+  - Networks that send voice notes as MMS record at 24 kbit/s instead of 64, so about
+    five minutes fits under 1 MB. A note still over 1 MB asks "Send anyway" or Cancel.
+- **Part 3c, GIFs:** GIF button with search, Trending, and favourites; keyboard GIFs
+  (Gboard) through the text field's content receiver; MMS size warning with Shrink.
+
+**Deviations, decided with the owner:**
+- **GIPHY instead of Tenor.** Google shut the Tenor API down on 30 June 2026. The owner
+  chose GIPHY and supplied a key. The provider is pluggable (`GifProvider`).
+  - The key is never committed. CI reads the `GIPHY_API_KEY` secret; local builds read
+    `giphy.apiKey` from `local.properties`. Without a key the picker offers favourites
+    only and says search is not set up.
+  - **Owner to-do:** add the `GIPHY_API_KEY` repository secret (steps below), or CI
+    builds will have no GIF search.
+
+**Deviations, my calls (owner please confirm):**
+- GIPHY's optional analytics pings and user ids are not sent (CLAUDE.md rule 8). The
+  picker shows "Powered by GIPHY" under online results.
+- Nothing goes to GIPHY until the user types a search or taps Trending. The picker opens
+  on Favourites.
+- Shrink is offered only for GIPHY GIFs, which come in a smaller size. A GIF from the
+  gallery or the keyboard over the limit gets "Send anyway" or Cancel; re-encoding a
+  GIF on the phone is not built.
+- Three settings arrive with Settings in P2.6, since there is no settings screen yet:
+  turning online GIF search off, the data-saver "play GIFs on tap", and voice-note
+  transcription (off by default). Until then GIFs autoplay and search is on when the
+  build has a key.
+
+**Adding the GIPHY key to GitHub (owner):** Settings > Secrets and variables > Actions >
+New repository secret. Name `GIPHY_API_KEY`, value the key. Save.
+
+**Tests:** chat tests turn the demo network's live activity off, and wait by moving the
+main thread's clock on, so the demo's pretend upload finishes. A fake microphone and a
+fake GIF store stand in for the hardware and the network.
+
+**Next:** P2.4 part 4: search in chat, obscured mode, Send later, link previews and
+clean links.

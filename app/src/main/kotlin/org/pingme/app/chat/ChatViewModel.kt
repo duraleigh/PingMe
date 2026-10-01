@@ -91,6 +91,8 @@ data class HeldBack(
     val body: String,
     val files: List<OutgoingAttachment>,
     val forceSms: Boolean,
+    /** An online GIF that has a smaller size to offer instead ("Shrink"). */
+    val shrink: org.pingme.app.chat.gif.Gif? = null,
 ) {
     val bytes: Long get() = files.sumOf { java.io.File(it.localPath).length() }
 }
@@ -128,6 +130,7 @@ class ChatViewModel
         reactionFeed: org.pingme.core.service.ReactionFeed,
         files: org.pingme.app.chat.attach.OutgoingFiles,
         recorder: VoiceRecorder,
+        gifStore: org.pingme.app.chat.gif.GifStore,
     ) : ViewModel() {
         /** Takes the chat id as text: Hilt cannot generate factories for value classes. */
         @AssistedFactory
@@ -155,6 +158,11 @@ class ChatViewModel
             ) {
                 dispatch("", listOf(it.asAttachment()), forceSms = false)
             }
+
+        /** GIF search, Trending, and favourites (UI_DESIGN.md 5.5). */
+        val gifs =
+            org.pingme.app.chat.gif
+                .GifSearch(viewModelScope, gifStore)
 
         private val tooBig = MutableStateFlow<HeldBack?>(null)
 
@@ -262,14 +270,49 @@ class ChatViewModel
             if (send) go(held.body, held.files, held.forceSms)
         }
 
+        /** "Shrink": sends the GIF's smaller size instead. */
+        fun shrinkHeldBack() {
+            val held = tooBig.value ?: return
+            val gif = held.shrink ?: return
+            tooBig.value = null
+            viewModelScope.launch {
+                gifs.store
+                    .forSending(
+                        gif,
+                        small = true,
+                    )?.let { go("", listOf(it), held.forceSms) }
+            }
+        }
+
+        /** Sends a GIF picked from search or Trending (UI_DESIGN.md 5.5). */
+        fun sendGif(gif: org.pingme.app.chat.gif.Gif) {
+            viewModelScope.launch {
+                gifs.store
+                    .forSending(
+                        gif,
+                    )?.let { dispatch("", listOf(it), forceSms = false, shrink = gif) }
+            }
+        }
+
+        /** Sends one of the user's favourite GIFs. */
+        fun sendFavourite(file: java.io.File) {
+            viewModelScope.launch {
+                gifs.store
+                    .favouriteForSending(
+                        file,
+                    )?.let { dispatch("", listOf(it), forceSms = false) }
+            }
+        }
+
         private fun dispatch(
             body: String,
             files: List<OutgoingAttachment>,
             forceSms: Boolean,
+            shrink: org.pingme.app.chat.gif.Gif? = null,
         ) {
             if (body.isEmpty() && files.isEmpty()) return
             if (overMmsLimit(files, forceSms)) {
-                tooBig.value = HeldBack(body, files, forceSms)
+                tooBig.value = HeldBack(body, files, forceSms, shrink?.takeIf { it.small != null })
                 return
             }
             go(body, files, forceSms)

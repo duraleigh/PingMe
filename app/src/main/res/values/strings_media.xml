@@ -27,4 +27,15 @@
     <string name="mms_too_big_title">This may be too big for MMS</string>
     <string name="mms_too_big_body">It is %1$s. Most carriers only take MMS up to about 1 MB, so it may not arrive.</string>
     <string name="mms_send_anyway">Send anyway</string>
+    <string name="gif">GIF</string>
+    <string name="gif_search">Search GIFs</string>
+    <string name="gif_search_off">GIF search is not set up in this build</string>
+    <string name="gif_favourites">Favourites</string>
+    <string name="gif_trending">Trending</string>
+    <string name="gif_failed">Could not reach the GIF service. Check your connection.</string>
+    <string name="gif_nothing">No GIFs found</string>
+    <string name="gif_no_favourites">No favourites yet. Hold a GIF to keep it here.</string>
+    <string name="gif_favourite">Favourite GIF</string>
+    <string name="gif_is_favourite">In your favourites</string>
+    <string name="mms_shrink">Shrink</string>
 </resources>
