@@ -50,8 +50,9 @@ Rules:
       just wait longer, and never restart the same command unchanged.
     - **Before starting anything slow, say** what it is and how long it normally takes.
       **When it ends, say** whether it passed or failed.
-    - **GitHub CI normally takes 10 to 20 minutes.** Do other useful work meanwhile. If
-      it passes 30 minutes, look at the run's status and logs and tell the owner what
-      is happening.
+    - **GitHub CI normally takes 10 to 20 minutes** for code changes, and about 1 minute
+      when only notes change (`docs/` or `.md` files skip the build and tests). Do other
+      useful work meanwhile. If it passes 30 minutes, look at the run's status and logs
+      and tell the owner what is happening.
     - **Never repeat a slow full run to "see if it happens again"** without first
       telling the owner why it is needed and how long it will take.

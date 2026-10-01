@@ -26,8 +26,38 @@ jobs:
       apk: ${{ steps.apk.outputs.name }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history, so the next step can see which files this change touches.
+          fetch-depth: 0
+
+      # Changes to notes only (docs/ and Markdown files) skip the build and tests and
+      # pass in about a minute (owner, 2026-10-01). Tags, new branches, and anything
+      # that touches another file always get the full check.
+      - name: Notes only?
+        id: changes
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          code=true
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            files=$(git diff --name-only "origin/$BASE_REF...HEAD")
+          elif [ "${{ github.ref_type }}" = "branch" ] && [ -n "$BEFORE" ] \
+              && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
+              && git cat-file -e "$BEFORE" 2>/dev/null; then
+            files=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
+          else
+            files=""
+          fi
+          if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvE '^docs/|\.md$'; then
+            code=false
+            echo "Only notes changed, so the build and tests are skipped:"
+            printf '%s\n' "$files"
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v6
+        if: steps.changes.outputs.code == 'true'
         with:
           distribution: temurin
           java-version: "17"
@@ -35,11 +65,13 @@ jobs:
       # The runner image ships an Android SDK with licences accepted. Install exactly
       # the packages the build uses so AGP never has to fetch them mid-build.
       - name: Android SDK packages
+        if: steps.changes.outputs.code == 'true'
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-37.2" "build-tools;36.0.0" > /dev/null
 
       - uses: gradle/actions/setup-gradle@v6
+        if: steps.changes.outputs.code == 'true'
         with:
           cache-provider: basic
 
@@ -47,20 +79,20 @@ jobs:
       # is cached under that hash otherwise. Skipped until gobridge/build.sh exists.
       - name: Go bridge cache
         id: gobridge-cache
-        if: hashFiles('gobridge/build.sh') != ''
+        if: steps.changes.outputs.code == 'true' && hashFiles('gobridge/build.sh') != ''
         uses: actions/cache@v6
         with:
           path: gobridge/build
           key: gobridge-${{ hashFiles('gobridge/**') }}
 
       - uses: actions/setup-go@v7
-        if: hashFiles('gobridge/build.sh') != '' && steps.gobridge-cache.outputs.cache-hit != 'true'
+        if: steps.changes.outputs.code == 'true' && hashFiles('gobridge/build.sh') != '' && steps.gobridge-cache.outputs.cache-hit != 'true'
         with:
           go-version-file: gobridge/go.mod
           cache-dependency-path: gobridge/go.sum
 
       - name: Build Go bridge
-        if: hashFiles('gobridge/build.sh') != '' && steps.gobridge-cache.outputs.cache-hit != 'true'
+        if: steps.changes.outputs.code == 'true' && hashFiles('gobridge/build.sh') != '' && steps.gobridge-cache.outputs.cache-hit != 'true'
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.3.13750724" > /dev/null
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.3.13750724"
@@ -72,6 +104,7 @@ jobs:
       # over the previous version. A missing or broken key fails the build on pushes
       # and tags; pull requests from forks get no secrets and fall back to the debug key.
       - name: Sideload keystore
+        if: steps.changes.outputs.code == 'true'
         env:
           SIDELOAD_KEYSTORE_B64: ${{ secrets.SIDELOAD_KEYSTORE_B64 }}
           SIDELOAD_KEYSTORE_PASSWORD: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
@@ -96,6 +129,7 @@ jobs:
           echo "SIDELOAD_KEYSTORE_FILE=$keystore" >> "$GITHUB_ENV"
 
       - name: Static checks, unit tests, release and demo builds
+        if: steps.changes.outputs.code == 'true'
         env:
           SIDELOAD_KEYSTORE_PASSWORD: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
           SIDELOAD_KEY_ALIAS: ${{ secrets.SIDELOAD_KEY_ALIAS }}
@@ -106,6 +140,7 @@ jobs:
         run: ./gradlew check assembleRelease assembleDebug
 
       - name: Name the APK
+        if: steps.changes.outputs.code == 'true'
         id: apk
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then
@@ -122,12 +157,14 @@ jobs:
 
       # Uploaded as the bare .apk (not zipped) so it installs straight from a phone.
       - uses: actions/upload-artifact@v7
+        if: steps.changes.outputs.code == 'true'
         with:
           path: ${{ steps.apk.outputs.name }}
           archive: false
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
+        if: steps.changes.outputs.code == 'true'
         with:
           path: ${{ steps.apk.outputs.demo }}
           archive: false
