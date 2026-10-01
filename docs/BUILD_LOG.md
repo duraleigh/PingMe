@@ -1142,3 +1142,98 @@ all runs on the pretend "Demo" network, so nothing real is sent anywhere.
 - Anything confusing, slow, or broken.
 
 **Next:** Phase 3 (P3.1, the Go bridge) once the owner's Gate G1 feedback is in.
+
+## Gate G1 result (2026-10-01): feedback collected, fixes not started
+
+Owner tested `pingme-7527944-demo.apk` on the phone. Overall: the UI works well and is
+close to right. The owner added the `GIPHY_API_KEY` repository secret; GIF search needs
+a build made after that (any new CI build).
+
+What worked, confirmed by the owner: setup and the demo login, the inbox, chats,
+Settings, Spaces, Send later, obscured chats (screenshots are blocked, as designed), and
+a notification arrived from the demo network.
+
+**Feedback, sorted.** "Change to the design" means `UI_DESIGN.md` says otherwise today,
+so the owner approves the new wording before it is built (rule 2).
+
+Fixes to what was built (the design already says or allows this):
+1. **Bottom bar items sit left of centre.** Layout fix.
+2. **Inbox top bar has no background**, so rows slide up behind its text when
+   scrolling. Give it a surface colour with rounded bottom corners, like Google Messages.
+3. **Press and hold on a message: the reactions bar and the action menu overlap**, so
+   one cannot be used. Lay it out like Google Messages: reactions above the message, the
+   held message itself, and the action menu below it.
+4. **The mic seems to do nothing on a tap.** By design a voice note is recorded by
+   holding the mic (5.6), and a quick tap should say "too short". Seeing nothing at all
+   needs checking on the phone; a tap should also say "Hold to record".
+5. **Motion: Full and Extra look the same as the lower levels.** Needs checking: Full
+   should add the celebrate burst to reactions and Extra the edge glow for special emoji
+   (5.4), plus livelier transitions elsewhere.
+6. **A scheduled message's press-and-hold menu** should offer Edit, Reschedule, and
+   Unschedule (delete). 10.13 already says a scheduled message stays editable and
+   cancellable; Reschedule is a small addition the owner asked for.
+
+Changes to the design (owner to approve):
+7. **One Send button, not a split button.** Tap to send; press and hold for Send later
+   (and Send as SMS where it applies). Today the design names the Expressive split button.
+8. **"All" may be removed from the bottom bar.** Today the design keeps All always first.
+9. **Spaces get an icon** chosen by the user, for the bottom bar, and a choice per space:
+   its chats also show in All, or only inside the space.
+10. **Read receipts in the inbox list**, as Google Messages shows them: the last message's
+    sent, delivered, or read mark on the row when it is yours.
+
+Already planned for a later phase:
+11. **Reply and Mark read from a notification.** Designed in 6.2 and built in P4.1 with
+    the rest of notifications; P4.1 should also add Copy code (10.6) there.
+
+Questions back to the owner:
+- **Flippy reactions** (10.8): when someone reacts to a message while you are on the
+  inbox, that chat's row flips over like a card to show the reaction for a moment, then
+  flips back. The demo sends reactions only now and then, so it is easy to miss; a
+  demo control to send one on demand would make it testable.
+
+Low priority, after the whole app works (owner's call):
+12. **The obscure blur should follow the bubble's shape**, or blur only the text inside
+    it, as Beeper does. Today it is a square-cornered mask.
+
+**Next:** the owner approves items 7 to 10 (or changes them), and says whether items 1 to 10
+are fixed now, before Phase 3, or folded into later phases. Phase 3 waits for that answer.
+
+### Gate G1 follow-up (2026-10-01): owner's answers and what was found
+
+Owner decisions:
+- Items 1 to 10 above: all approved as written. Fix them now, before Phase 3.
+- **Voice notes become WhatsApp-style (changes UI_DESIGN.md 5.6; approved):** tap the mic
+  to start recording; the composer becomes a recording bar with a timer, a waveform, a
+  delete (trash) button, Pause/Resume (paused, the recording so far can be played back),
+  and Send. Holding the mic still records while held: release sends, slide left cancels,
+  slide up locks into the same bar. The owner's reference recording of WhatsApp shows it.
+
+Found by investigation (no code changed yet):
+- **Mic does nothing (reproduced in Robolectric with a finger-like hold).** The mic's
+  `FilledIconButton` has its own click handling, which takes the touch first; the
+  hold-to-record `pointerInput` waits for an unconsumed down (`awaitFirstDown()`) and never
+  sees it. The voice tests never pressed the button: they called `VoiceNotes` directly.
+  Fix with the new design, and test with real presses (tap, hold, slide).
+- **Reacting from the hold menu by touch did nothing in Robolectric:** the action menu
+  is drawn over the reaction bar (item 3), so a tap lands on the menu. A tap through the
+  emoji's click action saves the reaction and plays the burst. On the owner's phone the
+  visible emojis do work, so the overlap is the item 3 layout bug, not the missing burst.
+- **No burst on the owner's phone, double tap included.** The owner confirms the reaction
+  saves, its chip appears, and the bubble wobbles. The wobble is fired by the burst layer
+  when the flying emoji lands, so the burst's timeline runs on the phone but nothing is
+  seen. "Remove animations" is off on the phone. In Robolectric the same code draws a
+  large, visible burst. Cause not yet found: needs the real phone (screen recording, or
+  adb with logs).
+- **Motion levels:** UI_DESIGN.md 4.5 says intensity governs reactions, bubble entrance,
+  and transitions. Only the reaction burst reads Subtle/Full/Extra today; everything else
+  checks only Off or not. This narrowed the design without a log entry; it is to be built.
+- **Extra's edge glow** did not show in the Robolectric frames either; to be found.
+
+**Moving off the cloud:** the cloud machine has no hardware virtualization, so it cannot
+run an Android emulator, and it cannot reach the owner's phone. The owner is setting up
+Claude Code on their Windows 11 desktop (WSL2 Ubuntu, same toolchain as CI) with the phone
+paired over wireless debugging (adb), so builds can be installed on the phone and checked
+with screenshots, screen recordings, and logcat. The next session starts by reading
+CLAUDE.md, the design docs, and this log, then fixes items 1 to 10 plus the mic and motion
+work above, testing each on the phone.
