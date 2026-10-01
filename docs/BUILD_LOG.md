@@ -301,7 +301,23 @@ Phase 1 must not start until the owner reports G0 results (BUILD_PLAN.md rule 1)
   when a decision is truly the owner's (for example, narrowing a feature).
 - The builder merges its own pull requests into `main` once CI is green. The owner
   does not press Merge.
-- Talk to the owner in plain, simple language: short steps, no jargon.
+- Talk to the owner in plain, simple language: short steps, no jargon. Aim for a
+  fifth-grade reading level; explain any technical word the first time.
+- Never generate code the owner has not approved. Plan steps are approved by the plan;
+  anything new, or any change to the design, is proposed first and built only after the
+  owner says yes (CLAUDE.md rule 11, and the owner's own standing preference).
+- Never sit silently while something runs. Say what is running, about how long it takes,
+  and do other useful work meanwhile (added 2026-10-01).
+- Keep test runs short: run only the affected tests while working; run the full
+  `./gradlew check` once before each commit (about 2 to 4 minutes). **The exact time
+  limits, the 60-second progress checks, and what counts as frozen are CLAUDE.md
+  rule 12; follow it to the letter** (added 2026-10-01, after a frozen run went
+  unnoticed for about 20 minutes).
+- The GIPHY API key is never committed (the repository is public). It lives in
+  `local.properties` as `giphy.apiKey` (gitignored) and in the `GIPHY_API_KEY`
+  repository secret for CI; the owner added that secret on 2026-10-01.
+- The owner's phone is theirs to use. Test on the emulator; ask before using the phone,
+  and only when the owner offers it (added 2026-10-01).
 
 ## Gate G0 result (2026-09-30)
 
@@ -1237,3 +1253,67 @@ paired over wireless debugging (adb), so builds can be installed on the phone an
 with screenshots, screen recordings, and logcat. The next session starts by reading
 CLAUDE.md, the design docs, and this log, then fixes items 1 to 10 plus the mic and motion
 work above, testing each on the phone.
+
+
+## Handover: from the cloud session to the owner's computer (2026-10-01)
+
+**Why the move.** Two bugs from Gate G1 (the mic, and the reaction burst that never shows)
+pass in Robolectric but fail on a real phone. The cloud machine cannot run an Android
+emulator (no hardware virtualization) and cannot reach the owner's phone, so it could not
+see them. The owner's computer can do both.
+
+**The owner's computer (set up and checked 2026-10-01).** Windows 11 desktop (Intel Core
+Ultra 9 285, 64 GB RAM), running Ubuntu 24.04 in WSL2 with `networkingMode=mirrored` and
+`nestedVirtualization=true` in `C:\Users\ca\.wslconfig`. In Ubuntu (user `clayaiken`):
+- The project is at `~/PingMe`, cloned with `gh` (signed in as duraleigh, so pushing works).
+- JDK 17, Go 1.24.7 (in `/usr/local/go`), and the Android SDK in `/opt/android-sdk` from
+  `scripts/setup-cloud.sh` (the name says cloud, but it is the same toolchain).
+  `adb version` works.
+- `local.properties` has `giphy.apiKey`.
+- QEMU/KVM are installed, `clayaiken` is in the `kvm` group, and `/dev/kvm` exists.
+  **No emulator exists yet**: the first job is to install the emulator package and an
+  x86_64 system image with `sdkmanager`, create an AVD (match the owner's phone if they
+  say which), and boot it; WSLg shows its window on the desktop.
+- The owner drives Claude Code from the Claude desktop app with the WSL > Ubuntu-24.04
+  environment and the `~/PingMe` folder.
+
+**Where things stand.** Phase 2 is built and merged (P2.1 to P2.8). Gate G1 is *not*
+passed: the owner's feedback (sections above) must be fixed and re-checked first. All
+design changes the owner approved are now written into `docs/UI_DESIGN.md` (send button,
+inbox top bar, read marks in the inbox, bottom bar centring and removable All, the hold
+menu layout, scheduled message actions, voice notes, spaces' icon and "show in All").
+Nothing of the fixes has been coded yet.
+
+**What to do next, in order.** One small PR per group; run `./gradlew check` before each
+commit; check each fix on the emulator with screenshots (and `adb shell screenrecord` for
+animations) before calling it done.
+1. Set up and boot the emulator; build the debug (demo) APK and install it with
+   `adb install`; go through setup and the Demo login once.
+2. Look at the reaction burst on the emulator first (double tap, Motion at Extra), with
+   a screen recording. The wobble fires, so the burst's timeline runs; find why nothing
+   is drawn on a real device, and fix it. Then make Subtle, Full, and Extra visibly
+   different for reactions, bubble entrance, and screen transitions (UI_DESIGN.md 4.5),
+   and fix Extra's edge glow.
+3. Voice notes, the new tap-or-hold design (UI_DESIGN.md 5.6). Tests must press the
+   button like a finger (tap, hold, slide left, slide up), not call `VoiceNotes` directly.
+4. The hold menu layout (3.3), with a test that taps each emoji at its place on screen;
+   then the scheduled-message actions.
+5. The single Send button; the inbox top bar surface; the bottom bar centring; read marks
+   in the inbox rows.
+6. Bottom bar: All removable. Spaces: icon picker and "show in All".
+7. Write a new Gate G1 checklist for the owner covering every item, build the demo APK in
+   CI, and stop for the owner's re-check.
+
+Also open, for the owner to decide: a demo control that sends a reaction on demand, so
+flippy reactions (UI_DESIGN.md 10.8) can be tested; and, low priority after the whole
+app works, an obscure blur that follows the bubble's shape.
+
+**After Gate G1 passes:** Phase 3, starting at P3.1 (the Go bridge).
+
+**Lessons from this phase, for writing tests here.** Robolectric's main looper needs
+`shadowOf(Looper.getMainLooper()).idleFor(...)` inside waits; turn the demo's
+`liveActivity` off in UI tests; click with `performSemanticsAction(OnClick)` only when a
+tap's position is not what is being tested; text boxes must read typed text from Compose
+state, never from a flow (see P2.8). Robolectric hid three real bugs this phase (the mic,
+the hold-menu overlap, the missing burst), so anything about touch or drawing is checked
+on the emulator too.

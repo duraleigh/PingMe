@@ -32,3 +32,27 @@ Rules:
     components when an Expressive one exists.
 11. The owner's preference: do not generate code outside the current plan step, and
     do not refactor working code unless the step calls for it.
+12. **Never wait silently, and never let anything run unwatched.** The owner will not
+    sit through another long silent wait on something that has frozen. These are hard
+    limits, not guidelines:
+    - **Every command gets a hard time limit** (`timeout N` in front of it):
+      - one test class, or a few: `timeout 300` (5 minutes; normally under 1 minute);
+      - full `./gradlew check`: `timeout 600` (10 minutes; normally 2 to 4 minutes);
+      - `adb` commands: `timeout 60`;
+      - emulator boot: wait at most 180 seconds for `sys.boot_completed` to be `1`;
+      - anything else that is not instant: a limit no more than twice its normal time.
+    - **Anything over 1 minute runs in the background** with its output going to a log
+      file. Check the log at least **every 60 seconds** and tell the owner, in one
+      line, what is running and how far along it is.
+    - **Frozen means: no new output for 3 minutes, or past its normal time by half.**
+      Then stop it at once (`./gradlew --stop`, or kill the process), tell the owner
+      it froze and what was running, find out why, and only then try again. Never
+      just wait longer, and never restart the same command unchanged.
+    - **Before starting anything slow, say** what it is and how long it normally takes.
+      **When it ends, say** whether it passed or failed.
+    - **GitHub CI normally takes 10 to 20 minutes** for code changes, and about 1 minute
+      when only notes change (`docs/` or `.md` files skip the build and tests). Do other
+      useful work meanwhile. If it passes 30 minutes, look at the run's status and logs
+      and tell the owner what is happening.
+    - **Never repeat a slow full run to "see if it happens again"** without first
+      telling the owner why it is needed and how long it will take.
