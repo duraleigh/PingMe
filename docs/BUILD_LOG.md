@@ -1660,8 +1660,8 @@ bind itself was run here: the AAR is 20.6 MB for arm64, x86_64, and arm.
 to 103 MB with the bridge, because the Go library ships for three chip types (arm64,
 x86_64, arm) and is stored uncompressed, as Android requires for native code. One phone
 only needs one of them; if the size matters to the owner, ABI splits (one APK per chip
-type) or dropping 32-bit arm would bring it back down. Worth deciding before Gate G2's
-install, since the APK is what gets downloaded onto the phone.
+type) or dropping 32-bit arm would bring it back down. Owner's decision (2026-10-01):
+leave the size for now; revisit at release time.
 
 **Library versions:** mautrix-gmessages v0.2609.0 (September 2026; `pkg/libgm`, not
 the `libgm/` path the plan guessed), which needs Go 1.26, so `GOTOOLCHAIN=auto` fetches
