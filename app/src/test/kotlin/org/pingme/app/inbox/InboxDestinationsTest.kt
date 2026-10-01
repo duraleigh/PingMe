@@ -125,8 +125,9 @@ class InboxDestinationsTest {
 
     @Test
     fun aNewGroupIsMadeWithItsMembers() {
+        val vm = demo.newChatViewModel(group = true)
         compose.setContent {
-            PingMeTheme { NewChatRoute({}, { opened += it }, viewModel = demo.newChatViewModel(group = true)) }
+            PingMeTheme { NewChatRoute({}, { opened += it }, viewModel = vm) }
         }
         waitForText("Group name")
         compose.onNodeWithText("Group name").performTextInput("Trip")

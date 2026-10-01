@@ -66,6 +66,7 @@ internal fun AttachmentView(
     progress: Float? = null,
     player: VoicePlayer? = null,
     autoplay: Boolean = true,
+    transcripts: org.pingme.app.chat.voice.Transcripts? = null,
 ) {
     val need by rememberUpdatedState(onNeed)
     LaunchedEffect(attachment.id, attachment.localPath) { need(attachment) }
@@ -86,7 +87,7 @@ internal fun AttachmentView(
             }
 
             AttachmentKind.VOICE -> {
-                VoiceBubble(attachment, player)
+                VoiceBubble(attachment, player, transcripts = transcripts)
             }
 
             AttachmentKind.LOCATION -> {

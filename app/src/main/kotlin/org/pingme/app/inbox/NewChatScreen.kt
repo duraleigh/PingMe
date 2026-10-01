@@ -26,7 +26,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -143,15 +145,32 @@ class NewChatViewModel
 
         fun pickAccount(id: AccountId) = form.update { it.copy(account = id) }
 
-        fun type(text: String) = form.update { it.copy(text = text) }
+        /**
+         * The two text boxes. Held in Compose state, which the text box reads at once:
+         * a box fed from a flow can be redrawn with an older value between keystrokes and
+         * lose what was typed.
+         */
+        var typed by mutableStateOf("")
+            private set
+        var typedTitle by mutableStateOf("")
+            private set
 
-        fun setTitle(text: String) = form.update { it.copy(title = text) }
+        fun type(text: String) {
+            typed = text
+            form.update { it.copy(text = text) }
+        }
+
+        fun setTitle(text: String) {
+            typedTitle = text
+            form.update { it.copy(title = text) }
+        }
 
         /** New chat: starts at once. New group: adds a member. */
         fun choose(handle: String) {
             val h = handle.trim()
             if (h.isEmpty()) return
             if (group) {
+                typed = ""
                 form.update { it.copy(members = (it.members + h).distinct(), text = "") }
             } else {
                 run { actions.startChat(requireNotNull(state.value.account), h) }
@@ -210,7 +229,8 @@ fun NewChatRoute(
     }
     NewChatScreen(
         group = viewModel.group,
-        state = state,
+        // The boxes show what was typed at once; the rest of the state follows from the flow.
+        state = state.copy(text = viewModel.typed, title = viewModel.typedTitle),
         actions =
             NewChatActions(
                 onBack,

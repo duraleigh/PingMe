@@ -4,11 +4,13 @@ package org.pingme.app.chat.voice
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -31,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.pingme.app.R
@@ -56,6 +59,20 @@ fun VoiceBubble(
     attachment: Attachment,
     player: VoicePlayer?,
     modifier: Modifier = Modifier,
+    transcripts: Transcripts? = null,
+) {
+    Column(modifier.testTag(VOICE_NOTE)) {
+        VoiceControls(attachment, player)
+        val path = attachment.localPath
+        if (transcripts != null && path != null) TranscriptLine(transcripts, attachment.id.value, path)
+    }
+}
+
+// Play, the waveform to scrub, the time, and the speed.
+@Composable
+private fun VoiceControls(
+    attachment: Attachment,
+    player: VoicePlayer?,
 ) {
     val path = attachment.localPath
     val key = attachment.id.value
@@ -67,7 +84,7 @@ fun VoiceBubble(
     val done = if (mine && playing.durationMs > 0) playing.positionMs.toFloat() / playing.durationMs else 0f
     val play = { if (path != null) player?.toggle(key, path) }
     val seek = { fraction: Float -> if (path != null) player?.seek(key, path, fraction) }
-    Row(modifier.padding(bottom = 6.dp).testTag(VOICE_NOTE), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         FilledTonalIconButton({ play() }, enabled = path != null) {
             if (mine && playing.playing) {
                 Icon(painterResource(UiR.drawable.ic_pause), stringResource(R.string.voice_pause))
@@ -123,11 +140,35 @@ private fun Bars(
     }
 }
 
+// The note's words under it, written out on the phone (UI_DESIGN.md 5.6).
+@Composable
+private fun TranscriptLine(
+    transcripts: Transcripts,
+    key: String,
+    path: String,
+) {
+    val transcript by remember(key) { transcripts.of(key, path) }.collectAsStateWithLifecycle()
+    val (text, italic) =
+        when (val t = transcript) {
+            is Transcript.Text -> t.text to false
+            Transcript.Working -> stringResource(R.string.voice_transcribing) to true
+            Transcript.Unavailable -> stringResource(R.string.voice_transcript_unavailable) to true
+            Transcript.Failed -> stringResource(R.string.voice_transcript_failed) to true
+        }
+    Text(
+        text,
+        Modifier.padding(bottom = 6.dp).widthIn(max = TRANSCRIPT_WIDTH),
+        style = MaterialTheme.typography.bodyMedium,
+        fontStyle = if (italic) FontStyle.Italic else null,
+    )
+}
+
 /** "1x", "1.5x", "2x". */
 fun speedLabel(speed: Float) = if (speed % 1f == 0f) "${speed.toInt()}x" else "${speed}x"
 
 const val VOICE_NOTE = "voice-note"
 private val WAVE_WIDTH = 140.dp
+private val TRANSCRIPT_WIDTH = 260.dp
 private val WAVE_HEIGHT = 32.dp
 private val SPEED_WIDTH = 52.dp
 private val SPEED_HEIGHT = 36.dp

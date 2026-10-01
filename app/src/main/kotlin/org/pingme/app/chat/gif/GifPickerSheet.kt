@@ -63,7 +63,7 @@ fun GifPickerSheet(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(SHEET_HEIGHT)) {
             OutlinedTextField(
-                state.query,
+                search.typed,
                 search::search,
                 Modifier.fillMaxWidth(),
                 enabled = state.online,

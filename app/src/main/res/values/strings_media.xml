@@ -38,4 +38,7 @@
     <string name="gif_favourite">Favourite GIF</string>
     <string name="gif_is_favourite">In your favourites</string>
     <string name="mms_shrink">Shrink</string>
+    <string name="voice_transcribing">Writing it out…</string>
+    <string name="voice_transcript_unavailable">This phone can\'t write out voice notes. It needs Android 13 or newer with on-device speech recognition.</string>
+    <string name="voice_transcript_failed">Couldn\'t make out the words.</string>
 </resources>

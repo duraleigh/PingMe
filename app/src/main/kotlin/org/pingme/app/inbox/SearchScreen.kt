@@ -18,7 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -105,7 +107,16 @@ class SearchViewModel
                     }
                 }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), SearchResults())
 
+        /**
+         * What is in the search box. Held in Compose state, which the text box reads at once:
+         * a box fed from a flow can be redrawn with an older value between keystrokes and
+         * lose what was typed.
+         */
+        var typed by mutableStateOf(saved.get<String>(QUERY).orEmpty())
+            private set
+
         fun setQuery(text: String) {
+            typed = text
             saved[QUERY] = text
         }
 
@@ -123,9 +134,8 @@ fun SearchRoute(
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
-    val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
-    SearchScreen(query, results, viewModel::setQuery, onBack, onOpenChat, modifier)
+    SearchScreen(viewModel.typed, results, viewModel::setQuery, onBack, onOpenChat, modifier)
 }
 
 @Composable
