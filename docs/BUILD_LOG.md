@@ -1198,3 +1198,42 @@ Low priority, after the whole app works (owner's call):
 
 **Next:** the owner approves items 7 to 10 (or changes them), and says whether items 1 to 10
 are fixed now, before Phase 3, or folded into later phases. Phase 3 waits for that answer.
+
+### Gate G1 follow-up (2026-10-01): owner's answers and what was found
+
+Owner decisions:
+- Items 1 to 10 above: all approved as written. Fix them now, before Phase 3.
+- **Voice notes become WhatsApp-style (changes UI_DESIGN.md 5.6; approved):** tap the mic
+  to start recording; the composer becomes a recording bar with a timer, a waveform, a
+  delete (trash) button, Pause/Resume (paused, the recording so far can be played back),
+  and Send. Holding the mic still records while held: release sends, slide left cancels,
+  slide up locks into the same bar. The owner's reference recording of WhatsApp shows it.
+
+Found by investigation (no code changed yet):
+- **Mic does nothing (reproduced in Robolectric with a finger-like hold).** The mic's
+  `FilledIconButton` has its own click handling, which takes the touch first; the
+  hold-to-record `pointerInput` waits for an unconsumed down (`awaitFirstDown()`) and never
+  sees it. The voice tests never pressed the button: they called `VoiceNotes` directly.
+  Fix with the new design, and test with real presses (tap, hold, slide).
+- **Reacting from the hold menu by touch did nothing in Robolectric:** the action menu
+  is drawn over the reaction bar (item 3), so a tap lands on the menu. A tap through the
+  emoji's click action saves the reaction and plays the burst. On the owner's phone the
+  visible emojis do work, so the overlap is the item 3 layout bug, not the missing burst.
+- **No burst on the owner's phone, double tap included.** The owner confirms the reaction
+  saves, its chip appears, and the bubble wobbles. The wobble is fired by the burst layer
+  when the flying emoji lands, so the burst's timeline runs on the phone but nothing is
+  seen. "Remove animations" is off on the phone. In Robolectric the same code draws a
+  large, visible burst. Cause not yet found: needs the real phone (screen recording, or
+  adb with logs).
+- **Motion levels:** UI_DESIGN.md 4.5 says intensity governs reactions, bubble entrance,
+  and transitions. Only the reaction burst reads Subtle/Full/Extra today; everything else
+  checks only Off or not. This narrowed the design without a log entry; it is to be built.
+- **Extra's edge glow** did not show in the Robolectric frames either; to be found.
+
+**Moving off the cloud:** the cloud machine has no hardware virtualization, so it cannot
+run an Android emulator, and it cannot reach the owner's phone. The owner is setting up
+Claude Code on their Windows 11 desktop (WSL2 Ubuntu, same toolchain as CI) with the phone
+paired over wireless debugging (adb), so builds can be installed on the phone and checked
+with screenshots, screen recordings, and logcat. The next session starts by reading
+CLAUDE.md, the design docs, and this log, then fixes items 1 to 10 plus the mic and motion
+work above, testing each on the phone.
