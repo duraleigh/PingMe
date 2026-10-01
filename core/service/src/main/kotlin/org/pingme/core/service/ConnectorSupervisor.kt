@@ -41,6 +41,7 @@ class ConnectorSupervisor
         private val applier: EventApplier,
         private val router: NotificationRouter,
         private val keeper: MediaKeeper,
+        private val history: HistorySync,
         private val clock: Clock,
         private val retryDelays: RetryDelays,
         @ApplicationScope private val scope: CoroutineScope,
@@ -120,7 +121,9 @@ class ConnectorSupervisor
                         }
                         if (state == ConnectionState.Connected && !connected) {
                             connected = true
-                            applier.applyChats(connector.syncChats(account.id))
+                            val chats = connector.syncChats(account.id)
+                            applier.applyChats(chats)
+                            history.chatsArrived(chats)
                         }
                     }
                     applier.apply(event)

@@ -36,6 +36,7 @@ class ConnectorSupervisorTest : ServiceTest() {
                 applier = applier,
                 router = router,
                 keeper = keeper,
+                history = history,
                 clock = clock,
                 retryDelays = { delays(it) },
                 scope = scope,
@@ -60,6 +61,22 @@ class ConnectorSupervisorTest : ServiceTest() {
             eventually { messages.get(accountId.message("m1")) != null }
             assertEquals(ConnectionState.Connected, state())
             assertEquals("Sam Ortiz", chats.get(accountId.chat("c1"))?.title)
+        }
+
+    @Test
+    fun chatsWithNothingStoredFetchTheirHistory() =
+        runBlocking {
+            connector.chats = listOf(chatSnapshot("c1"), chatSnapshot("c2"))
+            accounts.upsert(account(ConnectionState.Reconnecting(0, now)))
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m0", chatRemote = "c2")))
+            connector.sessions +=
+                {
+                    emit(ConnectorEvent.State(accountId, ConnectionState.Connected))
+                    awaitCancellation()
+                }
+            supervisor.start()
+            eventually { history.backfilled.isNotEmpty() }
+            assertEquals("only the chat with nothing stored", listOf(accountId.chat("c1")), history.backfilled)
         }
 
     @Test

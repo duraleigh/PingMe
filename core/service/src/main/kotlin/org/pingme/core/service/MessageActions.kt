@@ -65,6 +65,8 @@ class MessageActions
     ) {
         private val uploads = MutableStateFlow<Map<MessageId, Float>>(emptyMap())
 
+        private val sent = SentCopies(messages)
+
         /** How far each sending message's media has got, from 0 to 1 (UI_DESIGN.md 5.8). */
         val progress: StateFlow<Map<MessageId, Float>> = uploads.asStateFlow()
 
@@ -102,7 +104,7 @@ class MessageActions
             return deliver(again, forceSms = failed.transport == Transport.SMS)
         }
 
-        suspend fun pin(message: Message) = pins.pin(message, clock.now())
+        suspend fun pin(message: Message) = pins.pin(sent.current(message), clock.now())
 
         suspend fun unpin(id: MessageId) = pins.unpin(id)
 
@@ -112,10 +114,11 @@ class MessageActions
          * the network does not allow it.
          */
         suspend fun react(
-            message: Message,
+            held: Message,
             emoji: String,
             remove: Boolean = false,
         ) {
+            val message = sent.current(held)
             val connector =
                 connectorFor(message.chatId) ?: throw UnsupportedCapabilityException("This network is not connected")
             connector.react(message.id, emoji, remove)
@@ -130,7 +133,7 @@ class MessageActions
          * paired phone's copy matches where it keeps one (Google Messages); others ignore it.
          */
         suspend fun deleteForMe(targets: List<Message>) {
-            targets.forEach { message ->
+            targets.map { sent.current(it) }.forEach { message ->
                 messages.delete(message.id)
                 connectorFor(message.chatId)?.let { connector ->
                     quietly("delete") { connector.delete(message.id, forEveryone = false) }
@@ -139,7 +142,8 @@ class MessageActions
         }
 
         /** Delete for everyone, within the network's time limit. Throws with the reason when it cannot. */
-        suspend fun deleteForEveryone(message: Message) {
+        suspend fun deleteForEveryone(held: Message) {
+            val message = sent.current(held)
             val connector =
                 connectorFor(message.chatId) ?: throw UnsupportedCapabilityException("This network is not connected")
             connector.delete(message.id, forEveryone = true)
@@ -155,9 +159,10 @@ class MessageActions
 
         /** Changes the text of one of your messages. Throws with the reason when the network says no. */
         suspend fun edit(
-            message: Message,
+            held: Message,
             text: String,
         ) {
+            val message = sent.current(held)
             // A message still waiting to go is changed on the phone only.
             val waiting = message.status as? MessageStatus.Scheduled
             if (waiting != null) {
@@ -307,6 +312,7 @@ class MessageActions
                 }
             return when (result) {
                 is SendResult.Sent -> {
+                    sent.replaced(pending.id, result.message.message.id)
                     messages.delete(pending.id)
                     applier.apply(ConnectorEvent.NewMessage(pending.chatId.accountId, result.message))
                     result.message.message
@@ -389,3 +395,24 @@ class MessageActions
             private const val TAG = "PingMeMessages"
         }
     }
+
+/**
+ * Each "sending" message and the network's message that replaced it. A message held while it
+ * showed as "sending" may since have been sent under the network's ID; an action on it then
+ * applies to the sent message.
+ */
+internal class SentCopies(
+    private val messages: MessageRepository,
+) {
+    private val sentAs = java.util.concurrent.ConcurrentHashMap<MessageId, MessageId>()
+
+    fun replaced(
+        sending: MessageId,
+        sent: MessageId,
+    ) {
+        sentAs[sending] = sent
+    }
+
+    /** [message] as it is now. */
+    suspend fun current(message: Message): Message = sentAs[message.id]?.let { messages.get(it) } ?: message
+}

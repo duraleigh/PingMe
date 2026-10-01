@@ -101,11 +101,15 @@ class DemoInbox(
             "ref",
         )
 
-    /** Adds the demo account and copies its cast and history into the store, as a first sync does. */
-    suspend fun seed() {
+    /**
+     * Adds the demo account and copies its cast and history into the store, as a first sync does.
+     * With [history] off no messages are stored yet, as right after a login.
+     */
+    suspend fun seed(history: Boolean = true) {
         accounts.upsert(account)
         val snapshots = demo.syncChats(account.id)
         applier.applyChats(snapshots)
+        if (!history) return
         snapshots.forEach { chat ->
             val history = demo.syncMessages(chat.id, before = null, limit = 50)
             applier.apply(ConnectorEvent.HistoryBatch(account.id, chat.id, history, complete = true))

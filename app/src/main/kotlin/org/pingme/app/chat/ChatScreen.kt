@@ -35,6 +35,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -237,6 +238,7 @@ private fun MessageList(
     val obscured = state.chat.isObscured
     val cover = MaterialTheme.colorScheme.surfaceContainerHighest
     val hiddenLabel = stringResource(R.string.obscured_hidden)
+    SideEffect { ui.shown = state.items.mapTo(HashSet()) { it.key } }
     // The list is drawn from the bottom: index 0 is the newest message.
     LazyColumn(Modifier.fillMaxSize().testTag(CHAT_LIST), state = list, reverseLayout = true) {
         items(state.items, key = { it.key }) { item ->
@@ -304,25 +306,29 @@ private fun gesturesFor(
 ): BubbleGestures {
     val selecting = state.selection.isNotEmpty()
     val key = message.id.value
+
+    // A bubble on its way out of the list takes no touches (see ChatUi.shown).
+    fun live(action: () -> Unit): () -> Unit = { if (key in ui.shown) action() }
     return BubbleGestures(
-        onTap = {
-            when {
-                selecting -> actions.menu?.toggle(message)
+        onTap =
+            live {
+                when {
+                    selecting -> actions.menu?.toggle(message)
 
-                // In an obscured chat a tap shows the message for a few seconds (UI_DESIGN.md 10.10).
-                state.chat?.isObscured == true && ui.unblurred[key] != true -> ui.unblurred[key] = true
+                    // In an obscured chat a tap shows the message for a few seconds (UI_DESIGN.md 10.10).
+                    state.chat?.isObscured == true && ui.unblurred[key] != true -> ui.unblurred[key] = true
 
-                else -> ui.revealed[key] = ui.revealed[key] != true
-            }
-        },
-        onDoubleTap = {
-            val prefs = state.reactions
-            actions.menu?.doubleTapEmoji(prefs.doubleTap, prefs.quick, state.capabilities?.reactions)?.let { emoji ->
-                ui.react(message, emoji, null, state, actions, haptic, haptics)
-            }
-        },
-        onHold = { if (selecting) actions.menu?.toggle(message) else ui.holding = message },
-        onSwipeReply = { actions.onReply(message) },
+                    else -> ui.revealed[key] = ui.revealed[key] != true
+                }
+            },
+        onDoubleTap =
+            live {
+                val prefs = state.reactions
+                val emoji = actions.menu?.doubleTapEmoji(prefs.doubleTap, prefs.quick, state.capabilities?.reactions)
+                if (emoji != null) ui.react(message, emoji, null, state, actions, haptic, haptics)
+            },
+        onHold = live { if (selecting) actions.menu?.toggle(message) else ui.holding = message },
+        onSwipeReply = live { actions.onReply(message) },
     )
 }
 
@@ -338,7 +344,11 @@ private fun LoadOlderWhenNearTop(
             list.layoutInfo.visibleItemsInfo
                 .lastOrNull()
                 ?.index to list.layoutInfo.totalItemsCount
-        }.collect { (last, total) -> if (state.moreHistory && last != null && last >= total - NEAR_TOP) load() }
+        }.collect { (last, total) ->
+            // An empty chat has no top to scroll to, so it asks for its history straight away.
+            val nearTop = total == 0 || (last != null && last >= total - NEAR_TOP)
+            if (state.moreHistory && nearTop) load()
+        }
     }
 }
 

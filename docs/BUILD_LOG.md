@@ -1391,4 +1391,32 @@ The inbox showed "No messages yet" on every chat after the demo login, and openi
 showed nothing. History is fetched only when the list scrolls near its top, and an empty
 list has no top to reach; the background `HistoryBackfillWorker` is never scheduled by
 anything. On the owner's phone messages appeared because the demo's live chatter put a
-first message in. To be fixed in this round (see below).
+first message in.
+
+**Fixed (owner approved both parts, 2026-10-01):**
+- An empty chat asks for its history as soon as it opens (`ChatHistoryTest`, which fails
+  without the fix; the test helper `DemoInbox.seed(history = false)` now starts chats empty,
+  as a real login does. Every earlier UI test pre-loaded history, which hid this).
+- The first sync of history (DESIGN.md 5.4 step 4): after an account's chat list arrives,
+  `HistorySync` starts `HistoryBackfillWorker` for each chat with nothing stored yet
+  (`ConnectorSupervisorTest.chatsWithNothingStoredFetchTheirHistory`). On the emulator,
+  right after a fresh Demo login, every inbox row shows its real last message.
+
+### Found while testing: a flaky chat test, and two small real bugs behind it
+
+`MessageActionsScreenTest` (edit, delete) failed most runs on this faster machine when
+the whole app suite ran together, on the original code too (checked at `0745f3e`). Causes:
+
+- **Test bug:** its "wait until sent" check looked for IDs starting with `pending-`, but
+  they look like `demo/pending-…`, so it often went on while the message was still
+  sending. Fixed; the helper also picks the sent message by its words.
+- **App bug:** as a sent message replaces its "sending" bubble, the old bubble fades out
+  in the same place and still took touches, so a quick press and hold could act on a
+  message that was gone. Bubbles fading out now ignore touches (`ChatUi.shown`).
+- **App bug:** an action on a message held while it was still sending (edit, delete,
+  react, pin) went to the "sending" copy's ID, which no longer exists, and silently did
+  nothing. `MessageActions` now remembers which sent message replaced which "sending"
+  one and acts on that (`MessageActionsTest.actingOnTheSendingCopyActsOnTheSentMessage`,
+  which fails without the fix).
+
+The app suite then passed 8 runs out of 8 (it failed 3 to 4 out of 4 before).

@@ -5,6 +5,7 @@ import android.os.Looper
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
@@ -86,10 +87,19 @@ class MessageActionsScreenTest {
 
     private fun stored(message: Message) = runBlocking { demo.messages.get(message.id) }
 
-    // A just-sent bubble can briefly be missing from the merged tree while the list settles, so this
-    // holds the message's own text, which sits inside the bubble.
+    // Holds your own just-sent bubble until its menu opens. While the "sending" bubble fades out
+    // under the sent one it takes no touches (ChatUi.shown), and the bubble can briefly be missing
+    // from the tree, so a hold that lands too early is tried again, as a person would.
     private fun holdOwn(text: String) =
-        compose.onNodeWithText(text, useUnmergedTree = true).performTouchInput { longClick() }
+        waitFor {
+            if (compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().size == 1) {
+                compose.onNodeWithText(text, useUnmergedTree = true).performTouchInput { longClick() }
+            }
+            compose.onAllNodesWithText("Reply").fetchSemanticsNodes().isNotEmpty()
+        }
+
+    private fun composerHas(text: String) =
+        compose.onAllNodes(hasTestTag(COMPOSER) and hasText(text)).fetchSemanticsNodes().isNotEmpty()
 
     private fun theirs() = latest().first { !it.isOutgoing && !it.body.isNullOrBlank() }
 
@@ -98,7 +108,7 @@ class MessageActionsScreenTest {
         compose.onNode(hasContentDescription("Send")).performClick()
         // Waits for the network's copy to replace the "sending" placeholder, so the bubble on screen stays put.
         waitFor {
-            latest().firstOrNull()?.let { it.body == text && it.isOutgoing && !it.id.value.startsWith("pending-") } ==
+            latest().firstOrNull()?.let { it.body == text && it.isOutgoing && !it.id.value.contains("/pending-") } ==
                 true
         }
         // The "sending" bubble fades out as the sent one fades in; wait until only the sent one is left and showing.
@@ -106,7 +116,8 @@ class MessageActionsScreenTest {
             compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().size == 1 &&
                 compose.onAllNodesWithText(text).fetchSemanticsNodes().size == 1
         }
-        return latest().first()
+        // By its words, not by being newest: the demo's messages are close enough in time to swap places.
+        return latest().first { it.body == text && it.isOutgoing && !it.id.value.contains("/pending-") }
     }
 
     @Test
@@ -159,8 +170,11 @@ class MessageActionsScreenTest {
         holdOwn("helo there")
         compose.onNodeWithText("Edit").performClick()
         waitForText("Editing message")
+        // The box fills with the message's words; typing before it does would be overwritten.
+        waitFor { composerHas("helo there") }
         compose.onNode(hasTestTag(COMPOSER)).performTextClearance()
         compose.onNode(hasTestTag(COMPOSER)).performTextInput("hello there")
+        waitFor { composerHas("hello there") }
         compose.onNode(hasContentDescription("Send")).performClick()
         waitFor { stored(mine)?.body == "hello there" }
         assertTrue(stored(mine)!!.editedAt != null)

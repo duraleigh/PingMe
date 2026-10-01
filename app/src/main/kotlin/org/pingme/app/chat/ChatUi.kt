@@ -41,6 +41,13 @@ class ChatUi {
     /** A scheduled message whose time is being changed (UI_DESIGN.md 10.13). */
     var rescheduling by mutableStateOf<Message?>(null)
 
+    /**
+     * The messages in the chat right now. A bubble that is fading out of the list (the
+     * "sending" one, as the sent one replaces it) ignores touches, which would otherwise act
+     * on a message that is gone.
+     */
+    var shown: Set<String> = emptySet()
+
     /** Where each bubble is on screen, for the overlay and the bursts. */
     val bounds = mutableStateMapOf<String, Rect>()
 

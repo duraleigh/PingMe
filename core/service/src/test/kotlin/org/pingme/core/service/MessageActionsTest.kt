@@ -75,6 +75,24 @@ class MessageActionsTest : ServiceTest() {
         }
 
     @Test
+    fun actingOnTheSendingCopyActsOnTheSentMessage() =
+        runTest {
+            seed()
+            var sending: org.pingme.core.model.MessageId? = null
+            connector.sendResult = { draft ->
+                sending = draft.clientId
+                SendResult.Sent(messageSnapshot("net-1", body = draft.body!!, outgoing = true))
+            }
+            val sent = actions.send(chatId, "helo")
+            // What a bubble held just before the network's copy replaced it still carries.
+            val held = sent.copy(id = sending!!, status = MessageStatus.Sending)
+            actions.pin(held)
+            assertEquals(listOf(sent.id), PinnedMessageRepository(db).pinned(chatId).first().map { it.id })
+            actions.deleteForMe(listOf(held))
+            assertEquals(null, messages.get(sent.id))
+        }
+
+    @Test
     fun aFailedSendStaysWithItsReasonAndCanBeRetried() =
         runTest {
             seed()
