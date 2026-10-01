@@ -71,6 +71,7 @@ fun SettingsRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val actions: SettingsActions = viewModel
+    val spaces: SpaceActions = viewModel
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val title =
         if (page ==
@@ -107,6 +108,7 @@ fun SettingsRoute(
                 SettingsPage.MOTION -> item { MotionPage(state, actions) }
                 SettingsPage.NOTIFICATIONS -> item { NotificationsPage(state, actions) }
                 SettingsPage.STORAGE -> item { StoragePage(state, actions) }
+                SettingsPage.SPACES -> item { SpacesPage(state, spaces) }
                 else -> Unit
             }
         }

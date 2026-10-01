@@ -102,4 +102,21 @@
     <string name="storage_folder_chosen">A folder you chose</string>
     <string name="storage_folder_pick">Choose a folder</string>
     <string name="storage_folder_reset">Keep inside PingMe</string>
+    <string name="spaces_title">Spaces</string>
+    <string name="spaces_note">A space shows a group of chats as one. WhatsApp communities and Telegram forums become spaces by themselves; you can make your own from any chats.</string>
+    <string name="spaces_none">No spaces yet</string>
+    <string name="spaces_new">New space</string>
+    <string name="spaces_name">Name</string>
+    <string name="spaces_chats">Chats in this space</string>
+    <string name="spaces_delete">Delete %1$s</string>
+    <string name="spaces_kind_whatsapp">WhatsApp community</string>
+    <string name="spaces_kind_telegram">Telegram forum</string>
+    <string name="spaces_kind_custom">Your space</string>
+    <plurals name="spaces_count">
+        <item quantity="one">%1$s · %2$d chat</item>
+        <item quantity="other">%1$s · %2$d chats</item>
+    </plurals>
+    <string name="spaces_bar">Bottom bar</string>
+    <string name="spaces_bar_edit">Choose the bottom bar</string>
+    <string name="spaces_bar_note">All, then up to four of networks, spaces, Unread, and Low priority.</string>
 </resources>

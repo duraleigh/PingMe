@@ -21,6 +21,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.pingme.app.inbox.DemoInbox
+import org.pingme.app.inbox.InboxBarItem
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.NotificationMode
@@ -213,6 +214,41 @@ class SettingsScreenTest {
             vm.state.value.app.media
                 .let { it.saveAllMedia && it.transcribeVoice }
         }
+    }
+
+    @Test
+    fun aSpaceCanBeMadeFromAnyChatsAndDeleted() {
+        show(SettingsPage.SPACES)
+        waitFor {
+            vm.state.value.chats
+                .isNotEmpty()
+        }
+        val chat =
+            vm.state.value.chats
+                .first()
+        tap("New space")
+        compose.onNode(hasSetTextAction()).performTextInput("Family")
+        tap(chat.title)
+        tap("OK")
+        waitFor {
+            vm.state.value.spaces
+                .singleOrNull()
+                ?.chatIds == listOf(chat.id)
+        }
+        compose.onNodeWithContentDescription("Delete Family").performSemanticsAction(SemanticsActions.OnClick)
+        waitFor {
+            vm.state.value.spaces
+                .isEmpty()
+        }
+    }
+
+    @Test
+    fun theBottomBarCanBeChosenHere() {
+        show(SettingsPage.SPACES)
+        tap("Choose the bottom bar")
+        waitFor { shown("All is always first. Pick up to four more.") }
+        vm.setBar(listOf(InboxBarItem.LowPriority))
+        waitFor { vm.state.value.bar == listOf(InboxBarItem.LowPriority) }
     }
 
     @Test

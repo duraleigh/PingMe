@@ -157,7 +157,7 @@ private fun ScopeTicks(
 }
 
 @Composable
-private fun Tick(
+internal fun Tick(
     label: String,
     checked: Boolean,
     onChange: (Boolean) -> Unit,

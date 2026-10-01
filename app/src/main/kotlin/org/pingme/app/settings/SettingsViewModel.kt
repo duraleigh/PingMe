@@ -10,12 +10,16 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.pingme.app.appearance.AppearanceRepository
+import org.pingme.app.inbox.InboxBarConfig
+import org.pingme.app.inbox.InboxBarItem
+import org.pingme.app.inbox.InboxBarRepository
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.AppSettings
 import org.pingme.core.model.Chat
 import org.pingme.core.model.KeywordRule
 import org.pingme.core.model.NotificationProfile
+import org.pingme.core.model.Space
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.SettingsRepository
@@ -36,7 +40,20 @@ data class SettingsState(
     /** Every chat, for keywords that apply to some chats only (UI_DESIGN.md 10.9). */
     val chats: List<Chat> = emptyList(),
     val keywords: List<KeywordRule> = emptyList(),
+    val spaces: List<Space> = emptyList(),
+    /** The bottom bar's buttons after All (UI_DESIGN.md 10.4). */
+    val bar: List<InboxBarItem> = emptyList(),
 )
+
+/** Spaces and the bottom bar (UI_DESIGN.md 10.4). */
+interface SpaceActions {
+    /** Adds or changes a space the user made from any chats. */
+    fun saveSpace(space: Space)
+
+    fun deleteSpace(space: Space)
+
+    fun setBar(items: List<InboxBarItem>)
+}
 
 /** What the Settings pages can change; the view model does it. */
 interface SettingsActions {
@@ -76,16 +93,18 @@ class SettingsViewModel
         private val accounts: AccountRepository,
         private val chats: ChatRepository,
         private val appearance: AppearanceRepository,
+        private val bar: InboxBarRepository,
     ) : ViewModel(),
-        SettingsActions {
+        SettingsActions,
+        SpaceActions {
         val state: StateFlow<SettingsState> =
             combine(
                 settings.app,
                 accounts.accounts(),
                 combine(settings.quickReactions, settings.doubleTapReaction, settings.recentEmoji, ::Triple),
                 combine(appearance.appearance, settings.instagramShowGeneral, ::Pair),
-                combine(chats.all(), settings.keywordRules(), ::Pair),
-            ) { app, all, (quick, double, recent), (look, general), (every, keywords) ->
+                combine(chats.all(), settings.keywordRules(), chats.spaces(), bar.config, ::Lists),
+            ) { app, all, (quick, double, recent), (look, general), lists ->
                 SettingsState(
                     app,
                     all,
@@ -94,13 +113,38 @@ class SettingsViewModel
                     recent,
                     look,
                     general,
-                    every.filter { it.isObscured },
-                    every,
-                    keywords,
+                    lists.chats.filter { it.isObscured },
+                    lists.chats,
+                    lists.keywords,
+                    lists.spaces,
+                    (lists.bar ?: defaultBar(all)).items,
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), SettingsState())
 
         override fun update(change: (AppSettings) -> AppSettings) = launch { settings.updateApp(change) }
+
+        override fun saveSpace(space: Space) = launch { chats.upsertSpace(space) }
+
+        override fun deleteSpace(space: Space) =
+            launch {
+                chats.deleteSpace(space.id)
+                // A deleted space leaves the bar too.
+                bar.update(defaultBar(accounts.getAll())) { config ->
+                    config.copy(items = config.items - InboxBarItem.Space(space.id))
+                }
+            }
+
+        override fun setBar(items: List<InboxBarItem>) =
+            launch { bar.update(defaultBar(accounts.getAll())) { it.copy(items = items) } }
+
+        private fun defaultBar(all: List<Account>) = InboxBarConfig.default(all.map { it.network })
+
+        private data class Lists(
+            val chats: List<Chat>,
+            val keywords: List<KeywordRule>,
+            val spaces: List<Space>,
+            val bar: InboxBarConfig?,
+        )
 
         override fun updateAppearance(change: (Appearance) -> Appearance) = launch { appearance.update(change) }
 
