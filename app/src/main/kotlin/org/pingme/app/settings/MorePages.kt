@@ -10,4 +10,5 @@ val BUILT_PAGES =
         SettingsPage.PRIVACY,
         SettingsPage.REACTIONS,
         SettingsPage.MOTION,
+        SettingsPage.STORAGE,
     )

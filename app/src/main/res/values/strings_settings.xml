@@ -88,4 +88,18 @@
     <string name="notify_keyword_delete">Delete %1$s</string>
     <string name="notify_auto_copy">Auto-copy one-time codes</string>
     <string name="notify_auto_copy_note">When a message brings a login code, PingMe copies it so you can paste it. Android hides it from clipboard previews.</string>
+    <string name="storage_voice">Voice notes</string>
+    <string name="storage_gif_search">Search GIFs online</string>
+    <string name="storage_gif_search_note">Off: the GIF button shows only your favourites, and PingMe never asks GIPHY for anything.</string>
+    <string name="storage_gif_autoplay">Play GIFs by themselves</string>
+    <string name="storage_gif_autoplay_note">Off: a GIF stays still until you tap it.</string>
+    <string name="storage_transcribe">Write out voice notes</string>
+    <string name="storage_transcribe_note">Shows the words under each voice note. It happens on your phone.</string>
+    <string name="storage_save_all">Save all incoming media</string>
+    <string name="storage_save_all_note">Downloads every photo, video, and file as it arrives, including view-once media where the network sends it to linked devices.</string>
+    <string name="storage_folder">Save to</string>
+    <string name="storage_folder_app">Inside PingMe</string>
+    <string name="storage_folder_chosen">A folder you chose</string>
+    <string name="storage_folder_pick">Choose a folder</string>
+    <string name="storage_folder_reset">Keep inside PingMe</string>
 </resources>

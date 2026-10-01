@@ -85,6 +85,12 @@ class MessageRepository
             localPath: String,
         ) = dao.setAttachmentLocalPath(id.value, localPath)
 
+        /** Marks media as copied to the user's folder by "Save all incoming media". */
+        suspend fun setAttachmentSavedAt(
+            id: AttachmentId,
+            at: kotlin.time.Instant,
+        ) = dao.setAttachmentSavedAt(id.value, at)
+
         suspend fun addReaction(
             messageId: MessageId,
             reaction: Reaction,

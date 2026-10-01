@@ -369,6 +369,12 @@ interface MessageDao {
         localPath: String,
     )
 
+    @Query("UPDATE attachments SET savedAt = :at WHERE id = :id")
+    suspend fun setAttachmentSavedAt(
+        id: String,
+        at: kotlin.time.Instant,
+    )
+
     @Query("SELECT * FROM attachments WHERE id = :id")
     suspend fun attachment(id: String): AttachmentEntity?
 

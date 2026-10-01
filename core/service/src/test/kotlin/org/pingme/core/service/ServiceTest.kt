@@ -72,6 +72,7 @@ abstract class ServiceTest {
     protected lateinit var reactionFeed: ReactionFeed
     protected lateinit var applier: EventApplier
     protected lateinit var router: NotificationRouter
+    protected lateinit var keeper: CountingKeeper
 
     protected val accountId = AccountId("acc")
 
@@ -92,6 +93,7 @@ abstract class ServiceTest {
         reactionFeed = ReactionFeed()
         applier = EventApplier(accounts, chats, messages, contacts, typing, reactionFeed)
         router = NotificationRouter(context, chats, clock)
+        keeper = CountingKeeper(context, settings, messages, clock)
     }
 
     /** Background work stops before the database closes, so nothing writes to a closed store. */
@@ -163,4 +165,18 @@ abstract class ServiceTest {
             ),
         sender = if (outgoing) null else sam(),
     )
+}
+
+/** Counts downloads instead of asking Android's job system, which tests do not start. */
+class CountingKeeper(
+    context: Context,
+    settings: SettingsRepository,
+    messages: MessageRepository,
+    clock: kotlin.time.Clock,
+) : MediaKeeper(context, settings, messages, clock) {
+    val downloads = mutableListOf<org.pingme.core.model.AttachmentId>()
+
+    override fun download(id: org.pingme.core.model.AttachmentId) {
+        downloads += id
+    }
 }

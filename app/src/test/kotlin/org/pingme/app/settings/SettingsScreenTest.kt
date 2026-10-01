@@ -193,6 +193,29 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun gifSearchAndAutoplayCanBeTurnedOff() {
+        show(SettingsPage.STORAGE)
+        tap("Search GIFs online")
+        tap("Play GIFs by themselves")
+        waitFor {
+            vm.state.value.app.media
+                .let { !it.gifSearch && !it.gifsAutoplay }
+        }
+    }
+
+    @Test
+    fun allMediaCanBeSaved() {
+        show(SettingsPage.STORAGE)
+        assertTrue(shown("Inside PingMe"))
+        tap("Save all incoming media")
+        tap("Write out voice notes")
+        waitFor {
+            vm.state.value.app.media
+                .let { it.saveAllMedia && it.transcribeVoice }
+        }
+    }
+
+    @Test
     fun aNewSoundGetsANewChannel() {
         val profile = NotificationProfile()
         assertEquals(1, profile.withSound("content://a", null).channelVersion)

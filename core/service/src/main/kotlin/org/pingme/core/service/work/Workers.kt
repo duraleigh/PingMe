@@ -70,6 +70,7 @@ class MediaDownloadWorker
         private val registry: ConnectorRegistry,
         private val accounts: AccountRepository,
         private val messages: MessageRepository,
+        private val keeper: org.pingme.core.service.MediaKeeper,
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
             val id = inputData.getString(KEY_ATTACHMENT)?.let(::AttachmentId) ?: return Result.failure()
@@ -80,6 +81,7 @@ class MediaDownloadWorker
             return runCatching { connector.downloadAttachment(attachment) }.fold(
                 onSuccess = { file ->
                     messages.setAttachmentLocalPath(id, file.absolutePath)
+                    keeper.downloaded(attachment, file)
                     Result.success()
                 },
                 onFailure = { if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure() },
