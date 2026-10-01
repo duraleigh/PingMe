@@ -177,25 +177,28 @@ fun ChatScreen(
         }
     }
     SecureWindow(state.chat?.isObscured == true)
-    Scaffold(
-        modifier = modifier,
-        topBar = { TopBars(state, actions) { jumpTo(it) } },
-        bottomBar = { BottomBars(state, actions, ui, context) },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        // While a message is held, everything else blurs behind it (UI_DESIGN.md 3.3).
-        Box(Modifier.fillMaxSize().padding(padding).blur(if (ui.holding != null) HELD_BLUR else 0.dp)) {
-            Wallpaper(PingMeTheme.appearance.wallpaper, Modifier.fillMaxSize())
-            MessageList(state, list, actions, highlight, ui) { jumpTo(it) }
-            ToNewest(list, state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
-            if (actions.search.state.showing) {
-                ChatSearchResults(actions.search.state, state.names, actions.search.onOpen)
+    // One Box, so the overlays and the reaction bursts lie over the chat whatever holds it:
+    // a list-detail pane stacks its children, which left the burst layer no height at all.
+    Box(modifier) {
+        Scaffold(
+            topBar = { TopBars(state, actions) { jumpTo(it) } },
+            bottomBar = { BottomBars(state, actions, ui, context) },
+            snackbarHost = { SnackbarHost(snackbar) },
+        ) { padding ->
+            // While a message is held, everything else blurs behind it (UI_DESIGN.md 3.3).
+            Box(Modifier.fillMaxSize().padding(padding).blur(if (ui.holding != null) HELD_BLUR else 0.dp)) {
+                Wallpaper(PingMeTheme.appearance.wallpaper, Modifier.fillMaxSize())
+                MessageList(state, list, actions, highlight, ui) { jumpTo(it) }
+                ToNewest(list, state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+                if (actions.search.state.showing) {
+                    ChatSearchResults(actions.search.state, state.names, actions.search.onOpen)
+                }
             }
         }
-    }
-    ChatOverlays(ui, state, actions, context, haptic) { held ->
-        val item = state.items.filterIsInstance<ChatItem.Bubble>().firstOrNull { it.message.id == held.id }
-        if (item != null) MessageRow(item, rowContext(state, actions) {}, showTime = true)
+        ChatOverlays(ui, state, actions, context, haptic) { held ->
+            val item = state.items.filterIsInstance<ChatItem.Bubble>().firstOrNull { it.message.id == held.id }
+            if (item != null) MessageRow(item, rowContext(state, actions) {}, showTime = true)
+        }
     }
 }
 
