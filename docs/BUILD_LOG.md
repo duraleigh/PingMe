@@ -1503,3 +1503,70 @@ The app suite then passed 8 runs out of 8 (it failed 3 to 4 out of 4 before).
   `SpaceStoreTest`, and `MigrationTest`. Checked on the emulator: made a "Work" space with
   the briefcase icon kept out of All, took All off the bar: the inbox opened on Unread with
   Unread, Demo, Work along the bottom.
+
+## Gate G1 re-check: the owner's checklist (2026-10-01)
+
+Every item from the Gate G1 feedback is built and was checked on the emulator. It is your turn
+on the phone. Everything runs on the pretend Demo network, so nothing real is sent.
+
+**Install it.** Once the last of these pull requests is merged (#15, then the Send/top bar
+one, then the spaces one), open GitHub > Actions > the newest green "build" run on `main`,
+download the file ending in `-demo.apk` onto the phone, open it, and tap Update. It installs
+over your PingMe Demo and keeps your setup.
+
+**Then try each of these. Tell me which ones are wrong, with a screenshot if you can.**
+
+*Reactions and motion* (Settings > Motion)
+1. Set Animation to **Full**. In a chat, double-tap someone's message. A big heart springs out,
+   flies to the corner of the bubble, and bursts into many small hearts that float up and
+   fade. The bubble wobbles when it lands.
+2. Set it to **Extra** and do it again with ❤️ or 🔥: the edges of the screen glow red or
+   orange for a moment too.
+3. Set it to **Subtle**: the heart flies to the bubble, with no burst. **Off**: the reaction
+   just appears.
+4. Compare the levels while opening a chat and going back (Off: instant; Subtle: a fade; Full:
+   a short slide; Extra: a bouncy full slide) and while sending a message (Extra: your bubble
+   pops up from small; Full: it rises a little; Subtle: it fades in).
+
+*Press and hold a message*
+5. Hold a message near the bottom of the chat, then one near the top (scroll up first). Each
+   time: the emoji bar is above the message, the menu is below, nothing covers anything, and
+   every emoji can be tapped.
+6. Schedule a message (hold Send > Send later), then hold that waiting message: the menu is
+   Edit, Reschedule, Send now, Copy, Unschedule. Try Unschedule: it disappears.
+
+*Voice notes* (the mic needs permission the first time)
+7. **Tap** the mic: it starts recording and stays recording. Talk, tap Pause, tap Play to hear
+   what you said, tap the mic to go on, then Send.
+8. **Hold** the mic, talk, let go: it sends.
+9. Hold the mic and slide left: it cancels. Hold and slide up: it locks into the hands-free bar
+   (then the trash deletes it).
+
+*Send button*
+10. Type something. A tap on Send just sends. Press and hold Send: a small menu with Send later
+    (and Send as SMS in Google Messages chats, which come in Phase 3).
+
+*Inbox*
+11. Scroll the inbox: the top bar has its own coloured surface with rounded bottom corners, and
+    the list slides under it cleanly.
+12. The bottom bar's buttons are spread evenly across the full width.
+13. A chat whose last message is yours shows ✓ (sent), ✓✓ (delivered) or coloured ✓✓ (read) before
+    "You: …". (The demo answers quickly, so look right after you send, or at the older chats.)
+14. Right after a fresh setup, every chat shows its last message, not "No messages yet".
+
+*Bottom bar and spaces* (avatar menu > Edit bottom bar, and Settings > Spaces and the bottom bar)
+15. Make a space: give it a name, pick an icon, pick some chats. Turn off "Show these chats in
+    All" and save. Those chats are no longer in All, and do not count in All's number; the
+    space's own button shows them and their unread count.
+16. In Edit bottom bar, untick All and tick your space. The inbox now opens on the first button,
+    and your space's button shows its icon.
+
+**Noticed, not changed (tell me if you want these):**
+- Opening a chat puts the cursor in the message box and opens the keyboard straight away.
+  Google Messages does not. Leave it, or open chats with the keyboard closed?
+- Still open from before: a demo button that sends a reaction on demand, so flippy reactions
+  (UI_DESIGN.md 10.8) are easy to test; and, low priority, an obscure blur that follows the
+  bubble's shape.
+
+**Next:** your results. Anything wrong gets fixed and re-checked; when G1 passes, Phase 3 starts
+(P3.1, the Go bridge).
