@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.chat.gif
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -74,13 +77,23 @@ class GifSearch(
         scope.launch { now.update { it.copy(favourites = store.favourites()) } }
     }
 
+    /**
+     * What is in the search box. Held in Compose state, which the text box reads at once:
+     * a box fed from a flow can be redrawn with an older value between keystrokes and
+     * lose what was typed.
+     */
+    var typed by mutableStateOf("")
+        private set
+
     fun showTab(tab: GifTab) {
+        typed = ""
         now.update { it.copy(tab = tab, query = "", results = emptyList(), failed = false, ended = false) }
         if (tab == GifTab.TRENDING) load(fresh = true)
     }
 
     /** Searches after a short pause in typing; clearing the words goes back to the tab. */
     fun search(query: String) {
+        typed = query
         now.update { it.copy(query = query) }
         if (query.isBlank()) {
             showTab(now.value.tab)

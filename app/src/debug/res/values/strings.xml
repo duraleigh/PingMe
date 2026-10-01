@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- The demo build's name, so it is told apart from the real app beside it. -->
+<resources>
+    <string name="app_name" translatable="false">PingMe Demo</string>
+</resources>

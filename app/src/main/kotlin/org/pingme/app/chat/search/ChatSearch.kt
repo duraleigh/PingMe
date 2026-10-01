@@ -2,6 +2,9 @@
 package org.pingme.app.chat.search
 
 import androidx.annotation.StringRes
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -97,11 +100,28 @@ class ChatSearch(
                 }
             }.stateIn(scope, SharingStarted.Eagerly, ChatSearchState())
 
-    fun open() = asked.update { ChatSearchState(open = true) }
+    /**
+     * What is in the search box. Held in Compose state, which the text box reads at once:
+     * a box fed from a flow can be redrawn with an older value between keystrokes and
+     * lose what was typed.
+     */
+    var typed by mutableStateOf("")
+        private set
 
-    fun close() = asked.update { ChatSearchState() }
+    fun open() {
+        typed = ""
+        asked.update { ChatSearchState(open = true) }
+    }
 
-    fun query(text: String) = asked.update { it.copy(query = text) }
+    fun close() {
+        typed = ""
+        asked.update { ChatSearchState() }
+    }
+
+    fun query(text: String) {
+        typed = text
+        asked.update { it.copy(query = text) }
+    }
 
     fun type(type: SearchType) = asked.update { it.copy(type = type) }
 

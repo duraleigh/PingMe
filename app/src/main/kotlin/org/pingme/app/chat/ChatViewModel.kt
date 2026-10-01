@@ -134,7 +134,13 @@ class ChatViewModel
         private val searchRepo: org.pingme.core.store.ChatSearchRepository,
         requests: ChatRequests,
         overridesRepo: org.pingme.core.store.ChatOverridesRepository,
+        transcriber: org.pingme.app.chat.voice.VoiceTranscriber,
     ) : ViewModel() {
+        /** Voice-note transcripts, when Settings turns them on (UI_DESIGN.md 5.6). */
+        val transcripts =
+            org.pingme.app.chat.voice
+                .Transcripts(transcriber, viewModelScope)
+
         /** Takes the chat id as text: Hilt cannot generate factories for value classes. */
         @AssistedFactory
         interface Factory {

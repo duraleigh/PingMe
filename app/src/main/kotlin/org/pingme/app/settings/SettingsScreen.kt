@@ -4,10 +4,10 @@ package org.pingme.app.settings
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -115,7 +115,7 @@ private fun LazyListScope.pageItems(
     val backup: BackupActions = viewModel
     when (page) {
         SettingsPage.HOME -> {
-            home(navigation)
+            item { SettingsHome(navigation) }
         }
 
         SettingsPage.ACCOUNTS -> {
@@ -172,17 +172,23 @@ private fun LazyListScope.pageItems(
     }
 }
 
-// The list of pages; Appearance opens the studio it already has.
-private fun LazyListScope.home(navigation: SettingsNavigation) {
-    items(SettingsPage.entries.filter { it.summary != 0 }) { page ->
-        ListItem(
-            headlineContent = { Text(stringResource(page.title)) },
-            supportingContent = { Text(stringResource(page.summary)) },
-            leadingContent = { Icon(painterResource(page.icon), null) },
-            modifier =
-                Modifier.clickable {
-                    if (page == SettingsPage.APPEARANCE) navigation.onAppearance() else navigation.onPage(page)
-                },
-        )
+/** The list of pages; Appearance opens the studio it already has. */
+@Composable
+internal fun SettingsHome(
+    navigation: SettingsNavigation,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier) {
+        SettingsPage.entries.filter { it.summary != 0 }.forEach { page ->
+            ListItem(
+                headlineContent = { Text(stringResource(page.title)) },
+                supportingContent = { Text(stringResource(page.summary)) },
+                leadingContent = { Icon(painterResource(page.icon), null) },
+                modifier =
+                    Modifier.clickable {
+                        if (page == SettingsPage.APPEARANCE) navigation.onAppearance() else navigation.onPage(page)
+                    },
+            )
+        }
     }
 }

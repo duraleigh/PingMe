@@ -93,7 +93,7 @@ fun ChatSearchBar(
                     Icon(painterResource(UiR.drawable.ic_arrow_back), stringResource(R.string.search_close))
                 }
                 TextField(
-                    state.query,
+                    search.typed,
                     search::query,
                     Modifier.weight(1f).focusRequester(focus).testTag(SEARCH_FIELD),
                     placeholder = { Text(stringResource(R.string.search_in_chat)) },

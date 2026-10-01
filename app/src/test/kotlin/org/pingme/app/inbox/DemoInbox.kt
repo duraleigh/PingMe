@@ -154,6 +154,10 @@ class DemoInbox(
         org.pingme.app.chat.gif
             .FakeGifStore(context, dir)
 
+    val transcriber =
+        org.pingme.app.chat.voice
+            .FakeTranscriber(context)
+
     val requests =
         org.pingme.app.chat
             .ChatRequests()
@@ -187,6 +191,7 @@ class DemoInbox(
             chatSearch,
             requests,
             overrides,
+            transcriber,
         ).tracked()
 
     fun detailsViewModel(remote: String) =

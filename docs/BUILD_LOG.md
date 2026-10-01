@@ -1060,3 +1060,85 @@ permission; library `com.google.zxing:core` 3.5.4 (Apache-2.0).
 - No icon for battery ships in the icon set, so Stay connected uses the sync icon.
 
 **Next:** P2.8, acceptance for Phase 2.
+
+## P2.8 Acceptance for Phase 2 (done, 2026-10-01): stopped at Gate G1
+
+Builder side, all verified with `./gradlew check`:
+- **Every screen has a preview**, and a test draws each one (`PreviewsTest`, 18 previews):
+  chat (light and dark), chat details, the archived list, new group, search, the
+  Appearance studio, every Settings page, the setup pages, and the login steps. The
+  inbox already had its own.
+- **Every screen has a UI test against the demo network:** inbox, lists, search, new chat
+  and new group, chat (voice, attachments, GIFs, reactions, actions, search in chat,
+  send later, obscure, transcripts), chat details, Appearance, every Settings page, setup,
+  and login.
+- **Voice-note transcription**, the gap left in P2.4, is built: with Settings > Media and
+  storage > "Write out voice notes" on, the words show under each voice note. It uses
+  Android's on-device recogniser on the decoded note, needs Android 13 or newer, and keeps
+  each transcript on the phone. Phones that cannot do it say so under the note.
+- **A demo build to install.** Debug builds now carry the app id `org.pingme.app.demo` and
+  the name "PingMe Demo", so they install beside the real app instead of over it, and CI
+  signs them with the sideload key so each new one updates the last. CI uploads it next to
+  the real APK as `pingme-<commit>-demo.apk`.
+
+**Fixed along the way:**
+- **Typed text could be lost** in four text boxes (new chat and new group, search, search
+  in chat, GIF search). Each showed a value that came through a flow, and a redraw with an
+  older value between keystrokes could wipe what was typed. The new-group UI test caught
+  it as a rare timeout; a dump of the screen when it stuck showed the group name empty.
+  The typed text now lives in Compose state that the box reads at once. Repeating the test
+  40 times under a full check passed after the fix (before it, most runs failed once).
+
+**Gate G1, the owner's turn.** The builder cannot do this part.
+
+What you are checking: does every screen look and work the way `UI_DESIGN.md` says? It
+all runs on the pretend "Demo" network, so nothing real is sent anywhere.
+
+*Install it*
+1. On GitHub, open Actions, then the newest green "build" run on `main`. Under
+   Artifacts, download the file whose name ends in `-demo.apk` onto your phone.
+2. Open it and tap Install. It shows up as **PingMe Demo**, next to your normal PingMe.
+
+*Setup (first time you open it)*
+3. You see "How should texts reach PingMe?". Google Messages mode is marked
+   Recommended. Pick one and tap Next.
+4. Notifications, Stay connected, Contacts: each says why it wants this. Try Allow on
+   some and Not now on others.
+5. "Connect your first network": tap **Demo**. Try both ways to log in:
+   - "Scan a QR code": a QR code shows, changes once, then it finishes.
+   - "Sign in": type any phone number. For the code, type 000000 first (it says the code
+     didn't work), then any other code. A blank web page shows; tap "I have signed in".
+     A fox 🦊 shows big, then it finishes.
+   (To try the second way, go to Settings > Accounts > Add account > Demo.)
+
+*Look around, comparing with UI_DESIGN.md*
+6. **Inbox (3.1):** pinned chats on top, unread counts, the bottom bar, the avatar menu,
+   the + menu. Swipe a chat both ways. Press and hold a chat. Try search.
+7. **A chat (3.2, 5):** bubbles and grouping, press-and-hold for reactions and actions,
+   double-tap to react, reply, edit, delete, select several. Hold the mic to record a
+   voice note and play one back (Mom's chat has one). Attach a photo, a file, your
+   location. Long-press Send for Send later. Search in the chat.
+8. **Chat details (3.4):** tap the chat's name. Mute, sound, look, reactions, obscure,
+   archive, block, delete.
+9. **Settings:** every page. Turn on "Write out voice notes" (Media and storage) and open
+   Mom's chat: the words of her voice note appear under it, or a line saying your phone
+   can't.
+10. **Appearance (4):** colours, shapes, fonts, wallpaper, motion, app icon.
+11. If you have a tablet or a foldable, open it wide: the list and the chat sit side by
+    side.
+
+*Known and expected for now (not bugs)*
+- No notifications pop up yet (that is Phase 4).
+- Only the Demo network exists. Real networks start in Phase 3.
+- Photos are initials, not contact pictures (Phase 7).
+- Native SMS mode is saved but does nothing yet (Phase 5).
+- GIF search needs the `GIPHY_API_KEY` repository secret on GitHub. Without it the GIF
+  button shows favourites only.
+- Link previews and clean links are settings only for now (Phase 4).
+
+*Send back*
+- Anything that looks or works differently from `UI_DESIGN.md`, with the screen's name,
+  and a screenshot when you can.
+- Anything confusing, slow, or broken.
+
+**Next:** Phase 3 (P3.1, the Go bridge) once the owner's Gate G1 feedback is in.

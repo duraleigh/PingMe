@@ -43,6 +43,8 @@ class ChatScreenActions(
     val search: org.pingme.app.chat.search.SearchHooks =
         org.pingme.app.chat.search
             .SearchHooks(),
+    /** Voice-note transcripts; null when they are off, and in previews. */
+    val transcripts: org.pingme.app.chat.voice.Transcripts? = null,
     /** The app's settings, for what the chat shows and plays (UI_DESIGN.md 10). */
     val settings: org.pingme.core.model.AppSettings =
         org.pingme.core.model
@@ -78,6 +80,7 @@ class RowContext(
     val player: org.pingme.app.chat.voice.VoicePlayer? = null,
     /** Received GIFs play by themselves; off, a tap plays one (UI_DESIGN.md 5.5). */
     val gifsAutoplay: Boolean = true,
+    val transcripts: org.pingme.app.chat.voice.Transcripts? = null,
 )
 
 /** One line of the action card. [enabled] false shows it greyed with [reason] (UI_DESIGN.md 1). */

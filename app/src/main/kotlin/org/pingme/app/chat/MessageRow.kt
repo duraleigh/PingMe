@@ -122,7 +122,14 @@ private fun ColumnScope.BubbleTop(
     if (message.isOutgoing && fellBack) SmsTag()
     message.quote?.let { QuoteBlock(it.senderName, it.text) { context.onQuote(message) } }
     message.attachments.forEach {
-        AttachmentView(it, context.onNeed, context.uploads[message.id], context.player, context.gifsAutoplay)
+        AttachmentView(
+            it,
+            context.onNeed,
+            context.uploads[message.id],
+            context.player,
+            context.gifsAutoplay,
+            context.transcripts,
+        )
     }
 }
 
