@@ -112,10 +112,14 @@ class FakeConnector : Connector {
         readMarkers += chatId to upTo
     }
 
+    val typingSent = mutableListOf<Boolean>()
+
     override suspend fun setTyping(
         chatId: ChatId,
         typing: Boolean,
-    ) = Unit
+    ) {
+        typingSent += typing
+    }
 
     override suspend fun delete(
         messageId: MessageId,

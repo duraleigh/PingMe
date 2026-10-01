@@ -63,6 +63,7 @@ abstract class ServiceTest {
             override fun now() = now
         }
 
+    protected lateinit var settings: SettingsRepository
     protected lateinit var accounts: AccountRepository
     protected lateinit var chats: ChatRepository
     protected lateinit var messages: MessageRepository
@@ -78,7 +79,7 @@ abstract class ServiceTest {
     fun openStore() {
         db = PingMeDatabase.configure(Room.inMemoryDatabaseBuilder(context, PingMeDatabase::class.java))
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        val settings =
+        settings =
             SettingsRepository(
                 PreferenceDataStoreFactory.create(scope = scope) { temp.root.resolve("s.preferences_pb") },
                 db,

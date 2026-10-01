@@ -32,6 +32,7 @@ class ChatActionsTest : ServiceTest() {
                 mapOf(NetworkId.DEMO to connector),
             ),
             applier,
+            settings,
         )
     }
 
@@ -160,5 +161,25 @@ class ChatActionsTest : ServiceTest() {
             val network = AvatarSource.Network(accountId)
             actions.setAvatarSource(id, network)
             assertEquals(network, chat(id).avatarSource)
+        }
+
+    @Test
+    fun readReceiptsOffKeepsReadingQuiet() =
+        runTest {
+            val id = seed().single()
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m1", body = "hi")))
+            settings.updateApp { it.copy(privacy = it.privacy.copy(readReceipts = false)) }
+            actions.setRead(id, read = true)
+            assertEquals(0, chat(id).unreadCount)
+            assertTrue("nothing went to the network", connector.readMarkers.isEmpty())
+
+            // A per-network exception wins over the app-wide switch.
+            settings.updateApp {
+                it.copy(
+                    privacy = it.privacy.copy(readReceiptsByNetwork = mapOf(NetworkId.DEMO to true)),
+                )
+            }
+            actions.setRead(id, read = true)
+            assertEquals(1, connector.readMarkers.size)
         }
 }
