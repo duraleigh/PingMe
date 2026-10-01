@@ -2,7 +2,9 @@
 package org.pingme.app.chat
 
 import android.os.Looper
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -11,10 +13,12 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -137,6 +141,66 @@ class MessageActionsScreenTest {
         waitFor { stored(message)!!.reactions.any { it.emoji == "😂" } }
     }
 
+    // Holds [text]'s bubble, checks the bar, the bubble and the card are on screen and apart
+    // (UI_DESIGN.md 3.3), then taps [emoji] where it shows, as a finger would.
+    private fun holdAndTap(
+        text: String,
+        emoji: String,
+    ) {
+        compose.onNodeWithText(text).performTouchInput { longClick() }
+        waitForText("Reply")
+        val bar = compose.onNode(hasTestTag(REACTION_BAR), useUnmergedTree = true).getBoundsInRoot()
+        val held = compose.onNode(hasTestTag(HELD_BUBBLE), useUnmergedTree = true).getBoundsInRoot()
+        val card = compose.onNode(hasTestTag(ACTION_CARD), useUnmergedTree = true).getBoundsInRoot()
+        assertTrue("bar above the bubble: $bar / $held", bar.bottom <= held.top)
+        assertTrue("card below the bubble: $held / $card", held.bottom <= card.top)
+        assertTrue("bar on screen: $bar", bar.top >= 0.dp)
+        assertTrue("card on screen: $card", card.bottom <= SCREEN_HEIGHT)
+        compose.onNode(hasContentDescription("React with $emoji")).performTouchInput { click() }
+    }
+
+    // A tap on [emoji] reaches the message: its reactions change. (Tapping the reaction you
+    // already gave takes it back, and the demo's history already carries some of yours.)
+    private fun tapLands(
+        message: Message,
+        emoji: String,
+    ) {
+        val before = stored(message)!!.reactions
+        holdAndTap(message.body!!, emoji)
+        waitFor { stored(message)!!.reactions != before }
+    }
+
+    // The incoming message drawn highest on screen right now.
+    private fun highestOnScreen(): Message =
+        vm.state.value.items
+            .filterIsInstance<ChatItem.Bubble>()
+            .map { it.message }
+            .filter { !it.isOutgoing && !it.body.isNullOrBlank() }
+            .mapNotNull { message ->
+                compose
+                    .onAllNodesWithText(message.body!!)
+                    .fetchSemanticsNodes()
+                    .singleOrNull()
+                    ?.let { message to it.boundsInRoot.top }
+            }.minBy { it.second }
+            .first
+
+    @Test
+    fun everyQuickReactionCanBeTappedWhereverTheBubbleIs() {
+        val newest = theirs()
+        val quick = listOf("❤️", "😂", "👍", "😮", "😢", "🔥")
+        quick.forEach { emoji -> tapLands(newest, emoji) }
+        // Scrolled to the very top, which loads the rest of the history first; then the highest
+        // message on screen, just under the header.
+        waitFor {
+            compose.onNode(hasTestTag(CHAT_LIST)).performScrollToIndex(vm.state.value.items.lastIndex)
+            !vm.state.value.moreHistory
+        }
+        compose.onNode(hasTestTag(CHAT_LIST)).performScrollToIndex(vm.state.value.items.lastIndex)
+        val oldest = highestOnScreen()
+        quick.forEach { emoji -> tapLands(oldest, emoji) }
+    }
+
     @Test
     fun doubleTapSendsTheDoubleTapReaction() {
         val message = theirs()
@@ -208,5 +272,8 @@ class MessageActionsScreenTest {
     private companion object {
         const val TIMEOUT = 15_000L
         const val STEP_MS = 50L
+
+        // The screen this test runs on (its @Config).
+        val SCREEN_HEIGHT = 891.dp
     }
 }

@@ -1440,3 +1440,20 @@ The app suite then passed 8 runs out of 8 (it failed 3 to 4 out of 4 before).
   on release; slide left cancels; slide up locks, then pause, play, resume, send) and
   `VoiceNotesTest` covers pause timing. Checked on the emulator: every gesture, playback while
   paused, and a sent note made of two stretches playing past the join (0:15 of 0:17).
+
+### The press-and-hold menu, and a scheduled message's actions (handover step 4)
+
+- **Layout (UI_DESIGN.md 3.3):** the reaction bar, the held bubble, and the action card are now
+  placed together, top to bottom, inside the screen's safe area (clear of the status and gesture
+  bars). The bubble stays where it was when it can; near the top or bottom it moves just enough
+  for the bar above and the card below; a bubble too tall to fit shows clipped. Before, the bar
+  was pinned under the top edge and the card flipped above it, so they covered each other and
+  the emoji could not be tapped. The lifted row no longer casts a shadow (it fell from the
+  whole row, as a line across the screen).
+- **Test:** `everyQuickReactionCanBeTappedWhereverTheBubbleIs` holds the newest message (near
+  the composer) and the oldest (scrolled up under the header), checks the three parts are on
+  screen and apart, and taps each of the six quick reactions at its place on screen. It fails
+  against the old layout. Checked on the emulator for a bubble at the bottom and at the top.
+- **Scheduled message (10.13, owner's Gate G1 item 6):** its menu is Edit, Reschedule, Send
+  now, Copy, and Unschedule (which deletes it), in that order; "Change time" and "Cancel
+  sending" were renamed to the design's words. Test: `SendLaterScreenTest`.
