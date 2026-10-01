@@ -57,6 +57,8 @@ class SettingsNavigation(
     val onPage: (SettingsPage) -> Unit,
     val onAccount: (AccountId) -> Unit,
     val onAppearance: () -> Unit,
+    /** After a restore the app starts again on the restored database. */
+    val onRestart: () -> Unit,
 )
 
 /** A Settings page with the shared view model (BUILD_PLAN.md P2.6). */
@@ -72,6 +74,7 @@ fun SettingsRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val actions: SettingsActions = viewModel
     val spaces: SpaceActions = viewModel
+    val backup: BackupActions = viewModel
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val title =
         if (page ==
@@ -101,15 +104,27 @@ fun SettingsRoute(
         LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
             when (page) {
                 SettingsPage.HOME -> home(navigation)
+
                 SettingsPage.ACCOUNTS -> item { AccountList(state, navigation.onAccount) }
+
                 SettingsPage.ACCOUNT -> item { account?.let { AccountPage(state, it, actions) } }
+
                 SettingsPage.PRIVACY -> item { PrivacyPage(state, actions) }
+
                 SettingsPage.REACTIONS -> item { ReactionsPage(state, actions) }
+
                 SettingsPage.MOTION -> item { MotionPage(state, actions) }
+
                 SettingsPage.NOTIFICATIONS -> item { NotificationsPage(state, actions) }
+
                 SettingsPage.STORAGE -> item { StoragePage(state, actions) }
+
                 SettingsPage.SPACES -> item { SpacesPage(state, spaces) }
-                else -> Unit
+
+                SettingsPage.BACKUP -> item { BackupPage(state.backup, backup, navigation.onRestart) }
+
+                // Appearance is its own studio screen, opened from the list.
+                SettingsPage.APPEARANCE -> Unit
             }
         }
     }
@@ -117,7 +132,7 @@ fun SettingsRoute(
 
 // The list of pages; Appearance opens the studio it already has.
 private fun LazyListScope.home(navigation: SettingsNavigation) {
-    items(SettingsPage.entries.filter { it in BUILT_PAGES }) { page ->
+    items(SettingsPage.entries.filter { it.summary != 0 }) { page ->
         ListItem(
             headlineContent = { Text(stringResource(page.title)) },
             supportingContent = { Text(stringResource(page.summary)) },

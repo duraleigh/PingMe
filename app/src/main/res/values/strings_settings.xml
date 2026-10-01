@@ -119,4 +119,17 @@
     <string name="spaces_bar">Bottom bar</string>
     <string name="spaces_bar_edit">Choose the bottom bar</string>
     <string name="spaces_bar_note">All, then up to four of networks, spaces, Unread, and Low priority.</string>
+    <string name="backup_note">A backup holds your chats and messages. Logins stay locked on this phone, so after restoring you log in to each network again. Photos and files download again when you open them.</string>
+    <string name="backup_save">Save a backup</string>
+    <string name="backup_save_note">Pick where the file goes</string>
+    <string name="backup_restore">Restore from a backup</string>
+    <string name="backup_restore_note">Replaces everything in PingMe on this phone</string>
+    <string name="backup_restore_confirm_title">Restore this backup?</string>
+    <string name="backup_restore_confirm">Every chat now in PingMe is replaced by the backup\'s. PingMe then starts again.</string>
+    <string name="backup_restore_go">Restore</string>
+    <string name="backup_working">Working…</string>
+    <string name="backup_saved">Backup saved.</string>
+    <string name="backup_save_failed">The backup could not be saved there. Try another place.</string>
+    <string name="backup_not_a_backup">That file is not a PingMe backup.</string>
+    <string name="backup_newer">That backup is from a newer PingMe. Update PingMe first.</string>
 </resources>

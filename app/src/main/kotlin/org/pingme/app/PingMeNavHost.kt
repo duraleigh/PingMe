@@ -97,6 +97,7 @@ fun PingMeNavHost(modifier: Modifier = Modifier) {
         }
         composable<AppearanceStudio> { AppearanceRoute(onBack = { nav.popBackStack() }) }
         composable<SettingsDest> { entry ->
+            val context = LocalContext.current
             val page =
                 runCatching {
                     SettingsPage.valueOf(entry.arguments?.getString("page").orEmpty())
@@ -108,6 +109,10 @@ fun PingMeNavHost(modifier: Modifier = Modifier) {
                     onPage = { nav.navigate(SettingsDest(it.name)) },
                     onAccount = { nav.navigate(SettingsDest(SettingsPage.ACCOUNT.name, it.value)) },
                     onAppearance = { nav.navigate(AppearanceStudio) },
+                    onRestart = {
+                        org.pingme.app.settings
+                            .restartApp(context)
+                    },
                 ),
                 account = entry.arguments?.getString("account")?.let(::AccountId),
             )

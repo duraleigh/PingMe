@@ -49,6 +49,7 @@ class SettingsScreenTest {
     private lateinit var vm: SettingsViewModel
     private val opened = mutableListOf<SettingsPage>()
     private val openedAccounts = mutableListOf<AccountId>()
+    private var restarts = 0
 
     @Before
     fun setUp() {
@@ -69,7 +70,7 @@ class SettingsScreenTest {
             PingMeTheme(Appearance(mode = ThemeMode.LIGHT)) {
                 SettingsRoute(
                     page,
-                    SettingsNavigation({}, { opened += it }, { openedAccounts += it }, {}),
+                    SettingsNavigation({}, { opened += it }, { openedAccounts += it }, {}, { restarts++ }),
                     account = account,
                     viewModel = vm,
                 )
@@ -95,8 +96,7 @@ class SettingsScreenTest {
     fun homeListsTheBuiltPagesAndOpensThem() {
         show(SettingsPage.HOME)
         assertTrue(shown("Accounts"))
-        // Pages still to come in this step stay off the list.
-        assertFalse(shown("Backup"))
+        assertTrue(shown("Notifications"))
         tap("Privacy")
         assertEquals(listOf(SettingsPage.PRIVACY), opened)
     }
@@ -252,6 +252,25 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun theChatsCanBeSavedToAFile() {
+        show(SettingsPage.BACKUP)
+        assertTrue(shown("Save a backup"))
+        val file = temp.newFile("backup.db")
+        vm.exportTo(android.net.Uri.fromFile(file))
+        waitFor { shown("Backup saved.") }
+        assertEquals("SQLite format 3", file.readBytes().copyOf(SQLITE.length).decodeToString())
+    }
+
+    @Test
+    fun aFileThatIsNotABackupIsRefused() {
+        show(SettingsPage.BACKUP)
+        val file = temp.newFile("notes.txt").apply { writeText("shopping list") }
+        vm.restoreFrom(android.net.Uri.fromFile(file))
+        waitFor { shown("That file is not a PingMe backup.") }
+        assertEquals(0, restarts)
+    }
+
+    @Test
     fun aNewSoundGetsANewChannel() {
         val profile = NotificationProfile()
         assertEquals(1, profile.withSound("content://a", null).channelVersion)
@@ -270,6 +289,7 @@ class SettingsScreenTest {
 
     private companion object {
         const val TIMEOUT = 15_000L
+        const val SQLITE = "SQLite format 3"
         val STEP: Duration = Duration.ofMillis(50)
     }
 }

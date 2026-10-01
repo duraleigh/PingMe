@@ -218,6 +218,9 @@ class DemoInbox(
                 org.pingme.app.appearance
                     .AppearanceRepository(context, settings),
                 InboxBarRepository(settings),
+                org.pingme.core.store
+                    .BackupStore(context, db),
+                context,
             ).tracked()
 
     fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()

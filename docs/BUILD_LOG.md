@@ -967,3 +967,56 @@ chat underneath.
   screen, because with a set screen size a text field in a dialog never settles there.
 
 **Next:** P2.6, Settings.
+
+## P2.6 Settings (done, 2026-10-01)
+
+Settings opens from the avatar menu (Settings, or Accounts straight to that page). Every
+page in the plan is there:
+- **Accounts:** each account's name, badge colour, notifications (on, silent, off),
+  Show in inbox, Instagram's Show General, and connection state.
+- **Appearance:** the studio from P2.2.
+- **Notifications:** each network's on, silent, or off, with its own sound and
+  vibration; Instagram's Primary, General, and Requests rows (on, silent, off by
+  default); keywords (word or phrase, whole word, capital letters, all chats or some
+  accounts or some chats, Override Low priority and mute, own sound and vibration);
+  and Auto-copy one-time codes (off by default). The sound and vibration rows are now
+  shared with Chat details (`app/notify/SoundRows.kt`).
+- **Privacy:** read receipts and typing, each with per-network exceptions (both are
+  honoured now: turning them off sends nothing to the network); clean links sent and
+  received; link previews Always, Only on Wi-Fi, or Never (owner's choice A); and the
+  list of obscured chats, each with a way to stop.
+- **Reactions:** the quick set (move, remove, add, up to eight), the double-tap
+  reaction, and special emoji that also glow at Extra motion (honoured now).
+- **Motion:** intensity and haptics from the studio, and Flippy reactions (follows the
+  motion level until set; honoured in the inbox now).
+- **Media and storage:** GIF search (off: favourites only, nothing asked of GIPHY;
+  honoured now), GIF autoplay (off: a GIF stays still until tapped; honoured now),
+  voice-note transcription, Save all incoming media, and the folder to save to.
+- **Spaces and the bottom bar:** the networks' spaces and the user's own, made from any
+  chats on any account, changed, or deleted (a deleted space leaves the bar too); and
+  the bottom-bar editor from P2.3.
+- **Backup:** save the chats to a file the user picks, or restore from one. A backup is
+  a `VACUUM INTO` copy of the database. A restore checks the file is a PingMe database
+  no newer than the app, clears media paths that do not exist on this phone, swaps it
+  in, and restarts PingMe. Logins stay in the keystore and are not in a backup, so after
+  a restore each network asks to log in again; the page says so.
+
+New: `AppSettings` (core/model) in the settings store, `SettingsViewModel` with
+`SettingsActions`, `SpaceActions`, and `BackupActions`, `MediaKeeper` (core/service),
+`BackupStore` (core/store), `MessageRepository.setAttachmentSavedAt`.
+
+**Deviations and what comes later:**
+- **Built early:** "Save all incoming media" works now rather than only being stored.
+  New media downloads as it arrives and each file is copied once to the chosen folder
+  (or kept in app storage). The plan puts this in P4.3, which also names `MediaStore`
+  for a public folder; P4.3 will review this against that. Ephemeral media is saved
+  wherever the network delivers it, which is the demo network's normal path.
+- **Log in and Log in again** on an account's page come with the login flow in P2.7,
+  which renders the connector's `LoginStep`s; the account page gets the button then.
+- **Voice-note transcription:** the setting is stored, but the transcription itself
+  (UI_DESIGN.md 5.6, Android's on-device speech recogniser) was not built in P2.4. It is
+  a gap; it will be built before Gate G1 as part of P2.8.
+- Stored now, take effect later as the plan says: network, folder, and keyword sounds
+  and keyword matching, and auto-copy codes (P4.1); link previews and clean links (P4.3).
+
+**Next:** P2.7, Setup flow.
