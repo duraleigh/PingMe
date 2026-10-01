@@ -111,6 +111,20 @@ class ConnectorSupervisorTest : ServiceTest() {
         }
 
     @Test
+    fun aNetworkChangeJustBeforeTheWaitIsNotMissed() =
+        runBlocking {
+            // The network changes after the session ended but before the wait begins.
+            delays = {
+                supervisor.onNetworkChanged()
+                10.minutes
+            }
+            connector.sessions += { throw IOException("offline") }
+            accounts.upsert(account())
+            supervisor.start()
+            eventually { connector.connects.get() >= 2 }
+        }
+
+    @Test
     fun whenTheUserMustActItStopsAndSaysSo() =
         runBlocking {
             connector.sessions +=
