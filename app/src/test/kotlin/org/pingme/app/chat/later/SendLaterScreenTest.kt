@@ -102,6 +102,26 @@ class SendLaterScreenTest {
         }
     }
 
+    @Test
+    fun aWaitingMessageOffersItsOwnActionsAndUnschedulingDeletesIt() {
+        compose.onNode(hasTestTag(COMPOSER)).performTextInput("Happy birthday")
+        compose.onNode(hasContentDescription("More ways to send")).performClick()
+        compose.onNodeWithText("Send later").performClick()
+        compose.onNode(hasTestTag(LATER_FIELD)).performTextInput("in 2 hours")
+        compose.onNodeWithText("Schedule").performClick()
+        waitFor { latest().status is MessageStatus.Scheduled }
+        val waiting = latest()
+        waitFor { compose.onAllNodesWithText("Sends ", substring = true).fetchSemanticsNodes().isNotEmpty() }
+
+        compose.onNodeWithText("Happy birthday", useUnmergedTree = true).performTouchInput { longClick() }
+        listOf("Edit", "Reschedule", "Send now", "Copy", "Unschedule").forEach {
+            compose.onNodeWithText(it).assertExists()
+        }
+        compose.onNodeWithText("Reply").assertDoesNotExist()
+        compose.onNodeWithText("Unschedule").performClick()
+        waitFor { runBlocking { demo.messages.get(waiting.id) } == null }
+    }
+
     private companion object {
         const val TIMEOUT = 15_000L
         val STEP: Duration = Duration.ofMillis(50)

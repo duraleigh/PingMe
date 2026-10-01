@@ -29,6 +29,6 @@
     <string name="later_not_understood">Not sure when that is</string>
     <string name="later_schedule">Schedule</string>
     <string name="later_send_now">Send now</string>
-    <string name="later_change_time">Change time</string>
-    <string name="later_cancel">Cancel sending</string>
+    <string name="later_reschedule">Reschedule</string>
+    <string name="later_unschedule">Unschedule</string>
 </resources>

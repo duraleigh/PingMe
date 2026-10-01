@@ -2,7 +2,9 @@
 package org.pingme.app.chat
 
 import android.os.Looper
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -11,10 +13,12 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -137,6 +141,42 @@ class MessageActionsScreenTest {
         waitFor { stored(message)!!.reactions.any { it.emoji == "😂" } }
     }
 
+    // Holds [text]'s bubble, checks the bar, the bubble and the card are on screen and apart
+    // (UI_DESIGN.md 3.3), then taps [emoji] where it shows, as a finger would.
+    private fun holdAndTap(
+        text: String,
+        emoji: String,
+    ) {
+        compose.onNodeWithText(text).performTouchInput { longClick() }
+        waitForText("Reply")
+        val bar = compose.onNode(hasTestTag(REACTION_BAR), useUnmergedTree = true).getBoundsInRoot()
+        val held = compose.onNode(hasTestTag(HELD_BUBBLE), useUnmergedTree = true).getBoundsInRoot()
+        val card = compose.onNode(hasTestTag(ACTION_CARD), useUnmergedTree = true).getBoundsInRoot()
+        assertTrue("bar above the bubble: $bar / $held", bar.bottom <= held.top)
+        assertTrue("card below the bubble: $held / $card", held.bottom <= card.top)
+        assertTrue("bar on screen: $bar", bar.top >= 0.dp)
+        assertTrue("card on screen: $card", card.bottom <= SCREEN_HEIGHT)
+        compose.onNode(hasContentDescription("React with $emoji")).performTouchInput { click() }
+    }
+
+    @Test
+    fun everyQuickReactionCanBeTappedWhereverTheBubbleIs() {
+        val newest = theirs()
+        val quick = listOf("❤️", "😂", "👍", "😮", "😢", "🔥")
+        quick.forEach { emoji ->
+            holdAndTap(newest.body!!, emoji)
+            waitFor { stored(newest)!!.reactions.any { it.emoji == emoji } }
+        }
+        // The oldest message, scrolled up under the header.
+        val oldest = latest().last { !it.isOutgoing && !it.body.isNullOrBlank() }
+        compose.onNode(hasTestTag(CHAT_LIST)).performScrollToIndex(vm.state.value.items.lastIndex)
+        waitFor { compose.onAllNodesWithText(oldest.body!!).fetchSemanticsNodes().isNotEmpty() }
+        quick.forEach { emoji ->
+            holdAndTap(oldest.body!!, emoji)
+            waitFor { stored(oldest)!!.reactions.any { it.emoji == emoji } }
+        }
+    }
+
     @Test
     fun doubleTapSendsTheDoubleTapReaction() {
         val message = theirs()
@@ -208,5 +248,8 @@ class MessageActionsScreenTest {
     private companion object {
         const val TIMEOUT = 15_000L
         const val STEP_MS = 50L
+
+        // The screen this test runs on (its @Config).
+        val SCREEN_HEIGHT = 891.dp
     }
 }

@@ -202,18 +202,21 @@ fun ChatUi.actionsFor(
     }
 }
 
-/** A message waiting for its time: send it now, move it, change it, or cancel it (UI_DESIGN.md 10.13). */
+/**
+ * A message waiting for its time (UI_DESIGN.md 3.3, 10.13): change it, move it, send it now,
+ * copy it, or unschedule it, which deletes it.
+ */
 private fun ChatUi.scheduledActions(
     message: Message,
     menu: MessageMenu?,
     context: Context,
 ) = listOf(
-    MessageAction(R.string.later_send_now, UiR.drawable.ic_send, { menu?.sendNow(message) }),
-    MessageAction(R.string.later_change_time, UiR.drawable.ic_schedule, { rescheduling = message }),
     MessageAction(R.string.action_edit, UiR.drawable.ic_edit, { menu?.startEdit(message) }),
+    MessageAction(R.string.later_reschedule, UiR.drawable.ic_schedule, { rescheduling = message }),
+    MessageAction(R.string.later_send_now, UiR.drawable.ic_send, { menu?.sendNow(message) }),
     MessageAction(R.string.action_copy, UiR.drawable.ic_content_copy, { copy(context, listOf(message)) }),
     MessageAction(
-        R.string.later_cancel,
+        R.string.later_unschedule,
         UiR.drawable.ic_delete,
         { menu?.cancelScheduled(message) },
         destructive = true,
