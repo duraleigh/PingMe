@@ -39,18 +39,16 @@ class SendButtonTest {
                 SendButton(
                     enabled = true,
                     onSend = { sent += "network" },
-                    onSendSms = { sent += "sms" },
                     onSendLater = { sent += "later" },
                 )
             }
         }
         compose.onNode(hasContentDescription("Send")).performTouchInput { click() }
         assertEquals("a tap just sends, no menu", listOf("network"), sent)
-        compose.onNodeWithText("Send as SMS").assertDoesNotExist()
+        compose.onNodeWithText("Send later").assertDoesNotExist()
         compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
-        compose.onNodeWithText("Send later").assertExists()
-        compose.onNodeWithText("Send as SMS").performClick()
-        assertEquals(listOf("network", "sms"), sent)
+        compose.onNodeWithText("Send later").performClick()
+        assertEquals(listOf("network", "later"), sent)
     }
 
     @Test
@@ -58,7 +56,7 @@ class SendButtonTest {
         var sent = 0
         compose.setContent {
             PingMeTheme(Appearance(mode = ThemeMode.LIGHT)) {
-                SendButton(enabled = true, onSend = { sent++ }, onSendSms = null)
+                SendButton(enabled = true, onSend = { sent++ })
             }
         }
         compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }

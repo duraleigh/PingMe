@@ -49,7 +49,11 @@ data class OutgoingMessage(
     val replyTo: MessageId?,
     /** Shown as the quoted line where the network has no native reply (UI_DESIGN.md 5.2). */
     val quote: Quote?,
-    /** "Send as SMS" from the split button (UI_DESIGN.md 3.2). */
+    /**
+     * Send over SMS rather than the network's own transport. No longer offered in the UI
+     * (owner, 2026-10-01: Google Messages gives paired devices no such choice); kept for
+     * the native SMS connector and for retries, which keep a message's transport.
+     */
     val forceSms: Boolean,
 )
 

@@ -1777,7 +1777,7 @@ real network, so expect rough edges and tell me each one.
 9. Look at an RCS chat and an SMS chat side by side: RCS bubbles in the phone's colour,
    SMS bubbles with the outlined edge and the SMS tag.
 10. Delete one of your messages (Delete for me): it also disappears in Google Messages.
-11. Hold Send and choose "Send as SMS": it fails with a reason (see the question above).
+11. Hold Send: the menu offers Send later only (Send as SMS is gone; owner, 2026-10-01).
 
 *Reconnection*
 12. Swipe PingMe away (kill it) and open it again: it reconnects by itself.
@@ -1787,8 +1787,21 @@ real network, so expect rough edges and tell me each one.
     "needs attention, tap to fix" within a minute, and tapping it opens Google
     Messages. Pair again from Settings > Accounts > Log in again.
 
-**Then answer:** (a) remove "Send as SMS" for Google Messages chats, or keep it failing;
-(b) anything in the list above that did not match.
+**Then tell me** anything in the list above that did not match.
+
+## Owner decisions after P3.2 (2026-10-01)
+
+Both questions in the P3.2 entry are answered:
+- **"Send as SMS" is removed.** The hold-Send menu offers Send later only, everywhere; the
+  string, the menu item, and the composer hook are gone. `OutgoingMessage.forceSms` stays
+  in the connector API for the native SMS connector and for retries (which keep a message's
+  transport), and the Google Messages connector ignores it: the phone picks RCS or SMS.
+  UI_DESIGN.md 3.2, BUILD_PLAN.md P2.4, and the DESIGN.md decisions log say so.
+- **Unread is a dot, not a number.** Chat rows and pinned tiles show a plain dot for any
+  chat with unread messages, on every network; nobody needs the count per chat. The
+  bottom bar's badges keep their numbers (they follow the counting rule in UI_DESIGN.md
+  6.4, which already counts chats for Google Messages since it reports one per unread
+  chat). UI_DESIGN.md 3.1 and the decisions log are updated.
 
 **Next:** when G2 passes, Phase 4 (notifications, background, and the message features
 that need the real network).

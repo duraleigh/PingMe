@@ -252,7 +252,8 @@ internal class GmessagesSession(
         draft: OutgoingMessage,
         progress: (Float) -> Unit,
     ): SendResult {
-        if (draft.forceSms) return SendResult.Failed(NO_FORCE_SMS, retryable = false)
+        // draft.forceSms is ignored: Google Messages gives a paired device no "send this one as
+        // SMS"; the phone picks RCS or SMS itself (owner, 2026-10-01).
         val conversation = chatId.remoteId
         val tmpId = draft.clientId.remoteId
         val media =
@@ -455,7 +456,5 @@ internal class GmessagesSession(
         const val MICROS_PER_MILLI = 1000
         const val STAND_IN = "tmp/"
         val ECHO_TIMEOUT = 20.seconds
-        const val NO_FORCE_SMS =
-            "Google Messages does not let a paired app pick SMS for one message; it chooses RCS or SMS itself."
     }
 }

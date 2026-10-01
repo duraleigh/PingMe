@@ -296,7 +296,7 @@ private fun ColumnScope.AccountMenuContent(
             text = { Text(space.title) },
             onClick = { go { actions.onList(ChatList.InSpace(space)) } },
             leadingIcon = { Icon(painterResource(space.icon.drawable()), null) },
-            trailingIcon = { if (unread > 0) UnreadBadge(unread) },
+            trailingIcon = { MenuCount(unread) },
         )
     }
     HorizontalDivider()
@@ -316,18 +316,20 @@ private fun MenuEntry(
         onClick = { onClick?.invoke() },
         enabled = onClick != null,
         leadingIcon = { Icon(painterResource(icon), null) },
-        trailingIcon = {
-            if (count >
-                0
-            ) {
-                Text(
-                    count.toString(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
+        trailingIcon = { MenuCount(count) },
     )
+}
+
+/** A menu row's unread total, shown only when there is one. */
+@Composable
+private fun MenuCount(count: Int) {
+    if (count > 0) {
+        Text(
+            count.toString(),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 private const val PULSE = 1.6f

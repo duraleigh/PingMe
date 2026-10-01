@@ -109,7 +109,7 @@ fun iconFor(kind: AttachmentKind) =
         AttachmentKind.FILE -> UiR.drawable.ic_description
     }
 
-/** Attachments and "Send as SMS" for this chat's composer; [onNotice] shows a snackbar. */
+/** Attachments and the other ways to send for this chat's composer; [onNotice] shows a snackbar. */
 internal fun composerHooks(
     viewModel: org.pingme.app.chat.ChatViewModel,
     state: org.pingme.app.chat.ChatUiState,
@@ -123,12 +123,6 @@ internal fun composerHooks(
         org.pingme.app.chat.gif
             .GifPicks(viewModel::sendGif, viewModel::sendFavourite),
     onSchedule = viewModel::schedule,
-    onSendSms =
-        if (state.account?.network == org.pingme.core.model.NetworkId.GMESSAGES) {
-            { text -> viewModel.send(text, forceSms = true) }
-        } else {
-            null
-        },
     onProblem = { problem ->
         onNotice(
             when (problem) {

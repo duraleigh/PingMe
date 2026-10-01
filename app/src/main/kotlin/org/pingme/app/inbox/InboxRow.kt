@@ -278,7 +278,7 @@ private fun RowContent(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (unread) UnreadBadge(row.chat.unreadCount, muted = row.chat.isMuted)
+                if (unread) UnreadBadge(muted = row.chat.isMuted)
             }
         }
     }
