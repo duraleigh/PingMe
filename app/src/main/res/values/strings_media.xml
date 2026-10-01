@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Attachments, voice notes, GIFs, and the send button's menu (UI_DESIGN.md 3.2, 5.5, 5.6, 5.8). -->
+<resources>
+    <string name="attach">Attach</string>
+    <string name="attach_camera">Camera</string>
+    <string name="attach_gallery">Gallery</string>
+    <string name="attach_file">File</string>
+    <string name="attach_location">Location</string>
+    <string name="attach_contact">Contact</string>
+    <string name="attach_remove">Remove</string>
+    <string name="attach_no_location">Could not find where you are. Check that location is on.</string>
+    <string name="attach_no_camera">No camera app on this phone</string>
+    <string name="chat_send_options">More ways to send</string>
+    <string name="chat_send_sms">Send as SMS</string>
+    <string name="media_play_video">Play video</string>
+    <string name="media_location">Location</string>
+    <string name="media_contact">Contact</string>
+</resources>

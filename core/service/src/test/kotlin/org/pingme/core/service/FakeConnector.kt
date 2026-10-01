@@ -96,6 +96,7 @@ class FakeConnector : Connector {
     override suspend fun send(
         chatId: ChatId,
         draft: OutgoingMessage,
+        progress: (Float) -> Unit,
     ) = sendResult(draft)
 
     override suspend fun react(

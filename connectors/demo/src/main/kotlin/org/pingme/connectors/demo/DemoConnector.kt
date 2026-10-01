@@ -54,6 +54,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -135,9 +136,17 @@ class DemoConnector(
     override suspend fun send(
         chatId: ChatId,
         draft: OutgoingMessage,
+        progress: (Float) -> Unit,
     ): SendResult {
         val world = world(chatId.accountId)
         if (chatId !in world.chats) return SendResult.Failed("This chat is gone", retryable = false)
+        // Media "uploads" in steps, so the bubble's progress has something to show.
+        if (draft.attachments.isNotEmpty()) {
+            for (step in 1..UPLOAD_STEPS) {
+                delay(UPLOAD_STEP)
+                progress(step.toFloat() / UPLOAD_STEPS)
+            }
+        }
         val message = server.addOutgoing(world, chatId, draft.body, draft)
         server.followUp(world, message)
         return SendResult.Sent(world.snapshot(message))
@@ -373,5 +382,7 @@ class DemoConnector(
     companion object {
         /** What a demo login stores as its "credentials". */
         internal val DEMO_SECRET = "pingme-demo".toByteArray()
+        private const val UPLOAD_STEPS = 10
+        private val UPLOAD_STEP = 120.milliseconds
     }
 }

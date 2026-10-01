@@ -36,6 +36,16 @@ class ChatScreenActions(
     val onRememberEmoji: (String) -> Unit = {},
     val incoming: Flow<IncomingReaction> = emptyFlow(),
     val forwardTargets: List<Chat> = emptyList(),
+    val composer: ComposerHooks = ComposerHooks(),
+    val uploads: Map<org.pingme.core.model.MessageId, Float> = emptyMap(),
+)
+
+/** The composer's extras: attachments and other ways to send. Null ones are not offered. */
+class ComposerHooks(
+    val outbox: org.pingme.app.chat.attach.Outbox? = null,
+    /** "Send as SMS" from the split button, for chats paired through Google Messages. */
+    val onSendSms: ((String) -> Unit)? = null,
+    val onProblem: (org.pingme.app.chat.attach.AttachProblem) -> Unit = {},
 )
 
 /** What a message row needs besides the message. */
@@ -46,6 +56,8 @@ class RowContext(
     val onRetry: (Message) -> Unit,
     val onNeed: (Attachment) -> Unit,
     val onQuote: (Message) -> Unit,
+    /** How far each sending message's media has got. */
+    val uploads: Map<org.pingme.core.model.MessageId, Float> = emptyMap(),
 )
 
 /** One line of the action card. [enabled] false shows it greyed with [reason] (UI_DESIGN.md 1). */

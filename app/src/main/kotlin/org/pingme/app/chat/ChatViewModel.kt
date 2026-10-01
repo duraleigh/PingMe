@@ -109,6 +109,7 @@ class ChatViewModel
         private val media: MediaRequests,
         private val settingsRepo: org.pingme.core.store.SettingsRepository,
         reactionFeed: org.pingme.core.service.ReactionFeed,
+        files: org.pingme.app.chat.attach.OutgoingFiles,
     ) : ViewModel() {
         /** Takes the chat id as text: Hilt cannot generate factories for value classes. */
         @AssistedFactory
@@ -120,6 +121,14 @@ class ChatViewModel
 
         /** Press and hold, double tap, delete, select (UI_DESIGN.md 3.3). */
         val menu = MessageMenu(viewModelScope, messageActions)
+
+        /** Photos, files, places, and contacts waiting to go with the next message (UI_DESIGN.md 5.8). */
+        val outbox =
+            org.pingme.app.chat.attach
+                .Outbox(viewModelScope, files)
+
+        /** How far each sending message's media has got. */
+        val uploads = messageActions.progress
 
         /** Chats a message can be forwarded to: the inbox, less this one. */
         val forwardTargets: StateFlow<List<Chat>> =
@@ -204,14 +213,20 @@ class ChatViewModel
             }
         }
 
-        fun send(text: String) {
+        /** Sends the text with whatever is waiting in the outbox; [forceSms] is "Send as SMS". */
+        fun send(
+            text: String,
+            forceSms: Boolean = false,
+        ) {
             val body = text.trim()
-            if (body.isEmpty()) return
+            val files = outbox.take()
+            if (body.isEmpty() && files.isEmpty()) return
             val reply = replyTo.value
             replyTo.value = null
             stopTyping()
             viewModelScope.launch {
-                messageActions.send(chatId, body, reply, reply?.let { state.value.names[it.senderId] ?: youOr(it) })
+                val name = reply?.let { state.value.names[it.senderId] ?: youOr(it) }
+                messageActions.send(chatId, body, reply, name, forceSms, files)
             }
         }
 

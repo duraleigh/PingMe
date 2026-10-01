@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- What PingMe can hand to the camera and viewer apps: its own media, one file at a time. -->
+<paths>
+    <files-path name="files" path="." />
+    <cache-path name="cache" path="." />
+</paths>

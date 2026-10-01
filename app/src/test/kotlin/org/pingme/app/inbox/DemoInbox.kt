@@ -123,6 +123,10 @@ class DemoInbox(
             }
         }
 
+    val files =
+        org.pingme.app.chat.attach
+            .OutgoingFiles(context)
+
     fun chatViewModel(remote: String) =
         ChatViewModel(
             account.id.chat(remote).value,
@@ -138,6 +142,7 @@ class DemoInbox(
             media,
             settings,
             reactions,
+            files,
         ).tracked()
 
     fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()

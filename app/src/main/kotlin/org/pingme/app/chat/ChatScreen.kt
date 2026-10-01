@@ -66,6 +66,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.pingme.app.R
 import org.pingme.app.appearance.Wallpaper
+import org.pingme.app.chat.attach.composerHooks
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
@@ -83,6 +84,7 @@ fun ChatRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val forwardTargets by viewModel.forwardTargets.collectAsStateWithLifecycle()
+    val uploads by viewModel.uploads.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -109,7 +111,7 @@ fun ChatRoute(
                             }
                         },
                     ),
-                onSend = viewModel::send,
+                onSend = { viewModel.send(it) },
                 onReply = viewModel::reply,
                 onRetry = viewModel::retry,
                 onUnpin = viewModel::unpin,
@@ -120,6 +122,12 @@ fun ChatRoute(
                 onRememberEmoji = viewModel::rememberEmoji,
                 incoming = viewModel.incomingReactions,
                 forwardTargets = forwardTargets,
+                uploads = uploads,
+                composer =
+                    composerHooks(
+                        viewModel,
+                        state,
+                    ) { scope.launch { snackbar.showSnackbar(resources.getString(it)) } },
             ),
         modifier = modifier,
         snackbar = snackbar,
@@ -192,9 +200,15 @@ internal fun rowContext(
     actions: ChatScreenActions,
     onJump: (String) -> Unit,
 ): RowContext =
-    RowContext(state.account!!.network, state.chat!!.kind, state.names, actions.onRetry, actions.onNeed) { m ->
-        m.replyTo?.let { onJump(it.value) }
-    }
+    RowContext(
+        state.account!!.network,
+        state.chat!!.kind,
+        state.names,
+        actions.onRetry,
+        actions.onNeed,
+        { m -> m.replyTo?.let { onJump(it.value) } },
+        actions.uploads,
+    )
 
 @Composable
 private fun MessageList(

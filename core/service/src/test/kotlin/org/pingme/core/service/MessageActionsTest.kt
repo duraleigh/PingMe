@@ -8,13 +8,18 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.pingme.core.connector.ConnectorRegistry
+import org.pingme.core.connector.OutgoingAttachment
+import org.pingme.core.connector.OutgoingMessage
 import org.pingme.core.connector.SendResult
 import org.pingme.core.connector.chat
 import org.pingme.core.connector.message
+import org.pingme.core.model.AttachmentKind
+import org.pingme.core.model.MessageKind
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Quote
 import org.pingme.core.store.PinnedMessageRepository
+import java.io.File
 import kotlin.time.Duration.Companion.minutes
 
 class MessageActionsTest : ServiceTest() {
@@ -64,6 +69,28 @@ class MessageActionsTest : ServiceTest() {
             connector.sendResult = { SendResult.Sent(messageSnapshot("net-2", body = "Hello", outgoing = true)) }
             actions.retry(failed)
             assertEquals(listOf("net-2"), messages.latest(chatId, 10).first().map { it.id.value.substringAfter('/') })
+        }
+
+    @Test
+    fun aPhotoShowsOnItsPendingBubbleAndGoesAgainOnRetry() =
+        runTest {
+            seed()
+            val photo = File.createTempFile("photo", ".jpg").apply { writeBytes(ByteArray(PHOTO_BYTES)) }
+            val file = OutgoingAttachment(photo.path, "image/jpeg", AttachmentKind.IMAGE, "photo.jpg", caption = null)
+            val drafts = mutableListOf<OutgoingMessage>()
+            connector.sendResult = { draft ->
+                drafts += draft
+                SendResult.Failed("No signal", retryable = true)
+            }
+            val failed = actions.send(chatId, "", attachments = listOf(file))
+            assertEquals(MessageKind.IMAGE, failed.kind)
+            assertEquals("a photo alone has no text", null, failed.body)
+            assertEquals(PHOTO_BYTES.toLong(), failed.attachments.single().sizeBytes)
+            assertEquals(photo.path, failed.attachments.single().localPath)
+
+            actions.retry(failed)
+            assertEquals(listOf(listOf(file), listOf(file)), drafts.map { it.attachments })
+            assertTrue("nothing is left uploading", actions.progress.value.isEmpty())
         }
 
     @Test
@@ -175,4 +202,8 @@ class MessageActionsTest : ServiceTest() {
             assertTrue(failure is org.pingme.core.connector.UnsupportedCapabilityException)
             assertEquals("the text stays as it was", "hi", messages.get(accountId.message("a"))!!.body)
         }
+
+    private companion object {
+        const val PHOTO_BYTES = 2048
+    }
 }

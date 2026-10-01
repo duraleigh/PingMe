@@ -3,9 +3,14 @@ package org.pingme.core.service
 
 import android.util.Log
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import org.pingme.core.connector.Connector
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.ConnectorRegistry
+import org.pingme.core.connector.OutgoingAttachment
 import org.pingme.core.connector.OutgoingMessage
 import org.pingme.core.connector.SendResult
 import org.pingme.core.connector.UnsupportedCapabilityException
@@ -48,6 +53,11 @@ class MessageActions
         private val applier: EventApplier,
         private val clock: Clock,
     ) {
+        private val uploads = MutableStateFlow<Map<MessageId, Float>>(emptyMap())
+
+        /** How far each sending message's media has got, from 0 to 1 (UI_DESIGN.md 5.8). */
+        val progress: StateFlow<Map<MessageId, Float>> = uploads.asStateFlow()
+
         /**
          * Sends [text] to [chatId], as a reply to [replyTo] when given. The message shows at once
          * as Sending, then turns into what the network accepted, or Failed with the reason.
@@ -58,9 +68,18 @@ class MessageActions
             replyTo: Message? = null,
             replyToName: String? = null,
             forceSms: Boolean = false,
+            attachments: List<OutgoingAttachment> = emptyList(),
         ): Message {
             val network = networkOf(chatId)
-            val pending = pendingMessage(chatId, text, replyTo, replyToName, network, forceSms)
+            val pending =
+                pendingMessage(chatId, text, replyTo, replyToName, network, forceSms).let { message ->
+                    val files = attachments.mapIndexed { i, a -> a.asAttachment(message.id, i) }
+                    message.copy(
+                        body = text.ifBlank { null },
+                        attachments = files,
+                        kind = files.firstOrNull()?.kind?.let(::kindOf) ?: MessageKind.TEXT,
+                    )
+                }
             messages.upsert(pending)
             chats.update(chatId) { it.copy(lastActivityAt = maxOf(it.lastActivityAt, pending.sentAt), unreadCount = 0) }
             return deliver(pending, forceSms)
@@ -171,13 +190,18 @@ class MessageActions
             forceSms: Boolean,
         ): Message {
             val connector = connectorFor(pending.chatId)
-            val draft = OutgoingMessage(pending.id, pending.body, emptyList(), pending.replyTo, pending.quote, forceSms)
+            val files = pending.attachments.mapNotNull { it.asOutgoing() }
+            val draft = OutgoingMessage(pending.id, pending.body, files, pending.replyTo, pending.quote, forceSms)
             val result =
                 if (connector == null) {
                     SendResult.Failed("This network is not connected", retryable = true)
                 } else {
-                    quietly("send") { connector.send(pending.chatId, draft) }
-                        ?: SendResult.Failed("Could not reach the network", retryable = true)
+                    val report: (Float) -> Unit = { done -> uploads.update { it + (pending.id to done) } }
+                    try {
+                        quietly("send") { connector.send(pending.chatId, draft, report) }
+                    } finally {
+                        uploads.update { it - pending.id }
+                    } ?: SendResult.Failed("Could not reach the network", retryable = true)
                 }
             return when (result) {
                 is SendResult.Sent -> {

@@ -58,9 +58,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.pingme.app.R
 import org.pingme.app.appearance.Wallpaper
+import org.pingme.app.chat.attach.AttachSheet
+import org.pingme.app.chat.attach.SendButton
+import org.pingme.app.chat.attach.StagedStrip
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
@@ -194,14 +198,25 @@ internal fun Composer(
     onSend: (String) -> Unit,
     onTyping: (String) -> Unit,
     editing: Message? = null,
+    hooks: ComposerHooks = ComposerHooks(),
 ) {
     // Editing starts from the message's text; a new edit (or none) starts afresh.
     var text by rememberSaveable(editing?.id?.value) { mutableStateOf(editing?.body.orEmpty()) }
+    var attaching by remember { mutableStateOf(false) }
+    val outbox = hooks.outbox?.takeIf { editing == null }
+    val staged by (outbox?.staged ?: remember { MutableStateFlow(emptyList()) }).collectAsStateWithLifecycle()
+    val copying by (outbox?.busy ?: remember { MutableStateFlow(0) }).collectAsStateWithLifecycle()
+    StagedStrip(staged, copying > 0, { outbox?.remove(it) })
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (outbox != null) {
+            IconButton({ attaching = true }, Modifier.size(SEND_SIZE)) {
+                Icon(painterResource(UiR.drawable.ic_add), stringResource(R.string.attach))
+            }
+        }
         TextField(
             value = text,
             onValueChange = {
@@ -220,19 +235,18 @@ internal fun Composer(
                     disabledIndicatorColor = Color.Transparent,
                 ),
         )
-        FilledIconButton(
-            onClick = {
-                onSend(text)
-                text = ""
-            },
-            enabled = text.isNotBlank(),
-            modifier = Modifier.size(SEND_SIZE),
-        ) { Icon(painterResource(UiR.drawable.ic_send), stringResource(R.string.chat_send)) }
+        val ready = (text.isNotBlank() || staged.isNotEmpty()) && copying == 0
+        val sendWith = { send: (String) -> Unit ->
+            send(text)
+            text = ""
+        }
+        SendButton(ready, { sendWith(onSend) }, hooks.onSendSms?.takeIf { editing == null }?.let { { sendWith(it) } })
     }
+    if (attaching && outbox != null) AttachSheet(outbox, hooks.onProblem) { attaching = false }
 }
 
 private const val COMPOSER_LINES = 6
-private val SEND_SIZE = 52.dp
+private val SEND_SIZE = 48.dp
 
 @Composable
 internal fun TopBars(
@@ -291,7 +305,7 @@ internal fun BottomBars(
             } else {
                 actions.onSend
             }
-        Composer(send, actions.onTyping, editing)
+        Composer(send, actions.onTyping, editing, actions.composer)
     }
 }
 

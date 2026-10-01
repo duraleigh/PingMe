@@ -53,9 +53,11 @@ interface Connector {
         limit: Int,
     ): List<MessageSnapshot>
 
+    /** Sends [draft]; [progress] hears how much of its media has gone, from 0 to 1 (UI_DESIGN.md 5.8). */
     suspend fun send(
         chatId: ChatId,
         draft: OutgoingMessage,
+        progress: (Float) -> Unit = {},
     ): SendResult
 
     /** Adds [emoji], or removes the user's reaction when [remove] is true. */

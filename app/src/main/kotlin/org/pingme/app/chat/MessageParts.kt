@@ -114,45 +114,6 @@ internal fun QuoteBlock(
     }
 }
 
-/** Pictures and GIFs inline; other files as a line with their name, until P2.4's media part. */
-@Composable
-internal fun AttachmentView(
-    attachment: Attachment,
-    onNeed: (Attachment) -> Unit,
-) {
-    val need by rememberUpdatedState(onNeed)
-    LaunchedEffect(attachment.id, attachment.localPath) { need(attachment) }
-    when (attachment.kind) {
-        AttachmentKind.IMAGE, AttachmentKind.GIF, AttachmentKind.STICKER -> {
-            AsyncImage(
-                model = attachment.localPath?.let(::File),
-                contentDescription = attachment.fileName ?: stringResource(R.string.kind_image),
-                contentScale = ContentScale.Crop,
-                modifier =
-                    Modifier
-                        .padding(bottom = 6.dp)
-                        .widthIn(max = MEDIA_WIDTH)
-                        .heightIn(min = MEDIA_MIN, max = MEDIA_MAX)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(LocalContentColor.current.copy(alpha = QUOTE_TINT)),
-            )
-        }
-
-        else -> {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp)) {
-                Icon(painterResource(UiR.drawable.ic_attach_file), null, Modifier.size(20.dp))
-                Text(
-                    attachment.fileName ?: attachment.mimeType,
-                    Modifier.padding(start = 6.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
 /** A link's title and description, from the network or fetched on the phone (UI_DESIGN.md 10.12). */
 @Composable
 internal fun LinkCard(preview: org.pingme.core.model.LinkPreview) {
@@ -251,9 +212,6 @@ internal fun clockTime(message: Message): String =
         .ofLocalizedTime(FormatStyle.SHORT)
         .format(message.sentAt.toJavaInstant().atZone(ZoneId.systemDefault()))
 
-private val MEDIA_WIDTH = 260.dp
-private val MEDIA_MIN = 120.dp
-private val MEDIA_MAX = 320.dp
 private val LINK_IMAGE = 140.dp
 private const val QUOTE_TINT = 0.12f
 private const val FADED = 0.7f
