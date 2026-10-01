@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 import org.pingme.app.R
+import org.pingme.app.chat.itemMotion
 import org.pingme.core.model.Account
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.NetworkId
@@ -211,7 +212,7 @@ private fun ChatListBody(
                 onOpen = { onOpen(row) },
                 onHold = { onHold(row) },
                 onSwipe = { onSwipe(row, it) },
-                modifier = Modifier.animateItem(),
+                modifier = Modifier.itemMotion(this, PingMeTheme.motion),
                 flipEmoji = flips[row.id],
                 onFlipEnd = { onFlipEnd(row.id) },
             )

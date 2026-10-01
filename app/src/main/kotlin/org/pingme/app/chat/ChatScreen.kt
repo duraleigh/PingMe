@@ -240,6 +240,7 @@ private fun MessageList(
     // The list is drawn from the bottom: index 0 is the newest message.
     LazyColumn(Modifier.fillMaxSize().testTag(CHAT_LIST), state = list, reverseLayout = true) {
         items(state.items, key = { it.key }) { item ->
+            val placement = Modifier.itemMotion(this, PingMeTheme.motion)
             when (item) {
                 is ChatItem.Bubble -> {
                     val key = item.key
@@ -259,21 +260,22 @@ private fun MessageList(
                                 Color.Transparent
                             }
                         }
-                    MessageTouch(
-                        gestures = gesturesFor(item.message, state, actions, ui, haptic, haptics),
-                        wobble = ui.wobble[key] ?: 0,
-                        modifier = Modifier.animateItem().background(tint),
-                    ) {
-                        HideAgain(key, ui.unblurred)
-                        MessageRow(
-                            item,
-                            context,
-                            showTime = showsTime(timestamps, item, ui.revealed[key] == true),
-                            bubbleModifier =
-                                Modifier
-                                    .onGloballyPositioned { ui.bounds[key] = it.boundsInRoot() }
-                                    .obscured(obscured && ui.unblurred[key] != true, cover, hiddenLabel),
-                        )
+                    Entrance(item.message, ui, placement.background(tint)) {
+                        MessageTouch(
+                            gestures = gesturesFor(item.message, state, actions, ui, haptic, haptics),
+                            wobble = ui.wobble[key] ?: 0,
+                        ) {
+                            HideAgain(key, ui.unblurred)
+                            MessageRow(
+                                item,
+                                context,
+                                showTime = showsTime(timestamps, item, ui.revealed[key] == true),
+                                bubbleModifier =
+                                    Modifier
+                                        .onGloballyPositioned { ui.bounds[key] = it.boundsInRoot() }
+                                        .obscured(obscured && ui.unblurred[key] != true, cover, hiddenLabel),
+                            )
+                        }
                     }
                 }
 

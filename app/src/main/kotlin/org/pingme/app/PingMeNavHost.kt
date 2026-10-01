@@ -5,9 +5,12 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.LocalActivity
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.AnimatedPane
+import androidx.compose.material3.adaptive.layout.AnimatedPaneScope
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
+import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldPaneScope
 import androidx.compose.material3.adaptive.navigation.NavigableListDetailPaneScaffold
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
@@ -19,6 +22,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -48,6 +52,8 @@ import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.store.ChatRepository
+import org.pingme.core.ui.theme.PingMeTheme
+import org.pingme.core.ui.theme.ScreenMotion
 import javax.inject.Inject
 
 /** The inbox, and on wide screens the open chat beside it. */
@@ -122,7 +128,7 @@ fun PingMeNavHost(
     modifier: Modifier = Modifier,
 ) {
     val nav = rememberNavController()
-    NavHost(nav, startDestination = if (startAtSetup) Setup else Home, modifier = modifier) {
+    MotionNavHost(nav, startDestination = if (startAtSetup) Setup else Home, modifier = modifier) {
         composable<Home> { InboxHome(nav) }
         setupAndLogin(nav)
         composable<OpenChat> { entry ->
@@ -194,7 +200,7 @@ private fun InboxHome(nav: NavController) {
     NavigableListDetailPaneScaffold(
         navigator = navigator,
         listPane = {
-            AnimatedPane {
+            MotionPane(atEnd = false) {
                 InboxRoute(
                     InboxNavigation(
                         onOpenChat = { id ->
@@ -217,7 +223,7 @@ private fun InboxHome(nav: NavController) {
             }
         },
         detailPane = {
-            AnimatedPane {
+            MotionPane(atEnd = true) {
                 val id = navigator.currentDestination?.contentKey
                 if (id == null) {
                     NoChatPicked()
@@ -239,6 +245,47 @@ private fun InboxHome(nav: NavController) {
                 }
             }
         },
+    )
+}
+
+/** A NavHost whose screens come and go as the motion level says (UI_DESIGN.md 4.5). */
+@Composable
+private fun MotionNavHost(
+    nav: NavHostController,
+    startDestination: Any,
+    modifier: Modifier = Modifier,
+    builder: NavGraphBuilder.() -> Unit,
+) {
+    val level = PingMeTheme.motion
+    val scheme = MaterialTheme.motionScheme
+    NavHost(
+        nav,
+        startDestination = startDestination,
+        modifier = modifier,
+        enterTransition = { ScreenMotion.enter(level, scheme, fromEnd = true) },
+        exitTransition = { ScreenMotion.exit(level, scheme, toEnd = false) },
+        popEnterTransition = { ScreenMotion.enter(level, scheme, fromEnd = false) },
+        popExitTransition = { ScreenMotion.exit(level, scheme, toEnd = true) },
+        builder = builder,
+    )
+}
+
+/**
+ * A list-detail pane that comes and goes as the motion level says: on a phone the list
+ * slides away to the start as a chat opens from the end, and both reverse on the way back.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@Composable
+private fun ThreePaneScaffoldPaneScope.MotionPane(
+    atEnd: Boolean,
+    content: @Composable AnimatedPaneScope.() -> Unit,
+) {
+    val level = PingMeTheme.motion
+    val scheme = MaterialTheme.motionScheme
+    AnimatedPane(
+        enterTransition = ScreenMotion.enter(level, scheme, fromEnd = atEnd),
+        exitTransition = ScreenMotion.exit(level, scheme, toEnd = atEnd),
+        content = content,
     )
 }
 
