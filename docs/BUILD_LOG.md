@@ -1580,3 +1580,95 @@ PingMe's in-app web page, there is no fallback way to pair, so that has to be so
 the first thing to check in P3.2. DESIGN.md (5.4, section 7, open question 1, decisions log)
 and BUILD_PLAN.md (P3.2, Gate G2) are updated to match. The general `ShowQr` login step stays,
 since WhatsApp and Signal link by QR.
+
+## P3.1 Go bridge (done, 2026-10-01)
+
+The Go side of PingMe exists: `gobridge/`, a Go module (`pingme.org/gobridge`, Go 1.26)
+with one package, `gm`, wrapping libgm from mautrix-gmessages, compiled by gomobile into
+`gobridge/build/gobridge.aar` (never committed). Checked with `./gradlew check`, and the
+bind itself was run here: the AAR is 20.6 MB for arm64, x86_64, and arm.
+
+**What the bridge offers** (`gobridge/gm`, Java package `org.pingme.gobridge.gm`):
+- `Login`: Google account pairing, step for step as libgm's reference bridge does it.
+  `NewLogin(cookies)` checks the six cookies Google sign-in must give, `Start()` returns
+  the emoji the user taps in Google Messages, `Finish()` waits for the tap and returns the
+  session (pairing keys and cookies) as JSON, plus the phone's ID and the account's email.
+- `Session`: `Connect`/`Disconnect`, `ListConversations`, `GetConversation`,
+  `FetchMessages` (paged, newest first), `SendMessage` (text and uploaded media, with a
+  reply), `UploadMedia`/`DownloadMedia` (encrypted both ways, as Google requires),
+  `RequestFullSizeMedia`, `SendReaction` (add, remove, switch), `DeleteMessage`,
+  `MarkRead`, `SetTyping`, `GetOrCreateConversation` (one number or a group), `SetActive`,
+  `Unpair`, `AuthJSON` (to re-save after a token refresh).
+- Everything the phone sends comes back through `EventSink.OnEvent(json)`: messages,
+  conversations, typing, settings (SIMs, RCS on or off), and the connection's state:
+  `ready`, `inactive` (another web client took over; the bridge takes the session back
+  by itself), phone responding or not, temporary errors, `loggedOut` (Google revoked the
+  pairing), `authUpdated`, `reconnect`.
+- The boundary is flat for gomobile: JSON strings in and out. `gm/convert.go` holds the
+  shapes; messages are flattened (text parts joined, media listed with their keys,
+  reactions as emoji plus participant IDs, status groups `sent`/`delivered`/`read`/
+  `failed`, `direction`, `hide` for the tombstones the reference bridge hides, and the
+  transport: SMS or MMS from the message's own type, else the chat's RCS).
+- Errors cross as exceptions whose message starts with a code (`LOGGED_OUT:`,
+  `PHONE_NOT_RESPONDING:`, `PAIR_NO_DEVICES:`, `PAIR_WRONG_EMOJI:` ...), so the Kotlin
+  side can show the right words without parsing prose.
+
+**Kotlin side** (`connectors/gmessages/.../bridge`):
+- `GmJson.kt` mirrors the JSON shapes (kotlinx.serialization; unknown fields ignored).
+- `GmBridge`/`GmLogin`/`GmSession` are the bridge as interfaces; `GomobileGmBridge` is the
+  real one over the gomobile classes. Tests use a fake, so no JVM test loads the native
+  library.
+- `GoBridge` turns conversations into `ChatSnapshot`s, messages into `MessageSnapshot`s,
+  and events into `ConnectorEvent`s, for one account. It remembers each chat's
+  participants (so senders and typing numbers become people) and each message's
+  reactions (so a repeat is `MessageUpdated`, and a changed reaction becomes a
+  `ReactionChanged` that flips the row). Deleted messages become `MessageRemoved`;
+  chats the phone binned, blocked, or marked spam become `ChatRemoved`.
+
+**Build wiring:**
+- `gobridge/build.sh` vets and tests the Go code, then binds. It keeps a hash of the Go
+  sources beside the AAR and skips the bind when nothing changed (the bind itself takes
+  4 seconds with a warm Go cache, about 2 minutes cold). `./build.sh --force` rebuilds.
+- Gradle runs it: `gobridge/` is the `:gobridge` module, whose `buildGoBridge` task runs
+  the script and whose one artifact is the AAR; `:connectors:gmessages` depends on
+  `project(":gobridge")`. (A first try depended on the `.aar` file directly, which
+  `./gradlew check` accepted but `assembleRelease` on CI refused: the Android Gradle
+  Plugin will not bundle a local `.aar` inside a library module. Local checks now run
+  `assembleRelease` too before a push.) It needs Go, gomobile, and the NDK, as
+  `gobridge/README.md` says; the CI workflow (P0.4) already installs those and caches
+  `gobridge/build` by the hash of `gobridge/**`.
+- Go unit tests cover the conversion and write `gm/testdata/session.json` (`go test
+  ./gm -update`), the recorded session the Kotlin tests read: `GoBridgeTest` checks the
+  Kotlin translation against exactly what Go produces, and P3.2's contract test will
+  replay the same file.
+
+**Deviations from the plan, and why:**
+- The module requires libgm only. The plan lists whatsmeow and signalmeow in `go.mod` too,
+  but nothing uses them until Phases 5 and 6; pulling them in now would add their size
+  (tens of MB) and build time to every APK for no feature. Each joins the module in its
+  own phase, with its own package next to `gm`.
+- Java package `org.pingme.gobridge.gm` rather than gomobile's default `gm`, so the
+  classes are clearly PingMe's in stack traces.
+- Message **unread counts**: Google Messages tells a paired device only whether a chat is
+  unread, not how many messages are. The chat snapshot reports 1 for an unread chat; the
+  inbox's per-chat number will say "1" where Google Messages itself shows a dot.
+- `Message.type` from the phone is only partly documented in libgm (1 = SMS, 2 = MMS,
+  3 = undownloaded MMS; "4 = RCS?"). The bridge trusts 1 to 3 and otherwise uses the
+  chat's own type. Gate G2 checks RCS and SMS bubbles against what Google Messages shows.
+
+**App size, measured** (DESIGN.md open question 3): the release APK went from about 56 MB
+to 103 MB with the bridge, because the Go library ships for three chip types (arm64,
+x86_64, arm) and is stored uncompressed, as Android requires for native code. One phone
+only needs one of them; if the size matters to the owner, ABI splits (one APK per chip
+type) or dropping 32-bit arm would bring it back down. Worth deciding before Gate G2's
+install, since the APK is what gets downloaded onto the phone.
+
+**Library versions:** mautrix-gmessages v0.2609.0 (September 2026; `pkg/libgm`, not
+the `libgm/` path the plan guessed), which needs Go 1.26, so `GOTOOLCHAIN=auto` fetches
+Go 1.26 next to the machine's 1.24. golang.org/x/mobile from 2026-09-08. zerolog 1.35.1
+for libgm's logging, sent to logcat under `GoLog` at info level.
+
+**Next:** P3.2, the connector: the pairing flow as login steps (OpenWebView to Google
+sign-in, then WaitForConfirmation with the emoji), connect through the supervisor,
+chat and message sync, send, react, read, typing, delete, media, and the "Action
+needed" flow when Google revokes the pairing. Then P3.3's contract test on the fixture.

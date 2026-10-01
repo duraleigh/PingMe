@@ -1,0 +1,359 @@
+{
+  "conversations": {
+    "conversations": [
+      {
+        "id": "12",
+        "name": "Sam Ortiz",
+        "isGroup": false,
+        "type": "RCS",
+        "status": "ACTIVE",
+        "sendMode": "SEND_MODE_AUTO",
+        "unread": true,
+        "readOnly": false,
+        "pinned": false,
+        "lastMessageAt": 1759310000000000,
+        "latestMessageId": "1003",
+        "outgoingId": "2",
+        "preview": {
+          "text": "See you at 7",
+          "fromMe": false,
+          "displayName": "Sam Ortiz"
+        },
+        "participants": [
+          {
+            "id": "2",
+            "number": "+15555550100",
+            "isMe": true,
+            "isVisible": true
+          },
+          {
+            "id": "3",
+            "number": "+15555550123",
+            "formattedNumber": "(555) 555-0123",
+            "firstName": "Sam",
+            "fullName": "Sam Ortiz",
+            "isMe": false,
+            "isVisible": true,
+            "contactId": "77",
+            "avatarHexColor": "#1e88e5"
+          }
+        ],
+        "otherParticipantIds": [
+          "3"
+        ],
+        "outgoingIsRcs": true
+      },
+      {
+        "id": "34",
+        "name": "Hiking crew",
+        "isGroup": true,
+        "type": "SMS",
+        "status": "ACTIVE",
+        "sendMode": "SEND_MODE_XMS",
+        "unread": false,
+        "readOnly": false,
+        "pinned": false,
+        "lastMessageAt": 1759200000000000,
+        "latestMessageId": "2001",
+        "outgoingId": "2",
+        "participants": [
+          {
+            "id": "2",
+            "number": "+15555550100",
+            "isMe": true,
+            "isVisible": true
+          },
+          {
+            "id": "3",
+            "number": "+15555550123",
+            "fullName": "Sam Ortiz",
+            "isMe": false,
+            "isVisible": true
+          },
+          {
+            "id": "5",
+            "number": "+15555550144",
+            "fullName": "Dad",
+            "isMe": false,
+            "isVisible": true
+          }
+        ],
+        "otherParticipantIds": [
+          "3",
+          "5"
+        ],
+        "outgoingIsRcs": false
+      }
+    ]
+  },
+  "messages": {
+    "12": {
+      "messages": [
+        {
+          "id": "1003",
+          "conversationId": "12",
+          "participantId": "3",
+          "timestamp": 1759310000000000,
+          "status": 100,
+          "statusName": "INCOMING_COMPLETE",
+          "direction": "incoming",
+          "fromMe": false,
+          "sent": false,
+          "delivered": false,
+          "read": false,
+          "failed": false,
+          "hide": false,
+          "type": 4,
+          "transport": "RCS",
+          "text": "See you at 7\nBring the map",
+          "media": [
+            {
+              "partId": "p2",
+              "mediaId": "media-abc",
+              "name": "map.jpg",
+              "mime": "image/jpeg",
+              "format": 1,
+              "size": 34567,
+              "width": 1200,
+              "height": 800,
+              "key": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+              "pending": false
+            }
+          ],
+          "reactions": [
+            {
+              "emoji": "❤️",
+              "participantIds": [
+                "3"
+              ]
+            }
+          ],
+          "sender": {
+            "id": "3",
+            "number": "+15555550123",
+            "firstName": "Sam",
+            "fullName": "Sam Ortiz",
+            "isMe": false,
+            "isVisible": true
+          }
+        },
+        {
+          "id": "1002",
+          "conversationId": "12",
+          "participantId": "2",
+          "timestamp": 1759305000000000,
+          "status": 11,
+          "statusName": "OUTGOING_DISPLAYED",
+          "direction": "outgoing",
+          "fromMe": true,
+          "sent": true,
+          "delivered": true,
+          "read": true,
+          "failed": false,
+          "hide": false,
+          "type": 4,
+          "transport": "RCS",
+          "tmpId": "tmp-1002",
+          "text": "Leaving now",
+          "media": [],
+          "reactions": [],
+          "replyToId": "1001"
+        },
+        {
+          "id": "1001",
+          "conversationId": "12",
+          "participantId": "3",
+          "timestamp": 1759300000000000,
+          "status": 100,
+          "statusName": "INCOMING_COMPLETE",
+          "direction": "incoming",
+          "fromMe": false,
+          "sent": false,
+          "delivered": false,
+          "read": false,
+          "failed": false,
+          "hide": false,
+          "type": 1,
+          "transport": "SMS",
+          "text": "Are we still on?",
+          "media": [],
+          "reactions": []
+        }
+      ],
+      "cursor": {
+        "lastItemId": "1001",
+        "lastItemTimestamp": 1759300000000
+      },
+      "total": 3
+    },
+    "34": {
+      "messages": [
+        {
+          "id": "2001",
+          "conversationId": "34",
+          "participantId": "5",
+          "timestamp": 1759200000000000,
+          "status": 100,
+          "statusName": "INCOMING_COMPLETE",
+          "direction": "incoming",
+          "fromMe": false,
+          "sent": false,
+          "delivered": false,
+          "read": false,
+          "failed": false,
+          "hide": false,
+          "type": 2,
+          "transport": "MMS",
+          "text": "Who brings snacks?",
+          "media": [],
+          "reactions": []
+        }
+      ],
+      "total": 1
+    }
+  },
+  "settings": {
+    "rcsEnabled": true,
+    "readReceipts": true,
+    "typingIndicators": true,
+    "isDefaultSmsApp": true,
+    "sims": [
+      {
+        "participantId": "2",
+        "simNumber": 1,
+        "carrierName": "Example Mobile",
+        "colorHex": "#00897b",
+        "phoneNumber": "(555) 555-0100",
+        "rcsEnabled": true
+      }
+    ]
+  },
+  "events": [
+    {
+      "settings": {
+        "rcsEnabled": true,
+        "readReceipts": true,
+        "typingIndicators": true,
+        "isDefaultSmsApp": true,
+        "sims": [
+          {
+            "participantId": "2",
+            "simNumber": 1,
+            "carrierName": "Example Mobile",
+            "colorHex": "#00897b",
+            "phoneNumber": "(555) 555-0100",
+            "rcsEnabled": true
+          }
+        ]
+      },
+      "type": "settings"
+    },
+    {
+      "resync": false,
+      "type": "ready"
+    },
+    {
+      "isOld": false,
+      "message": {
+        "id": "1003",
+        "conversationId": "12",
+        "participantId": "3",
+        "timestamp": 1759310000000000,
+        "status": 100,
+        "statusName": "INCOMING_COMPLETE",
+        "direction": "incoming",
+        "fromMe": false,
+        "sent": false,
+        "delivered": false,
+        "read": false,
+        "failed": false,
+        "hide": false,
+        "type": 4,
+        "transport": "RCS",
+        "text": "See you at 7\nBring the map",
+        "media": [
+          {
+            "partId": "p2",
+            "mediaId": "media-abc",
+            "name": "map.jpg",
+            "mime": "image/jpeg",
+            "format": 1,
+            "size": 34567,
+            "width": 1200,
+            "height": 800,
+            "key": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "pending": false
+          }
+        ],
+        "reactions": [
+          {
+            "emoji": "❤️",
+            "participantIds": [
+              "3"
+            ]
+          }
+        ],
+        "sender": {
+          "id": "3",
+          "number": "+15555550123",
+          "firstName": "Sam",
+          "fullName": "Sam Ortiz",
+          "isMe": false,
+          "isVisible": true
+        }
+      },
+      "type": "message"
+    },
+    {
+      "conversationId": "12",
+      "number": "+15555550123",
+      "type": "typing",
+      "typing": true
+    },
+    {
+      "conversation": {
+        "id": "12",
+        "name": "Sam Ortiz",
+        "isGroup": false,
+        "type": "RCS",
+        "status": "ACTIVE",
+        "sendMode": "SEND_MODE_AUTO",
+        "unread": true,
+        "readOnly": false,
+        "pinned": false,
+        "lastMessageAt": 1759310000000000,
+        "latestMessageId": "1003",
+        "outgoingId": "2",
+        "preview": {
+          "text": "See you at 7",
+          "fromMe": false,
+          "displayName": "Sam Ortiz"
+        },
+        "participants": [
+          {
+            "id": "2",
+            "number": "+15555550100",
+            "isMe": true,
+            "isVisible": true
+          },
+          {
+            "id": "3",
+            "number": "+15555550123",
+            "formattedNumber": "(555) 555-0123",
+            "firstName": "Sam",
+            "fullName": "Sam Ortiz",
+            "isMe": false,
+            "isVisible": true,
+            "contactId": "77",
+            "avatarHexColor": "#1e88e5"
+          }
+        ],
+        "otherParticipantIds": [
+          "3"
+        ],
+        "outgoingIsRcs": true
+      },
+      "type": "conversation"
+    }
+  ]
+}
