@@ -18,18 +18,21 @@ sealed interface MicState {
 
     /**
      * Recording. [locked] means hands-free, waiting for send or delete; [levels] is the live
-     * waveform, newest last.
+     * waveform, newest last. While [paused], [soFar] is what has been recorded, to play back.
      */
     data class Recording(
         val elapsedMs: Long = 0,
         val levels: List<Float> = emptyList(),
         val locked: Boolean = false,
+        val paused: Boolean = false,
+        val soFar: String? = null,
     ) : MicState
 }
 
 /**
- * Hold to record, slide left to cancel, slide up to lock, release or tap send to send
- * (UI_DESIGN.md 5.6). [onRecorded] hears each finished voice note.
+ * Voice notes (UI_DESIGN.md 5.6): tap the mic to record hands-free, with pause, play back, and
+ * resume; or hold it to record, slide left to cancel, slide up to lock, let go to send.
+ * [onRecorded] hears each finished voice note.
  */
 class VoiceNotes(
     private val scope: CoroutineScope,
@@ -42,6 +45,10 @@ class VoiceNotes(
     private val mic = MutableStateFlow<MicState>(MicState.Idle)
     private val asked = MutableStateFlow(false)
     private var ticker: Job? = null
+
+    // Time recorded before the stretch now going, and when that stretch began.
+    private var before = 0L
+    private var since = 0L
 
     val state: StateFlow<MicState> = mic.asStateFlow()
 
@@ -61,22 +68,47 @@ class VoiceNotes(
     fun start(locked: Boolean = false): Boolean {
         if (mic.value is MicState.Recording) return true
         if (!recorder.start(now(), compact())) return false
+        before = 0
         mic.value = MicState.Recording(locked = locked)
-        val started = now()
+        tick()
+        return true
+    }
+
+    /** Hands-free only: stops for a while, keeping what is recorded so far to play back. */
+    fun pause() {
+        val state = mic.value as? MicState.Recording ?: return
+        if (!state.locked || state.paused) return
+        stopTicker()
+        val at = now()
+        val soFar = recorder.pause(at)
+        before += at - since
+        mic.value = state.copy(elapsedMs = before, paused = true, soFar = soFar?.path)
+    }
+
+    /** Goes on recording after [pause]. */
+    fun resume() {
+        val state = mic.value as? MicState.Recording ?: return
+        if (!state.paused) return
+        if (!recorder.resume(now())) return
+        mic.value = state.copy(paused = false, soFar = null)
+        tick()
+    }
+
+    private fun tick() {
+        since = now()
         ticker =
             scope.launch {
                 while (isActive) {
                     delay(SAMPLE_MS)
                     mic.update { state ->
-                        if (state !is MicState.Recording) return@update state
+                        if (state !is MicState.Recording || state.paused) return@update state
                         state.copy(
-                            elapsedMs = now() - started,
+                            elapsedMs = before + now() - since,
                             levels = (state.levels + recorder.level()).takeLast(LIVE_BARS),
                         )
                     }
                 }
             }
-        return true
     }
 
     fun lock() = mic.update { if (it is MicState.Recording) it.copy(locked = true) else it }
@@ -97,9 +129,13 @@ class VoiceNotes(
     }
 
     private fun stopTicking() {
+        stopTicker()
+        mic.value = MicState.Idle
+    }
+
+    private fun stopTicker() {
         ticker?.cancel()
         ticker = null
-        mic.value = MicState.Idle
     }
 
     private fun now() = clock.now().toEpochMilliseconds()

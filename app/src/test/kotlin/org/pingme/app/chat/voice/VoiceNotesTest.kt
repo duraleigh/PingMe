@@ -77,6 +77,35 @@ class VoiceNotesTest {
     }
 
     @Test
+    fun pausingKeepsWhatIsRecordedToPlayAndGoingOnAddsToIt() {
+        notes.start(locked = true)
+        now += 2.seconds
+        notes.pause()
+        val paused = notes.state.value as MicState.Recording
+        assertTrue(paused.paused)
+        assertEquals(2_000L, paused.elapsedMs)
+        assertTrue("what is recorded so far can be played", paused.soFar != null)
+        now += 10.seconds
+        notes.resume()
+        assertFalse((notes.state.value as MicState.Recording).paused)
+        now += 3.seconds
+        assertTrue(notes.send())
+        assertEquals("the pause does not count", 5_000L, sent.single().durationMs)
+    }
+
+    @Test
+    fun aHeldRecordingCannotPauseAndAPausedOneCanBeSent() {
+        notes.start()
+        notes.pause()
+        assertFalse("only hands-free pauses", (notes.state.value as MicState.Recording).paused)
+        notes.lock()
+        now += 1.seconds
+        notes.pause()
+        assertTrue(notes.send())
+        assertEquals(1_000L, sent.single().durationMs)
+    }
+
+    @Test
     fun voiceReplyStartsLocked() {
         notes.requestLocked()
         assertTrue(notes.lockedRequest.value)

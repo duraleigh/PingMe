@@ -1420,3 +1420,23 @@ the whole app suite ran together, on the original code too (checked at `0745f3e`
   which fails without the fix).
 
 The app suite then passed 8 runs out of 8 (it failed 3 to 4 out of 4 before).
+
+### Voice notes, tap or hold (handover step 3, UI_DESIGN.md 5.6 as approved)
+
+- **The mic is now a plain touch area**, not an icon button: the button's own click handling
+  took the touch first, so the hold-to-record code never saw it (the Gate G1 "mic does
+  nothing"). Screen readers get one action, "tap to record hands-free".
+- **Recording starts the moment the mic is touched.** Let go before the long-press time
+  (about 0.4 s): it carries on hands-free. Keep holding: let go to send, slide left to
+  cancel, slide up to lock.
+- **Hands-free bar:** trash, a red dot and the timer, the live waveform, Pause, and Send.
+  **Paused:** Play (and Stop) for what is recorded so far, the waveform as it was, Resume
+  (the mic icon), and Send. Pausing does not count towards the length.
+- **How pause works:** each stretch between pauses is its own file (Android's MediaRecorder
+  cannot be played back mid-recording). Pausing joins the stretches so far into one file to
+  play; sending joins them into the note. The join copies the AAC samples into one MP4 with
+  `MediaExtractor` and `MediaMuxer`, without re-encoding.
+- Tests press the mic like a finger (`VoiceScreenTest`: a tap records hands-free; a hold sends
+  on release; slide left cancels; slide up locks, then pause, play, resume, send) and
+  `VoiceNotesTest` covers pause timing. Checked on the emulator: every gesture, playback while
+  paused, and a sent note made of two stretches playing past the join (0:15 of 0:17).

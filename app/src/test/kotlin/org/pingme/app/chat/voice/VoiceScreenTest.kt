@@ -4,12 +4,14 @@ package org.pingme.app.chat.voice
 import android.Manifest
 import android.app.Application
 import android.os.Looper
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -101,6 +103,77 @@ class VoiceScreenTest {
         compose.onNode(hasContentDescription("Send")).assertExists()
     }
 
+    private val mic get() = vm.voice.state.value as? MicState.Recording
+
+    private fun press(block: androidx.compose.ui.test.TouchInjectionScope.() -> Unit) =
+        compose.onNode(hasTestTag(MIC)).performTouchInput(block)
+
+    private fun voiceSent() = latest("sam").let { it.kind == MessageKind.VOICE && !it.id.value.contains("/pending-") }
+
+    @Test
+    fun aTapOnTheMicRecordsHandsFree() {
+        open("sam")
+        press {
+            down(center)
+            advanceEventTime(100)
+            up()
+        }
+        waitFor { mic?.locked == true }
+        compose.onNode(hasContentDescription("Delete recording")).performClick()
+        waitFor { vm.voice.state.value == MicState.Idle }
+        assertEquals(1, demo.recorder.cancelled)
+    }
+
+    @Test
+    fun holdingTheMicRecordsAndLettingGoSends() {
+        open("sam")
+        press { down(center) }
+        waitFor { mic != null }
+        assertEquals("held, not hands-free", false, mic?.locked)
+        Thread.sleep(RECORD_MS)
+        press {
+            advanceEventTime(RECORD_MS)
+            up()
+        }
+        waitFor { voiceSent() }
+    }
+
+    @Test
+    fun slidingLeftWhileHoldingThrowsTheRecordingAway() {
+        open("sam")
+        press { down(center) }
+        waitFor { mic != null }
+        press {
+            advanceEventTime(300)
+            moveBy(Offset(-SLIDE, 0f))
+        }
+        waitFor { vm.voice.state.value == MicState.Idle }
+        assertEquals(1, demo.recorder.cancelled)
+        press { up() }
+    }
+
+    @Test
+    fun slidingUpLocksThenItPausesPlaysBackGoesOnAndSends() {
+        open("sam")
+        press { down(center) }
+        waitFor { mic != null }
+        press {
+            advanceEventTime(300)
+            moveBy(Offset(0f, -SLIDE))
+        }
+        waitFor { mic?.locked == true }
+        // The hands-free bar has replaced the mic under the finger, which now lifts.
+        compose.onRoot().performTouchInput { up() }
+        Thread.sleep(RECORD_MS)
+        compose.onNode(hasContentDescription("Pause recording")).performClick()
+        waitFor { mic?.paused == true }
+        compose.onNode(hasContentDescription("Play what you have recorded")).assertExists()
+        compose.onNode(hasContentDescription("Go on recording")).performClick()
+        waitFor { mic?.paused == false }
+        compose.onNode(hasContentDescription("Send")).performClick()
+        waitFor { voiceSent() }
+    }
+
     @Test
     fun voiceReplyRecordsHandsFreeAndSendsAQuotedNote() {
         open("sam")
@@ -148,6 +221,9 @@ class VoiceScreenTest {
     private companion object {
         const val TIMEOUT = 15_000L
         const val RECORD_MS = 800L
+
+        // Far enough to cancel or lock (120 and 90 dp) on this screen.
+        const val SLIDE = 500f
         val STEP: Duration = Duration.ofMillis(50)
     }
 }
