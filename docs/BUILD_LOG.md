@@ -1170,7 +1170,8 @@ Fixes to what was built (the design already says or allows this):
    should add the celebrate burst to reactions and Extra the edge glow for special emoji
    (5.4), plus livelier transitions elsewhere.
 6. **A scheduled message's press-and-hold menu** should offer Edit, Reschedule, and
-   Unschedule (delete). 10.13 lists a scheduled message's actions; build them all there.
+   Unschedule (delete). 10.13 already says a scheduled message stays editable and
+   cancellable; Reschedule is a small addition the owner asked for.
 
 Changes to the design (owner to approve):
 7. **One Send button, not a split button.** Tap to send; press and hold for Send later
