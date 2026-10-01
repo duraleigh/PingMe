@@ -51,7 +51,7 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 | Connected button group | Inbox filters (All, Unread, per network) |
 | FAB menu | Inbox: New chat, New group |
 | Horizontal floating toolbar | Chat screen: contextual actions during multi-select |
-| Split button | Send button with a dropdown for Send later and Send as SMS |
+| Send button | One button: tap to send; press and hold for Send later and Send as SMS. (Owner decision at Gate G1, 2026-10-01: a split button is too easy to mis-tap, so the Expressive split button is not used here.) |
 | Loading indicator (shape-morphing) | Sync, history backfill, pairing |
 | Toggle buttons | Chat settings, reaction set editor |
 | Sliders (expressive) | Font size, corner radius, animation intensity |
@@ -87,8 +87,13 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 - **Pinned row**: horizontally scrolling tiles of the user's pinned chats, drawn with the
   chosen shape family. Unread count sits as a badge. Long-press to reorder or unpin.
   Users can choose a grid, a row, or "pinned at top of list" style. Up to 12 pins.
+- **Top app bar**: has its own surface colour with rounded bottom corners, so the list
+  scrolls underneath it cleanly, as Google Messages does (owner, Gate G1).
 - **List items**: avatar, name, last message preview, network badge, time, unread badge,
-  mute icon. Sender name shown in previews for groups.
+  mute icon. Sender name shown in previews for groups. When the last message is yours,
+  its status mark (sending, sent, delivered, read, failed; the same marks as in the chat)
+  shows before the preview, as Google Messages does (owner, Gate G1).
+- **Bottom bar**: its items are spaced evenly and centred across the full width.
 - **Swipe actions**: left and right swipes are user-assignable from Pin or unpin, Archive,
   Mute or unmute, Mark read or unread, Low priority, Delete. Each direction can be
   set independently, and either can be turned off.
@@ -156,6 +161,14 @@ rest of the chat dims and blurs, and two surfaces appear:
    "+" that opens the full emoji picker.
 2. **Action sheet** below: Reply, Voice reply, Copy, Forward, Pin, Select, Info,
    Delete, and Edit (when the network allows).
+
+The reaction bar, the lifted bubble, and the action sheet never overlap, the way Google
+Messages lays it out: when the bubble is near the top or bottom of the screen, or too
+tall, the bubble moves (or is clipped to a preview) so all three fit and every reaction
+can be tapped (owner, Gate G1).
+
+A **scheduled message** (section 10.13) shows its own actions here instead: Edit,
+Reschedule, Send now, and Unschedule (which deletes it), plus Copy (owner, Gate G1).
 
 Multi-select (via Select, or long-press then tap) replaces the composer with a
 horizontal floating toolbar: Copy, Forward, Delete, Share, with the count in the app
@@ -340,9 +353,12 @@ library. Intensity Subtle keeps only Pick and Land. Off disables all of it.
 
 - The composer's right button is a microphone when the text field is empty and a send
   button when it has text.
-- **Hold to record**, slide left to cancel, slide up to lock hands-free. A waveform
-  and timer show while recording. Release to send, or in locked mode tap send or
-  delete.
+- **Two ways to record**, as WhatsApp does (owner, Gate G1, 2026-10-01):
+  - **Tap** the mic: recording starts and the composer becomes a recording bar with a
+    timer, a live waveform, a delete (trash) button, Pause/Resume, and Send. While
+    paused, the recording so far can be played back; Resume carries on recording.
+  - **Hold** the mic: it records while held. Release to send, slide left to cancel,
+    slide up to lock into the same recording bar as a tap.
 - **As a reply**: pick Reply (or swipe) on a message, then hold the mic. The voice
   note carries the reply quote just like a text reply. There is also a direct "Voice
   reply" action in the long-press action sheet that opens the reply strip and starts
@@ -577,11 +593,14 @@ A **space** is a named group of chats that PingMe shows as one unit.
 - A WhatsApp community becomes a space containing its announcement group and every
   linked group.
 - A Telegram forum group becomes a space with one chat per topic.
-- Users can also make their own spaces from any chats.
+- Users can also make their own spaces from any chats. Each space the user makes has
+  an icon the user picks (shown in the bottom bar and the avatar menu), and a choice:
+  its chats also show in All, or only inside the space (owner, Gate G1).
 
 Spaces appear in the avatar menu and can be promoted into the bottom bar, which
-becomes user-configurable: any mix of network filters, spaces, and Low priority, up
-to five items. Decided. Inside a space the inbox shows only that space's chats, with the same
+becomes user-configurable: any mix of All, Unread, network filters, spaces, and Low
+priority, up to five items. All is the default first item but can be removed (owner,
+Gate G1); with All removed, the first item in the bar is where the inbox opens. Decided. Inside a space the inbox shows only that space's chats, with the same
 pinned grid and list. Unread counts for a space follow the counting rule in section
 6.4.
 
@@ -659,7 +678,7 @@ Never. Previews are cached with the message.
 
 ### 10.13 Send later
 
-Long-press the send button, or use the split button's dropdown, to schedule. The
+Press and hold the send button to schedule. The
 picker offers, in one sheet:
 - quick chips: In 1 hour, This evening, Tomorrow morning, Tomorrow at this time,
   Next Monday morning,
