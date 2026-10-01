@@ -67,6 +67,9 @@ import kotlinx.coroutines.launch
 import org.pingme.app.R
 import org.pingme.app.appearance.Wallpaper
 import org.pingme.app.chat.attach.composerHooks
+import org.pingme.app.chat.search.ChatSearchResults
+import org.pingme.app.chat.search.showing
+import org.pingme.app.chat.voice.rememberVoicePlayer
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
@@ -86,35 +89,19 @@ fun ChatRoute(
     val forwardTargets by viewModel.forwardTargets.collectAsStateWithLifecycle()
     val uploads by viewModel.uploads.collectAsStateWithLifecycle()
     val held by viewModel.heldBack.collectAsStateWithLifecycle()
-    val player =
-        org.pingme.app.chat.voice
-            .rememberVoicePlayer()
+    val player = rememberVoicePlayer()
+    val searching by viewModel.search.state.collectAsStateWithLifecycle()
+    val jump by viewModel.jumps.request.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
+    val notice: (Int) -> Unit = { scope.launch { snackbar.showSnackbar(resources.getString(it)) } }
     ChatScreen(
         state = state,
         actions =
             ChatScreenActions(
-                header =
-                    HeaderActions(
-                        onBack = onBack,
-                        onCall = { video ->
-                            val outcome = placeCall(context, state, video)
-                            if (outcome != CallOutcome.CALLING) {
-                                val text =
-                                    if (outcome ==
-                                        CallOutcome.OPENED_APP
-                                    ) {
-                                        R.string.chat_call_opened_app
-                                    } else {
-                                        R.string.chat_calls_unavailable
-                                    }
-                                scope.launch { snackbar.showSnackbar(resources.getString(text)) }
-                            }
-                        },
-                    ),
+                header = headerActions(viewModel, state, onBack, context, notice),
                 onSend = { viewModel.send(it) },
                 onReply = viewModel::reply,
                 onRetry = viewModel::retry,
@@ -128,29 +115,14 @@ fun ChatRoute(
                 forwardTargets = forwardTargets,
                 uploads = uploads,
                 player = player,
-                composer =
-                    composerHooks(
-                        viewModel,
-                        state,
-                    ) { scope.launch { snackbar.showSnackbar(resources.getString(it)) } },
+                search = searchHooks(viewModel, searching, jump),
+                composer = composerHooks(viewModel, state, notice),
             ),
         modifier = modifier,
         snackbar = snackbar,
     )
     org.pingme.app.chat.attach
         .HeldBackDialog(held, viewModel::answerHeldBack, viewModel::shrinkHeldBack)
-}
-
-private fun placeCall(
-    context: android.content.Context,
-    state: ChatUiState,
-    video: Boolean,
-): CallOutcome {
-    val network = state.account?.network ?: return CallOutcome.UNAVAILABLE
-    val calls = state.capabilities?.calls ?: return CallOutcome.UNAVAILABLE
-    val method = if (video) calls.video else calls.audio
-    if (method == CallMethod.NONE) return CallOutcome.UNAVAILABLE
-    return Calls(context).start(network, method, video, state.phone)
 }
 
 /**
@@ -183,6 +155,14 @@ fun ChatScreen(
             highlight.remove(id)
         }
     }
+    // A message search asked for: scroll there once the list has loaded back to it.
+    val jump = actions.search.jump
+    LaunchedEffect(jump, state.items) {
+        if (jump != null && state.items.any { it.key == jump.value }) {
+            jumpTo(jump.value)
+            actions.search.onJumped()
+        }
+    }
     Scaffold(
         modifier = modifier,
         topBar = { TopBars(state, actions) { jumpTo(it) } },
@@ -194,6 +174,9 @@ fun ChatScreen(
             Wallpaper(PingMeTheme.appearance.wallpaper, Modifier.fillMaxSize())
             MessageList(state, list, actions, highlight, ui) { jumpTo(it) }
             ToNewest(list, state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+            if (actions.search.state.showing) {
+                ChatSearchResults(actions.search.state, state.names, actions.search.onOpen)
+            }
         }
     }
     ChatOverlays(ui, state, actions, context, haptic) { held ->

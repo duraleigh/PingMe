@@ -151,6 +151,8 @@ class DemoInbox(
             files,
             recorder,
             gifStore,
+            org.pingme.core.store
+                .ChatSearchRepository(db),
         ).tracked()
 
     fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()

@@ -241,6 +241,55 @@ interface MessageDao {
     @Query("DELETE FROM pinned_messages WHERE messageId = :messageId")
     suspend fun unpin(messageId: String)
 
+    /** A chat's messages of the given kinds (by enum name), newest first: search in chat's media chips. */
+    @Transaction
+    @Query(
+        "SELECT * FROM messages WHERE chatId = :chatId AND kind IN (:kinds) " +
+            "ORDER BY sentAt DESC, rowId DESC LIMIT :limit",
+    )
+    fun observeKinds(
+        chatId: String,
+        kinds: List<String>,
+        limit: Int,
+    ): Flow<List<MessageWithParts>>
+
+    /** Everything one person sent in a chat, newest first: search in chat's sender filter. */
+    @Transaction
+    @Query(
+        "SELECT * FROM messages WHERE chatId = :chatId AND senderId = :senderId " +
+            "ORDER BY sentAt DESC, rowId DESC LIMIT :limit",
+    )
+    fun observeFrom(
+        chatId: String,
+        senderId: String,
+        limit: Int,
+    ): Flow<List<MessageWithParts>>
+
+    /** A chat's messages with a link in them or a preview card, newest first. */
+    @Transaction
+    @Query(
+        "SELECT * FROM messages WHERE chatId = :chatId AND (preview_url IS NOT NULL " +
+            "OR body LIKE '%http://%' OR body LIKE '%https://%') ORDER BY sentAt DESC, rowId DESC LIMIT :limit",
+    )
+    fun observeLinks(
+        chatId: String,
+        limit: Int,
+    ): Flow<List<MessageWithParts>>
+
+    /** How many of a chat's messages are newer than [sentAt]: how far back the list must reach to show one. */
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND sentAt > :sentAt")
+    suspend fun countNewer(
+        chatId: String,
+        sentAt: Instant,
+    ): Int
+
+    /** The first message on or after [from], for search in chat's date jump. */
+    @Query("SELECT id FROM messages WHERE chatId = :chatId AND sentAt >= :from ORDER BY sentAt ASC, rowId ASC LIMIT 1")
+    suspend fun firstFrom(
+        chatId: String,
+        from: Instant,
+    ): String?
+
     /** Who "you" are in a chat: the sender of any of your own messages there. */
     @Query("SELECT senderId FROM messages WHERE chatId = :chatId AND isOutgoing = 1 LIMIT 1")
     suspend fun selfSenderId(chatId: String): String?

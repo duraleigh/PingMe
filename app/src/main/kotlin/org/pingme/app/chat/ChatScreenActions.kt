@@ -40,6 +40,9 @@ class ChatScreenActions(
     val uploads: Map<org.pingme.core.model.MessageId, Float> = emptyMap(),
     /** Plays voice notes; null in previews. */
     val player: org.pingme.app.chat.voice.VoicePlayer? = null,
+    val search: org.pingme.app.chat.search.SearchHooks =
+        org.pingme.app.chat.search
+            .SearchHooks(),
 )
 
 /** The composer's extras: attachments and other ways to send. Null ones are not offered. */

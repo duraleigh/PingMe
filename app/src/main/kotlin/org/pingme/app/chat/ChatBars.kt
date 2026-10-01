@@ -65,6 +65,8 @@ import org.pingme.app.appearance.Wallpaper
 import org.pingme.app.chat.attach.AttachSheet
 import org.pingme.app.chat.attach.SendButton
 import org.pingme.app.chat.attach.StagedStrip
+import org.pingme.app.chat.search.ChatSearchBar
+import org.pingme.app.chat.search.SearchPeople
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
@@ -200,6 +202,12 @@ internal fun TopBars(
 ) {
     if (state.selection.isNotEmpty()) {
         SelectionHeader(state.selection.size, { actions.menu?.clearSelection() })
+        return
+    }
+    val search = actions.search.search
+    if (search != null && actions.search.state.open) {
+        val group = state.chat?.kind == org.pingme.core.model.ChatKind.GROUP
+        ChatSearchBar(actions.search.state, search, SearchPeople(group, state.names), actions.search.onDate)
         return
     }
     Column {

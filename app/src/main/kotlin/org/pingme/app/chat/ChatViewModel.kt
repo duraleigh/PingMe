@@ -131,6 +131,7 @@ class ChatViewModel
         files: org.pingme.app.chat.attach.OutgoingFiles,
         recorder: VoiceRecorder,
         gifStore: org.pingme.app.chat.gif.GifStore,
+        private val searchRepo: org.pingme.core.store.ChatSearchRepository,
     ) : ViewModel() {
         /** Takes the chat id as text: Hilt cannot generate factories for value classes. */
         @AssistedFactory
@@ -157,6 +158,17 @@ class ChatViewModel
                 { mediaRule(AttachmentKind.VOICE) != MediaRule.NATIVE },
             ) {
                 dispatch("", listOf(it.asAttachment()), forceSms = false)
+            }
+
+        /** Search in this chat (UI_DESIGN.md 10.14). */
+        val search =
+            org.pingme.app.chat.search
+                .ChatSearch(viewModelScope, chatId, messages, searchRepo)
+
+        /** Scrolling to a search result or a date, loading history back to it first. */
+        val jumps =
+            org.pingme.app.chat.search.Jumps(viewModelScope, chatId, messages, searchRepo) { needed ->
+                limit.update { maxOf(it, needed) }
             }
 
         /** GIF search, Trending, and favourites (UI_DESIGN.md 5.5). */
