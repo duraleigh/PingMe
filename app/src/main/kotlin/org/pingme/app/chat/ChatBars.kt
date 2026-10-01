@@ -28,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -104,6 +105,39 @@ internal fun PinnedBanner(
     }
 }
 
+/** "Editing message" above the composer while one of your messages is being edited (UI_DESIGN.md 3.3). */
+@Composable
+internal fun EditStrip(
+    message: Message,
+    onCancel: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 4.dp),
+        modifier = Modifier.padding(horizontal = 12.dp),
+    ) {
+        Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                Text(
+                    stringResource(R.string.editing),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    message.body.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(
+                onClick = onCancel,
+            ) { Icon(painterResource(UiR.drawable.ic_close), stringResource(R.string.cancel_edit)) }
+        }
+    }
+}
+
 /** "Replying to Sam" with the message, above the composer (UI_DESIGN.md 5.2). */
 @Composable
 internal fun ReplyStrip(
@@ -159,8 +193,10 @@ private fun Message.toLast() =
 internal fun Composer(
     onSend: (String) -> Unit,
     onTyping: (String) -> Unit,
+    editing: Message? = null,
 ) {
-    var text by rememberSaveable { mutableStateOf("") }
+    // Editing starts from the message's text; a new edit (or none) starts afresh.
+    var text by rememberSaveable(editing?.id?.value) { mutableStateOf(editing?.body.orEmpty()) }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,
@@ -197,3 +233,100 @@ internal fun Composer(
 
 private const val COMPOSER_LINES = 6
 private val SEND_SIZE = 52.dp
+
+@Composable
+internal fun TopBars(
+    state: ChatUiState,
+    actions: ChatScreenActions,
+    onJump: (String) -> Unit,
+) {
+    if (state.selection.isNotEmpty()) {
+        SelectionHeader(state.selection.size, { actions.menu?.clearSelection() })
+        return
+    }
+    Column {
+        ChatHeader(state, actions.header)
+        state.pinned.firstOrNull()?.let { PinnedBanner(it, state, { onJump(it.id.value) }) { actions.onUnpin(it) } }
+    }
+}
+
+@Composable
+internal fun BottomBars(
+    state: ChatUiState,
+    actions: ChatScreenActions,
+    ui: ChatUi,
+    context: android.content.Context,
+) {
+    Column(Modifier.navigationBarsPadding().imePadding()) {
+        if (state.selection.isNotEmpty()) {
+            val chosen =
+                state.items.filterIsInstance<ChatItem.Bubble>().map { it.message }.filter {
+                    it.id in
+                        state.selection
+                }
+            SelectionToolbar(
+                SelectionActions(
+                    onCopy = {
+                        copy(context, chosen)
+                        actions.menu?.clearSelection()
+                    },
+                    onForward = { ui.forwarding = chosen },
+                    onDelete = { ui.deleting = chosen },
+                    onShare = { share(context, chosen) },
+                ),
+            )
+            return@Column
+        }
+        val editing = state.editing
+        if (editing != null) {
+            EditStrip(editing) { actions.menu?.startEdit(null) }
+        } else {
+            state.replyTo?.let { ReplyStrip(it, state) { actions.onReply(null) } }
+        }
+        val send: (String) -> Unit =
+            if (editing !=
+                null
+            ) {
+                ({ text -> actions.menu?.finishEdit(text) })
+            } else {
+                actions.onSend
+            }
+        Composer(send, actions.onTyping, editing)
+    }
+}
+
+/** Snackbars from message actions: Undo for deletes, the network's reason when it says no. */
+@Composable
+internal fun Notices(
+    menu: MessageMenu?,
+    snackbar: SnackbarHostState,
+) {
+    val resources = LocalResources.current
+    LaunchedEffect(menu) {
+        menu?.notices?.collect { notice ->
+            launch {
+                val result =
+                    snackbar.showSnackbar(
+                        noticeText(notice, resources),
+                        actionLabel =
+                            notice.undo?.let {
+                                resources.getString(R.string.undo)
+                            },
+                    )
+                if (result == SnackbarResult.ActionPerformed) notice.undo?.invoke() else notice.onGone()
+            }
+        }
+    }
+}
+
+internal fun noticeText(
+    notice: ChatNotice,
+    resources: android.content.res.Resources,
+): String =
+    when {
+        notice.plural != null -> resources.getQuantityString(notice.plural, notice.count, notice.count)
+        notice.text != null && notice.reason != null -> resources.getString(notice.text, notice.reason)
+        notice.text != null && notice.arg != null -> resources.getString(notice.text, notice.arg)
+        notice.text != null -> resources.getString(notice.text)
+        else -> notice.reason.orEmpty()
+    }

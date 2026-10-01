@@ -66,6 +66,7 @@ fun MessageRow(
     item: ChatItem.Bubble,
     context: RowContext,
     modifier: Modifier = Modifier,
+    bubbleModifier: Modifier = Modifier,
     showTime: Boolean = true,
 ) {
     val message = item.message
@@ -84,7 +85,7 @@ fun MessageRow(
             if (item.lastInGroup) Avatar(sender.orEmpty(), size = AVATAR) else Spacer(Modifier.width(AVATAR))
             Spacer(Modifier.width(8.dp))
         }
-        Column(horizontalAlignment = if (outgoing) Alignment.End else Alignment.Start) {
+        Column(bubbleModifier, horizontalAlignment = if (outgoing) Alignment.End else Alignment.Start) {
             MessageBubble(
                 text = bodyText(message),
                 outgoing = outgoing,

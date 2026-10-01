@@ -28,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -45,8 +46,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -77,6 +82,7 @@ fun ChatRoute(
         hiltViewModel<ChatViewModel, ChatViewModel.Factory>(key = chatId.value) { it.create(chatId.value) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val forwardTargets by viewModel.forwardTargets.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -110,6 +116,10 @@ fun ChatRoute(
                 onLoadOlder = viewModel::loadOlder,
                 onNeed = viewModel::need,
                 onTyping = viewModel::typing,
+                menu = viewModel.menu,
+                onRememberEmoji = viewModel::rememberEmoji,
+                incoming = viewModel.incomingReactions,
+                forwardTargets = forwardTargets,
             ),
         modifier = modifier,
         snackbar = snackbar,
@@ -131,6 +141,7 @@ private fun placeCall(
 /**
  * The chat (UI_DESIGN.md 3.2): header, pinned banner, messages over the wallpaper drawn
  * newest at the bottom, a jump-to-newest button, the reply strip, and the composer.
+ * Selecting swaps the header and composer for the selection bars (3.3).
  */
 @Composable
 fun ChatScreen(
@@ -142,6 +153,10 @@ fun ChatScreen(
     val list = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val highlight = remember { mutableStateMapOf<String, Boolean>() }
+    val ui = remember { ChatUi() }
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    Notices(actions.menu, snackbar)
 
     fun jumpTo(id: String) {
         val index = state.items.indexOfFirst { it.key == id }
@@ -155,33 +170,31 @@ fun ChatScreen(
     }
     Scaffold(
         modifier = modifier,
-        topBar = {
-            Column {
-                ChatHeader(state, actions.header)
-                state.pinned.firstOrNull()?.let {
-                    PinnedBanner(
-                        it,
-                        state,
-                        { jumpTo(it.id.value) },
-                    ) { actions.onUnpin(it) }
-                }
-            }
-        },
-        bottomBar = {
-            Column(Modifier.navigationBarsPadding().imePadding()) {
-                state.replyTo?.let { ReplyStrip(it, state) { actions.onReply(null) } }
-                Composer(actions.onSend, actions.onTyping)
-            }
-        },
+        topBar = { TopBars(state, actions) { jumpTo(it) } },
+        bottomBar = { BottomBars(state, actions, ui, context) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        // While a message is held, everything else blurs behind it (UI_DESIGN.md 3.3).
+        Box(Modifier.fillMaxSize().padding(padding).blur(if (ui.holding != null) HELD_BLUR else 0.dp)) {
             Wallpaper(PingMeTheme.appearance.wallpaper, Modifier.fillMaxSize())
-            MessageList(state, list, actions, highlight) { jumpTo(it) }
+            MessageList(state, list, actions, highlight, ui) { jumpTo(it) }
             ToNewest(list, state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
         }
     }
+    ChatOverlays(ui, state, actions, context, haptic) { held ->
+        val item = state.items.filterIsInstance<ChatItem.Bubble>().firstOrNull { it.message.id == held.id }
+        if (item != null) MessageRow(item, rowContext(state, actions) {}, showTime = true)
+    }
 }
+
+internal fun rowContext(
+    state: ChatUiState,
+    actions: ChatScreenActions,
+    onJump: (String) -> Unit,
+): RowContext =
+    RowContext(state.account!!.network, state.chat!!.kind, state.names, actions.onRetry, actions.onNeed) { m ->
+        m.replyTo?.let { onJump(it.value) }
+    }
 
 @Composable
 private fun MessageList(
@@ -189,39 +202,48 @@ private fun MessageList(
     list: LazyListState,
     actions: ChatScreenActions,
     highlight: Map<String, Boolean>,
+    ui: ChatUi,
     onJump: (String) -> Unit,
 ) {
-    val chat = state.chat ?: return
-    val network = state.account?.network ?: return
-    val revealed = remember { mutableStateMapOf<String, Boolean>() }
+    if (state.chat == null || state.account == null) return
+    val haptic = LocalHapticFeedback.current
+    val haptics = PingMeTheme.appearance.haptics
     val timestamps = PingMeTheme.appearance.timestamps
-    val context =
-        RowContext(network, chat.kind, state.names, actions.onRetry, actions.onNeed) { m ->
-            m.replyTo?.let {
-                onJump(it.value)
-            }
-        }
+    val context = rowContext(state, actions, onJump)
     // The list is drawn from the bottom: index 0 is the newest message.
     LazyColumn(Modifier.fillMaxSize().testTag(CHAT_LIST), state = list, reverseLayout = true) {
         items(state.items, key = { it.key }) { item ->
             when (item) {
                 is ChatItem.Bubble -> {
-                    MessageRow(
-                        item,
-                        context,
-                        Modifier
-                            .animateItem()
-                            .background(
-                                if (highlight[item.key] ==
-                                    true
-                                ) {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = PULSE)
-                                } else {
-                                    Color.Transparent
-                                },
-                            ),
-                        showTime = showsTime(timestamps, item, revealed[item.key] == true),
-                    )
+                    val key = item.key
+                    val tint =
+                        when {
+                            item.message.id in state.selection -> {
+                                MaterialTheme.colorScheme.secondaryContainer.copy(
+                                    alpha = SELECTED,
+                                )
+                            }
+
+                            highlight[key] == true -> {
+                                MaterialTheme.colorScheme.primary.copy(alpha = PULSE)
+                            }
+
+                            else -> {
+                                Color.Transparent
+                            }
+                        }
+                    MessageTouch(
+                        gestures = gesturesFor(item.message, state, actions, ui, haptic, haptics),
+                        wobble = ui.wobble[key] ?: 0,
+                        modifier = Modifier.animateItem().background(tint),
+                    ) {
+                        MessageRow(
+                            item,
+                            context,
+                            showTime = showsTime(timestamps, item, ui.revealed[key] == true),
+                            bubbleModifier = Modifier.onGloballyPositioned { ui.bounds[key] = it.boundsInRoot() },
+                        )
+                    }
                 }
 
                 is ChatItem.Day -> {
@@ -236,6 +258,30 @@ private fun MessageList(
     }
     LoadOlderWhenNearTop(list, state, actions.onLoadOlder)
     StayAtBottom(list, state)
+}
+
+/** Tap reveals the time or toggles selection; double tap reacts; hold opens the menu or selects. */
+private fun gesturesFor(
+    message: Message,
+    state: ChatUiState,
+    actions: ChatScreenActions,
+    ui: ChatUi,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    haptics: org.pingme.core.ui.theme.Haptics,
+): BubbleGestures {
+    val selecting = state.selection.isNotEmpty()
+    val key = message.id.value
+    return BubbleGestures(
+        onTap = { if (selecting) actions.menu?.toggle(message) else ui.revealed[key] = ui.revealed[key] != true },
+        onDoubleTap = {
+            val prefs = state.reactions
+            actions.menu?.doubleTapEmoji(prefs.doubleTap, prefs.quick, state.capabilities?.reactions)?.let { emoji ->
+                ui.react(message, emoji, null, state, actions, haptic, haptics)
+            }
+        },
+        onHold = { if (selecting) actions.menu?.toggle(message) else ui.holding = message },
+        onSwipeReply = { actions.onReply(message) },
+    )
 }
 
 @Composable
@@ -344,3 +390,5 @@ private const val NEAR_TOP = 5
 private const val AWAY = 2
 private const val HIGHLIGHT_MS = 900L
 private const val PULSE = 0.16f
+private const val SELECTED = 0.5f
+private val HELD_BLUR = 8.dp

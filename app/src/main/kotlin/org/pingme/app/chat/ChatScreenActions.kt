@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.chat
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import org.pingme.core.model.Attachment
+import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Message
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.PersonId
+import org.pingme.core.service.IncomingReaction
 
 // What the chat screen's parts can ask for, gathered so each part takes one argument.
 
@@ -27,6 +31,11 @@ class ChatScreenActions(
     val onLoadOlder: () -> Unit,
     val onNeed: (Attachment) -> Unit,
     val onTyping: (String) -> Unit,
+    /** Press and hold, double tap, delete, select; null in previews. */
+    val menu: MessageMenu? = null,
+    val onRememberEmoji: (String) -> Unit = {},
+    val incoming: Flow<IncomingReaction> = emptyFlow(),
+    val forwardTargets: List<Chat> = emptyList(),
 )
 
 /** What a message row needs besides the message. */
@@ -37,4 +46,12 @@ class RowContext(
     val onRetry: (Message) -> Unit,
     val onNeed: (Attachment) -> Unit,
     val onQuote: (Message) -> Unit,
+)
+
+/** One line of the action card. [enabled] false shows it greyed with [reason] (UI_DESIGN.md 1). */
+data class MessageAction(
+    @param:androidx.annotation.StringRes val label: Int,
+    @param:androidx.annotation.DrawableRes val icon: Int,
+    val onClick: () -> Unit,
+    val destructive: Boolean = false,
 )

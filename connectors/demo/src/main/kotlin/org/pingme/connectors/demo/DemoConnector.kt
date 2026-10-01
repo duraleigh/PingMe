@@ -219,6 +219,24 @@ class DemoConnector(
         server.emit(world, ConnectorEvent.MessageUpdated(world.accountId, world.snapshot(deleted)))
     }
 
+    override suspend fun edit(
+        messageId: MessageId,
+        text: String,
+    ) {
+        val limit =
+            capabilities.edit ?: throw UnsupportedCapabilityException("Editing is turned off on the demo network")
+        val world = world(messageId.accountId)
+        val edited =
+            synchronized(world) {
+                val message = world.findMessage(messageId)?.takeIf { it.isOutgoing } ?: return
+                if (limit is TimeLimit.Within && clock.now() - message.sentAt > limit.duration) {
+                    throw UnsupportedCapabilityException("Only possible for ${limit.duration} after sending")
+                }
+                message.copy(body = text, editedAt = clock.now()).also(world::replaceMessage)
+            }
+        server.emit(world, ConnectorEvent.MessageUpdated(world.accountId, world.snapshot(edited)))
+    }
+
     override suspend fun downloadAttachment(attachment: Attachment): File =
         withContext(Dispatchers.IO) {
             attachment.localPath?.let { return@withContext File(it) }

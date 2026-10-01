@@ -161,4 +161,66 @@
         <item quantity="other">%d new messages</item>
     </plurals>
     <string name="you">You</string>
+    <string name="emoji_search">Search emoji</string>
+    <string name="emoji_recent">Recent</string>
+    <string name="chat_double_tap_fallback">Not available here, so double tap sends %1$s</string>
+    <plurals name="chat_deleted">
+        <item quantity="one">Message deleted</item>
+        <item quantity="other">%d messages deleted</item>
+    </plurals>
+    <string name="chat_action_failed">That did not work: %1$s</string>
+
+    <!-- Message actions (UI_DESIGN.md 3.3, 5.3) -->
+    <string name="action_reply">Reply</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_forward">Forward</string>
+    <string name="action_pin_message">Pin</string>
+    <string name="action_unpin_message">Unpin</string>
+    <string name="action_select">Select</string>
+    <string name="action_info">Info</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete_message">Delete</string>
+    <string name="action_share">Share</string>
+    <string name="action_more_reactions">More reactions</string>
+    <string name="action_react_with">React with %1$s</string>
+    <string name="copied">Copied</string>
+    <plurals name="selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <string name="close_selection">Stop selecting</string>
+    <string name="delete_for_me">Delete for me</string>
+    <string name="delete_for_everyone">Delete for everyone</string>
+    <string name="delete_for_everyone_until">Available for %1$s after sending</string>
+    <string name="delete_for_everyone_always">Available at any time</string>
+    <string name="delete_for_everyone_expired">No longer possible: more than %1$s ago</string>
+    <string name="delete_for_everyone_not_yours">Only for your own messages</string>
+    <string name="delete_for_everyone_unsupported">%1$s has no delete for everyone</string>
+    <plurals name="delete_title">
+        <item quantity="one">Delete this message?</item>
+        <item quantity="other">Delete %d messages?</item>
+    </plurals>
+    <string name="info_title">Message info</string>
+    <string name="info_sent">Sent</string>
+    <string name="info_received">Received</string>
+    <string name="info_status">Status</string>
+    <string name="info_network">Network</string>
+    <string name="info_edited">Edited</string>
+    <string name="forward_title">Forward to</string>
+    <string name="forward_send">Send</string>
+    <string name="editing">Editing message</string>
+    <string name="cancel_edit">Stop editing</string>
+    <string name="not_on_network">Not available on %1$s</string>
+    <plurals name="duration_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <plurals name="duration_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+    <plurals name="duration_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
 </resources>

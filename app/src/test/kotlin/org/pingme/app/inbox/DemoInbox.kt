@@ -2,15 +2,20 @@
 package org.pingme.app.inbox
 
 import android.content.Context
+import android.os.Looper
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.pingme.app.chat.ChatViewModel
 import org.pingme.app.chat.MediaRequests
 import org.pingme.connectors.demo.DemoConnector
@@ -36,6 +41,7 @@ import org.pingme.core.store.MessageRepository
 import org.pingme.core.store.PinnedMessageRepository
 import org.pingme.core.store.SettingsRepository
 import org.pingme.core.store.db.PingMeDatabase
+import org.robolectric.Shadows.shadowOf
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
@@ -99,10 +105,10 @@ class DemoInbox(
             InboxBarRepository(settings),
             Clock.System,
             SavedStateHandle(),
-        )
+        ).tracked()
 
     fun listViewModel(route: ChatListRoute) =
-        ChatListViewModel(chats, messages, accounts, typing, actions, Clock.System, route.toSavedState())
+        ChatListViewModel(chats, messages, accounts, typing, actions, Clock.System, route.toSavedState()).tracked()
 
     /** Downloads straight through the demo connector instead of WorkManager. */
     private val media =
@@ -130,9 +136,11 @@ class DemoInbox(
             actions,
             messageActions,
             media,
-        )
+            settings,
+            reactions,
+        ).tracked()
 
-    fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle())
+    fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()
 
     fun newChatViewModel(group: Boolean) =
         NewChatViewModel(
@@ -141,7 +149,7 @@ class DemoInbox(
             ConnectorRegistry(mapOf(NetworkId.DEMO to demo)),
             actions,
             SavedStateHandle(mapOf("group" to group)),
-        )
+        ).tracked()
 
     private fun ChatListRoute.toSavedState() =
         SavedStateHandle(
@@ -155,8 +163,17 @@ class DemoInbox(
             ).toMap(),
         )
 
+    private val viewModels = mutableListOf<androidx.lifecycle.ViewModel>()
+
+    private fun <T : androidx.lifecycle.ViewModel> T.tracked() = also { viewModels += it }
+
+    /** View models and background work stop before the database closes. */
     fun close() {
-        scope.cancel()
+        // View models run on the main thread, so cancel them and let the main looper finish them off
+        // rather than blocking the main thread while waiting for them.
+        viewModels.forEach { it.viewModelScope.cancel() }
+        shadowOf(Looper.getMainLooper()).idle()
+        runBlocking { scope.coroutineContext.job.cancelAndJoin() }
         db.close()
     }
 

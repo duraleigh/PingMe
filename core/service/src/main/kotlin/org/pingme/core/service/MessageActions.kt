@@ -19,6 +19,8 @@ import org.pingme.core.model.MessageKind
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Quote
+import org.pingme.core.model.Reaction
+import org.pingme.core.model.ReactionRule
 import org.pingme.core.model.Transport
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
@@ -74,6 +76,70 @@ class MessageActions
         suspend fun pin(message: Message) = pins.pin(message, clock.now())
 
         suspend fun unpin(id: MessageId) = pins.unpin(id)
+
+        /**
+         * Reacts to [message] with [emoji], or takes your reaction away when [remove] (UI_DESIGN.md
+         * 5.4). One reaction each: a new one replaces yours. Throws, with a reason to show, when
+         * the network does not allow it.
+         */
+        suspend fun react(
+            message: Message,
+            emoji: String,
+            remove: Boolean = false,
+        ) {
+            val connector =
+                connectorFor(message.chatId) ?: throw UnsupportedCapabilityException("This network is not connected")
+            connector.react(message.id, emoji, remove)
+            if (connector.capabilities.reactions is ReactionRule.TextFallback) return
+            val me = messages.selfIn(message.chatId) ?: message.chatId.accountId.person(SELF)
+            message.reactions.filter { it.senderId == me }.forEach { messages.removeReaction(message.id, me, it.emoji) }
+            if (!remove) messages.addReaction(message.id, Reaction(emoji, me, clock.now()))
+        }
+
+        /**
+         * Delete for me (UI_DESIGN.md 5.3): gone from this phone. The network is told too, so a
+         * paired phone's copy matches where it keeps one (Google Messages); others ignore it.
+         */
+        suspend fun deleteForMe(targets: List<Message>) {
+            targets.forEach { message ->
+                messages.delete(message.id)
+                connectorFor(message.chatId)?.let { connector ->
+                    quietly("delete") { connector.delete(message.id, forEveryone = false) }
+                }
+            }
+        }
+
+        /** Delete for everyone, within the network's time limit. Throws with the reason when it cannot. */
+        suspend fun deleteForEveryone(message: Message) {
+            val connector =
+                connectorFor(message.chatId) ?: throw UnsupportedCapabilityException("This network is not connected")
+            connector.delete(message.id, forEveryone = true)
+            messages.upsert(
+                message.copy(
+                    body = null,
+                    kind = MessageKind.DELETED,
+                    attachments = emptyList(),
+                    deletedForEveryone = true,
+                ),
+            )
+        }
+
+        /** Changes the text of one of your messages. Throws with the reason when the network says no. */
+        suspend fun edit(
+            message: Message,
+            text: String,
+        ) {
+            val connector =
+                connectorFor(message.chatId) ?: throw UnsupportedCapabilityException("This network is not connected")
+            connector.edit(message.id, text)
+            messages.upsert(message.copy(body = text, editedAt = clock.now()))
+        }
+
+        /** Sends a copy of [message]'s text to [to] (UI_DESIGN.md 3.3). Attachments follow with P2.4's media part. */
+        suspend fun forward(
+            message: Message,
+            to: ChatId,
+        ) = message.body?.takeIf { it.isNotBlank() }?.let { send(to, it) }
 
         /** Tells the other side you are typing, where the network shows that; silent otherwise. */
         suspend fun setTyping(

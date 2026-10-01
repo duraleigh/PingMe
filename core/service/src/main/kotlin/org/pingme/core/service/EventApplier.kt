@@ -94,7 +94,7 @@ class EventApplier
         private suspend fun announceIfFromSomeoneElse(event: ConnectorEvent.ReactionChanged) {
             val chatId = messages.get(event.messageId)?.chatId ?: return
             if (event.reaction.senderId != messages.selfIn(chatId)) {
-                reactionFeed.emit(IncomingReaction(chatId, event.reaction.emoji))
+                reactionFeed.emit(IncomingReaction(chatId, event.reaction.emoji, event.messageId))
             }
         }
 

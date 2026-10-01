@@ -80,6 +80,15 @@ interface Connector {
         forEveryone: Boolean,
     )
 
+    /**
+     * Replaces the text of one of your messages (UI_DESIGN.md 3.3). Throws when
+     * `capabilities.edit` is null or its time limit has passed.
+     */
+    suspend fun edit(
+        messageId: MessageId,
+        text: String,
+    )
+
     suspend fun downloadAttachment(attachment: Attachment): File
 
     /**

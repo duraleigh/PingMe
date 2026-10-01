@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -64,12 +65,30 @@ data class ChatUiState(
     val pinned: List<Message> = emptyList(),
     /** The other person's number in a one-to-one chat, for the call icons. */
     val phone: String? = null,
+    val reactions: ReactionPrefs = ReactionPrefs(),
+    /** Messages picked in multi-select; empty when not selecting. */
+    val selection: Set<org.pingme.core.model.MessageId> = emptySet(),
+    val editing: Message? = null,
+    /** Who "you" are here, to tell your reactions from others'. */
+    val me: PersonId? = null,
     val replyTo: Message? = null,
     /** False once the network has nothing older to give. */
     val moreHistory: Boolean = true,
 ) {
     val title: String get() = chat?.let { it.nameOverride ?: it.title }.orEmpty()
 }
+
+/** The id a network gives "you" before any message says otherwise. */
+internal object SelfId {
+    fun of(account: org.pingme.core.model.AccountId) = PersonId("${account.value}/me")
+}
+
+/** The quick-reaction bar, the double-tap emoji, and recent picks (UI_DESIGN.md 5.4, 10.5). */
+data class ReactionPrefs(
+    val quick: List<String> = emptyList(),
+    val doubleTap: String = "",
+    val recent: List<String> = emptyList(),
+)
 
 /** One chat (UI_DESIGN.md 3.2, BUILD_PLAN.md P2.4). */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -88,6 +107,8 @@ class ChatViewModel
         private val chatActions: ChatActions,
         private val messageActions: MessageActions,
         private val media: MediaRequests,
+        private val settingsRepo: org.pingme.core.store.SettingsRepository,
+        reactionFeed: org.pingme.core.service.ReactionFeed,
     ) : ViewModel() {
         /** Takes the chat id as text: Hilt cannot generate factories for value classes. */
         @AssistedFactory
@@ -96,6 +117,20 @@ class ChatViewModel
         }
 
         val chatId = ChatId(chatKey)
+
+        /** Press and hold, double tap, delete, select (UI_DESIGN.md 3.3). */
+        val menu = MessageMenu(viewModelScope, messageActions)
+
+        /** Chats a message can be forwarded to: the inbox, less this one. */
+        val forwardTargets: StateFlow<List<Chat>> =
+            chats
+                .inbox()
+                .map { list ->
+                    list.filter { it.id != chatId }
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), emptyList())
+
+        /** Other people's reactions in this chat, for the Land and Celebrate phases. */
+        val incomingReactions = reactionFeed.reactions.filter { it.chatId == chatId }
 
         private val limit = MutableStateFlow(MessageActions.PAGE)
         private val replyTo = MutableStateFlow<Message?>(null)
@@ -115,7 +150,24 @@ class ChatViewModel
                 limit.flatMapLatest { messages.latest(chatId, it) },
                 combine(people, typing.typing.map { it[chatId].orEmpty() }, ::Pair),
                 combine(pins.pinned(chatId), replyTo, moreHistory, unreadAtOpen, ::Quad),
-            ) { (c, a), newestFirst, (everyone, typers), extra ->
+                combine(
+                    combine(
+                        settingsRepo.quickReactions,
+                        settingsRepo.doubleTapReaction,
+                        settingsRepo.recentEmoji,
+                        ::ReactionPrefs,
+                    ),
+                    menu.selection,
+                    menu.editing,
+                    menu.hidden,
+                    ::Quad,
+                ),
+            ) { (c, a), all, (everyone, typers), extra, menuState ->
+                val (prefs, picked, edit) = menuState
+                val hidden = menuState.d
+                val newestFirst = all.filter { it.id !in hidden }
+                // "You" are whoever sent your messages here; before you have sent any, the account's own id.
+                val me = all.firstOrNull { it.isOutgoing }?.senderId ?: c?.accountId?.let { SelfId.of(it) }
                 val (pins, reply, more) = extra
                 val unread = extra.d
                 val nameMap = everyone.associate { it.id to it.displayName }
@@ -137,6 +189,10 @@ class ChatViewModel
                             },
                     replyTo = reply,
                     moreHistory = more,
+                    reactions = prefs,
+                    selection = picked,
+                    editing = edit,
+                    me = me,
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), ChatUiState())
 
@@ -165,6 +221,11 @@ class ChatViewModel
 
         fun retry(message: Message) {
             viewModelScope.launch { messageActions.retry(message) }
+        }
+
+        /** Remembers an emoji picked from the full picker for its Recent row. */
+        fun rememberEmoji(emoji: String) {
+            viewModelScope.launch { settingsRepo.addRecentEmoji(emoji) }
         }
 
         fun unpin(message: Message) {

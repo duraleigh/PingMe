@@ -8,8 +8,10 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -91,9 +93,10 @@ abstract class ServiceTest {
         router = NotificationRouter(context, chats, clock)
     }
 
+    /** Background work stops before the database closes, so nothing writes to a closed store. */
     @After
     fun closeStore() {
-        scope.cancel()
+        runBlocking { scope.coroutineContext.job.cancelAndJoin() }
         db.close()
     }
 

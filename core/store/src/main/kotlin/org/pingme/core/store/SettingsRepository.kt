@@ -54,6 +54,37 @@ class SettingsRepository
             dataStore.edit { it[INBOX_BAR] = change(it[INBOX_BAR]) }
         }
 
+        /** The quick-reaction bar, in order (UI_DESIGN.md 5.4). Edited in Settings > Reactions. */
+        val quickReactions: Flow<List<String>> =
+            dataStore.data.map { prefs ->
+                prefs[QUICK_REACTIONS]?.split(SEPARATOR)?.filter { it.isNotEmpty() }
+                    ?: DEFAULT_QUICK_REACTIONS
+            }
+
+        suspend fun setQuickReactions(emoji: List<String>) {
+            dataStore.edit { it[QUICK_REACTIONS] = emoji.take(MAX_QUICK_REACTIONS).joinToString(SEPARATOR) }
+        }
+
+        /** What a double tap on a bubble sends (UI_DESIGN.md 10.5), ❤️ unless changed. */
+        val doubleTapReaction: Flow<String> = dataStore.data.map { it[DOUBLE_TAP] ?: DEFAULT_DOUBLE_TAP }
+
+        suspend fun setDoubleTapReaction(emoji: String) {
+            dataStore.edit { it[DOUBLE_TAP] = emoji }
+        }
+
+        /** Emoji picked from the full picker, newest first, for its Recent row. */
+        val recentEmoji: Flow<List<String>> =
+            dataStore.data.map { prefs -> prefs[RECENT_EMOJI]?.split(SEPARATOR)?.filter { it.isNotEmpty() }.orEmpty() }
+
+        suspend fun addRecentEmoji(emoji: String) {
+            dataStore.edit { prefs ->
+                val now =
+                    listOf(emoji) +
+                        prefs[RECENT_EMOJI]?.split(SEPARATOR).orEmpty().filter { it.isNotEmpty() && it != emoji }
+                prefs[RECENT_EMOJI] = now.take(MAX_RECENT).joinToString(SEPARATOR)
+            }
+        }
+
         fun keywordRules(): Flow<List<KeywordRule>> = keywordDao.observeAll().map { rows -> rows.map { it.toModel() } }
 
         suspend fun upsertKeywordRule(rule: KeywordRule) = keywordDao.upsert(rule.toEntity())
@@ -64,5 +95,15 @@ class SettingsRepository
             val INSTAGRAM_SHOW_GENERAL = booleanPreferencesKey("instagram_show_general")
             val APPEARANCE = stringPreferencesKey("appearance")
             val INBOX_BAR = stringPreferencesKey("inbox_bar")
+            val QUICK_REACTIONS = stringPreferencesKey("quick_reactions")
+            val DOUBLE_TAP = stringPreferencesKey("double_tap_reaction")
+            val RECENT_EMOJI = stringPreferencesKey("recent_emoji")
+
+            /** Emoji never contain a line break, so it separates them. */
+            const val SEPARATOR = "\n"
+            val DEFAULT_QUICK_REACTIONS = listOf("❤️", "😂", "👍", "😮", "😢", "🔥")
+            const val DEFAULT_DOUBLE_TAP = "❤️"
+            const val MAX_QUICK_REACTIONS = 8
+            const val MAX_RECENT = 32
         }
     }

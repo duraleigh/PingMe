@@ -10,6 +10,7 @@ import org.junit.Test
 import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.connector.SendResult
 import org.pingme.core.connector.chat
+import org.pingme.core.connector.message
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Quote
@@ -119,5 +120,59 @@ class MessageActionsTest : ServiceTest() {
             assertFalse("fewer than a page means that was all", actions.loadOlder(chatId, count = 5))
             assertEquals(3, messages.latest(chatId, 10).first().size)
             assertTrue("older history is never unread", chats.get(chatId)!!.unreadCount == 2)
+        }
+
+    @Test
+    fun reactionsReplaceYourOwnAndCanBeTakenBack() =
+        runTest {
+            seed()
+            applier.apply(
+                org.pingme.core.connector.ConnectorEvent
+                    .NewMessage(accountId, messageSnapshot("m1")),
+            )
+            applier.apply(
+                org.pingme.core.connector.ConnectorEvent
+                    .NewMessage(accountId, messageSnapshot("mine", outgoing = true)),
+            )
+
+            fun latest() = kotlinx.coroutines.runBlocking { messages.get(accountId.message("m1"))!! }
+            actions.react(latest(), "❤️")
+            actions.react(latest(), "😂")
+            assertEquals(listOf("😂"), latest().reactions.map { it.emoji })
+            actions.react(latest(), "😂", remove = true)
+            assertTrue(latest().reactions.isEmpty())
+        }
+
+    @Test
+    fun deletingForMeRemovesAndForEveryoneLeavesAPlaceholder() =
+        runTest {
+            seed()
+            applier.apply(
+                org.pingme.core.connector.ConnectorEvent
+                    .NewMessage(accountId, messageSnapshot("a", outgoing = true)),
+            )
+            applier.apply(
+                org.pingme.core.connector.ConnectorEvent
+                    .NewMessage(accountId, messageSnapshot("b", outgoing = true)),
+            )
+            actions.deleteForMe(listOf(messages.get(accountId.message("a"))!!))
+            assertEquals(null, messages.get(accountId.message("a")))
+            actions.deleteForEveryone(messages.get(accountId.message("b"))!!)
+            val b = messages.get(accountId.message("b"))!!
+            assertTrue(b.deletedForEveryone && b.body == null)
+        }
+
+    @Test
+    fun editingWhereTheNetworkCannotSaysWhy() =
+        runTest {
+            seed()
+            applier.apply(
+                org.pingme.core.connector.ConnectorEvent
+                    .NewMessage(accountId, messageSnapshot("a", outgoing = true)),
+            )
+            val failure =
+                runCatching { actions.edit(messages.get(accountId.message("a"))!!, "new") }.exceptionOrNull()
+            assertTrue(failure is org.pingme.core.connector.UnsupportedCapabilityException)
+            assertEquals("the text stays as it was", "hi", messages.get(accountId.message("a"))!!.body)
         }
 }
