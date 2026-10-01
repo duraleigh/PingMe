@@ -1629,10 +1629,14 @@ bind itself was run here: the AAR is 20.6 MB for arm64, x86_64, and arm.
 - `gobridge/build.sh` vets and tests the Go code, then binds. It keeps a hash of the Go
   sources beside the AAR and skips the bind when nothing changed (the bind itself takes
   4 seconds with a warm Go cache, about 2 minutes cold). `./build.sh --force` rebuilds.
-- Gradle runs it: `:connectors:gmessages` has a `buildGoBridge` task that the module's
-  compile depends on, so `./gradlew check` builds the bridge when needed. It needs Go,
-  gomobile, and the NDK, as `gobridge/README.md` says; the CI workflow (P0.4) already
-  installs those and caches `gobridge/build` by the hash of `gobridge/**`.
+- Gradle runs it: `gobridge/` is the `:gobridge` module, whose `buildGoBridge` task runs
+  the script and whose one artifact is the AAR; `:connectors:gmessages` depends on
+  `project(":gobridge")`. (A first try depended on the `.aar` file directly, which
+  `./gradlew check` accepted but `assembleRelease` on CI refused: the Android Gradle
+  Plugin will not bundle a local `.aar` inside a library module. Local checks now run
+  `assembleRelease` too before a push.) It needs Go, gomobile, and the NDK, as
+  `gobridge/README.md` says; the CI workflow (P0.4) already installs those and caches
+  `gobridge/build` by the hash of `gobridge/**`.
 - Go unit tests cover the conversion and write `gm/testdata/session.json` (`go test
   ./gm -update`), the recorded session the Kotlin tests read: `GoBridgeTest` checks the
   Kotlin translation against exactly what Go produces, and P3.2's contract test will
@@ -1651,6 +1655,13 @@ bind itself was run here: the AAR is 20.6 MB for arm64, x86_64, and arm.
 - `Message.type` from the phone is only partly documented in libgm (1 = SMS, 2 = MMS,
   3 = undownloaded MMS; "4 = RCS?"). The bridge trusts 1 to 3 and otherwise uses the
   chat's own type. Gate G2 checks RCS and SMS bubbles against what Google Messages shows.
+
+**App size, measured** (DESIGN.md open question 3): the release APK went from about 56 MB
+to 103 MB with the bridge, because the Go library ships for three chip types (arm64,
+x86_64, arm) and is stored uncompressed, as Android requires for native code. One phone
+only needs one of them; if the size matters to the owner, ABI splits (one APK per chip
+type) or dropping 32-bit arm would bring it back down. Worth deciding before Gate G2's
+install, since the APK is what gets downloaded onto the phone.
 
 **Library versions:** mautrix-gmessages v0.2609.0 (September 2026; `pkg/libgm`, not
 the `libgm/` path the plan guessed), which needs Go 1.26, so `GOTOOLCHAIN=auto` fetches

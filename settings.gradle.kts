@@ -25,6 +25,9 @@ rootProject.name = "PingMe"
 
 include(":app")
 
+// The Go bridge (BUILD_PLAN.md P3.1): libgm compiled with gomobile, published as an AAR.
+include(":gobridge")
+
 include(
     ":core:model",
     ":core:store",
