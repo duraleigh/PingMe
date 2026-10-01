@@ -68,7 +68,7 @@ class DemoInbox(
     val controls = DemoControls()
     val demo = DemoConnector(controls, MemoryCredentials(), dir.resolve("media"), Clock.System)
     val registry = ConnectorRegistry(mapOf(NetworkId.DEMO to demo))
-    val actions = ChatActions(chats, messages, accounts, registry, applier)
+    val actions = ChatActions(chats, messages, accounts, registry, applier, settings)
     val pins = PinnedMessageRepository(db)
     val scheduledSends =
         org.pingme.core.store
@@ -77,7 +77,18 @@ class DemoInbox(
     /** Counts wake-ups instead of asking Android's job system, which tests do not start. */
     val alarm = CountingAlarm(context, scheduledSends)
     val messageActions =
-        MessageActions(chats, messages, pins, accounts, registry, applier, Clock.System, scheduledSends, alarm)
+        MessageActions(
+            chats,
+            messages,
+            pins,
+            accounts,
+            registry,
+            applier,
+            Clock.System,
+            scheduledSends,
+            alarm,
+            settings,
+        )
     val account =
         Account(
             AccountId("demo"),
@@ -112,6 +123,9 @@ class DemoInbox(
             InboxBarRepository(settings),
             Clock.System,
             SavedStateHandle(),
+            settings,
+            org.pingme.app.appearance
+                .AppearanceRepository(context, settings),
         ).tracked()
 
     fun listViewModel(route: ChatListRoute) =
@@ -193,6 +207,20 @@ class DemoInbox(
                 messageActions,
                 Clock.System,
                 requests,
+            ).tracked()
+
+    fun settingsViewModel() =
+        org.pingme.app.settings
+            .SettingsViewModel(
+                settings,
+                accounts,
+                chats,
+                org.pingme.app.appearance
+                    .AppearanceRepository(context, settings),
+                InboxBarRepository(settings),
+                org.pingme.core.store
+                    .BackupStore(context, db),
+                context,
             ).tracked()
 
     fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()

@@ -3,6 +3,7 @@ package org.pingme.core.service
 
 import android.util.Log
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import org.pingme.core.connector.Connector
 import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.connector.UnsupportedCapabilityException
@@ -32,6 +33,7 @@ class ChatActions
         private val accounts: AccountRepository,
         private val registry: ConnectorRegistry,
         private val applier: EventApplier,
+        private val settings: org.pingme.core.store.SettingsRepository,
     ) {
         /** Pins or unpins. Returns false when pinning would pass [MAX_PINS]. */
         suspend fun setPinned(
@@ -85,6 +87,14 @@ class ChatActions
         private suspend fun sendReadMarker(id: ChatId) {
             val newest = messages.newest(id) ?: return
             val network = accounts.get(id.accountId)?.network ?: return
+            // "Send read receipts" off: the network never hears it (UI_DESIGN.md 10.3).
+            if (!settings.app
+                    .first()
+                    .privacy
+                    .sendsReadReceipts(network)
+            ) {
+                return
+            }
             val connector = registry[network] ?: return
             try {
                 connector.markRead(id, newest)

@@ -277,6 +277,7 @@ fun ChatOverlays(
         PingMeTheme.motion,
         MaterialTheme.colorScheme.primary,
         MaterialTheme.colorScheme.tertiary,
+        actions.settings.specialEmoji,
         onLand = { burst -> burst.key?.let { id -> ui.wobble[id] = (ui.wobble[id] ?: 0) + 1 } },
     )
 }

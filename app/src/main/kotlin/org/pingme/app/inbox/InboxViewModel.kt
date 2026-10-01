@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -50,6 +52,8 @@ class InboxViewModel
         private val barRepository: InboxBarRepository,
         private val clock: Clock,
         private val saved: SavedStateHandle,
+        private val settings: org.pingme.core.store.SettingsRepository,
+        private val appearance: org.pingme.app.appearance.AppearanceRepository,
     ) : ViewModel() {
         private val rowActions = RowActions(viewModelScope, actions)
         private val selected = saved.getStateFlow<String?>(SELECTED, null).map { it?.let(::decodeItem) }
@@ -117,8 +121,14 @@ class InboxViewModel
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), InboxUiState())
 
-        /** Reactions to flip rows for (UI_DESIGN.md 10.8). */
-        val reactions = reactionFeed.reactions
+        /** Reactions to flip rows for, while Flippy reactions is on (UI_DESIGN.md 10.8). */
+        val reactions =
+            reactionFeed.reactions.filter {
+                org.pingme.app.settings.flippyOn(
+                    settings.app.first().flippyReactions,
+                    appearance.appearance.first().motion,
+                )
+            }
 
         val messages = rowActions.messages
 

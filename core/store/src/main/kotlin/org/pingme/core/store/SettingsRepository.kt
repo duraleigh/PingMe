@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
+import org.pingme.core.model.AppSettings
 import org.pingme.core.model.KeywordRule
 import org.pingme.core.model.KeywordRuleId
 import org.pingme.core.store.db.PingMeDatabase
@@ -85,6 +87,21 @@ class SettingsRepository
             }
         }
 
+        /** Everything in Settings apart from appearance, reactions, and the inbox bar (BUILD_PLAN.md P2.6). */
+        val app: Flow<AppSettings> = dataStore.data.map { decode(it[APP_SETTINGS]) }
+
+        suspend fun updateApp(change: (AppSettings) -> AppSettings) {
+            dataStore.edit { prefs ->
+                prefs[APP_SETTINGS] =
+                    json.encodeToString(AppSettings.serializer(), change(decode(prefs[APP_SETTINGS])))
+            }
+        }
+
+        // Settings that cannot be read (a damaged file) fall back to the defaults rather than crash.
+        private fun decode(text: String?): AppSettings =
+            text?.let { runCatching { json.decodeFromString(AppSettings.serializer(), it) }.getOrNull() }
+                ?: AppSettings()
+
         fun keywordRules(): Flow<List<KeywordRule>> = keywordDao.observeAll().map { rows -> rows.map { it.toModel() } }
 
         suspend fun upsertKeywordRule(rule: KeywordRule) = keywordDao.upsert(rule.toEntity())
@@ -98,6 +115,8 @@ class SettingsRepository
             val QUICK_REACTIONS = stringPreferencesKey("quick_reactions")
             val DOUBLE_TAP = stringPreferencesKey("double_tap_reaction")
             val RECENT_EMOJI = stringPreferencesKey("recent_emoji")
+            val APP_SETTINGS = stringPreferencesKey("app_settings")
+            val json = Json { ignoreUnknownKeys = true }
 
             /** Emoji never contain a line break, so it separates them. */
             const val SEPARATOR = "\n"

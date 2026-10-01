@@ -95,6 +95,7 @@ fun ChatRoute(
     val player = rememberVoicePlayer()
     val searching by viewModel.search.state.collectAsStateWithLifecycle()
     val overrides by viewModel.overrides.collectAsStateWithLifecycle()
+    val appSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val jump by viewModel.jumps.request.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -124,6 +125,7 @@ fun ChatRoute(
                     forwardTargets = forwardTargets,
                     uploads = uploads,
                     player = player,
+                    settings = appSettings,
                     search = searchHooks(viewModel, searching, jump),
                     composer = composerHooks(viewModel, state, notice),
                 ),
@@ -210,6 +212,7 @@ internal fun rowContext(
         { m -> m.replyTo?.let { onJump(it.value) } },
         actions.uploads,
         actions.player,
+        actions.settings.media.gifsAutoplay,
     )
 
 @Composable

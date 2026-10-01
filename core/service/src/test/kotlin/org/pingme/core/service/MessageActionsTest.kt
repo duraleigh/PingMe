@@ -39,6 +39,7 @@ class MessageActionsTest : ServiceTest() {
             clock,
             scheduledSends,
             alarm,
+            settings,
         )
     }
     private val scheduledSends by lazy {
@@ -275,6 +276,16 @@ class MessageActionsTest : ServiceTest() {
                 )
             actions.forward(original, chatId)
             assertEquals(listOf(photo.path), drafts.last().attachments.map { it.localPath })
+        }
+
+    @Test
+    fun typingOffSendsNoTypingEvents() =
+        runTest {
+            seed()
+            actions.setTyping(chatId, true)
+            settings.updateApp { it.copy(privacy = it.privacy.copy(typing = false)) }
+            actions.setTyping(chatId, true)
+            assertEquals("only the first, before it was turned off", listOf(true), connector.typingSent)
         }
 
     private companion object {

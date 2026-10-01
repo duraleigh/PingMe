@@ -373,7 +373,8 @@ private fun swipeLook(
 
 /**
  * Turns the row over to show [emoji] large for 900 ms, then back (UI_DESIGN.md 10.8,
- * BUILD_PLAN.md P2.3). Only at Full and Extra motion; otherwise the reaction just passes.
+ * BUILD_PLAN.md P2.3). The inbox only sends reactions while Flippy reactions is on; with
+ * motion off nothing turns.
  */
 @Composable
 private fun FlipCard(
@@ -381,7 +382,7 @@ private fun FlipCard(
     onDone: () -> Unit,
     front: @Composable () -> Unit,
 ) {
-    val flips = PingMeTheme.motion == MotionIntensity.FULL || PingMeTheme.motion == MotionIntensity.EXTRA
+    val flips = PingMeTheme.motion != MotionIntensity.OFF
     val turn = remember { Animatable(0f) }
     val done by rememberUpdatedState(onDone)
     LaunchedEffect(emoji) {

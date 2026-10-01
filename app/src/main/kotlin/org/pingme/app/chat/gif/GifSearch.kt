@@ -4,9 +4,11 @@ package org.pingme.app.chat.gif
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
@@ -35,11 +37,35 @@ data class GifPickerState(
 class GifSearch(
     private val scope: CoroutineScope,
     val store: GifStore,
+    /** Settings' "GIF search"; off leaves favourites only (UI_DESIGN.md 5.5). */
+    enabled: Flow<Boolean> = flowOf(true),
 ) {
-    private val provider = store.provider
+    private val built = store.provider
+    private var provider = built
     private val now =
-        MutableStateFlow(GifPickerState(online = provider != null, attribution = provider?.attribution.orEmpty()))
+        MutableStateFlow(GifPickerState(online = built != null, attribution = built?.attribution.orEmpty()))
     private var loading: Job? = null
+
+    init {
+        scope.launch {
+            enabled.collect { on ->
+                provider = built?.takeIf { on }
+                now.update {
+                    it.copy(
+                        online = provider != null,
+                        tab =
+                            if (provider ==
+                                null
+                            ) {
+                                GifTab.FAVOURITES
+                            } else {
+                                it.tab
+                            },
+                    )
+                }
+            }
+        }
+    }
 
     val state: StateFlow<GifPickerState> = now.asStateFlow()
 

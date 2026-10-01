@@ -40,6 +40,7 @@ class ConnectorSupervisor
         private val credentials: CredentialStore,
         private val applier: EventApplier,
         private val router: NotificationRouter,
+        private val keeper: MediaKeeper,
         private val clock: Clock,
         private val retryDelays: RetryDelays,
         @ApplicationScope private val scope: CoroutineScope,
@@ -124,6 +125,7 @@ class ConnectorSupervisor
                     }
                     applier.apply(event)
                     router.onEvent(event)
+                    if (event is ConnectorEvent.NewMessage) keeper.arrived(event.message.message)
                 }
                 if (connected) Outcome.Dropped else Outcome.Failed
             } catch (e: CancellationException) {

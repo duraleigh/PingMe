@@ -35,6 +35,7 @@ class ConnectorSupervisorTest : ServiceTest() {
                 credentials = credentials,
                 applier = applier,
                 router = router,
+                keeper = keeper,
                 clock = clock,
                 retryDelays = { delays(it) },
                 scope = scope,

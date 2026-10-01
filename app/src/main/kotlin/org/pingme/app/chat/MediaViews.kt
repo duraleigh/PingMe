@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +65,7 @@ internal fun AttachmentView(
     onNeed: (Attachment) -> Unit,
     progress: Float? = null,
     player: VoicePlayer? = null,
+    autoplay: Boolean = true,
 ) {
     val need by rememberUpdatedState(onNeed)
     LaunchedEffect(attachment.id, attachment.localPath) { need(attachment) }
@@ -71,7 +73,11 @@ internal fun AttachmentView(
     val open = { attachment.localPath?.let { openFile(context, File(it), attachment.mimeType) } }
     Box(Modifier.padding(bottom = 6.dp)) {
         when (attachment.kind) {
-            AttachmentKind.IMAGE, AttachmentKind.GIF, AttachmentKind.STICKER -> {
+            AttachmentKind.GIF -> {
+                if (autoplay) Picture(attachment) else GifOnTap(attachment)
+            }
+
+            AttachmentKind.IMAGE, AttachmentKind.STICKER -> {
                 Picture(attachment)
             }
 
@@ -112,6 +118,35 @@ private fun Picture(attachment: Attachment) {
         contentScale = ContentScale.Crop,
         modifier = Modifier.mediaFrame(),
     )
+}
+
+// Data saver: a GIF shows still with a GIF mark until tapped (UI_DESIGN.md 5.5).
+@Composable
+private fun GifOnTap(attachment: Attachment) {
+    var playing by androidx.compose.runtime.saveable.rememberSaveable(attachment.id.value) {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
+    if (playing) {
+        Picture(attachment)
+        return
+    }
+    val context = LocalContext.current
+    val still =
+        coil3.request.ImageRequest
+            .Builder(context)
+            .data(attachment.localPath?.let(::File))
+            .decoderFactory(coil3.decode.BitmapFactoryDecoder.Factory())
+            .build()
+    Box(Modifier.mediaFrame().clickable { playing = true }, Alignment.Center) {
+        AsyncImage(still, attachment.fileName, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+        Surface(shape = CircleShape, color = Color.Black.copy(alpha = SCRIM), contentColor = Color.White) {
+            Text(
+                stringResource(R.string.gif),
+                Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
 }
 
 @Composable

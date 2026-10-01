@@ -47,7 +47,7 @@ class WorkersTest : ServiceTest() {
                     }
 
                     MediaDownloadWorker::class.java.name -> {
-                        MediaDownloadWorker(appContext, workerParameters, registry, accounts, messages)
+                        MediaDownloadWorker(appContext, workerParameters, registry, accounts, messages, keeper)
                     }
 
                     ScheduledSendWorker::class.java.name -> {

@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.Json
 import org.pingme.core.connector.Connector
@@ -60,6 +61,7 @@ class MessageActions
         private val clock: Clock,
         private val scheduled: ScheduledSendRepository,
         private val alarm: SendAlarm,
+        private val settings: org.pingme.core.store.SettingsRepository,
     ) {
         private val uploads = MutableStateFlow<Map<MessageId, Float>>(emptyMap())
 
@@ -258,6 +260,15 @@ class MessageActions
         ) {
             val connector = connectorFor(chatId) ?: return
             if (!connector.capabilities.typing) return
+            // "Show when I am typing" off: no typing events go out (UI_DESIGN.md 10.3).
+            val network = networkOf(chatId) ?: return
+            if (!settings.app
+                    .first()
+                    .privacy
+                    .sendsTyping(network)
+            ) {
+                return
+            }
             quietly("typing") { connector.setTyping(chatId, typing) }
         }
 
