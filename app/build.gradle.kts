@@ -56,6 +56,13 @@ android {
         release {
             signingConfig = signingConfigs.getByName(if (sideloadKeystore != null) "sideload" else "debug")
         }
+        // The demo build (BUILD_PLAN.md P2.8, Gate G1): the demo network, installed beside the
+        // real app as "PingMe Demo", and signed with the sideload key on CI so it updates in place.
+        debug {
+            applicationIdSuffix = ".demo"
+            versionNameSuffix = "-demo"
+            if (sideloadKeystore != null) signingConfig = signingConfigs.getByName("sideload")
+        }
     }
 
     buildFeatures {
