@@ -1570,6 +1570,7 @@ over your PingMe Demo and keeps your setup.
 
 **Next:** your results. Anything wrong gets fixed and re-checked; when G1 passes, Phase 3 starts
 (P3.1, the Go bridge).
+
 ## Owner decision for Phase 3 (2026-10-01): Google account pairing only
 
 The owner decided that PingMe pairs with Google Messages by **Google account pairing only**;
