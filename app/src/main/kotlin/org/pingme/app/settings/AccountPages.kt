@@ -5,8 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import org.pingme.app.R
 import org.pingme.app.appearance.ColorPickerSheet
 import org.pingme.app.inbox.displayName
+import org.pingme.app.setup.NetworkChoices
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.ConnectionState
@@ -35,9 +38,12 @@ import org.pingme.core.ui.components.SwitchSetting
 @Composable
 fun AccountList(
     state: SettingsState,
+    networks: List<NetworkId>,
     onOpen: (AccountId) -> Unit,
+    onAdd: (NetworkId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var adding by remember { mutableStateOf(false) }
     Column(modifier) {
         if (state.accounts.isEmpty()) Text(stringResource(R.string.account_none), Modifier.padding(16.dp))
         state.accounts.forEach { account ->
@@ -59,6 +65,17 @@ fun AccountList(
                 modifier = Modifier.clickable { onOpen(account.id) },
             )
         }
+        val add = stringResource(R.string.accounts_add)
+        AssistChip({ adding = true }, { Text(add) }, Modifier.padding(horizontal = 16.dp))
+    }
+    // Which network to add, each with its risk, as in setup (DESIGN.md 7).
+    if (adding) {
+        ModalBottomSheet({ adding = false }) {
+            NetworkChoices(networks, {
+                adding = false
+                onAdd(it)
+            }, Modifier.padding(bottom = 24.dp))
+        }
     }
 }
 
@@ -71,6 +88,7 @@ fun AccountPage(
     state: SettingsState,
     id: AccountId,
     actions: SettingsActions,
+    onLogInAgain: (Account) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val account = state.accounts.firstOrNull { it.id == id } ?: return
@@ -107,6 +125,11 @@ fun AccountPage(
         ListItem(
             headlineContent = { Text(stringResource(R.string.account_state)) },
             supportingContent = { Text(stateLabel(account.state)) },
+        )
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.account_log_in_again)) },
+            supportingContent = { Text(stringResource(R.string.account_log_in_again_note)) },
+            modifier = Modifier.clickable { onLogInAgain(account) },
         )
     }
     if (renaming) RenameAccount(account, { name -> change { it.copy(displayName = name) } }) { renaming = false }

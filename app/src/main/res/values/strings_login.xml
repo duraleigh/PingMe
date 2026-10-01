@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="login_title">Connect %1$s</string>
+    <string name="login_again_title">Log in to %1$s again</string>
+    <string name="login_qr">QR code to scan</string>
+    <string name="login_qr_share">Show it on another screen</string>
+    <string name="login_continue">Continue</string>
+    <string name="login_web_done">I have signed in</string>
+    <string name="login_try_again">Try again</string>
+    <string name="login_starting">Starting…</string>
+    <string name="accounts_add">Add account</string>
+    <string name="account_log_in_again">Log in again</string>
+    <string name="account_log_in_again_note">Use this when the network has logged PingMe out.</string>
+</resources>

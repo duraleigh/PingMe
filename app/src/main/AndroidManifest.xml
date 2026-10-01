@@ -19,6 +19,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Turns the screen off while a voice note plays at the ear. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Setup asks to keep the connection service alive (DESIGN.md 6.4). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Moves voice-note playback to the earpiece when the phone is raised. -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- The apps the call icons and "open the app" hand off to (UI_DESIGN.md 10.17). -->

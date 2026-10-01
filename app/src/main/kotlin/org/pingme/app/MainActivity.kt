@@ -29,8 +29,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val appearance by theme.appearance.collectAsStateWithLifecycle()
+            val setupDone by theme.setupDone.collectAsStateWithLifecycle()
             // Read from disk in a few milliseconds; drawing nothing until then avoids a flash of the default look.
-            appearance?.let { PingMeTheme(it) { PingMeNavHost() } }
+            val look = appearance
+            val done = setupDone
+            if (look != null && done != null) PingMeTheme(look) { PingMeNavHost(startAtSetup = !done) }
         }
     }
 }

@@ -1019,4 +1019,44 @@ New: `AppSettings` (core/model) in the settings store, `SettingsViewModel` with
 - Stored now, take effect later as the plan says: network, folder, and keyword sounds
   and keyword matching, and auto-copy codes (P4.1); link previews and clean links (P4.3).
 
+**Also noted:** the plan names spaces and the bottom-bar settings again in Phase 7, and
+backup again in Phase 8 ("database and settings ... encrypted"). P2.6 builds what P2.6
+lists; Phase 8 adds the settings and encryption to the backup.
+
 **Next:** P2.7, Setup flow.
+
+## P2.7 Setup flow (done, 2026-10-01)
+
+PingMe opens on setup until setup has run once. One decision per screen, with a step
+count and a wavy progress bar:
+1. **Texting mode:** Google Messages mode (marked Recommended) or Native SMS mode, each
+   explained in plain words; "you can change this later".
+2. **Notifications** (Android 13 and later only), **Stay connected** (the battery
+   optimisation exemption; says so if it is already allowed), and **Contacts**: each says
+   why, then Allow or Not now.
+3. **First network:** every network this build has, each with its risk in plain words
+   (DESIGN.md 7). Tapping one opens its login; "Set up later" goes to the inbox.
+
+The **login screen** draws any connector's `LoginStep`s: choices, a QR code (ZXing,
+dark on white, with "Show it on another screen" through the share sheet), text entry
+(phone keyboard, code keyboard, hidden passwords and tokens, the connector's error),
+the network's own sign-in page in a WebView (its cookies for the named domains go back
+to the connector), the wait for confirmation (the Expressive shape-morphing indicator,
+with the matching emoji at display size), and failure with Try again. When it finishes
+the account is saved and starts connecting, and setup is done.
+
+The same screen is used from **Settings > Accounts > Add account** (a network picker
+with the same risk lines) and an account's **Log in again**, which keeps the account and
+its chats and only replaces the login.
+
+New: `TextingMode` and `setupDone` in `AppSettings`; the `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`
+permission; library `com.google.zxing:core` 3.5.4 (Apache-2.0).
+
+**Deviations and what comes later:**
+- **Native SMS mode** is stored but does nothing yet: becoming the default SMS app needs
+  the SMS connector (Milestone 2, Phase 5 in the plan), which brings the role request.
+- The Google Messages checks (installed, default, RCS on) and the offer to silence Google
+  Messages' own notifications are in P3.2 and P4.1, with that connector.
+- No icon for battery ships in the icon set, so Stay connected uses the sync icon.
+
+**Next:** P2.8, acceptance for Phase 2.

@@ -4,6 +4,7 @@ package org.pingme.app
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.LocalActivity
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
@@ -17,6 +18,7 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -35,9 +37,12 @@ import org.pingme.app.inbox.MenuActions
 import org.pingme.app.inbox.NewChatRoute
 import org.pingme.app.inbox.SearchRoute
 import org.pingme.app.inbox.route
+import org.pingme.app.login.LoginRoute
 import org.pingme.app.settings.SettingsNavigation
 import org.pingme.app.settings.SettingsPage
 import org.pingme.app.settings.SettingsRoute
+import org.pingme.app.setup.SetupNavigation
+import org.pingme.app.setup.SetupRoute
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
@@ -68,17 +73,58 @@ data class SettingsDest(
     val account: String? = null,
 )
 
+/** First-run setup (BUILD_PLAN.md P2.7). */
+@Serializable
+object Setup
+
+/** A network's login; [account] logs that account in again, [fromSetup] ends setup when it finishes. */
+@Serializable
+data class LoginDest(
+    val network: String,
+    val account: String? = null,
+    val fromSetup: Boolean = false,
+)
+
 /** Chat details for one chat (UI_DESIGN.md 3.4), over the chat it came from. */
 @Serializable
 data class ChatDetails(
     val chatId: String,
 )
 
+// First-run setup and every network login (BUILD_PLAN.md P2.7).
+private fun NavGraphBuilder.setupAndLogin(nav: NavController) {
+    composable<Setup> {
+        val activity = LocalActivity.current
+        SetupRoute(
+            SetupNavigation(
+                onLogin = { nav.navigate(LoginDest(it.name, fromSetup = true)) },
+                onDone = { nav.navigate(Home) { popUpTo<Setup> { inclusive = true } } },
+                onLeave = { activity?.finish() },
+            ),
+        )
+    }
+    composable<LoginDest> { entry ->
+        val again = entry.arguments?.getString("account") != null
+        val fromSetup = entry.arguments?.getBoolean("fromSetup") == true
+        LoginRoute(
+            again,
+            onFinish = {
+                if (fromSetup) nav.navigate(Home) { popUpTo<Setup> { inclusive = true } } else nav.popBackStack()
+            },
+            onBack = { nav.popBackStack() },
+        )
+    }
+}
+
 @Composable
-fun PingMeNavHost(modifier: Modifier = Modifier) {
+fun PingMeNavHost(
+    startAtSetup: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val nav = rememberNavController()
-    NavHost(nav, startDestination = Home, modifier = modifier) {
+    NavHost(nav, startDestination = if (startAtSetup) Setup else Home, modifier = modifier) {
         composable<Home> { InboxHome(nav) }
+        setupAndLogin(nav)
         composable<OpenChat> { entry ->
             val id = ChatId(entry.arguments?.getString("chatId").orEmpty())
             ChatRoute(id, onBack = { nav.popBackStack() }, onDetails = { nav.navigate(ChatDetails(id.value)) })
@@ -113,6 +159,7 @@ fun PingMeNavHost(modifier: Modifier = Modifier) {
                         org.pingme.app.settings
                             .restartApp(context)
                     },
+                    onLogin = { network, account -> nav.navigate(LoginDest(network.name, account?.value)) },
                 ),
                 account = entry.arguments?.getString("account")?.let(::AccountId),
             )

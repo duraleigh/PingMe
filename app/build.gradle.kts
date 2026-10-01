@@ -110,6 +110,7 @@ dependencies {
     implementation(libs.materialkolor.utilities)
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
+    implementation(libs.zxing.core)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

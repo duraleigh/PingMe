@@ -26,6 +26,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.pingme.app.R
 import org.pingme.core.model.AccountId
+import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.R as UiR
 
 /** One page of Settings. [ACCOUNT] is one account's page. */
@@ -59,6 +60,8 @@ class SettingsNavigation(
     val onAppearance: () -> Unit,
     /** After a restore the app starts again on the restored database. */
     val onRestart: () -> Unit,
+    /** A network's login: a new account, or [AccountId] logging in again. */
+    val onLogin: (NetworkId, AccountId?) -> Unit,
 )
 
 /** A Settings page with the shared view model (BUILD_PLAN.md P2.6). */
@@ -72,21 +75,13 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val actions: SettingsActions = viewModel
-    val spaces: SpaceActions = viewModel
-    val backup: BackupActions = viewModel
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val title =
-        if (page ==
-            SettingsPage.ACCOUNT
-        ) {
-            state.accounts
-                .firstOrNull { it.id == account }
-                ?.displayName
-                .orEmpty()
-        } else {
-            stringResource(page.title)
-        }
+    val named =
+        state.accounts
+            .firstOrNull { it.id == account }
+            ?.displayName
+            .orEmpty()
+    val title = if (page == SettingsPage.ACCOUNT) named else stringResource(page.title)
     Scaffold(
         modifier = modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
@@ -102,30 +97,77 @@ fun SettingsRoute(
         },
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
-            when (page) {
-                SettingsPage.HOME -> home(navigation)
+            pageItems(page, state, account, navigation, viewModel)
+        }
+    }
+}
 
-                SettingsPage.ACCOUNTS -> item { AccountList(state, navigation.onAccount) }
+// One page's content; each page gets only the actions it needs.
+private fun LazyListScope.pageItems(
+    page: SettingsPage,
+    state: SettingsState,
+    account: AccountId?,
+    navigation: SettingsNavigation,
+    viewModel: SettingsViewModel,
+) {
+    val actions: SettingsActions = viewModel
+    val spaces: SpaceActions = viewModel
+    val backup: BackupActions = viewModel
+    when (page) {
+        SettingsPage.HOME -> {
+            home(navigation)
+        }
 
-                SettingsPage.ACCOUNT -> item { account?.let { AccountPage(state, it, actions) } }
-
-                SettingsPage.PRIVACY -> item { PrivacyPage(state, actions) }
-
-                SettingsPage.REACTIONS -> item { ReactionsPage(state, actions) }
-
-                SettingsPage.MOTION -> item { MotionPage(state, actions) }
-
-                SettingsPage.NOTIFICATIONS -> item { NotificationsPage(state, actions) }
-
-                SettingsPage.STORAGE -> item { StoragePage(state, actions) }
-
-                SettingsPage.SPACES -> item { SpacesPage(state, spaces) }
-
-                SettingsPage.BACKUP -> item { BackupPage(state.backup, backup, navigation.onRestart) }
-
-                // Appearance is its own studio screen, opened from the list.
-                SettingsPage.APPEARANCE -> Unit
+        SettingsPage.ACCOUNTS -> {
+            item {
+                AccountList(state, viewModel.networks, navigation.onAccount, { navigation.onLogin(it, null) })
             }
+        }
+
+        SettingsPage.ACCOUNT -> {
+            item {
+                account?.let {
+                    AccountPage(
+                        state,
+                        it,
+                        actions,
+                        { a -> navigation.onLogin(a.network, a.id) },
+                    )
+                }
+            }
+        }
+
+        SettingsPage.PRIVACY -> {
+            item { PrivacyPage(state, actions) }
+        }
+
+        SettingsPage.REACTIONS -> {
+            item { ReactionsPage(state, actions) }
+        }
+
+        SettingsPage.MOTION -> {
+            item { MotionPage(state, actions) }
+        }
+
+        SettingsPage.NOTIFICATIONS -> {
+            item { NotificationsPage(state, actions) }
+        }
+
+        SettingsPage.STORAGE -> {
+            item { StoragePage(state, actions) }
+        }
+
+        SettingsPage.SPACES -> {
+            item { SpacesPage(state, spaces) }
+        }
+
+        SettingsPage.BACKUP -> {
+            item { BackupPage(state.backup, backup, navigation.onRestart) }
+        }
+
+        // Appearance is its own studio screen, opened from the list.
+        SettingsPage.APPEARANCE -> {
+            Unit
         }
     }
 }

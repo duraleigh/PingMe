@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="setup_next">Next</string>
+    <string name="setup_not_now">Not now</string>
+    <string name="setup_allow">Allow</string>
+    <string name="setup_step">Step %1$d of %2$d</string>
+
+    <string name="setup_mode_title">How should texts reach PingMe?</string>
+    <string name="setup_mode_gm">Google Messages mode</string>
+    <string name="setup_mode_gm_badge">Recommended</string>
+    <string name="setup_mode_gm_body">Google Messages stays your texting app and keeps RCS on. PingMe pairs with it and gets your RCS, SMS, and MMS through it. PingMe asks for no SMS permissions.</string>
+    <string name="setup_mode_sms">Native SMS mode</string>
+    <string name="setup_mode_sms_body">PingMe becomes your texting app. SMS and MMS never disconnect, but RCS is off, because Google Messages turns it off when it is not the texting app.</string>
+    <string name="setup_mode_later">You can change this later in Settings.</string>
+
+    <string name="setup_notify_title">Get told about new messages</string>
+    <string name="setup_notify_body">PingMe shows a notification when a message comes in, and one quiet notification while it stays connected. Android asks you to allow this.</string>
+
+    <string name="setup_battery_title">Stay connected</string>
+    <string name="setup_battery_body">Android stops apps in the background to save battery. If it stops PingMe, your messages arrive late. Allowing this lets PingMe keep its connections open. It sleeps them when your phone is idle.</string>
+    <string name="setup_battery_done">PingMe can already stay connected.</string>
+
+    <string name="setup_contacts_title">Use your contacts</string>
+    <string name="setup_contacts_body">PingMe uses your contacts for names and photos, matching people by phone number. Your contacts never leave your phone.</string>
+
+    <string name="setup_network_title">Connect your first network</string>
+    <string name="setup_network_body">You can add more networks later in Settings > Accounts.</string>
+    <string name="setup_network_later">Set up later</string>
+    <string name="setup_network_none">No networks are in this version yet.</string>
+
+    <string name="risk_official">Official. No risk to your account.</string>
+    <string name="risk_tolerated">Unofficial, but the network has allowed apps like this for years.</string>
+    <string name="risk_against_terms">Against the network\'s rules. Accounts are rarely banned for it, but it can happen.</string>
+    <string name="risk_ban">Against the network\'s rules, with a real chance of your account being banned. Use a spare account if you can.</string>
+    <string name="risk_page">Official. Replies to a person are only allowed within 24 hours of their last message.</string>
+    <string name="risk_demo">Pretend messages to try PingMe. Nothing leaves your phone.</string>
+</resources>
