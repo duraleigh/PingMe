@@ -105,6 +105,7 @@ fun SettingsRoute(
                 SettingsPage.PRIVACY -> item { PrivacyPage(state, actions) }
                 SettingsPage.REACTIONS -> item { ReactionsPage(state, actions) }
                 SettingsPage.MOTION -> item { MotionPage(state, actions) }
+                SettingsPage.NOTIFICATIONS -> item { NotificationsPage(state, actions) }
                 else -> Unit
             }
         }

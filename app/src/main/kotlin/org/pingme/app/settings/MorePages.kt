@@ -6,6 +6,7 @@ val BUILT_PAGES =
     setOf(
         SettingsPage.ACCOUNTS,
         SettingsPage.APPEARANCE,
+        SettingsPage.NOTIFICATIONS,
         SettingsPage.PRIVACY,
         SettingsPage.REACTIONS,
         SettingsPage.MOTION,

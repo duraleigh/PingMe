@@ -14,6 +14,8 @@ import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.AppSettings
 import org.pingme.core.model.Chat
+import org.pingme.core.model.KeywordRule
+import org.pingme.core.model.NotificationProfile
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.SettingsRepository
@@ -31,6 +33,9 @@ data class SettingsState(
     val showGeneral: Boolean = true,
     /** Chats the user has obscured, listed under Privacy (UI_DESIGN.md 10.10). */
     val obscured: List<Chat> = emptyList(),
+    /** Every chat, for keywords that apply to some chats only (UI_DESIGN.md 10.9). */
+    val chats: List<Chat> = emptyList(),
+    val keywords: List<KeywordRule> = emptyList(),
 )
 
 /** What the Settings pages can change; the view model does it. */
@@ -52,6 +57,14 @@ interface SettingsActions {
     )
 
     fun unobscure(chat: Chat)
+
+    /** Adds or changes a keyword rule, with its sound and vibration. */
+    fun saveKeyword(
+        rule: KeywordRule,
+        sound: NotificationProfile,
+    )
+
+    fun deleteKeyword(rule: KeywordRule)
 }
 
 /** Settings: accounts, privacy, reactions, motion, and the rest (UI_DESIGN.md 4, 5.4, 6, 10). */
@@ -71,9 +84,20 @@ class SettingsViewModel
                 accounts.accounts(),
                 combine(settings.quickReactions, settings.doubleTapReaction, settings.recentEmoji, ::Triple),
                 combine(appearance.appearance, settings.instagramShowGeneral, ::Pair),
-                chats.all(),
-            ) { app, all, (quick, double, recent), (look, general), every ->
-                SettingsState(app, all, quick, double, recent, look, general, every.filter { it.isObscured })
+                combine(chats.all(), settings.keywordRules(), ::Pair),
+            ) { app, all, (quick, double, recent), (look, general), (every, keywords) ->
+                SettingsState(
+                    app,
+                    all,
+                    quick,
+                    double,
+                    recent,
+                    look,
+                    general,
+                    every.filter { it.isObscured },
+                    every,
+                    keywords,
+                )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), SettingsState())
 
         override fun update(change: (AppSettings) -> AppSettings) = launch { settings.updateApp(change) }
@@ -92,6 +116,26 @@ class SettingsViewModel
         ) = launch { accounts.get(id)?.let { accounts.upsert(change(it)) } }
 
         override fun unobscure(chat: Chat) = launch { chats.update(chat.id) { it.copy(isObscured = false) } }
+
+        override fun saveKeyword(
+            rule: KeywordRule,
+            sound: NotificationProfile,
+        ) = launch {
+            settings.upsertKeywordRule(rule)
+            settings.updateApp { app ->
+                val notify = app.notifications
+                app.copy(notifications = notify.copy(keywords = notify.keywords + (rule.id.value to sound)))
+            }
+        }
+
+        override fun deleteKeyword(rule: KeywordRule) =
+            launch {
+                settings.deleteKeywordRule(rule.id)
+                settings.updateApp { app ->
+                    val notify = app.notifications
+                    app.copy(notifications = notify.copy(keywords = notify.keywords - rule.id.value))
+                }
+            }
 
         private fun launch(block: suspend () -> Unit) {
             viewModelScope.launch { block() }

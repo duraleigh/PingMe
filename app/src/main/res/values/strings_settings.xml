@@ -70,4 +70,22 @@
 
     <string name="motion_flippy">Flippy reactions</string>
     <string name="motion_flippy_note">A chat\'s row in the inbox flips over to show a new reaction.</string>
+    <string name="notify_networks">Each network</string>
+    <string name="notify_folders">Instagram folders</string>
+    <string name="notify_folder_requests">Requests</string>
+    <string name="notify_keywords">Keywords</string>
+    <string name="notify_keywords_note">A message with one of these words notifies you even in a quiet chat, and the notification says which word matched.</string>
+    <string name="notify_keyword_add">Add keyword</string>
+    <string name="notify_keyword_title">Keyword</string>
+    <string name="notify_keyword_word">Word or phrase</string>
+    <string name="notify_keyword_whole">Whole word only</string>
+    <string name="notify_keyword_case">Match capital letters exactly</string>
+    <string name="notify_keyword_override">Override Low priority and mute</string>
+    <string name="notify_keyword_where">Applies to</string>
+    <string name="notify_keyword_everywhere">All chats</string>
+    <string name="notify_keyword_accounts">Some accounts</string>
+    <string name="notify_keyword_chats">Some chats</string>
+    <string name="notify_keyword_delete">Delete %1$s</string>
+    <string name="notify_auto_copy">Auto-copy one-time codes</string>
+    <string name="notify_auto_copy_note">When a message brings a login code, PingMe copies it so you can paste it. Android hides it from clipboard previews.</string>
 </resources>

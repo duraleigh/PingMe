@@ -3,10 +3,13 @@ package org.pingme.app.settings
 
 import android.os.Looper
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextInput
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -19,6 +22,9 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.pingme.app.inbox.DemoInbox
 import org.pingme.core.model.AccountId
+import org.pingme.core.model.NetworkId
+import org.pingme.core.model.NotificationMode
+import org.pingme.core.model.NotificationProfile
 import org.pingme.core.ui.theme.Appearance
 import org.pingme.core.ui.theme.MotionIntensity
 import org.pingme.core.ui.theme.PingMeTheme
@@ -140,6 +146,57 @@ class SettingsScreenTest {
         show(SettingsPage.MOTION)
         tap("Flippy reactions")
         waitFor { vm.state.value.app.flippyReactions == false }
+    }
+
+    @Test
+    fun aNetworkCanBeMadeSilent() {
+        show(SettingsPage.NOTIFICATIONS)
+        tap("Silent")
+        waitFor {
+            vm.state.value.app.notifications
+                .network(NetworkId.DEMO)
+                .mode == NotificationMode.SILENT
+        }
+    }
+
+    @Test
+    fun instagramShowsItsThreeFolders() {
+        runBlocking { demo.accounts.upsert(demo.account.copy(id = AccountId("ig"), network = NetworkId.INSTAGRAM)) }
+        show(SettingsPage.NOTIFICATIONS)
+        waitFor { shown("Instagram folders") }
+        assertTrue(shown("Requests"))
+    }
+
+    @Test
+    fun codesCanBeCopiedByThemselves() {
+        show(SettingsPage.NOTIFICATIONS)
+        tap("Auto-copy one-time codes")
+        waitFor { vm.state.value.app.notifications.autoCopyCodes }
+    }
+
+    @Test
+    fun aKeywordCanBeAddedAndDeleted() {
+        show(SettingsPage.NOTIFICATIONS)
+        tap("Add keyword")
+        compose.onNode(hasSetTextAction()).performTextInput("urgent")
+        tap("OK")
+        waitFor {
+            vm.state.value.keywords
+                .singleOrNull()
+                ?.pattern == "urgent"
+        }
+        compose.onNodeWithContentDescription("Delete urgent").performSemanticsAction(SemanticsActions.OnClick)
+        waitFor {
+            vm.state.value.keywords
+                .isEmpty()
+        }
+    }
+
+    @Test
+    fun aNewSoundGetsANewChannel() {
+        val profile = NotificationProfile()
+        assertEquals(1, profile.withSound("content://a", null).channelVersion)
+        assertEquals(0, profile.withSound(null, null).channelVersion)
     }
 
     @Test

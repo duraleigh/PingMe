@@ -37,6 +37,8 @@ data class NotificationSettings(
     val folders: Map<ChatFolder, NotificationProfile> = DEFAULT_FOLDERS,
     /** "Auto-copy one-time codes", off by default (UI_DESIGN.md 10.6). */
     val autoCopyCodes: Boolean = false,
+    /** Each keyword rule's sound and vibration, by rule id (UI_DESIGN.md 10.9). */
+    val keywords: Map<String, NotificationProfile> = emptyMap(),
 ) {
     fun network(id: NetworkId) = networks[id] ?: NotificationProfile()
 
