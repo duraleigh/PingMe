@@ -52,6 +52,7 @@ import org.pingme.core.model.Account
 import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Space
+import org.pingme.core.model.SpaceIcon
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
 
@@ -216,7 +217,7 @@ private fun BarIcon(entry: BarEntry) {
             null -> Icon(painterResource(UiR.drawable.ic_forum), null)
             InboxBarItem.Unread -> Icon(painterResource(UiR.drawable.ic_mark_chat_unread), null)
             is InboxBarItem.Network -> NetworkDot(item.network)
-            is InboxBarItem.Space -> Icon(painterResource(UiR.drawable.ic_apps), null)
+            is InboxBarItem.Space -> Icon(painterResource((entry.spaceIcon ?: SpaceIcon.SPACE).drawable()), null)
             InboxBarItem.LowPriority -> Icon(painterResource(UiR.drawable.ic_low_priority), null)
         }
     }
@@ -276,15 +277,16 @@ fun barLabel(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditBarSheet(
-    current: List<InboxBarItem>,
+    current: List<InboxBarItem?>,
     accounts: List<Account>,
     spaces: List<Space>,
-    onSave: (List<InboxBarItem>) -> Unit,
+    onSave: (List<InboxBarItem?>) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var picked by remember { mutableStateOf(current) }
+    // All is one of the choices: on by default, and it can be taken off (UI_DESIGN.md 10.4).
     val options =
-        listOf<InboxBarItem>(InboxBarItem.Unread) +
+        listOf<InboxBarItem?>(null, InboxBarItem.Unread) +
             accounts.map { it.network }.distinct().map { InboxBarItem.Network(it) } +
             spaces.map { InboxBarItem.Space(it.id) } +
             InboxBarItem.LowPriority
@@ -301,7 +303,7 @@ fun EditBarSheet(
             Text(
                 stringResource(
                     if (picked.size >=
-                        InboxBarConfig.MAX_ITEMS
+                        InboxBarConfig.MAX_BUTTONS
                     ) {
                         R.string.bar_edit_full
                     } else {
@@ -314,30 +316,30 @@ fun EditBarSheet(
             )
             options.forEach { option ->
                 val on = option in picked
+                val space = (option as? InboxBarItem.Space)?.let { s -> spaces.find { it.id == s.id } }
                 val entry =
                     BarEntry(
                         option,
                         0,
-                        spaceName =
-                            (option as? InboxBarItem.Space)?.let { s ->
-                                spaces
-                                    .find {
-                                        it.id ==
-                                            s.id
-                                    }?.title
-                            },
+                        spaceName = space?.title,
+                        spaceIcon = space?.icon,
                     )
-                val full = !on && picked.size >= InboxBarConfig.MAX_ITEMS
+                val full = !on && picked.size >= InboxBarConfig.MAX_BUTTONS
+                // The last button stays: a bar with none would leave nothing to open.
+                val last = on && picked.size == 1
                 ListItem(
-                    onClick = { picked = if (on) picked - option else picked + option },
-                    enabled = !full,
+                    onClick = { picked = if (on) picked - option else ordered(picked + option) },
+                    enabled = !full && !last,
                     leadingContent = { BarIcon(entry) },
-                    trailingContent = { Checkbox(checked = on, onCheckedChange = null, enabled = !full) },
+                    trailingContent = { Checkbox(checked = on, onCheckedChange = null, enabled = !full && !last) },
                 ) { Text(barLabel(entry, accounts)) }
             }
         }
     }
 }
+
+// All stays first; the rest keep the order they were picked in.
+private fun ordered(picked: List<InboxBarItem?>) = picked.filter { it == null } + picked.filterNotNull()
 
 /** The + menu (UI_DESIGN.md 3.1): New chat and New group. Scan QR was dropped by the owner. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

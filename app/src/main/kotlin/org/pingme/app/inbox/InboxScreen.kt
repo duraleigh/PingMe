@@ -98,7 +98,8 @@ class InboxCallbacks(
     val onAction: (ChatRow, ChatAction) -> Unit,
     val onStatus: () -> Unit,
     val bar: BarActions,
-    val onSaveBar: (List<InboxBarItem>) -> Unit,
+    /** The bar's buttons from the editor, null standing for All. */
+    val onSaveBar: (List<InboxBarItem?>) -> Unit,
 )
 
 /**
@@ -161,7 +162,7 @@ fun InboxScreen(
     }
     if (editingBar) {
         EditBarSheet(
-            current = state.bar.mapNotNull { it.item },
+            current = state.bar.map { it.item },
             accounts = state.accounts,
             spaces = state.menu.spaces.map { it.first },
             onSave = callbacks.onSaveBar,

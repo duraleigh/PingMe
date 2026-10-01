@@ -28,8 +28,9 @@ data class ChatRow(
 data class BarEntry(
     val item: InboxBarItem?,
     val badge: Int,
-    /** For a space button: its name. */
+    /** For a space button: its name and icon. */
     val spaceName: String? = null,
+    val spaceIcon: org.pingme.core.model.SpaceIcon? = null,
     /** For a network button: accounts or folders a long-press can narrow to. */
     val narrowOptions: List<Narrowing> = emptyList(),
     val narrowedTo: Narrowing? = null,
@@ -84,8 +85,10 @@ fun InboxSource.select(
     val networkOf = accounts.associate { it.id to it.network }
     val chats =
         when (selected) {
+            // A space can keep its chats out of All, inside the space only (UI_DESIGN.md 10.4).
             null -> {
-                inbox
+                val onlyInSpaces = onlyInSpaces()
+                inbox.filter { it.id !in onlyInSpaces }
             }
 
             InboxBarItem.Unread -> {
@@ -116,6 +119,24 @@ fun InboxSource.select(
     val rows = chats.map { ChatRow(it, networkOf[it.accountId] ?: NetworkId.DEMO, last[it.id], it.id in typing) }
     val (pinned, rest) = rows.partition { it.chat.isPinned }
     return pinned.sortedBy { it.chat.pinOrder ?: Int.MAX_VALUE } to rest
+}
+
+/** Chats in a space that keeps them out of All. */
+fun InboxSource.onlyInSpaces(): Set<ChatId> {
+    val inside = spaces.filter { !it.showInAll }
+    if (inside.isEmpty()) return emptySet()
+    val ids = inside.map { it.id }.toSet()
+    return inside.flatMap { it.chatIds }.toSet() + inbox.filter { it.spaceId in ids }.map { it.id }
+}
+
+/** All's badge: the one counting rule's total, less the unread chats All does not show. */
+fun InboxSource.allBadge(
+    totals: UnreadTotals,
+    now: Instant,
+): Int {
+    val outside = onlyInSpaces()
+    val left = inbox.filter { it.id in outside && !it.mutedAt(now) }.sumOf { it.unreadCount }
+    return (totals.total - left).coerceAtLeast(0)
 }
 
 /** Unread badges for the bar, from the one counting rule (UI_DESIGN.md 6.4). */

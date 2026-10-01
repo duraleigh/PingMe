@@ -37,8 +37,8 @@
     <string name="bar_primary_only">Primary only</string>
     <string name="bar_general_only">General only</string>
     <string name="bar_edit_title">Bottom bar</string>
-    <string name="bar_edit_hint">All is always first. Pick up to four more.</string>
-    <string name="bar_edit_full">That is four already. Remove one first.</string>
+    <string name="bar_edit_hint">Pick up to five. All comes first when it is on; without it, the inbox opens on the first one.</string>
+    <string name="bar_edit_full">That is five already. Remove one first.</string>
 
     <!-- Rows -->
     <string name="inbox_now">now</string>

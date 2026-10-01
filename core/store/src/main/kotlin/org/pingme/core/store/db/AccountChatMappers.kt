@@ -69,7 +69,7 @@ internal fun ChatWithParticipants.toModel() =
         networkRemoteId = chat.networkRemoteId,
     )
 
-internal fun Space.toEntity() = SpaceEntity(id.value, accountId?.value, title, kind)
+internal fun Space.toEntity() = SpaceEntity(id.value, accountId?.value, title, kind, icon, showInAll)
 
 internal fun Space.chatEntities() =
     chatIds.mapIndexed { position, chat -> SpaceChatEntity(id.value, chat.value, position) }
@@ -81,4 +81,6 @@ internal fun SpaceWithChats.toModel() =
         title = space.title,
         kind = space.kind,
         chatIds = chats.sortedBy { it.position }.map { ChatId(it.chatId) },
+        icon = space.icon,
+        showInAll = space.showInAll,
     )

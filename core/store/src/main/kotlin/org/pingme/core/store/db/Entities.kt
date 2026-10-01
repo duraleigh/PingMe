@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.core.store.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -18,6 +19,7 @@ import org.pingme.core.model.MessageKind
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.NotificationMode
+import org.pingme.core.model.SpaceIcon
 import org.pingme.core.model.SpaceKind
 import org.pingme.core.model.Transport
 import kotlin.time.Instant
@@ -263,6 +265,8 @@ data class SpaceEntity(
     val accountId: String?,
     val title: String,
     val kind: SpaceKind,
+    @ColumnInfo(defaultValue = "SPACE") val icon: SpaceIcon = SpaceIcon.SPACE,
+    @ColumnInfo(defaultValue = "1") val showInAll: Boolean = true,
 )
 
 @Entity(

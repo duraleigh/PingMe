@@ -5,6 +5,7 @@ import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import org.pingme.core.model.AccountId
@@ -100,8 +101,14 @@ class ChatRepository
          */
         fun unreadTotals(): Flow<UnreadTotals> =
             settings.instagramShowGeneral
-                .flatMapLatest { showGeneral -> dao.observeUnreadRows(clock.now(), showGeneral) }
-                .map { rows ->
+                .flatMapLatest { showGeneral ->
+                    val now = clock.now()
+                    combine(
+                        dao.observeUnreadRows(now, showGeneral),
+                        dao.observeSpaceMemberUnread(now, showGeneral),
+                        ::Pair,
+                    )
+                }.map { (rows, members) ->
                     UnreadTotals(
                         total = rows.sumOf { it.unread },
                         byAccount =
@@ -109,11 +116,13 @@ class ChatRepository
                                 r.sumOf { it.unread }
                             },
                         byNetwork = rows.groupBy { it.network }.mapValues { (_, r) -> r.sumOf { it.unread } },
+                        // A network's spaces hold their chats; a space the user made lists them.
                         bySpace =
-                            rows
-                                .filter { it.spaceId != null }
-                                .groupBy { SpaceId(it.spaceId!!) }
-                                .mapValues { (_, r) -> r.sumOf { it.unread } },
+                            (
+                                rows.filter { it.spaceId != null }.map { SpaceId(it.spaceId!!) to it.unread } +
+                                    members.map { SpaceId(it.spaceId) to it.unread }
+                            ).groupBy({ it.first }, { it.second })
+                                .mapValues { (_, counts) -> counts.sum() },
                     )
                 }
 

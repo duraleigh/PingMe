@@ -60,22 +60,38 @@ sealed interface Narrowing {
 }
 
 /**
- * The bar: All always comes first, then up to [MAX_ITEMS] of the user's choice, so five
- * buttons at most. Narrowings are remembered per network until changed.
+ * The bar (UI_DESIGN.md 10.4): All first unless the user removed it, then their picks, five
+ * buttons at most. With All removed the inbox opens on the first button. Narrowings are
+ * remembered per network until changed.
  */
 @Serializable
 data class InboxBarConfig(
     val items: List<InboxBarItem>,
     val narrowings: Map<NetworkId, Narrowing> = emptyMap(),
+    val showAll: Boolean = true,
 ) {
-    companion object {
-        const val MAX_ITEMS = 4
+    /** The buttons in order, null standing for All. */
+    val buttons: List<InboxBarItem?> get() = (if (showAll) listOf(null) else emptyList()) + items
 
-        /** Before the user sets anything: Unread, then the networks they have, in order of adding. */
+    /** Keeps to five buttons and never leaves the bar empty: with nothing else, All comes back. */
+    fun tidy(): InboxBarConfig {
+        val picks = items.distinct()
+        val all = showAll || picks.isEmpty()
+        return copy(items = picks.take(if (all) MAX_BUTTONS - 1 else MAX_BUTTONS), showAll = all)
+    }
+
+    /** These [buttons], null standing for All, keeping the narrowings. */
+    fun withButtons(buttons: List<InboxBarItem?>) =
+        copy(items = buttons.filterNotNull(), showAll = null in buttons).tidy()
+
+    companion object {
+        const val MAX_BUTTONS = 5
+
+        /** Before the user sets anything: All, Unread, then the networks they have, in order of adding. */
         fun default(networks: List<NetworkId>) =
             InboxBarConfig(
                 listOf(InboxBarItem.Unread) +
-                    networks.distinct().take(MAX_ITEMS - 1).map { InboxBarItem.Network(it) },
+                    networks.distinct().take(MAX_BUTTONS - 2).map { InboxBarItem.Network(it) },
             )
     }
 }
@@ -98,7 +114,7 @@ class InboxBarRepository
                 val next = change(decode(json) ?: default)
                 JSON.encodeToString(
                     InboxBarConfig.serializer(),
-                    next.copy(items = next.items.distinct().take(InboxBarConfig.MAX_ITEMS)),
+                    next.tidy(),
                 )
             }
         }

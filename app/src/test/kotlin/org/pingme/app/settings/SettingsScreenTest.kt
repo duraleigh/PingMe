@@ -26,6 +26,7 @@ import org.pingme.core.model.AccountId
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.NotificationMode
 import org.pingme.core.model.NotificationProfile
+import org.pingme.core.model.SpaceIcon
 import org.pingme.core.ui.theme.Appearance
 import org.pingme.core.ui.theme.MotionIntensity
 import org.pingme.core.ui.theme.PingMeTheme
@@ -248,6 +249,9 @@ class SettingsScreenTest {
                 .first()
         tap("New space")
         compose.onNode(hasSetTextAction()).performTextInput("Family")
+        // Its icon, and keeping its chats out of All (UI_DESIGN.md 10.4).
+        compose.onNodeWithContentDescription("Work").performSemanticsAction(SemanticsActions.OnClick)
+        tap("Show these chats in All")
         tap(chat.title)
         tap("OK")
         waitFor {
@@ -255,6 +259,11 @@ class SettingsScreenTest {
                 .singleOrNull()
                 ?.chatIds == listOf(chat.id)
         }
+        val made =
+            vm.state.value.spaces
+                .single()
+        assertEquals(SpaceIcon.WORK, made.icon)
+        assertEquals(false, made.showInAll)
         compose.onNodeWithContentDescription("Delete Family").performSemanticsAction(SemanticsActions.OnClick)
         waitFor {
             vm.state.value.spaces
@@ -266,9 +275,13 @@ class SettingsScreenTest {
     fun theBottomBarCanBeChosenHere() {
         show(SettingsPage.SPACES)
         tap("Choose the bottom bar")
-        waitFor { shown("All is always first. Pick up to four more.") }
+        waitFor { shown(BAR_HINT) }
+        // All is a choice like the rest (UI_DESIGN.md 10.4).
+        assertTrue(shown("All"))
         vm.setBar(listOf(InboxBarItem.LowPriority))
         waitFor { vm.state.value.bar == listOf(InboxBarItem.LowPriority) }
+        vm.setBar(listOf(null, InboxBarItem.LowPriority))
+        waitFor { vm.state.value.bar == listOf(null, InboxBarItem.LowPriority) }
     }
 
     @Test
@@ -308,6 +321,8 @@ class SettingsScreenTest {
     }
 
     private companion object {
+        const val BAR_HINT =
+            "Pick up to five. All comes first when it is on; without it, the inbox opens on the first one."
         const val TIMEOUT = 15_000L
         const val SQLITE = "SQLite format 3"
         val STEP: Duration = Duration.ofMillis(50)

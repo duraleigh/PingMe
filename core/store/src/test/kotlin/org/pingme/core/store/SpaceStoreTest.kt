@@ -9,6 +9,7 @@ import org.junit.Test
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Space
+import org.pingme.core.model.SpaceIcon
 import org.pingme.core.model.SpaceId
 import org.pingme.core.model.SpaceKind
 
@@ -36,6 +37,20 @@ class SpaceStoreTest : StoreTest() {
 
             chats.upsertSpace(family.copy(chatIds = listOf(ChatId("c3"))))
             assertEquals(listOf(ChatId("c3")), chats.space(SpaceId("s2"))?.chatIds)
+        }
+
+    @Test
+    fun aSpaceKeepsItsIconAndWhetherItsChatsShowInAll() =
+        runTest {
+            accounts.upsert(account("a"))
+            chats.upsert(chat("c1", "a"))
+            val work = Space(SpaceId("w"), null, "Work", SpaceKind.CUSTOM, listOf(ChatId("c1")))
+            chats.upsertSpace(work)
+            assertEquals("a new space shows in All", true, chats.space(SpaceId("w"))?.showInAll)
+            chats.upsertSpace(work.copy(icon = SpaceIcon.WORK, showInAll = false))
+            val saved = chats.space(SpaceId("w"))!!
+            assertEquals(SpaceIcon.WORK, saved.icon)
+            assertEquals(false, saved.showInAll)
         }
 
     @Test

@@ -1478,3 +1478,28 @@ The app suite then passed 8 runs out of 8 (it failed 3 to 4 out of 4 before).
 - Checked on the emulator: the top bar surface, the centred bar, and Send's hold menu. The
   demo's live chatter keeps replacing your last message, so the read marks were checked in
   the test-drawn inbox (`app/build/screenshots/inbox-light.png`).
+
+### All removable; spaces get an icon and "show in All" (handover step 6, UI_DESIGN.md 10.4)
+
+- **All can be taken off the bar.** The bar editor lists All with the other choices; up to
+  five buttons in all, and never none (the last ticked one cannot be unticked). With All off
+  the inbox opens on the first button. A saved bar from before keeps All
+  (`InboxBarConfig.showAll`, on by default).
+- **A space you make has an icon**, picked from 18 in the space editor, shown in the bottom bar,
+  the avatar menu, and Settings > Spaces. 15 new Material Symbols Rounded icons (home, work,
+  family, school, sport, travel, heart, and others) were added to `core/ui`, same source and
+  licence as the rest.
+- **"Show these chats in All"** (on by default). Off: the space's chats leave All's list and
+  All's badge, and stay inside the space. Unread and the network buttons still show them; the
+  design names All only. A chat in several spaces leaves All if any of them says so.
+- **Schema 4** (migration 3 to 4): `spaces.icon` and `spaces.showInAll`, with defaults so
+  existing spaces keep the app icon and stay in All.
+- **Found and fixed:** a space the user made never had an unread badge. The counting rule
+  only summed chats that belong to a network's space (WhatsApp community, Telegram forum), not
+  chats added to a space by hand. A second query applies the same rule to those
+  (`UnreadRuleTest.aSpaceYouMadeCountsTheChatsYouAddedToIt`).
+- Tests: `InboxStateTest` (All's list and badge, the bar's limits), `InboxScreenTest` (opens on
+  the first button without All), `SettingsScreenTest` (icon and switch in the editor),
+  `SpaceStoreTest`, and `MigrationTest`. Checked on the emulator: made a "Work" space with
+  the briefcase icon kept out of All, took All off the bar: the inbox opened on Unread with
+  Unread, Demo, Work along the bottom.

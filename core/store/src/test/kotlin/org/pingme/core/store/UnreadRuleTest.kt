@@ -7,8 +7,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatFolder
+import org.pingme.core.model.ChatId
 import org.pingme.core.model.NetworkId
+import org.pingme.core.model.Space
 import org.pingme.core.model.SpaceId
+import org.pingme.core.model.SpaceKind
 import kotlin.time.Duration.Companion.minutes
 
 /** The one unread counting rule (BUILD_PLAN.md P1.2, UI_DESIGN.md 6.4, 6.5, 10.7). */
@@ -35,6 +38,18 @@ class UnreadRuleTest : StoreTest() {
             chats.upsert(chat("muted", "a", unread = 10).copy(isMuted = true, muteUntil = null))
             chats.upsert(chat("muted-for-now", "a", unread = 10).copy(isMuted = true, muteUntil = now + 1.minutes))
             assertEquals(1, total())
+        }
+
+    @Test
+    fun aSpaceYouMadeCountsTheChatsYouAddedToIt() =
+        runTest {
+            accounts.upsert(account("a"))
+            chats.upsert(chat("added", "a", unread = 2))
+            chats.upsert(chat("quiet", "a", unread = 5).copy(isMuted = true, muteUntil = null))
+            chats.upsert(chat("outside", "a", unread = 7))
+            val mine = SpaceId("mine")
+            chats.upsertSpace(Space(mine, null, "Mine", SpaceKind.CUSTOM, listOf(ChatId("added"), ChatId("quiet"))))
+            assertEquals("only the unmuted chat added to it", 2, chats.unreadTotals().first().bySpace[mine])
         }
 
     @Test

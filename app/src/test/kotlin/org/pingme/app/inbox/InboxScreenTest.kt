@@ -35,6 +35,7 @@ import org.junit.runner.RunWith
 import org.pingme.core.connector.chat
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ConnectionState
+import org.pingme.core.model.NetworkId
 import org.pingme.core.service.IncomingReaction
 import org.pingme.core.ui.theme.Appearance
 import org.pingme.core.ui.theme.MotionIntensity
@@ -133,6 +134,19 @@ class InboxScreenTest {
             val expected = bar.left + (bar.right - bar.left) * ((i + 0.5f) / labels.size)
             assertTrue("$label centred at $centre, expected $expected", abs((centre - expected).value) < 2f)
         }
+    }
+
+    @Test
+    fun withAllRemovedTheInboxOpensOnTheFirstButton() {
+        val vm = demo.inboxViewModel()
+        show(vm)
+        vm.setBarItems(listOf(InboxBarItem.Unread, InboxBarItem.Network(NetworkId.DEMO)))
+        val state = vm.state
+        waitFor { state.value.bar.none { it.item == null } }
+        assertEquals(InboxBarItem.Unread, state.value.selected)
+        compose.onNode(hasText("All") and hasAnyAncestor(hasTestTag(INBOX_BAR))).assertDoesNotExist()
+        // Unread is showing: a chat with nothing unread is not in the list.
+        compose.onNodeWithText("Alex Kim").assertDoesNotExist()
     }
 
     @Test

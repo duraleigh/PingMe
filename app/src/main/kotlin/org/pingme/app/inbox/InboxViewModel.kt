@@ -105,15 +105,22 @@ class InboxViewModel
             ) { src, saved, pick, totals, counts ->
                 val config = saved ?: defaultBar(src.accounts)
                 val now = clock.now()
-                val current = pick?.takeIf { it in config.items }
+                // With All removed, the inbox opens on the first button (UI_DESIGN.md 10.4).
+                val first = config.items.firstOrNull()?.takeIf { !config.showAll }
+                val current = pick?.takeIf { it in config.items } ?: first
                 val (pinned, rows) = src.select(current, config.narrowings, now)
                 InboxUiState(
                     loading = false,
                     pinned = pinned,
                     rows = rows,
                     bar =
-                        listOf(BarEntry(null, totals.total)) +
-                            config.items.map { item -> entry(item, config, src, totals) },
+                        config.buttons.map { item ->
+                            if (item == null) {
+                                BarEntry(null, src.allBadge(totals, now))
+                            } else {
+                                entry(item, config, src, totals)
+                            }
+                        },
                     selected = current,
                     accounts = src.accounts,
                     menu = counts,
@@ -153,7 +160,8 @@ class InboxViewModel
             )
         }
 
-        fun setBarItems(items: List<InboxBarItem>) = editBar { it.copy(items = items) }
+        /** The bar's buttons from the editor, null standing for All. */
+        fun setBarItems(buttons: List<InboxBarItem?>) = editBar { it.withButtons(buttons) }
 
         fun swipe(
             row: ChatRow,
@@ -212,16 +220,8 @@ class InboxViewModel
             }
 
             is InboxBarItem.Space -> {
-                BarEntry(
-                    item,
-                    badgeFor(item, totals),
-                    spaceName =
-                        src.spaces
-                            .find {
-                                it.id ==
-                                    item.id
-                            }?.title,
-                )
+                val space = src.spaces.find { it.id == item.id }
+                BarEntry(item, badgeFor(item, totals), spaceName = space?.title, spaceIcon = space?.icon)
             }
 
             else -> {
