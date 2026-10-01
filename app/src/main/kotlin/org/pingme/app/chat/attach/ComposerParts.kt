@@ -109,52 +109,6 @@ fun iconFor(kind: AttachmentKind) =
         AttachmentKind.FILE -> UiR.drawable.ic_description
     }
 
-/**
- * The send button. Where the network offers more ways to send, it is a split button whose
- * menu holds them (UI_DESIGN.md 3.2: "Send as SMS").
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-fun SendButton(
-    enabled: Boolean,
-    onSend: () -> Unit,
-    onSendSms: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
-    val label = stringResource(R.string.chat_send)
-    if (onSendSms == null) {
-        FilledIconButton(onSend, modifier.size(SEND_SIZE), enabled = enabled) {
-            Icon(painterResource(UiR.drawable.ic_send), label)
-        }
-        return
-    }
-    var open by remember { mutableStateOf(false) }
-    Box(modifier) {
-        SplitButtonLayout(
-            leadingButton = {
-                SplitButtonDefaults.LeadingButton(onSend, Modifier.height(SEND_SIZE), enabled = enabled) {
-                    Icon(painterResource(UiR.drawable.ic_send), label)
-                }
-            },
-            trailingButton = {
-                SplitButtonDefaults.TrailingButton(open, { open = it }, Modifier.height(SEND_SIZE), enabled = enabled) {
-                    Icon(painterResource(UiR.drawable.ic_expand_more), stringResource(R.string.chat_send_options))
-                }
-            },
-        )
-        DropdownMenu(open, { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.chat_send_sms)) },
-                leadingIcon = { Icon(painterResource(UiR.drawable.ic_sms), null) },
-                onClick = {
-                    open = false
-                    onSendSms()
-                },
-            )
-        }
-    }
-}
-
 /** Attachments and "Send as SMS" for this chat's composer; [onNotice] shows a snackbar. */
 internal fun composerHooks(
     viewModel: org.pingme.app.chat.ChatViewModel,
@@ -168,6 +122,7 @@ internal fun composerHooks(
     gifPicks =
         org.pingme.app.chat.gif
             .GifPicks(viewModel::sendGif, viewModel::sendFavourite),
+    onSchedule = viewModel::schedule,
     onSendSms =
         if (state.account?.network == org.pingme.core.model.NetworkId.GMESSAGES) {
             { text -> viewModel.send(text, forceSms = true) }
@@ -187,7 +142,6 @@ internal fun composerHooks(
 const val STAGED = "staged"
 private val TILE = 72.dp
 private val REMOVE = 22.dp
-private val SEND_SIZE = 52.dp
 
 /** The MMS size warning for a GIF or voice note (UI_DESIGN.md 5.5, 5.6): send anyway, or not. */
 @Composable

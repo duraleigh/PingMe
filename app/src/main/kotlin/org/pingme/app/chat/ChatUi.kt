@@ -37,6 +37,9 @@ class ChatUi {
     var infoFor by mutableStateOf<Message?>(null)
     var forwarding by mutableStateOf<List<Message>?>(null)
 
+    /** A scheduled message whose time is being changed (UI_DESIGN.md 10.13). */
+    var rescheduling by mutableStateOf<Message?>(null)
+
     /** Where each bubble is on screen, for the overlay and the bursts. */
     val bounds = mutableStateMapOf<String, Rect>()
 
@@ -45,6 +48,9 @@ class ChatUi {
 
     /** Times shown by a tap, when Appearance > Timestamps is "on tap". */
     val revealed = mutableStateMapOf<String, Boolean>()
+
+    /** Bubbles in an obscured chat that a tap is showing for a few seconds. */
+    val unblurred = mutableStateMapOf<String, Boolean>()
     val burst = BurstState()
 
     /** Where a reaction chip lands: the bubble's bottom corner on the sender's side. */
@@ -118,6 +124,7 @@ fun ChatUi.actionsFor(
     context: Context,
 ): List<MessageAction> {
     val menu = actions.menu
+    if (message.status is org.pingme.core.model.MessageStatus.Scheduled) return scheduledActions(message, menu, context)
     val pinned = state.pinned.any { it.id == message.id }
     return buildList {
         add(MessageAction(R.string.action_reply, UiR.drawable.ic_reply, { actions.onReply(message) }))
@@ -161,6 +168,24 @@ fun ChatUi.actionsFor(
         )
     }
 }
+
+/** A message waiting for its time: send it now, move it, change it, or cancel it (UI_DESIGN.md 10.13). */
+private fun ChatUi.scheduledActions(
+    message: Message,
+    menu: MessageMenu?,
+    context: Context,
+) = listOf(
+    MessageAction(R.string.later_send_now, UiR.drawable.ic_send, { menu?.sendNow(message) }),
+    MessageAction(R.string.later_change_time, UiR.drawable.ic_schedule, { rescheduling = message }),
+    MessageAction(R.string.action_edit, UiR.drawable.ic_edit, { menu?.startEdit(message) }),
+    MessageAction(R.string.action_copy, UiR.drawable.ic_content_copy, { copy(context, listOf(message)) }),
+    MessageAction(
+        R.string.later_cancel,
+        UiR.drawable.ic_delete,
+        { menu?.cancelScheduled(message) },
+        destructive = true,
+    ),
+)
 
 /** Your own text message, on a network that edits, within its time limit. */
 private fun canEdit(
@@ -278,5 +303,11 @@ private fun Sheets(
             ui.forwarding =
                 null
         })
+    }
+    ui.rescheduling?.let { waiting ->
+        org.pingme.app.chat.later.SendLaterSheet(
+            onPick = { at -> actions.menu?.reschedule(waiting, at) },
+            onDismiss = { ui.rescheduling = null },
+        )
     }
 }

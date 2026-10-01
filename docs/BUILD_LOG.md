@@ -843,7 +843,7 @@ Tests (31 new; 161 in the app and changed modules, all passing):
 
 **Next:** P2.4, the chat screen.
 
-## P2.4 Chat screen (in progress, 2026-10-01)
+## P2.4 Chat screen (done, 2026-10-01)
 
 Built in parts on PR #6, each part green before it was pushed.
 
@@ -898,5 +898,27 @@ New repository secret. Name `GIPHY_API_KEY`, value the key. Save.
 main thread's clock on, so the demo's pretend upload finishes. A fake microphone and a
 fake GIF store stand in for the hardware and the network.
 
-**Next:** P2.4 part 4: search in chat, obscured mode, Send later, link previews and
-clean links.
+- **Part 4a, search in chat:** type chips, sender filter in groups, date jump; results
+  jump to the message with the highlight pulse, loading history back to it first. New
+  `ChatSearchRepository` in the store.
+- **Part 4b:** obscured chats (blur until tapped, blurred again after 5 seconds,
+  `FLAG_SECURE`, inbox preview hidden); Send later (sheet with quick chips, date and time
+  picker, and a phrase reader); tappable links and preview cards; forwarding now carries
+  the files as well as the text.
+  - Android 10 and 11 cannot blur, so an obscured bubble is covered with a solid colour
+    there instead.
+  - Send later wakes through a delayed background job (`SendAlarm`) until P4.2 adds the
+    exact alarm; Android may run it a few minutes late. A message due while offline goes
+    once the phone is back online. The "sent late" notice comes with notifications (P4.1).
+  - The phrase reader understands English only for now.
+  - Obscured chats' notifications are hidden with notifications themselves (P4.1). The
+    switch to turn obscuring on lives in Chat details (P2.5).
+  - Links in text are tappable and show the cleaned address when the message carries
+    one. Cleaning links with the ClearURLs rules is P4.3.
+
+**Owner decisions recorded for later steps:**
+- **Link previews (for P4.3):** the owner chose that PingMe fetches previews from the
+  phone when the network sends none, with the "Generate link previews" setting offering
+  Always, Only on Wi-Fi, and Never. This is an allowed exception to CLAUDE.md rule 8.
+
+**Next:** P2.5, Chat details.

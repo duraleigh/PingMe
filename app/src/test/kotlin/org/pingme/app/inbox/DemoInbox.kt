@@ -70,7 +70,14 @@ class DemoInbox(
     val registry = ConnectorRegistry(mapOf(NetworkId.DEMO to demo))
     val actions = ChatActions(chats, messages, accounts, registry, applier)
     val pins = PinnedMessageRepository(db)
-    val messageActions = MessageActions(chats, messages, pins, accounts, registry, applier, Clock.System)
+    val scheduledSends =
+        org.pingme.core.store
+            .ScheduledSendRepository(db)
+
+    /** Counts wake-ups instead of asking Android's job system, which tests do not start. */
+    val alarm = CountingAlarm(context, scheduledSends)
+    val messageActions =
+        MessageActions(chats, messages, pins, accounts, registry, applier, Clock.System, scheduledSends, alarm)
     val account =
         Account(
             AccountId("demo"),
@@ -207,5 +214,17 @@ class DemoInbox(
         override suspend fun delete(ref: String) {
             secrets.remove(ref)
         }
+    }
+}
+
+/** A wake-up for scheduled sends that only counts, since tests do not start Android's job system. */
+class CountingAlarm(
+    context: Context,
+    scheduled: org.pingme.core.store.ScheduledSendRepository,
+) : org.pingme.core.service.work.SendAlarm(context, scheduled, Clock.System) {
+    var armed = 0
+
+    override suspend fun arm() {
+        armed++
     }
 }

@@ -275,6 +275,23 @@ class ChatViewModel
             dispatch(text.trim(), outbox.take(), forceSms)
         }
 
+        /** Keeps the text and whatever waits in the outbox to send at [at] (UI_DESIGN.md 10.13). */
+        fun schedule(
+            text: String,
+            at: kotlin.time.Instant,
+        ) {
+            val body = text.trim()
+            val files = outbox.take()
+            if (body.isEmpty() && files.isEmpty()) return
+            val reply = replyTo.value
+            replyTo.value = null
+            stopTyping()
+            viewModelScope.launch {
+                val name = reply?.let { state.value.names[it.senderId] ?: youOr(it) }
+                messageActions.schedule(chatId, body, at, reply, name, files)
+            }
+        }
+
         /** The user's answer to the MMS size warning: send it as it is, or not at all. */
         fun answerHeldBack(send: Boolean) {
             val held = tooBig.value ?: return

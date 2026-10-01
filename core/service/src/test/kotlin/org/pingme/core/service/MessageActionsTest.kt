@@ -3,6 +3,7 @@ package org.pingme.core.service
 
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -20,6 +21,7 @@ import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Quote
 import org.pingme.core.store.PinnedMessageRepository
 import java.io.File
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 class MessageActionsTest : ServiceTest() {
@@ -34,6 +36,20 @@ class MessageActionsTest : ServiceTest() {
                 mapOf(NetworkId.DEMO to connector),
             ),
             applier,
+            clock,
+            scheduledSends,
+            alarm,
+        )
+    }
+    private val scheduledSends by lazy {
+        org.pingme.core.store
+            .ScheduledSendRepository(db)
+    }
+    private val alarm by lazy {
+        QuietAlarm(
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext(),
+            scheduledSends,
             clock,
         )
     }
@@ -201,6 +217,64 @@ class MessageActionsTest : ServiceTest() {
                 runCatching { actions.edit(messages.get(accountId.message("a"))!!, "new") }.exceptionOrNull()
             assertTrue(failure is org.pingme.core.connector.UnsupportedCapabilityException)
             assertEquals("the text stays as it was", "hi", messages.get(accountId.message("a"))!!.body)
+        }
+
+    @Test
+    fun aScheduledMessageWaitsAndCanBeChangedOrCancelled() =
+        runTest {
+            seed()
+            val later = now + 3.hours
+            val waiting = actions.schedule(chatId, "Happy birthday!", later)
+            assertEquals(MessageStatus.Scheduled(later), messages.get(waiting.id)!!.status)
+            assertEquals(later, scheduledSends.due(later).single().sendAt)
+            assertTrue("the wake-up is set", alarm.armed > 0)
+
+            actions.edit(waiting, "Happy birthday!!")
+            val draft =
+                Json.decodeFromString(
+                    OutgoingMessage.serializer(),
+                    scheduledSends.due(later).single().payloadJson,
+                )
+            assertEquals("Happy birthday!!", draft.body)
+            assertEquals(MessageStatus.Scheduled(later), messages.get(waiting.id)!!.status)
+
+            actions.cancelScheduled(messages.get(waiting.id)!!)
+            assertEquals(null, messages.get(waiting.id))
+            assertTrue(scheduledSends.due(later).isEmpty())
+        }
+
+    @Test
+    fun sendNowSendsAScheduledMessageStraightAway() =
+        runTest {
+            seed()
+            connector.sendResult = { SendResult.Sent(messageSnapshot("net-5", body = it.body!!, outgoing = true)) }
+            val waiting = actions.schedule(chatId, "Early", now + 1.hours)
+            actions.sendNow(waiting)
+            assertEquals(listOf("net-5"), messages.latest(chatId, 10).first().map { it.id.value.substringAfter('/') })
+            assertTrue(scheduledSends.due(now + 2.hours).isEmpty())
+        }
+
+    @Test
+    fun forwardingTakesTheFilesToo() =
+        runTest {
+            seed()
+            val photo = File.createTempFile("photo", ".jpg").apply { writeBytes(ByteArray(PHOTO_BYTES)) }
+            val drafts = mutableListOf<OutgoingMessage>()
+            connector.sendResult = { draft ->
+                drafts += draft
+                SendResult.Failed("No signal", retryable = true)
+            }
+            val original =
+                actions.send(
+                    chatId,
+                    "",
+                    attachments =
+                        listOf(
+                            OutgoingAttachment(photo.path, "image/jpeg", AttachmentKind.IMAGE, "p.jpg", null),
+                        ),
+                )
+            actions.forward(original, chatId)
+            assertEquals(listOf(photo.path), drafts.last().attachments.map { it.localPath })
         }
 
     private companion object {

@@ -117,7 +117,10 @@ internal fun QuoteBlock(
 /** A link's title and description, from the network or fetched on the phone (UI_DESIGN.md 10.12). */
 @Composable
 internal fun LinkCard(preview: org.pingme.core.model.LinkPreview) {
+    // Opens the cleaned link (UI_DESIGN.md 10.11) in the phone's browser.
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
     Surface(
+        onClick = { runCatching { uri.openUri(preview.cleanedUrl) } },
         shape = RoundedCornerShape(10.dp),
         color = LocalContentColor.current.copy(alpha = QUOTE_TINT),
         contentColor = LocalContentColor.current,
@@ -206,6 +209,16 @@ internal fun FailedRow(
         TextButton(onClick = onRetry) { Text(stringResource(R.string.chat_retry)) }
     }
 }
+
+/** "Sends Fri, Oct 2, 6:00 PM" under a scheduled message (UI_DESIGN.md 10.13). */
+@Composable
+internal fun scheduledLabel(at: kotlin.time.Instant): String =
+    stringResource(
+        R.string.later_sends_at,
+        DateTimeFormatter
+            .ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+            .format(at.toJavaInstant().atZone(ZoneId.systemDefault())),
+    )
 
 internal fun clockTime(message: Message): String =
     DateTimeFormatter

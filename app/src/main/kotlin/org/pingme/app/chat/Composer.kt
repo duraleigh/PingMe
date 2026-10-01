@@ -50,6 +50,7 @@ import org.pingme.app.chat.attach.SendButton
 import org.pingme.app.chat.attach.StagedStrip
 import org.pingme.app.chat.gif.GifPickerSheet
 import org.pingme.app.chat.gif.GifPicks
+import org.pingme.app.chat.later.SendLaterSheet
 import org.pingme.app.chat.voice.MicButton
 import org.pingme.app.chat.voice.MicState
 import org.pingme.app.chat.voice.RecordingBar
@@ -114,13 +115,23 @@ internal fun Composer(
             ready = copying == 0,
             onSend = { sendWith(onSend) },
             onSendSms = sms?.let { { sendWith(it) } },
+            onSendLater = hooks.onSchedule?.takeIf { editing == null }?.let { { sheet = ComposerSheet.LATER } },
+        )
+    }
+    if (sheet == ComposerSheet.LATER) {
+        SendLaterSheet(
+            onPick = { at ->
+                hooks.onSchedule?.invoke(field.text.toString(), at)
+                field.clearText()
+            },
+            onDismiss = { sheet = ComposerSheet.NONE },
         )
     }
     ComposerSheets(sheet, hooks, outbox) { sheet = ComposerSheet.NONE }
 }
 
 /** Which sheet the composer has open. */
-private enum class ComposerSheet { NONE, ATTACH, GIF }
+private enum class ComposerSheet { NONE, ATTACH, GIF, LATER }
 
 @Composable
 private fun ComposerSheets(
@@ -153,7 +164,7 @@ private fun ComposerSheets(
             )
         }
 
-        ComposerSheet.NONE -> {
+        ComposerSheet.NONE, ComposerSheet.LATER -> {
             Unit
         }
     }
@@ -168,11 +179,12 @@ private fun MicOrSend(
     ready: Boolean,
     onSend: () -> Unit,
     onSendSms: (() -> Unit)?,
+    onSendLater: (() -> Unit)?,
 ) {
     if (voice != null && !something && ready) {
         MicButton(voice, onTooShort = onTooShort)
     } else {
-        SendButton(something && ready, onSend, onSendSms)
+        SendButton(something && ready, onSend, onSendSms, onSendLater = onSendLater)
     }
 }
 

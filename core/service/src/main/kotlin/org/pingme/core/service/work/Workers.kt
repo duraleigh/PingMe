@@ -94,7 +94,7 @@ class MediaDownloadWorker
 
 /**
  * Sends every scheduled message whose time has come, including late ones (UI_DESIGN.md
- * 10.13). The exact alarm that wakes it and the "sent late" notice arrive in P4.2.
+ * 10.13). [SendAlarm] wakes it; the exact alarm and the "sent late" notice arrive in P4.2.
  */
 @HiltWorker
 class ScheduledSendWorker
@@ -108,9 +108,12 @@ class ScheduledSendWorker
         private val scheduled: ScheduledSendRepository,
         private val applier: EventApplier,
         private val clock: Clock,
+        private val alarm: SendAlarm,
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
             val results = scheduled.due(clock.now()).map { send(it) }
+            // Wake again for whichever message is due next.
+            alarm.arm()
             return if (results.any { it == Outcome.RetryLater }) Result.retry() else Result.success()
         }
 
@@ -208,6 +211,29 @@ object Work {
     )
 
     fun sendScheduled(context: Context) = enqueue<ScheduledSendWorker>(context, "scheduled-send")
+
+    /**
+     * Wakes the scheduled sender after [delay], replacing any earlier wake-up, so it runs when
+     * the next scheduled message is due. The exact alarm replaces this in P4.2.
+     */
+    fun sendScheduledAfter(
+        context: Context,
+        delay: kotlin.time.Duration,
+    ) {
+        val request =
+            androidx.work
+                .OneTimeWorkRequestBuilder<ScheduledSendWorker>()
+                .setInitialDelay(delay.inWholeMilliseconds.coerceAtLeast(0), java.util.concurrent.TimeUnit.MILLISECONDS)
+                .setConstraints(
+                    androidx.work.Constraints
+                        .Builder()
+                        .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+                        .build(),
+                ).build()
+        androidx.work.WorkManager
+            .getInstance(context)
+            .enqueueUniqueWork("scheduled-send-next", androidx.work.ExistingWorkPolicy.REPLACE, request)
+    }
 
     private inline fun <reified W : CoroutineWorker> enqueue(
         context: Context,

@@ -126,6 +126,17 @@ class MessageMenu(
         attempt { actions.edit(message, text.trim()) }
     }
 
+    /** Sends a scheduled message now instead of at its time (UI_DESIGN.md 10.13). */
+    fun sendNow(message: Message) = attempt { actions.sendNow(message) }
+
+    fun cancelScheduled(message: Message) = attempt { actions.cancelScheduled(message) }
+
+    /** Moves a scheduled message to [at]. */
+    fun reschedule(
+        message: Message,
+        at: kotlin.time.Instant,
+    ) = attempt { actions.schedule(message.chatId, message.body.orEmpty(), at, replacing = message) }
+
     fun togglePin(
         message: Message,
         pinned: Boolean,

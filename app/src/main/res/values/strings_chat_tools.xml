@@ -16,4 +16,19 @@
     <string name="search_date">Jump to date</string>
     <string name="search_none">Nothing found</string>
     <string name="search_voice_note">Voice note</string>
+    <string name="obscured_hidden">Hidden message. Tap to show it for a few seconds.</string>
+    <string name="later_sends_at">Sends %1$s</string>
+    <string name="later_title">Send later</string>
+    <string name="later_in_an_hour">In 1 hour</string>
+    <string name="later_this_evening">This evening</string>
+    <string name="later_tomorrow_morning">Tomorrow morning</string>
+    <string name="later_tomorrow_same">Tomorrow at this time</string>
+    <string name="later_next_monday">Next Monday morning</string>
+    <string name="later_pick">Pick a date and time</string>
+    <string name="later_type">Or type when, like “friday 6pm”</string>
+    <string name="later_not_understood">Not sure when that is</string>
+    <string name="later_schedule">Schedule</string>
+    <string name="later_send_now">Send now</string>
+    <string name="later_change_time">Change time</string>
+    <string name="later_cancel">Cancel sending</string>
 </resources>

@@ -95,7 +95,11 @@ fun MessageRow(
                 header = { BubbleTop(item, context, sender) },
                 footer = {
                     message.linkPreview?.let { LinkCard(it) }
-                    if (showTime || message.status is MessageStatus.Failed) Footer(message)
+                    if (showTime || message.status is MessageStatus.Failed ||
+                        message.status is MessageStatus.Scheduled
+                    ) {
+                        Footer(message)
+                    }
                 },
             )
             if (message.reactions.isNotEmpty()) Reactions(message)
@@ -132,10 +136,10 @@ fun showsTime(
 }
 
 @Composable
-private fun bodyText(message: Message): String? =
+private fun bodyText(message: Message): androidx.compose.ui.text.AnnotatedString? =
     when {
         message.deletedForEveryone || message.kind == MessageKind.DELETED -> null
-        else -> message.body
+        else -> message.body?.let { linked(it, message.linkPreview) }
     }
 
 @Composable
@@ -158,8 +162,9 @@ private fun Footer(message: Message) {
         ) {
             Text(stringResource(R.string.chat_edited), style = MaterialTheme.typography.labelSmall)
         }
+        val waiting = message.status as? MessageStatus.Scheduled
         Text(
-            clockTime(message),
+            waiting?.let { scheduledLabel(it.at) } ?: clockTime(message),
             style = MaterialTheme.typography.labelSmall,
             color = LocalContentColor.current.copy(alpha = FADED),
         )

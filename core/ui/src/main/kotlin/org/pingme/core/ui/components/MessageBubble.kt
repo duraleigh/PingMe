@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Transport
@@ -27,7 +28,7 @@ import org.pingme.core.ui.theme.PingMeTheme
  */
 @Composable
 fun MessageBubble(
-    text: String?,
+    text: AnnotatedString?,
     outgoing: Boolean,
     network: NetworkId,
     transport: Transport,
@@ -81,3 +82,16 @@ fun MessageBubble(
         }
     }
 }
+
+/** A bubble whose text is plain; see the other [MessageBubble] for text with links. */
+@Composable
+fun MessageBubble(
+    text: String?,
+    outgoing: Boolean,
+    network: NetworkId,
+    transport: Transport,
+    modifier: Modifier = Modifier,
+    lastInGroup: Boolean = true,
+    header: @Composable ColumnScope.() -> Unit = {},
+    footer: @Composable ColumnScope.() -> Unit = {},
+) = MessageBubble(text?.let(::AnnotatedString), outgoing, network, transport, modifier, lastInGroup, header, footer)

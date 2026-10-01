@@ -57,6 +57,8 @@ class ComposerHooks(
     /** The GIF button's picker; null where the network cannot take GIFs. */
     val gifs: org.pingme.app.chat.gif.GifSearch? = null,
     val gifPicks: org.pingme.app.chat.gif.GifPicks? = null,
+    /** Send later: the text and when (UI_DESIGN.md 10.13). */
+    val onSchedule: ((String, kotlin.time.Instant) -> Unit)? = null,
 )
 
 /** What a message row needs besides the message. */

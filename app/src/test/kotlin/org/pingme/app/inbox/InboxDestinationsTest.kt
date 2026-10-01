@@ -52,9 +52,10 @@ class InboxDestinationsTest {
     @After
     fun tearDown() = demo.close()
 
+    // Moves the main thread's clock on as it waits, so progress does not depend on how busy the machine is.
     private fun waitFor(condition: () -> Boolean) =
         compose.waitUntil(TIMEOUT) {
-            shadowOf(Looper.getMainLooper()).idle()
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(STEP_MS))
             condition()
         }
 
@@ -139,5 +140,6 @@ class InboxDestinationsTest {
 
     private companion object {
         const val TIMEOUT = 15_000L
+        const val STEP_MS = 50L
     }
 }

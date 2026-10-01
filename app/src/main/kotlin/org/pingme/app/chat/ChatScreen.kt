@@ -163,6 +163,7 @@ fun ChatScreen(
             actions.search.onJumped()
         }
     }
+    SecureWindow(state.chat?.isObscured == true)
     Scaffold(
         modifier = modifier,
         topBar = { TopBars(state, actions) { jumpTo(it) } },
@@ -215,6 +216,9 @@ private fun MessageList(
     val haptics = PingMeTheme.appearance.haptics
     val timestamps = PingMeTheme.appearance.timestamps
     val context = rowContext(state, actions, onJump)
+    val obscured = state.chat.isObscured
+    val cover = MaterialTheme.colorScheme.surfaceContainerHighest
+    val hiddenLabel = stringResource(R.string.obscured_hidden)
     // The list is drawn from the bottom: index 0 is the newest message.
     LazyColumn(Modifier.fillMaxSize().testTag(CHAT_LIST), state = list, reverseLayout = true) {
         items(state.items, key = { it.key }) { item ->
@@ -242,11 +246,15 @@ private fun MessageList(
                         wobble = ui.wobble[key] ?: 0,
                         modifier = Modifier.animateItem().background(tint),
                     ) {
+                        HideAgain(key, ui.unblurred)
                         MessageRow(
                             item,
                             context,
                             showTime = showsTime(timestamps, item, ui.revealed[key] == true),
-                            bubbleModifier = Modifier.onGloballyPositioned { ui.bounds[key] = it.boundsInRoot() },
+                            bubbleModifier =
+                                Modifier
+                                    .onGloballyPositioned { ui.bounds[key] = it.boundsInRoot() }
+                                    .obscured(obscured && ui.unblurred[key] != true, cover, hiddenLabel),
                         )
                     }
                 }
@@ -277,7 +285,16 @@ private fun gesturesFor(
     val selecting = state.selection.isNotEmpty()
     val key = message.id.value
     return BubbleGestures(
-        onTap = { if (selecting) actions.menu?.toggle(message) else ui.revealed[key] = ui.revealed[key] != true },
+        onTap = {
+            when {
+                selecting -> actions.menu?.toggle(message)
+
+                // In an obscured chat a tap shows the message for a few seconds (UI_DESIGN.md 10.10).
+                state.chat?.isObscured == true && ui.unblurred[key] != true -> ui.unblurred[key] = true
+
+                else -> ui.revealed[key] = ui.revealed[key] != true
+            }
+        },
         onDoubleTap = {
             val prefs = state.reactions
             actions.menu?.doubleTapEmoji(prefs.doubleTap, prefs.quick, state.capabilities?.reactions)?.let { emoji ->

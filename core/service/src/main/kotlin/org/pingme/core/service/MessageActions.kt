@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.serialization.json.Json
 import org.pingme.core.connector.Connector
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.ConnectorRegistry
@@ -26,15 +27,20 @@ import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Quote
 import org.pingme.core.model.Reaction
 import org.pingme.core.model.ReactionRule
+import org.pingme.core.model.ScheduledSend
 import org.pingme.core.model.Transport
+import org.pingme.core.service.work.SendAlarm
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.MessageRepository
 import org.pingme.core.store.PinnedMessageRepository
+import org.pingme.core.store.ScheduledSendRepository
+import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * What the chat screen does to messages (UI_DESIGN.md 3.2, 5.1, 5.2): send and reply with a
@@ -52,6 +58,8 @@ class MessageActions
         private val registry: ConnectorRegistry,
         private val applier: EventApplier,
         private val clock: Clock,
+        private val scheduled: ScheduledSendRepository,
+        private val alarm: SendAlarm,
     ) {
         private val uploads = MutableStateFlow<Map<MessageId, Float>>(emptyMap())
 
@@ -148,17 +156,100 @@ class MessageActions
             message: Message,
             text: String,
         ) {
+            // A message still waiting to go is changed on the phone only.
+            val waiting = message.status as? MessageStatus.Scheduled
+            if (waiting != null) {
+                schedule(message.chatId, text, waiting.at, replacing = message)
+                return
+            }
             val connector =
                 connectorFor(message.chatId) ?: throw UnsupportedCapabilityException("This network is not connected")
             connector.edit(message.id, text)
             messages.upsert(message.copy(body = text, editedAt = clock.now()))
         }
 
-        /** Sends a copy of [message]'s text to [to] (UI_DESIGN.md 3.3). Attachments follow with P2.4's media part. */
+        /** Sends a copy of [message], its text and its files, to [to] (UI_DESIGN.md 3.3). */
         suspend fun forward(
             message: Message,
             to: ChatId,
-        ) = message.body?.takeIf { it.isNotBlank() }?.let { send(to, it) }
+        ): Message? {
+            val connector = connectorFor(message.chatId)
+            // Files not yet on the phone are fetched first; one that cannot be fetched is left out.
+            val files =
+                message.attachments.mapNotNull { file ->
+                    val local = file.localPath?.let(::File)?.takeIf { it.exists() }
+                    val path = local?.path ?: quietly("download") { connector?.downloadAttachment(file)?.path }
+                    path?.let { file.copy(localPath = it).asOutgoing() }
+                }
+            val text = message.body.orEmpty()
+            if (text.isBlank() && files.isEmpty()) return null
+            return send(to, text, attachments = files)
+        }
+
+        /**
+         * Keeps a message to send at [at] (UI_DESIGN.md 10.13): it shows as a pending bubble
+         * with a clock until then. [replacing] changes one already scheduled.
+         */
+        suspend fun schedule(
+            chatId: ChatId,
+            text: String,
+            at: Instant,
+            replyTo: Message? = null,
+            replyToName: String? = null,
+            attachments: List<OutgoingAttachment> = emptyList(),
+            replacing: Message? = null,
+        ): Message {
+            val base =
+                replacing ?: pendingMessage(chatId, text, replyTo, replyToName, networkOf(chatId), forceSms = false)
+            val files = replacing?.attachments ?: attachments.mapIndexed { i, a -> a.asAttachment(base.id, i) }
+            val message =
+                base.copy(
+                    body = text.ifBlank { null },
+                    attachments = files,
+                    kind = files.firstOrNull()?.kind?.let(::kindOf) ?: MessageKind.TEXT,
+                    status = MessageStatus.Scheduled(at),
+                    sentAt = at,
+                    receivedAt = at,
+                )
+            val draft =
+                OutgoingMessage(
+                    message.id,
+                    message.body,
+                    files.mapNotNull { it.asOutgoing() },
+                    message.replyTo,
+                    message.quote,
+                    false,
+                )
+            messages.upsert(message)
+            scheduled.upsert(
+                ScheduledSend(
+                    message.id,
+                    at,
+                    chatId.accountId,
+                    chatId,
+                    Json.encodeToString(OutgoingMessage.serializer(), draft),
+                    0,
+                ),
+            )
+            alarm.arm()
+            return message
+        }
+
+        /** Drops a scheduled message before it goes. */
+        suspend fun cancelScheduled(message: Message) {
+            scheduled.delete(message.id)
+            messages.delete(message.id)
+            alarm.arm()
+        }
+
+        /** Sends a scheduled message straight away. */
+        suspend fun sendNow(message: Message): Message {
+            scheduled.delete(message.id)
+            val now = message.copy(status = MessageStatus.Sending, sentAt = clock.now(), receivedAt = clock.now())
+            messages.upsert(now)
+            alarm.arm()
+            return deliver(now, forceSms = false)
+        }
 
         /** Tells the other side you are typing, where the network shows that; silent otherwise. */
         suspend fun setTyping(
