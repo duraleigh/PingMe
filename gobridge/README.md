@@ -15,8 +15,11 @@ with gomobile into one Android library, `build/gobridge.aar`, which is never com
 
 `./build.sh` vets and tests the Go code, then runs `gomobile bind` for arm64, x86_64,
 and arm. It keeps a hash of the sources beside the AAR and skips the bind when nothing
-changed; `./build.sh --force` rebuilds anyway. Gradle runs it automatically (the
-`buildGoBridge` task of `:connectors:gmessages`), so `./gradlew check` needs:
+changed; `./build.sh --force` rebuilds anyway. Gradle runs it automatically: this
+directory is the `:gobridge` module, whose `buildGoBridge` task runs the script and whose
+one artifact is the AAR (`connectors/gmessages` depends on `project(":gobridge")`, since
+the Android Gradle Plugin refuses a local `.aar` file inside a library module). So
+`./gradlew check` needs:
 
 - Go (the version in `go.mod`; `GOTOOLCHAIN=auto` fetches it),
 - gomobile: `go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init`,
