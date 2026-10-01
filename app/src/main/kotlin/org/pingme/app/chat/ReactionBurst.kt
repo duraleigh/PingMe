@@ -9,6 +9,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -21,6 +22,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -136,9 +140,12 @@ fun ReactionBurstLayer(
             }
         }
     }
-    Canvas(modifier.fillMaxSize()) {
+    // Bubbles report where they are on the whole screen; this layer may not start at its corner.
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    Canvas(modifier.fillMaxSize().testTag(BURST_LAYER).onGloballyPositioned { origin = it.positionInRoot() }) {
         state.bursts.forEach { burst ->
-            drawBurst(burst, state.clock - burst.startedAt, motion, text, primary, tertiary)
+            val here = burst.copy(from = burst.from?.minus(origin), to = burst.to - origin)
+            drawBurst(here, state.clock - burst.startedAt, motion, text, primary, tertiary)
         }
     }
 }
@@ -236,7 +243,8 @@ private fun DrawScope.drawEmoji(
     if (alpha <= 0f) return
     val layout = text.measure(emoji, TextStyle(fontSize = EMOJI_SIZE))
     val topLeft = center - Offset(layout.size.width / 2f, layout.size.height / 2f)
-    scale(scale, center) { drawText(layout, topLeft = topLeft, alpha = alpha.coerceIn(0f, 1f)) }
+    // drawText ignores alpha unless a colour is given; colour emoji keep their own colours either way.
+    scale(scale, center) { drawText(layout, Color.Black, topLeft, alpha.coerceIn(0f, 1f)) }
 }
 
 /** A quadratic arc that rises above the straight line between the two points. */
@@ -265,6 +273,7 @@ private fun glowFor(emoji: String) =
         else -> CLAP_AMBER
     }
 
+const val BURST_LAYER = "reaction-burst"
 private const val NOT_STARTED = -1L
 private val HEART_RED = Color(0xFFE53950)
 private val FIRE_ORANGE = Color(0xFFFF7A1A)

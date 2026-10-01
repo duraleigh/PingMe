@@ -38,7 +38,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import org.pingme.app.R
+import org.pingme.app.chat.itemMotion
 import org.pingme.core.model.ChatId
+import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
 
 @Composable
@@ -121,7 +123,7 @@ fun ChatListScreen(
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
             items(state.rows, key = { it.id.value }) { row ->
-                Column(Modifier.animateItem()) {
+                Column(Modifier.itemMotion(this, PingMeTheme.motion)) {
                     InboxRow(row, state.now, { onOpenChat(row.id) }, { holding = row }, { onSwipe(row, it) })
                     if (route.kind == ListKind.REQUESTS) RequestButtons { onRespond(row, it) }
                 }

@@ -1317,3 +1317,106 @@ tap's position is not what is being tested; text boxes must read typed text from
 state, never from a flow (see P2.8). Robolectric hid three real bugs this phase (the mic,
 the hold-menu overlap, the missing burst), so anything about touch or drawing is checked
 on the emulator too.
+
+## Gate G1 fixes, session on the owner's computer (2026-10-01)
+
+Work happens on branch `g1-fixes`, one pull request per group, merged once CI is green.
+
+### The emulator (handover step 1)
+
+The emulator **runs on Windows, not inside WSL**. Inside WSL it booted (nested
+virtualization), but WSL offers no hardware graphics to it, and with every software
+renderer (`swiftshader_indirect`, `swangle_indirect`, `guest`) screenshots and screen
+recordings fail (`hasReadColorBufferDma` assertion, `Encoder failed`). The owner chose the
+Windows emulator, which uses the RTX 5060.
+
+- Windows SDK: `C:\Users\ca\AppData\Local\Android\Sdk` (emulator 37.1.11 stable, Windows
+  platform-tools, and the system image copied from WSL).
+- Virtual phone `pingme_api37`: Pixel 7 profile, Android 17 (API 37.0) Google Play
+  x86_64 image, 4 GB RAM, 8 GB data, host GPU. Its files: `C:\Users\ca\.android\avd\`.
+  Windows Hypervisor Platform was already on; nothing needed admin rights.
+- Start it: `cmd.exe /c C:\Users\ca\AppData\Local\Android\pingme-emulator.bat` (from a
+  Windows folder, for example `cd /mnt/c/Users/ca` first). It boots in about a minute.
+- WSL's `adb` reaches it at `emulator-5554` because WSL uses mirrored networking. The adb
+  server here must be started by hand (`adb nodaemon server` in the background, with
+  `setsid nohup`); starting it as a daemon from the Claude shell hangs. The console needs
+  `~/.emulator_console_auth_token` copied from `C:\Users\ca\`.
+- `local.properties` needs `sdk.dir=/opt/android-sdk` (the Claude shell does not read
+  `~/.bashrc`).
+- Real finger input: `adb shell input` is too slow for a double tap (each call starts a
+  Java tool) and the Play image has no root for `sendevent`. The emulator console's
+  `event mouse X Y 0 1|0` is fast and exact; the builder drives taps, double taps, holds,
+  and slides through it.
+- Gboard shows a "Try out your stylus" tutorial over the chat; turned off with
+  `settings put secure stylus_handwriting_enabled 0`.
+- The WSL emulator, AVD and system image are still installed under `/opt/android-sdk`
+  and `~/.android/avd`, unused.
+
+### Reaction burst never seen on a phone (handover step 2): fixed
+
+Cause, found with logging on the emulator: the burst canvas had **height 0**. `ChatScreen`
+emitted its Scaffold and its overlays side by side, and inside the list-detail pane those
+siblings are stacked like a column, so the Scaffold took the whole height and the burst
+layer got none. The timeline still ran (so the reaction landed and the bubble wobbled), but
+everything it drew was clipped. In Robolectric the chat sat straight in the window, which
+layers siblings, so the burst showed there. Also, the burst's emoji never faded:
+`drawText` ignores `alpha` unless a colour is passed.
+
+Fix: `ChatScreen` wraps the chat and its overlays in one `Box`; the burst layer converts
+screen positions into its own (it lands right when the chat pane is offset, on tablets);
+emoji are drawn with a colour so they fade. `ChatLayersTest` hosts the chat in a column
+and fails without the fix. Checked on the emulator with recordings at Full and Extra:
+Pick, Land, Celebrate, the faint rising ghost, and Extra's red edge glow for ❤️ all show.
+
+### Motion levels (handover step 2): built
+
+UI_DESIGN.md 4.5 says intensity governs reactions, bubble entrance, and transitions;
+before this only reactions read Subtle/Full/Extra. Now (`ScreenMotion` and
+`BubbleEntrance` in `core/ui/theme/MotionLevels.kt`):
+
+| Level | A new bubble (arriving, or one you send) | Screens and the chat pane |
+|---|---|---|
+| Off | just appears; lists do not animate | instant |
+| Subtle | fades in | short fade |
+| Full | fades in, rises 16 dp, grows from 90%, light spring | quarter-width slide and fade on the theme's expressive springs |
+| Extra | pops from half size, rises 40 dp, bouncy, from the sender's corner | full-width bouncy slide that grows into place |
+
+History and a bubble already seen never replay; your message pops once even though the
+network's copy replaces the "sending" one. Tests: `MotionLevelsTest`, `EntranceTest`.
+Checked on the emulator at Extra (recordings of opening a chat and of sending).
+
+### Found while testing: a chat with no messages yet never loads its history
+
+The inbox showed "No messages yet" on every chat after the demo login, and opening one
+showed nothing. History is fetched only when the list scrolls near its top, and an empty
+list has no top to reach; the background `HistoryBackfillWorker` is never scheduled by
+anything. On the owner's phone messages appeared because the demo's live chatter put a
+first message in.
+
+**Fixed (owner approved both parts, 2026-10-01):**
+- An empty chat asks for its history as soon as it opens (`ChatHistoryTest`, which fails
+  without the fix; the test helper `DemoInbox.seed(history = false)` now starts chats empty,
+  as a real login does. Every earlier UI test pre-loaded history, which hid this).
+- The first sync of history (DESIGN.md 5.4 step 4): after an account's chat list arrives,
+  `HistorySync` starts `HistoryBackfillWorker` for each chat with nothing stored yet
+  (`ConnectorSupervisorTest.chatsWithNothingStoredFetchTheirHistory`). On the emulator,
+  right after a fresh Demo login, every inbox row shows its real last message.
+
+### Found while testing: a flaky chat test, and two small real bugs behind it
+
+`MessageActionsScreenTest` (edit, delete) failed most runs on this faster machine when
+the whole app suite ran together, on the original code too (checked at `0745f3e`). Causes:
+
+- **Test bug:** its "wait until sent" check looked for IDs starting with `pending-`, but
+  they look like `demo/pending-…`, so it often went on while the message was still
+  sending. Fixed; the helper also picks the sent message by its words.
+- **App bug:** as a sent message replaces its "sending" bubble, the old bubble fades out
+  in the same place and still took touches, so a quick press and hold could act on a
+  message that was gone. Bubbles fading out now ignore touches (`ChatUi.shown`).
+- **App bug:** an action on a message held while it was still sending (edit, delete,
+  react, pin) went to the "sending" copy's ID, which no longer exists, and silently did
+  nothing. `MessageActions` now remembers which sent message replaced which "sending"
+  one and acts on that (`MessageActionsTest.actingOnTheSendingCopyActsOnTheSentMessage`,
+  which fails without the fix).
+
+The app suite then passed 8 runs out of 8 (it failed 3 to 4 out of 4 before).

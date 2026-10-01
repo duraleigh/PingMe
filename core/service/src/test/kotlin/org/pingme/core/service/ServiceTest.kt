@@ -73,6 +73,7 @@ abstract class ServiceTest {
     protected lateinit var applier: EventApplier
     protected lateinit var router: NotificationRouter
     protected lateinit var keeper: CountingKeeper
+    protected lateinit var history: CountingHistory
 
     protected val accountId = AccountId("acc")
 
@@ -94,6 +95,7 @@ abstract class ServiceTest {
         applier = EventApplier(accounts, chats, messages, contacts, typing, reactionFeed)
         router = NotificationRouter(context, chats, clock)
         keeper = CountingKeeper(context, settings, messages, clock)
+        history = CountingHistory(context, messages)
     }
 
     /** Background work stops before the database closes, so nothing writes to a closed store. */
@@ -178,5 +180,17 @@ class CountingKeeper(
 
     override fun download(id: org.pingme.core.model.AttachmentId) {
         downloads += id
+    }
+}
+
+/** Records which chats would fetch their history, instead of asking Android's job system. */
+class CountingHistory(
+    context: Context,
+    messages: MessageRepository,
+) : HistorySync(context, messages) {
+    val backfilled = mutableListOf<org.pingme.core.model.ChatId>()
+
+    override fun backfill(chatId: org.pingme.core.model.ChatId) {
+        backfilled += chatId
     }
 }

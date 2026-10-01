@@ -26,6 +26,7 @@ import org.pingme.core.model.TimeLimit
 import org.pingme.core.ui.theme.Haptics
 import org.pingme.core.ui.theme.PingMeTheme
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import org.pingme.core.ui.R as UiR
 
 /** What the chat is showing on top of itself: the held message, open sheets, reaction bursts. */
@@ -40,6 +41,13 @@ class ChatUi {
     /** A scheduled message whose time is being changed (UI_DESIGN.md 10.13). */
     var rescheduling by mutableStateOf<Message?>(null)
 
+    /**
+     * The messages in the chat right now. A bubble that is fading out of the list (the
+     * "sending" one, as the sent one replaces it) ignores touches, which would otherwise act
+     * on a message that is gone.
+     */
+    var shown: Set<String> = emptySet()
+
     /** Where each bubble is on screen, for the overlay and the bursts. */
     val bounds = mutableStateMapOf<String, Rect>()
 
@@ -52,6 +60,28 @@ class ChatUi {
     /** Bubbles in an obscured chat that a tap is showing for a few seconds. */
     val unblurred = mutableStateMapOf<String, Boolean>()
     val burst = BurstState()
+
+    /** When the chat opened: only newer messages play their entrance (UI_DESIGN.md 4.5). */
+    val openedAt = Clock.System.now()
+
+    // Bubbles that have played their entrance, so scrolling back to one does not replay it,
+    // and when each of your own messages last did.
+    private val entered = mutableSetOf<String>()
+    private val sent = mutableMapOf<String, kotlin.time.Instant>()
+
+    /**
+     * True the first time [message] is shown. Your own message is also matched by its content,
+     * since the network's copy soon replaces the "sending" one under a new ID and must not pop
+     * in twice.
+     */
+    fun enters(message: Message): Boolean {
+        if (!entered.add(message.id.value)) return false
+        if (!message.isOutgoing) return true
+        val now = Clock.System.now()
+        val content = "${message.kind}:${message.body}:${message.attachments.size}"
+        val before = sent.put(content, now)
+        return before == null || now - before >= SAME_SEND
+    }
 
     /** Where a reaction chip lands: the bubble's bottom corner on the sender's side. */
     fun chipSpot(message: Message): Offset? =
@@ -66,6 +96,9 @@ class ChatUi {
 
     private companion object {
         const val CHIP_INSET = 48f
+
+        /** A copy of your message this soon after the "sending" one is the same message. */
+        val SAME_SEND = 5.seconds
     }
 }
 
