@@ -12,8 +12,10 @@ class FakeRecorder(
 ) : VoiceRecorder(context) {
     var started = 0
     var cancelled = 0
+    var paused = 0
     var compact: Boolean? = null
-    private var since = 0L
+    private var since: Long? = null
+    private var recorded = 0L
 
     override fun start(
         now: Long,
@@ -21,14 +23,28 @@ class FakeRecorder(
     ): Boolean {
         started++
         since = now
+        recorded = 0
         this.compact = compact
         return true
     }
 
-    override fun level() = 0.5f
+    override fun level() = if (since == null) 0f else 0.5f
+
+    override fun pause(now: Long): File? {
+        paused++
+        since?.let { recorded += now - it }
+        since = null
+        return File.createTempFile("so-far", ".m4a", folder).apply { writeBytes(ByteArray(bytes)) }
+    }
+
+    override fun resume(now: Long): Boolean {
+        since = now
+        return true
+    }
 
     override fun finish(now: Long): Recording? {
-        val length = now - since
+        val length = recorded + (since?.let { now - it } ?: 0)
+        since = null
         if (length < SHORTEST_MS) return null
         val file = File.createTempFile("voice", ".m4a", folder).apply { writeBytes(ByteArray(bytes)) }
         return Recording(file, length)
@@ -36,5 +52,6 @@ class FakeRecorder(
 
     override fun cancel() {
         cancelled++
+        since = null
     }
 }

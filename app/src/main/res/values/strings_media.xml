@@ -16,8 +16,12 @@
     <string name="media_play_video">Play video</string>
     <string name="media_location">Location</string>
     <string name="media_contact">Contact</string>
-    <string name="voice_hold_to_record">Hold to record a voice note</string>
-    <string name="voice_too_short">Hold the mic to record, then let go to send</string>
+    <string name="voice_record">Record a voice note: tap to record hands-free, or hold to talk</string>
+    <string name="voice_too_short">Too short to send. Tap the mic to record hands-free, or hold it and talk</string>
+    <string name="voice_pause_recording">Pause recording</string>
+    <string name="voice_resume">Go on recording</string>
+    <string name="voice_play_so_far">Play what you have recorded</string>
+    <string name="voice_stop_so_far">Stop playing</string>
     <string name="voice_slide_to_cancel">‹ Slide to cancel</string>
     <string name="voice_slide_up_to_lock">Slide up to keep recording hands-free</string>
     <string name="voice_discard">Delete recording</string>
