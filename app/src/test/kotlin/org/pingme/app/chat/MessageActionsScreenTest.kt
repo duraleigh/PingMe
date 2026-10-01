@@ -74,7 +74,8 @@ class MessageActionsScreenTest {
 
     private fun waitFor(condition: () -> Boolean) =
         compose.waitUntil(TIMEOUT) {
-            shadowOf(Looper.getMainLooper()).idle()
+            // Moving the clock on, not just running what is due, keeps slow machines from stalling here.
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(STEP_MS))
             condition()
         }
 
@@ -192,5 +193,6 @@ class MessageActionsScreenTest {
 
     private companion object {
         const val TIMEOUT = 15_000L
+        const val STEP_MS = 50L
     }
 }
