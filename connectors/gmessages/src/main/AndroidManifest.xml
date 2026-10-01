@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The connector checks that Google Messages is installed before pairing (DESIGN.md 5.4). -->
+    <queries>
+        <package android:name="com.google.android.apps.messaging" />
+    </queries>
+</manifest>

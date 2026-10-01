@@ -1661,3 +1661,134 @@ for libgm's logging, sent to logcat under `GoLog` at info level.
 sign-in, then WaitForConfirmation with the emoji), connect through the supervisor,
 chat and message sync, send, react, read, typing, delete, media, and the "Action
 needed" flow when Google revokes the pairing. Then P3.3's contract test on the fixture.
+
+## P3.2 Google Messages connector (done, 2026-10-01)
+
+`connectors/gmessages` is a real connector now, over the P3.1 bridge. Checked with
+`./gradlew check`; the contract test (P3.3) runs against the recorded libgm session.
+
+**Pairing** (`GmessagesLogin.kt`), Google account only (owner, 2026-10-01):
+1. **Fix steps** for DESIGN.md 5.4 step 1, a new `LoginStep.Fix` any connector can use:
+   "Install Google Messages" (button to its Play Store page) and "Make Google Messages
+   your default SMS app" (button to Android's default-apps screen), each with Check
+   again. RCS on or off is only known after pairing, from the phone's settings event;
+   it is logged, and texts still work over SMS when it is off.
+2. **Sign in to Google** in the in-app web page (`OpenWebView`), landing on the Messages
+   for web config page so OSID is set; the six cookies libgm needs come back. The
+   WebView now presents itself as Chrome (its user agent minus the WebView markers),
+   keeps DOM storage, and accepts third-party cookies, because Google refuses sign-in
+   from pages that announce themselves as WebViews. **If Google still refuses on the
+   phone, this is the first thing Gate G2 finds out**, and there is no fallback.
+3. **The emoji**: PingMe asks Google to pair, shows the emoji at display size, and the
+   owner opens Google Messages on the same phone and taps the same emoji there.
+4. **Done**: the session (pairing keys, cookies, tokens) is saved encrypted under
+   `gmessages/<phone id>`, through the Keystore credential store (P1.4). The account's
+   name is the Google account's email. Every failure the bridge tells apart has plain
+   words: no phone on the account, phone not answering, wrong emoji, cancelled, timed out.
+
+**Live session** (`GmessagesSession.kt`): connects through the bridge, lists the inbox's
+chats on the phone's "ready" signal (and again when the phone asks for a resync), then
+reports `Connected`; from then on every message, conversation, typing, and reaction
+change arrives as `ConnectorEvent`s through `GoBridge`. Token refreshes re-save the
+credentials. When Google revokes the pairing (any of libgm's four signals, or a
+logged-out answer to a request) the session throws `ActionNeededException` with the
+Google Messages package as the deep link, so the supervisor stops retrying and the
+inbox shows "needs attention, tap to fix" (DESIGN.md 5.3). Other failures end the flow
+and the supervisor backs off and reconnects.
+
+**Doing things:**
+- **Send**: media is uploaded first (encrypted, as Google requires; the bubble's
+  progress follows each file), then the message is sent with the pending bubble's own
+  id as tmpId. Google Messages confirms sends asynchronously by echoing the message
+  back with that tmpId, so the connector waits up to 20 seconds for the echo and
+  returns the real message. If the echo is slower, a stand-in copy is returned and
+  swapped for the real one when it arrives.
+- **Reactions**: any emoji; add, switch (when you already reacted), remove. **Read**:
+  marks the chat read on the phone, which sends the RCS read receipt. **Typing**: sent
+  on start (Google Messages has no "stopped" call; the indicator times out).
+- **Delete for me** deletes the phone's copy too, through the pairing (UI_DESIGN.md
+  5.3), so Google Messages matches. Recorded: this deletes on the phone. **Delete for
+  everyone** is not offered: Google exposes none to paired devices (open question 1 in
+  UI_DESIGN.md 11 is answered for now: no).
+- **Media** downloads decrypt into app storage; a thumbnail is used while the phone
+  uploads the full file, which then arrives as a message update.
+- **New chats and groups** by phone number (an RCS group gets the given name).
+- **RCS vs SMS per message** from the phone's message type (SMS, MMS) or the chat's own
+  transport; the bubble shows the SMS tag on SMS fallbacks (UI_DESIGN.md 10.1).
+
+**Capabilities** (UI_DESIGN.md 8, RCS column): native replies, delete for me, no delete
+for everyone, any-emoji reactions, native GIFs and voice notes, typing, read receipts,
+no edit, no pins, no folders, start conversation and create group, one account, calls
+through the dialer and Meet. **Block** is reported unsupported ("Block people in Google
+Messages itself"): libgm carries a block action but the reference bridge never uses
+it, so it is unverified; the UI shows the reason instead of hiding the control.
+
+**Deviations, and questions for the owner (answer at Gate G2):**
+- **"Send as SMS" cannot be done through the pairing.** Google Messages lets a paired
+  device say "force RCS" or leave the choice to the phone; there is no "send this one
+  as SMS". The hold-Send menu still offers it (P2.4), and choosing it now fails at once
+  with the reason, rather than silently sending as RCS. Options: (a) remove the menu
+  item for Google Messages chats, or (b) keep it and have it switch the whole chat to
+  SMS in Google Messages (not exposed to paired devices either, so (b) is not possible
+  today). I suggest (a). Your call.
+- **Unread counts** are "1" for an unread chat: Google Messages tells paired devices
+  only whether a chat is unread. The inbox shows one blue dot either way; the number
+  in a filter button counts chats, not messages, for this network.
+- **One account**: a phone has one Google Messages pairing (`multiAccount = false`).
+
+**New in the connector API**: `LoginStep.Fix` and `LoginResponse.CheckAgain` (P1.3's
+login steps). The login screen draws Fix with the action button and Check again, and
+a preview covers it (`LoginFixPreview`, in `PreviewsTest`).
+
+## P3.3 Acceptance for Phase 3 (contract test done, 2026-10-01): stopped at Gate G2
+
+`GmessagesContractTest` runs every contract test against `FakeGmBridge`, a pretend phone
+that replays `gobridge/gm/testdata/session.json` (which the Go tests write from real
+libgm proto messages) and answers like Google Messages: a send echoes back as a
+message event with the same tmpId, a reaction comes back on the message, a delete comes
+back as a deleted message, typing arrives by phone number. `GmessagesLoginTest` covers
+the Fix steps, the sign-in cookies, the emoji, and the failure wording.
+
+**Gate G2, the owner's turn.** This needs your phone and your Google account; nothing
+here can be checked on the emulator, which has no Google Messages. It is the first
+real network, so expect rough edges and tell me each one.
+
+*Install it*
+1. On GitHub, open Actions, the newest green "build" run on `main`, and download
+   `pingme-<commit>.apk` (the real app, not the demo) onto your phone. Install it.
+
+*Pair* (Settings > Accounts > Add account > Google Messages, or from setup)
+2. If PingMe says Google Messages is not the default SMS app, use its button, fix it,
+   and tap Check again.
+3. Sign in to Google on the page PingMe shows. **If Google refuses ("this browser or
+   app may not be secure" or similar), stop and tell me**: there is no other way to pair.
+4. PingMe shows an emoji. Open Google Messages on this phone: it should ask you to
+   confirm pairing with the same emoji. Tap it. PingMe says it is connected and the
+   inbox fills with your chats. Tell me how long the chat list took and whether the
+   names and pictures look right.
+
+*Use it* (with a friend who has RCS, and one plain SMS contact if you can)
+5. Receive an RCS message: it appears in PingMe and a notification shows.
+6. Send a text; send a photo. Both show as sent, then delivered, then read (✓, ✓✓,
+   coloured ✓✓) as your friend reads them.
+7. React to their message with any emoji; have them react to yours: the reaction
+   shows, and the row flips.
+8. Have them type: "typing…" shows in the chat header.
+9. Look at an RCS chat and an SMS chat side by side: RCS bubbles in the phone's colour,
+   SMS bubbles with the outlined edge and the SMS tag.
+10. Delete one of your messages (Delete for me): it also disappears in Google Messages.
+11. Hold Send and choose "Send as SMS": it fails with a reason (see the question above).
+
+*Reconnection*
+12. Swipe PingMe away (kill it) and open it again: it reconnects by itself.
+13. Turn airplane mode on for a minute and off again: the inbox shows "reconnecting",
+    then connected, and nothing is lost.
+14. In Google Messages, go to Device pairing and unpair this device: PingMe shows
+    "needs attention, tap to fix" within a minute, and tapping it opens Google
+    Messages. Pair again from Settings > Accounts > Log in again.
+
+**Then answer:** (a) remove "Send as SMS" for Google Messages chats, or keep it failing;
+(b) anything in the list above that did not match.
+
+**Next:** when G2 passes, Phase 4 (notifications, background, and the message features
+that need the real network).

@@ -69,6 +69,21 @@ sealed interface LoginStep {
         )
     }
 
+    /**
+     * Something on the phone must change before the login can go on (DESIGN.md 5.4 step
+     * 1: Google Messages installed and the default SMS app). [actionUri] is what the fix
+     * button opens: `package:<name>` launches that app, `market:<name>` its store page,
+     * `settings:<action>` a system settings screen, anything else is viewed as a URI.
+     * "Check again" answers with [LoginResponse.CheckAgain].
+     */
+    data class Fix(
+        override val id: String,
+        val title: String,
+        val detail: String,
+        val actionLabel: String,
+        val actionUri: String,
+    ) : LoginStep
+
     /** The login could not finish. [canRetry] offers to start again. */
     data class Failed(
         override val id: String,
@@ -107,6 +122,9 @@ sealed interface LoginResponse {
 
     /** "Show the QR on another screen" for single-phone setups. */
     data object ShareRequested : LoginResponse
+
+    /** The user says a [LoginStep.Fix] is done; the connector checks again. */
+    data object CheckAgain : LoginResponse
 
     data object Cancel : LoginResponse
 }
