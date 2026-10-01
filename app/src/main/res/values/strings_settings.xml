@@ -108,6 +108,27 @@
     <string name="spaces_new">New space</string>
     <string name="spaces_name">Name</string>
     <string name="spaces_chats">Chats in this space</string>
+    <string name="spaces_icon">Icon</string>
+    <string name="spaces_show_in_all">Show these chats in All</string>
+    <string name="spaces_show_in_all_note">Off: they show only inside this space, and do not count in All.</string>
+    <string name="space_icon_space">Space</string>
+    <string name="space_icon_home">Home</string>
+    <string name="space_icon_work">Work</string>
+    <string name="space_icon_family">Family</string>
+    <string name="space_icon_friends">Friends</string>
+    <string name="space_icon_school">School</string>
+    <string name="space_icon_sport">Sport</string>
+    <string name="space_icon_fitness">Fitness</string>
+    <string name="space_icon_travel">Travel</string>
+    <string name="space_icon_heart">Heart</string>
+    <string name="space_icon_star">Star</string>
+    <string name="space_icon_party">Party</string>
+    <string name="space_icon_shopping">Shopping</string>
+    <string name="space_icon_food">Food</string>
+    <string name="space_icon_music">Music</string>
+    <string name="space_icon_books">Books</string>
+    <string name="space_icon_pets">Pets</string>
+    <string name="space_icon_chat">Chat</string>
     <string name="spaces_delete">Delete %1$s</string>
     <string name="spaces_kind_whatsapp">WhatsApp community</string>
     <string name="spaces_kind_telegram">Telegram forum</string>
@@ -118,7 +139,7 @@
     </plurals>
     <string name="spaces_bar">Bottom bar</string>
     <string name="spaces_bar_edit">Choose the bottom bar</string>
-    <string name="spaces_bar_note">All, then up to four of networks, spaces, Unread, and Low priority.</string>
+    <string name="spaces_bar_note">Up to five of All, networks, spaces, Unread, and Low priority. The inbox opens on the first.</string>
     <string name="backup_note">A backup holds your chats and messages. Logins stay locked on this phone, so after restoring you log in to each network again. Photos and files download again when you open them.</string>
     <string name="backup_save">Save a backup</string>
     <string name="backup_save_note">Pick where the file goes</string>

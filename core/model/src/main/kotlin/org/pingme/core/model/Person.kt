@@ -27,7 +27,34 @@ data class Space(
     val title: String,
     val kind: SpaceKind,
     val chatIds: List<ChatId>,
+    /** Shown in the bottom bar and the avatar menu; the user picks it for a space they made. */
+    val icon: SpaceIcon = SpaceIcon.SPACE,
+    /** True: its chats also show in All. False: only inside the space (UI_DESIGN.md 10.4). */
+    val showInAll: Boolean = true,
 )
+
+/** The icons a space can have (UI_DESIGN.md 10.4). */
+@Serializable
+enum class SpaceIcon {
+    SPACE,
+    HOME,
+    WORK,
+    FAMILY,
+    FRIENDS,
+    SCHOOL,
+    SPORT,
+    FITNESS,
+    TRAVEL,
+    HEART,
+    STAR,
+    PARTY,
+    SHOPPING,
+    FOOD,
+    MUSIC,
+    BOOKS,
+    PETS,
+    CHAT,
+}
 
 @Serializable
 enum class SpaceKind {

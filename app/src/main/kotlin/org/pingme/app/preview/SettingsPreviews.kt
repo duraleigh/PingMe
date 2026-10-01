@@ -69,7 +69,7 @@ private object NoActions : SettingsActions, SpaceActions, BackupActions {
 
     override fun deleteSpace(space: Space) = Unit
 
-    override fun setBar(items: List<InboxBarItem>) = Unit
+    override fun setBar(buttons: List<InboxBarItem?>) = Unit
 
     override fun exportTo(uri: Uri) = Unit
 

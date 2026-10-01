@@ -54,6 +54,12 @@ data class ChatWithParticipants(
     val participants: List<ChatParticipantEntity>,
 )
 
+/** Unread messages in one space's hand-added chats, under the counting rule. */
+data class SpaceUnreadRow(
+    val spaceId: String,
+    val unread: Int,
+)
+
 /** One row of the unread counting rule (see ChatDao.unreadRows). */
 data class UnreadRow(
     val accountId: String,
@@ -152,6 +158,26 @@ interface ChatDao {
         now: Instant,
         showGeneral: Boolean,
     ): Flow<List<UnreadRow>>
+
+    /** The same rule for chats added to a space by hand (a space the user made, UI_DESIGN.md 10.4). */
+    @Query(
+        """
+        SELECT sc.spaceId AS spaceId, SUM(c.unreadCount) AS unread
+        FROM space_chats sc JOIN chats c ON c.id = sc.chatId JOIN accounts a ON a.id = c.accountId
+        WHERE c.unreadCount > 0
+          AND c.isArchived = 0
+          AND c.isLowPriority = 0
+          AND NOT (c.isMuted = 1 AND (c.muteUntil IS NULL OR c.muteUntil > :now))
+          AND (c.folder IS NULL OR c.folder != 'REQUESTS')
+          AND (c.folder IS NULL OR c.folder != 'GENERAL' OR :showGeneral)
+          AND a.showInInbox = 1
+        GROUP BY sc.spaceId
+        """,
+    )
+    fun observeSpaceMemberUnread(
+        now: Instant,
+        showGeneral: Boolean,
+    ): Flow<List<SpaceUnreadRow>>
 
     @Upsert
     suspend fun upsertChat(chat: ChatEntity)

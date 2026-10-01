@@ -52,8 +52,8 @@ data class SettingsState(
     val chats: List<Chat> = emptyList(),
     val keywords: List<KeywordRule> = emptyList(),
     val spaces: List<Space> = emptyList(),
-    /** The bottom bar's buttons after All (UI_DESIGN.md 10.4). */
-    val bar: List<InboxBarItem> = emptyList(),
+    /** The bottom bar's buttons, null standing for All (UI_DESIGN.md 10.4). */
+    val bar: List<InboxBarItem?> = listOf(null),
     val backup: BackupStatus = BackupStatus.IDLE,
 )
 
@@ -74,7 +74,7 @@ interface SpaceActions {
 
     fun deleteSpace(space: Space)
 
-    fun setBar(items: List<InboxBarItem>)
+    fun setBar(buttons: List<InboxBarItem?>)
 }
 
 /** What the Settings pages can change; the view model does it. */
@@ -148,7 +148,7 @@ class SettingsViewModel
                     lists.chats,
                     lists.keywords,
                     lists.spaces,
-                    (lists.bar ?: defaultBar(all)).items,
+                    (lists.bar ?: defaultBar(all)).buttons,
                     lists.backup,
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), SettingsState())
@@ -200,8 +200,8 @@ class SettingsViewModel
                 }
             }
 
-        override fun setBar(items: List<InboxBarItem>) =
-            launch { bar.update(defaultBar(accounts.getAll())) { it.copy(items = items) } }
+        override fun setBar(buttons: List<InboxBarItem?>) =
+            launch { bar.update(defaultBar(accounts.getAll())) { it.withButtons(buttons) } }
 
         private fun defaultBar(all: List<Account>) = InboxBarConfig.default(all.map { it.network })
 

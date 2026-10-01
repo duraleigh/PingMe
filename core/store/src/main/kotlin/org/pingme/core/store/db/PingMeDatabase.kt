@@ -58,10 +58,10 @@ abstract class PingMeDatabase : RoomDatabase() {
         const val NAME = "pingme.db"
 
         /** The schema version. Bump it with a migration in [MIGRATIONS] and an exported schema. */
-        const val VERSION = 3
+        const val VERSION = 4
 
         /** Schema migrations, oldest first (BUILD_PLAN.md P1.6). MigrationTest checks every one. */
-        val MIGRATIONS: Array<Migration> = arrayOf(PinnedMessages, ChatOverridesTable)
+        val MIGRATIONS: Array<Migration> = arrayOf(PinnedMessages, ChatOverridesTable, SpaceIconAndAll)
 
         /** Applies the settings every PingMe database needs, on-disk or in-memory. */
         fun configure(builder: Builder<PingMeDatabase>): PingMeDatabase =
@@ -79,6 +79,8 @@ abstract class PingMeDatabase : RoomDatabase() {
     }
 }
 
+private const val VERSION_3 = 3
+
 /** 1 to 2 (P2.4): pinned messages, local to the phone (UI_DESIGN.md 5.1). */
 private object PinnedMessages : Migration(1, 2) {
     override fun migrate(connection: SQLiteConnection) {
@@ -92,7 +94,7 @@ private object PinnedMessages : Migration(1, 2) {
 }
 
 /** 2 to 3 (P2.5): each chat's own settings from Chat details (UI_DESIGN.md 3.4). */
-private object ChatOverridesTable : Migration(2, PingMeDatabase.VERSION) {
+private object ChatOverridesTable : Migration(2, VERSION_3) {
     override fun migrate(connection: SQLiteConnection) {
         connection.execSQL(
             "CREATE TABLE IF NOT EXISTS `chat_overrides` (`chatId` TEXT NOT NULL, `soundUri` TEXT, " +
@@ -100,5 +102,13 @@ private object ChatOverridesTable : Migration(2, PingMeDatabase.VERSION) {
                 "PRIMARY KEY(`chatId`), FOREIGN KEY(`chatId`) REFERENCES `chats`(`id`) ON UPDATE NO ACTION " +
                 "ON DELETE CASCADE )",
         )
+    }
+}
+
+/** 3 to 4 (Gate G1): a space's icon, and whether its chats also show in All (UI_DESIGN.md 10.4). */
+private object SpaceIconAndAll : Migration(VERSION_3, PingMeDatabase.VERSION) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `spaces` ADD COLUMN `icon` TEXT NOT NULL DEFAULT 'SPACE'")
+        connection.execSQL("ALTER TABLE `spaces` ADD COLUMN `showInAll` INTEGER NOT NULL DEFAULT 1")
     }
 }

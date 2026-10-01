@@ -295,7 +295,7 @@ private fun ColumnScope.AccountMenuContent(
         DropdownMenuItem(
             text = { Text(space.title) },
             onClick = { go { actions.onList(ChatList.InSpace(space)) } },
-            leadingIcon = { Icon(painterResource(UiR.drawable.ic_forum), null) },
+            leadingIcon = { Icon(painterResource(space.icon.drawable()), null) },
             trailingIcon = { if (unread > 0) UnreadBadge(unread) },
         )
     }

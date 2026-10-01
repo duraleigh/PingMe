@@ -15,6 +15,7 @@ import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.NotificationMode
 import org.pingme.core.model.Space
+import org.pingme.core.model.SpaceIcon
 import org.pingme.core.model.SpaceId
 import org.pingme.core.model.SpaceKind
 import org.pingme.core.store.UnreadTotals
@@ -125,6 +126,54 @@ class InboxStateTest {
             listOf("topic", "added"),
             src.select(InboxBarItem.Space(id), emptyMap(), now).second.map { it.id.value },
         )
+    }
+
+    @Test
+    fun aSpaceCanKeepItsChatsOutOfAllAndOutOfAllsBadge() {
+        val work = SpaceId("work")
+        val family = SpaceId("family")
+        val src =
+            source(
+                chat("boss", unread = 2),
+                chat("topic", unread = 1, space = work),
+                chat("mum", unread = 3),
+                chat("free"),
+            ).copy(
+                spaces =
+                    listOf(
+                        Space(work, null, "Work", SpaceKind.CUSTOM, listOf(ChatId("boss")), showInAll = false),
+                        Space(family, null, "Family", SpaceKind.CUSTOM, listOf(ChatId("mum"))),
+                    ),
+            )
+        assertEquals(listOf("mum", "free"), src.select(null, emptyMap(), now).second.map { it.id.value })
+        assertEquals(
+            "still inside the space",
+            listOf("boss", "topic"),
+            src.select(InboxBarItem.Space(work), emptyMap(), now).second.map { it.id.value },
+        )
+        val totals = UnreadTotals(6, emptyMap(), emptyMap(), emptyMap())
+        assertEquals("All counts only what it shows", 3, src.allBadge(totals, now))
+    }
+
+    @Test
+    fun allCanBeRemovedButTheBarNeverEmptiesOrPassesFive() {
+        val unread = InboxBarItem.Unread
+        val rcsButton = InboxBarItem.Network(NetworkId.GMESSAGES)
+        val base = InboxBarConfig(listOf(unread))
+        assertEquals(listOf(null, unread), base.buttons)
+        val withoutAll = base.withButtons(listOf(unread, rcsButton))
+        assertEquals(false, withoutAll.showAll)
+        assertEquals(listOf(unread, rcsButton), withoutAll.buttons)
+        assertEquals("nothing left brings All back", listOf(null), base.withButtons(emptyList()).buttons)
+        val others = listOf(NetworkId.WHATSAPP, NetworkId.SIGNAL, NetworkId.TELEGRAM, NetworkId.SMS)
+        val six = listOf(unread, rcsButton) + others.map { InboxBarItem.Network(it) }
+        assertEquals(5, base.withButtons(six).buttons.size)
+        assertEquals(5, base.withButtons(listOf(null) + six).buttons.size)
+    }
+
+    @Test
+    fun everySpaceIconHasADrawingAndAName() {
+        assertEquals(SpaceIcon.entries.toSet(), LOOKS.keys)
     }
 
     @Test
