@@ -15,9 +15,11 @@ import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.connector.chat
 import org.pingme.core.connector.message
 import org.pingme.core.connector.person
+import org.pingme.core.model.AvatarSource
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Reaction
+import kotlin.time.Duration.Companion.hours
 
 class ChatActionsTest : ServiceTest() {
     private val connector = FakeConnector()
@@ -141,5 +143,22 @@ class ChatActionsTest : ServiceTest() {
             eventually { heard.isNotEmpty() }
             listening.cancel()
             assertEquals(listOf(IncomingReaction(id, "😂", accountId.message("m1"))), heard)
+        }
+
+    @Test
+    fun detailsRenameMuteForAWhileAndPickThePhoto() =
+        runTest {
+            val id = seed().single()
+            actions.rename(id, "  Sam (work) ")
+            assertEquals("Sam (work)", chat(id).nameOverride)
+            actions.rename(id, " ")
+            assertNull("a blank name goes back to the network's", chat(id).nameOverride)
+
+            actions.muteUntil(id, now + 8.hours)
+            assertEquals(true to now + 8.hours, chat(id).isMuted to chat(id).muteUntil)
+
+            val network = AvatarSource.Network(accountId)
+            actions.setAvatarSource(id, network)
+            assertEquals(network, chat(id).avatarSource)
         }
 }

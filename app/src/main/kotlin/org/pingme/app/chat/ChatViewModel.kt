@@ -132,6 +132,8 @@ class ChatViewModel
         recorder: VoiceRecorder,
         gifStore: org.pingme.app.chat.gif.GifStore,
         private val searchRepo: org.pingme.core.store.ChatSearchRepository,
+        requests: ChatRequests,
+        overridesRepo: org.pingme.core.store.ChatOverridesRepository,
     ) : ViewModel() {
         /** Takes the chat id as text: Hilt cannot generate factories for value classes. */
         @AssistedFactory
@@ -203,6 +205,17 @@ class ChatViewModel
         /** Unread when the chat opened: where "New messages" goes, fixed while the chat is open. */
         private val unreadAtOpen = MutableStateFlow<Int?>(null)
 
+        /** This chat's own settings from Chat details: its look and its quick reactions. */
+        val overrides =
+            overridesRepo
+                .overrides(chatId)
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.Eagerly,
+                    org.pingme.core.model
+                        .ChatOverrides(chatId),
+                )
+
         private val chat = chats.chat(chatId)
         private val account = chat.filterNotNull().flatMapLatest { accounts.account(it.accountId) }
         private val people = chat.filterNotNull().flatMapLatest { contacts.people(it.accountId) }
@@ -215,7 +228,8 @@ class ChatViewModel
                 combine(pins.pinned(chatId), replyTo, moreHistory, unreadAtOpen, ::Quad),
                 combine(
                     combine(
-                        settingsRepo.quickReactions,
+                        // This chat's own quick reactions from Chat details win over the app's (UI_DESIGN.md 3.4).
+                        combine(settingsRepo.quickReactions, overrides) { app, own -> own.quickReactions ?: app },
                         settingsRepo.doubleTapReaction,
                         settingsRepo.recentEmoji,
                         ::ReactionPrefs,
@@ -260,6 +274,25 @@ class ChatViewModel
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), ChatUiState())
 
         init {
+            // Chat details can ask for search or a jump to a pinned message.
+            viewModelScope.launch {
+                requests.requests.collect {
+                    when (val request = requests.take(chatId)) {
+                        is ChatRequest.Search -> {
+                            search.open()
+                            search.type(request.type)
+                        }
+
+                        is ChatRequest.Jump -> {
+                            messages.get(request.messageId)?.let(jumps::to)
+                        }
+
+                        null -> {
+                            Unit
+                        }
+                    }
+                }
+            }
             viewModelScope.launch {
                 unreadAtOpen.value = chat.filterNotNull().first().unreadCount
                 // While the chat is open, whatever arrives is read.

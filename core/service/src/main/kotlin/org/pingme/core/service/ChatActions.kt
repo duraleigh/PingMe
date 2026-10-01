@@ -8,6 +8,7 @@ import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.connector.UnsupportedCapabilityException
 import org.pingme.core.connector.accountId
 import org.pingme.core.model.AccountId
+import org.pingme.core.model.AvatarSource
 import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
@@ -16,6 +17,7 @@ import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.MessageRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Instant
 
 /**
  * What the inbox's swipes and action sheet do to a chat (UI_DESIGN.md 3.1, 5.1, 10.7,
@@ -125,6 +127,33 @@ class ChatActions
             } else {
                 it.copy(isLowPriority = false)
             }
+        }
+
+        /** Mutes until [until], or for good when it is null (UI_DESIGN.md 3.4: 1 hour, 8 hours, 1 week, forever). */
+        suspend fun muteUntil(
+            id: ChatId,
+            until: Instant?,
+        ) = change(id) { it.copy(isMuted = true, muteUntil = until) }
+
+        /** The name shown for this chat everywhere in PingMe; blank goes back to the network's name (10.15). */
+        suspend fun rename(
+            id: ChatId,
+            name: String,
+        ) = change(id) { it.copy(nameOverride = name.trim().ifEmpty { null }) }
+
+        /** Which photo stands for this chat: the contact's or the network's (10.18). */
+        suspend fun setAvatarSource(
+            id: ChatId,
+            source: AvatarSource,
+        ) = change(id) { it.copy(avatarSource = source) }
+
+        /** Moves an Instagram chat between Primary and General on the network too (DESIGN.md 6.4). */
+        suspend fun moveFolder(
+            id: ChatId,
+            folder: ChatFolder,
+        ) {
+            connectorFor(id.accountId).moveFolder(id, folder)
+            change(id) { it.copy(folder = folder) }
         }
 
         suspend fun setObscured(

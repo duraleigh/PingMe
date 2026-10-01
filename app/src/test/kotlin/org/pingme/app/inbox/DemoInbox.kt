@@ -140,6 +140,18 @@ class DemoInbox(
         org.pingme.app.chat.gif
             .FakeGifStore(context, dir)
 
+    val requests =
+        org.pingme.app.chat
+            .ChatRequests()
+
+    val chatSearch =
+        org.pingme.core.store
+            .ChatSearchRepository(db)
+
+    val overrides =
+        org.pingme.core.store
+            .ChatOverridesRepository(db)
+
     fun chatViewModel(remote: String) =
         ChatViewModel(
             account.id.chat(remote).value,
@@ -158,9 +170,30 @@ class DemoInbox(
             files,
             recorder,
             gifStore,
-            org.pingme.core.store
-                .ChatSearchRepository(db),
+            chatSearch,
+            requests,
+            overrides,
         ).tracked()
+
+    fun detailsViewModel(remote: String) =
+        org.pingme.app.details
+            .ChatDetailsViewModel(
+                account.id.chat(remote).value,
+                chats,
+                accounts,
+                contacts,
+                pins,
+                chatSearch,
+                overrides,
+                org.pingme.app.appearance
+                    .AppearanceRepository(context, settings),
+                settings,
+                registry,
+                actions,
+                messageActions,
+                Clock.System,
+                requests,
+            ).tracked()
 
     fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()
 

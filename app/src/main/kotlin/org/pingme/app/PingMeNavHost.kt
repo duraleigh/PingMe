@@ -26,6 +26,8 @@ import kotlinx.serialization.Serializable
 import org.pingme.app.appearance.AppearanceRoute
 import org.pingme.app.chat.ChatRoute
 import org.pingme.app.chat.NoChatPicked
+import org.pingme.app.details.ChatDetailsRoute
+import org.pingme.app.details.DetailsNavigation
 import org.pingme.app.inbox.ChatListRoute
 import org.pingme.app.inbox.InboxNavigation
 import org.pingme.app.inbox.InboxRoute
@@ -55,6 +57,12 @@ data class OpenChat(
     val chatId: String,
 )
 
+/** Chat details for one chat (UI_DESIGN.md 3.4), over the chat it came from. */
+@Serializable
+data class ChatDetails(
+    val chatId: String,
+)
+
 @Composable
 fun PingMeNavHost(modifier: Modifier = Modifier) {
     val nav = rememberNavController()
@@ -62,7 +70,19 @@ fun PingMeNavHost(modifier: Modifier = Modifier) {
         composable<Home> { InboxHome(nav) }
         composable<OpenChat> { entry ->
             val id = ChatId(entry.arguments?.getString("chatId").orEmpty())
-            ChatRoute(id, onBack = { nav.popBackStack() })
+            ChatRoute(id, onBack = { nav.popBackStack() }, onDetails = { nav.navigate(ChatDetails(id.value)) })
+        }
+        composable<ChatDetails> { entry ->
+            val id = ChatId(entry.arguments?.getString("chatId").orEmpty())
+            ChatDetailsRoute(
+                id,
+                DetailsNavigation(
+                    onBack = { nav.popBackStack() },
+                    onBackToChat = { nav.popBackStack() },
+                    // Blocked or deleted: the chat behind is gone too.
+                    onLeft = { nav.popBackStack(Home, inclusive = false) },
+                ),
+            )
         }
         composable<AppearanceStudio> { AppearanceRoute(onBack = { nav.popBackStack() }) }
         composable<ChatListRoute> {
@@ -133,6 +153,7 @@ private fun InboxHome(nav: NavController) {
                             } else {
                                 null
                             },
+                        onDetails = { nav.navigate(ChatDetails(id)) },
                     )
                 }
             }

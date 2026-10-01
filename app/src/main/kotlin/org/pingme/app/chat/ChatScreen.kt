@@ -73,7 +73,9 @@ import org.pingme.app.chat.voice.rememberVoicePlayer
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
+import org.pingme.core.ui.theme.ChatLook
 import org.pingme.core.ui.theme.PingMeTheme
+import org.pingme.core.ui.theme.with
 import org.pingme.core.ui.R as UiR
 
 /** The chat with its view model, one per chat. */
@@ -82,6 +84,7 @@ fun ChatRoute(
     chatId: ChatId,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    onDetails: (() -> Unit)? = null,
     viewModel: ChatViewModel =
         hiltViewModel<ChatViewModel, ChatViewModel.Factory>(key = chatId.value) { it.create(chatId.value) },
 ) {
@@ -91,36 +94,43 @@ fun ChatRoute(
     val held by viewModel.heldBack.collectAsStateWithLifecycle()
     val player = rememberVoicePlayer()
     val searching by viewModel.search.state.collectAsStateWithLifecycle()
+    val overrides by viewModel.overrides.collectAsStateWithLifecycle()
     val jump by viewModel.jumps.request.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val notice: (Int) -> Unit = { scope.launch { snackbar.showSnackbar(resources.getString(it)) } }
-    ChatScreen(
-        state = state,
-        actions =
-            ChatScreenActions(
-                header = headerActions(viewModel, state, onBack, context, notice),
-                onSend = { viewModel.send(it) },
-                onReply = viewModel::reply,
-                onRetry = viewModel::retry,
-                onUnpin = viewModel::unpin,
-                onLoadOlder = viewModel::loadOlder,
-                onNeed = viewModel::need,
-                onTyping = viewModel::typing,
-                menu = viewModel.menu,
-                onRememberEmoji = viewModel::rememberEmoji,
-                incoming = viewModel.incomingReactions,
-                forwardTargets = forwardTargets,
-                uploads = uploads,
-                player = player,
-                search = searchHooks(viewModel, searching, jump),
-                composer = composerHooks(viewModel, state, notice),
-            ),
-        modifier = modifier,
-        snackbar = snackbar,
-    )
+    // This chat's own look from Chat details, over the app's (UI_DESIGN.md 3.4).
+    val app = PingMeTheme.appearance
+    val look = remember(overrides.lookJson) { ChatLook.fromJson(overrides.lookJson) }
+    val network = state.account?.network
+    PingMeTheme(if (network == null || look.isEmpty) app else app.with(look, network)) {
+        ChatScreen(
+            state = state,
+            actions =
+                ChatScreenActions(
+                    header = headerActions(viewModel, state, onBack, context, notice).copyWithDetails(onDetails),
+                    onSend = { viewModel.send(it) },
+                    onReply = viewModel::reply,
+                    onRetry = viewModel::retry,
+                    onUnpin = viewModel::unpin,
+                    onLoadOlder = viewModel::loadOlder,
+                    onNeed = viewModel::need,
+                    onTyping = viewModel::typing,
+                    menu = viewModel.menu,
+                    onRememberEmoji = viewModel::rememberEmoji,
+                    incoming = viewModel.incomingReactions,
+                    forwardTargets = forwardTargets,
+                    uploads = uploads,
+                    player = player,
+                    search = searchHooks(viewModel, searching, jump),
+                    composer = composerHooks(viewModel, state, notice),
+                ),
+            modifier = modifier,
+            snackbar = snackbar,
+        )
+    }
     org.pingme.app.chat.attach
         .HeldBackDialog(held, viewModel::answerHeldBack, viewModel::shrinkHeldBack)
 }

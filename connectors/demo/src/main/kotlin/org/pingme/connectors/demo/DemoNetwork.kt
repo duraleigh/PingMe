@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.OutgoingMessage
@@ -75,21 +76,18 @@ internal class DemoNetwork(
     /** Scripted people message now and then while live activity is on. */
     suspend fun liveActivity(world: DemoWorld) {
         while (true) {
-            val settings = controls.settings.value
-            if (settings.liveActivity) {
-                delay(settings.activityInterval * (JITTER_MIN + random.nextDouble()))
-                val chat =
-                    synchronized(
-                        world,
-                    ) {
-                        world.chats.values
-                            .filter { it.folder != ChatFolder.REQUESTS }
-                            .randomOrNull(random)
-                    }
-                chat?.let { speak(world, it.id, it.participants.random(random), DemoSeed.chatter.random(random)) }
-            } else {
-                delay(1.seconds)
-            }
+            // Waits, without waking the phone, until live activity is on.
+            val settings = controls.settings.first { it.liveActivity }
+            delay(settings.activityInterval * (JITTER_MIN + random.nextDouble()))
+            // It may have been turned off while waiting.
+            if (!controls.settings.value.liveActivity) continue
+            val chat =
+                synchronized(world) {
+                    world.chats.values
+                        .filter { it.folder != ChatFolder.REQUESTS }
+                        .randomOrNull(random)
+                }
+            chat?.let { speak(world, it.id, it.participants.random(random), DemoSeed.chatter.random(random)) }
         }
     }
 
