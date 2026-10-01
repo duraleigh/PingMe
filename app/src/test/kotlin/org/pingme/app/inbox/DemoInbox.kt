@@ -123,6 +123,9 @@ class DemoInbox(
             InboxBarRepository(settings),
             Clock.System,
             SavedStateHandle(),
+            settings,
+            org.pingme.app.appearance
+                .AppearanceRepository(context, settings),
         ).tracked()
 
     fun listViewModel(route: ChatListRoute) =
@@ -204,6 +207,16 @@ class DemoInbox(
                 messageActions,
                 Clock.System,
                 requests,
+            ).tracked()
+
+    fun settingsViewModel() =
+        org.pingme.app.settings
+            .SettingsViewModel(
+                settings,
+                accounts,
+                chats,
+                org.pingme.app.appearance
+                    .AppearanceRepository(context, settings),
             ).tracked()
 
     fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()

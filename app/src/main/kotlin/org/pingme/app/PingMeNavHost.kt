@@ -35,7 +35,11 @@ import org.pingme.app.inbox.MenuActions
 import org.pingme.app.inbox.NewChatRoute
 import org.pingme.app.inbox.SearchRoute
 import org.pingme.app.inbox.route
+import org.pingme.app.settings.SettingsNavigation
+import org.pingme.app.settings.SettingsPage
+import org.pingme.app.settings.SettingsRoute
 import org.pingme.core.model.Account
+import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.store.ChatRepository
@@ -55,6 +59,13 @@ object Search
 @Serializable
 data class OpenChat(
     val chatId: String,
+)
+
+/** A Settings page (BUILD_PLAN.md P2.6); [account] picks one account's page. */
+@Serializable
+data class SettingsDest(
+    val page: String = SettingsPage.HOME.name,
+    val account: String? = null,
 )
 
 /** Chat details for one chat (UI_DESIGN.md 3.4), over the chat it came from. */
@@ -85,6 +96,22 @@ fun PingMeNavHost(modifier: Modifier = Modifier) {
             )
         }
         composable<AppearanceStudio> { AppearanceRoute(onBack = { nav.popBackStack() }) }
+        composable<SettingsDest> { entry ->
+            val page =
+                runCatching {
+                    SettingsPage.valueOf(entry.arguments?.getString("page").orEmpty())
+                }.getOrDefault(SettingsPage.HOME)
+            SettingsRoute(
+                page,
+                SettingsNavigation(
+                    onBack = { nav.popBackStack() },
+                    onPage = { nav.navigate(SettingsDest(it.name)) },
+                    onAccount = { nav.navigate(SettingsDest(SettingsPage.ACCOUNT.name, it.value)) },
+                    onAppearance = { nav.navigate(AppearanceStudio) },
+                ),
+                account = entry.arguments?.getString("account")?.let(::AccountId),
+            )
+        }
         composable<ChatListRoute> {
             ChatListRoute(onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(OpenChat(it.value)) })
         }
@@ -130,6 +157,8 @@ private fun InboxHome(nav: NavController) {
                                 onAppearance = { nav.navigate(AppearanceStudio) },
                                 onList = { nav.navigate(it.route()) },
                                 onEditBar = {},
+                                onSettings = { nav.navigate(SettingsDest()) },
+                                onAccounts = { nav.navigate(SettingsDest(SettingsPage.ACCOUNTS.name)) },
                             ),
                     ),
                 )

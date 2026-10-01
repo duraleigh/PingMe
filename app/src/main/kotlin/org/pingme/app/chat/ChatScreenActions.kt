@@ -43,6 +43,10 @@ class ChatScreenActions(
     val search: org.pingme.app.chat.search.SearchHooks =
         org.pingme.app.chat.search
             .SearchHooks(),
+    /** The app's settings, for what the chat shows and plays (UI_DESIGN.md 10). */
+    val settings: org.pingme.core.model.AppSettings =
+        org.pingme.core.model
+            .AppSettings(),
 )
 
 /** The composer's extras: attachments and other ways to send. Null ones are not offered. */
@@ -72,6 +76,8 @@ class RowContext(
     /** How far each sending message's media has got. */
     val uploads: Map<org.pingme.core.model.MessageId, Float> = emptyMap(),
     val player: org.pingme.app.chat.voice.VoicePlayer? = null,
+    /** Received GIFs play by themselves; off, a tap plays one (UI_DESIGN.md 5.5). */
+    val gifsAutoplay: Boolean = true,
 )
 
 /** One line of the action card. [enabled] false shows it greyed with [reason] (UI_DESIGN.md 1). */

@@ -162,6 +162,15 @@ class ChatViewModel
                 dispatch("", listOf(it.asAttachment()), forceSms = false)
             }
 
+        /** Settings that change how the chat looks and plays: GIF autoplay, special emoji (P2.6). */
+        val appSettings =
+            settingsRepo.app.stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                org.pingme.core.model
+                    .AppSettings(),
+            )
+
         /** Search in this chat (UI_DESIGN.md 10.14). */
         val search =
             org.pingme.app.chat.search
@@ -176,7 +185,7 @@ class ChatViewModel
         /** GIF search, Trending, and favourites (UI_DESIGN.md 5.5). */
         val gifs =
             org.pingme.app.chat.gif
-                .GifSearch(viewModelScope, gifStore)
+                .GifSearch(viewModelScope, gifStore, settingsRepo.app.map { it.media.gifSearch })
 
         private val tooBig = MutableStateFlow<HeldBack?>(null)
 

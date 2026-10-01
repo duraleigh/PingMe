@@ -41,7 +41,10 @@ class ReactionBurstTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             Box(Modifier.size(400.dp).background(Color.White)) {
-                ReactionBurstLayer(state, motion, Color(0xFF4059AD), Color(0xFFE0457B), onLand = { landed += it })
+                ReactionBurstLayer(state, motion, Color(0xFF4059AD), Color(0xFFE0457B), emptySet(), onLand = {
+                    landed +=
+                        it
+                })
             }
         }
         state.play("🎉", BurstKind.PICKED, to = Offset(500f, 500f), from = Offset(300f, 150f), key = "m1")

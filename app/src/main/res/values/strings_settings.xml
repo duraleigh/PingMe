@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Settings (BUILD_PLAN.md P2.6). -->
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_accounts">Accounts</string>
+    <string name="settings_accounts_summary">Names, colours, notifications, and which show in the inbox</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_appearance_summary">Colours, shapes, fonts, wallpaper, and icon</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notifications_summary">Per network, Instagram folders, keywords, and codes</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_privacy_summary">Read receipts, typing, links, and obscured chats</string>
+    <string name="settings_reactions">Reactions</string>
+    <string name="settings_reactions_summary">Quick reactions and the double-tap reaction</string>
+    <string name="settings_motion">Motion</string>
+    <string name="settings_motion_summary">Animations, flippy reactions, and haptics</string>
+    <string name="settings_storage">Media and storage</string>
+    <string name="settings_storage_summary">GIFs, voice notes, and saving media</string>
+    <string name="settings_spaces">Spaces and the bottom bar</string>
+    <string name="settings_spaces_summary">Group chats into spaces and choose the bottom bar</string>
+    <string name="settings_backup">Backup</string>
+    <string name="settings_backup_summary">Save your chats to a file, or bring them back</string>
+
+    <string name="account_name">Name</string>
+    <string name="account_colour">Badge colour</string>
+    <string name="account_notifications">Notifications</string>
+    <string name="account_show_in_inbox">Show in inbox</string>
+    <string name="account_show_in_inbox_note">Off keeps this account\'s chats out of the inbox, the filters, and every unread count. They stay in the avatar menu.</string>
+    <string name="account_show_general">Show General in inbox</string>
+    <string name="account_state">Connection</string>
+    <string name="account_none">No accounts yet</string>
+    <string name="account_reconnecting">Reconnecting…</string>
+    <string name="account_disabled">Turned off</string>
+    <string name="account_polled">Checked every few minutes</string>
+    <string name="mode_normal">On</string>
+    <string name="mode_silent">Silent</string>
+    <string name="mode_off">Off</string>
+
+    <string name="privacy_read_receipts">Send read receipts</string>
+    <string name="privacy_read_receipts_note">Off: PingMe never tells the network you read a message. The chat then also stays unread in that network\'s own app, because it is the same signal.</string>
+    <string name="privacy_typing">Show when I am typing</string>
+    <string name="privacy_typing_note">Off: nobody sees you typing. What you see of others does not change.</string>
+    <string name="privacy_by_network">For each network</string>
+    <string name="privacy_same">Same as above</string>
+    <string name="privacy_on">On</string>
+    <string name="privacy_off">Off</string>
+    <string name="privacy_clean_sent">Clean links I send</string>
+    <string name="privacy_clean_received">Clean links I receive</string>
+    <string name="privacy_clean_note">Removes the tracking parts of web addresses.</string>
+    <string name="privacy_previews">Generate link previews</string>
+    <string name="privacy_previews_note">When a network sends no preview, PingMe fetches the page itself, which shows the website your phone\'s internet address.</string>
+    <string name="privacy_previews_always">Always</string>
+    <string name="privacy_previews_wifi">Only on Wi-Fi</string>
+    <string name="privacy_previews_never">Never</string>
+    <string name="privacy_obscured">Obscured chats</string>
+    <string name="privacy_obscured_none">No chats are obscured. Turn it on in a chat\'s details.</string>
+    <string name="privacy_unobscure">Stop obscuring %1$s</string>
+
+    <string name="reactions_quick">Quick reactions</string>
+    <string name="reactions_quick_note">Up to eight. Tap one to move it or remove it.</string>
+    <string name="reactions_add">Add</string>
+    <string name="reactions_move_earlier">Move earlier</string>
+    <string name="reactions_move_later">Move later</string>
+    <string name="reactions_remove">Remove</string>
+    <string name="reactions_double_tap">Double-tap reaction</string>
+    <string name="reactions_double_tap_pick">Pick another emoji</string>
+    <string name="reactions_special">Special emoji</string>
+    <string name="reactions_special_note">At Extra motion, these also light up the edges of the screen, like ❤️ 🔥 🎉 👏 do.</string>
+
+    <string name="motion_flippy">Flippy reactions</string>
+    <string name="motion_flippy_note">A chat\'s row in the inbox flips over to show a new reaction.</string>
+</resources>

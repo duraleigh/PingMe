@@ -45,6 +45,8 @@ data class Burst(
     val startedAt: Long,
     /** The message it lands on, which wobbles. */
     val key: String? = null,
+    /** Earns Extra's edge glow: a built-in special emoji or one the user added (UI_DESIGN.md 5.4). */
+    val special: Boolean = false,
 )
 
 /**
@@ -94,6 +96,7 @@ fun ReactionBurstLayer(
     motion: MotionIntensity,
     primary: Color,
     tertiary: Color,
+    special: Set<String>,
     onLand: (Burst) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -104,7 +107,15 @@ fun ReactionBurstLayer(
         while (state.bursts.isNotEmpty()) {
             withFrameMillis { now ->
                 // Each burst's clock starts on the first frame that draws it.
-                state.bursts.replaceAll { if (it.startedAt == NOT_STARTED) it.copy(startedAt = now) else it }
+                state.bursts.replaceAll {
+                    if (it.startedAt ==
+                        NOT_STARTED
+                    ) {
+                        it.copy(startedAt = now, special = it.emoji in SPECIAL + special)
+                    } else {
+                        it
+                    }
+                }
                 state.clock = now
                 state.bursts.toList().forEach { burst ->
                     val t = now - burst.startedAt
@@ -165,7 +176,7 @@ private fun DrawScope.drawBurst(
         motion == MotionIntensity.FULL || motion == MotionIntensity.EXTRA -> {
             val p = ((t - pickTime - BurstTiming.LAND) / BurstTiming.CELEBRATE.toFloat()).coerceIn(0f, 1f)
             celebrate(burst, p, text, primary, tertiary)
-            if (motion == MotionIntensity.EXTRA && burst.emoji in SPECIAL) edgeGlow(glowFor(burst.emoji), 1f - p)
+            if (motion == MotionIntensity.EXTRA && burst.special) edgeGlow(glowFor(burst.emoji), 1f - p)
         }
     }
 }
