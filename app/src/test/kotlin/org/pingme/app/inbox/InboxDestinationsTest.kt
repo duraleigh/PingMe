@@ -2,6 +2,7 @@
 package org.pingme.app.inbox
 
 import android.os.Looper
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
@@ -9,6 +10,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -46,6 +48,7 @@ class InboxDestinationsTest {
     @Before
     fun setUp() {
         demo = DemoInbox(temp.root)
+        demo.controls.update { it.copy(liveActivity = false) }
         runBlocking { demo.seed() }
     }
 
@@ -132,7 +135,8 @@ class InboxDestinationsTest {
         compose.onNodeWithText("Add ana").performClick()
         // The button turns on once the member shows as a chip.
         waitFor { compose.onAllNodes(hasText("Make the group") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Make the group").performClick()
+        // Through the button's own click action, so a layout still settling cannot move the tap.
+        compose.onNodeWithText("Make the group").performSemanticsAction(SemanticsActions.OnClick)
         waitFor { opened.isNotEmpty() }
         val group = runBlocking { demo.chats.get(opened.single()) }!!
         assertEquals("Trip" to ChatKind.GROUP, group.title to group.kind)
