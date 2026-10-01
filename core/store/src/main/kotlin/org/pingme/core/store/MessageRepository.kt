@@ -41,7 +41,15 @@ class MessageRepository
             dao.observeLastMessages().map { rows ->
                 rows.associate { row ->
                     ChatId(row.chatId) to
-                        LastMessage(row.body, row.kind, row.isOutgoing, row.transport, row.sentAt, row.senderName)
+                        LastMessage(
+                            row.body,
+                            row.kind,
+                            row.isOutgoing,
+                            row.transport,
+                            row.sentAt,
+                            row.senderName,
+                            row.status,
+                        )
                 }
             }
 

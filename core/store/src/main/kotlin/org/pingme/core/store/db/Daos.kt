@@ -71,6 +71,7 @@ data class LastMessageRow(
     val transport: Transport,
     val sentAt: Instant,
     val senderName: String?,
+    val status: MessageStatus,
 )
 
 @Dao
@@ -215,7 +216,8 @@ interface MessageDao {
     @Query(
         """
         SELECT m.chatId AS chatId, m.body AS body, m.kind AS kind, m.isOutgoing AS isOutgoing,
-               m.transport AS transport, m.sentAt AS sentAt, p.displayName AS senderName
+               m.transport AS transport, m.sentAt AS sentAt, p.displayName AS senderName,
+               m.status AS status
         FROM messages m LEFT JOIN persons p ON p.id = m.senderId
         WHERE m.rowId = (
             SELECT x.rowId FROM messages x WHERE x.chatId = m.chatId

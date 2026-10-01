@@ -1457,3 +1457,24 @@ The app suite then passed 8 runs out of 8 (it failed 3 to 4 out of 4 before).
 - **Scheduled message (10.13, owner's Gate G1 item 6):** its menu is Edit, Reschedule, Send
   now, Copy, and Unschedule (which deletes it), in that order; "Change time" and "Cancel
   sending" were renamed to the design's words. Test: `SendLaterScreenTest`.
+
+### Send button, inbox top bar, bottom bar centring, read marks (handover step 5)
+
+- **One Send button** (UI_DESIGN.md 2.2, owner's decision): tap sends; press and hold opens Send
+  later and, in Google Messages chats, Send as SMS. The split button is gone. Screen readers
+  get the hold as the button's long-press action, "More ways to send". With nothing else to
+  offer, holding simply sends. Tests press and hold like a finger (`SendButtonTest`,
+  `SendLaterScreenTest`).
+- **Inbox top bar** (3.1): its own `surfaceContainer` surface with 28 dp rounded bottom
+  corners, covering the status bar area, so rows scroll cleanly under it.
+- **Bottom bar centring** (3.1): each item sat at the left of its equal slot because the
+  wrapper that carries the long-press menu let it shrink. The wrapper now passes the slot's
+  width on (`propagateMinConstraints`). `theBottomBarsItemsAreSpreadEvenlyAcrossIt` fails
+  without the fix.
+- **Read marks in the inbox** (3.1): when the last message is yours, its mark (the same as in
+  the chat: sending, sent, delivered, read, failed) shows before the preview; not in obscured
+  chats. The last-message query now carries the status (no schema change). Tests:
+  `MessageStoreTest`, `aRowWhoseLastMessageIsYoursShowsItsMark`.
+- Checked on the emulator: the top bar surface, the centred bar, and Send's hold menu. The
+  demo's live chatter keeps replacing your last message, so the read marks were checked in
+  the test-drawn inbox (`app/build/screenshots/inbox-light.png`).

@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -63,7 +64,7 @@ fun InboxBottomBar(
     actions: BarActions,
     modifier: Modifier = Modifier,
 ) {
-    ShortNavigationBar(modifier) {
+    ShortNavigationBar(modifier.testTag(INBOX_BAR)) {
         bar.forEach { entry ->
             BarButton(entry, accounts, actions) { narrowMenu ->
                 ShortNavigationBarItem(
@@ -120,7 +121,8 @@ private fun BarButton(
     val haptics = LocalHapticFeedback.current
     val narrowable = item != null && entry.narrowOptions.isNotEmpty()
     val narrowed = entry.narrowedTo?.let { narrowingLabel(it, accounts) }
-    Box {
+    // The button fills the slot the bar gives it, so its icon sits in the middle (UI_DESIGN.md 3.1).
+    Box(propagateMinConstraints = true) {
         button(
             Modifier
                 .semantics { if (narrowed != null) stateDescription = narrowed }
@@ -380,3 +382,5 @@ fun NewMenu(
 
 private const val MAX_BADGE = 99
 private const val HALF = 0.5f
+
+const val INBOX_BAR = "inbox-bar"

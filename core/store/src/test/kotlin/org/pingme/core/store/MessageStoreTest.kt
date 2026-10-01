@@ -90,6 +90,10 @@ class MessageStoreTest : StoreTest() {
             assertNull("no you yet", messages.selfIn(ChatId("c")))
             messages.upsert(message("m4", "c", sender = "p-me").copy(isOutgoing = true))
             assertEquals(PersonId("p-me"), messages.selfIn(ChatId("c")))
+            // Your last message's mark follows it, for the inbox row (UI_DESIGN.md 3.1).
+            messages.updateStatus(MessageId("m4"), MessageStatus.Read)
+            val mine = messages.lastMessages().first().getValue(ChatId("c"))
+            assertEquals(MessageStatus.Read, mine.status)
         }
 
     @Test

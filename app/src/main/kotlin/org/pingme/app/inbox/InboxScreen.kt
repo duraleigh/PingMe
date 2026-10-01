@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -16,6 +17,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
@@ -124,9 +126,12 @@ fun InboxScreen(
         if (wide) InboxRail(state.bar, state.selected, state.accounts, callbacks.bar)
         Scaffold(
             topBar = {
-                Column {
-                    InboxTopBar(state.accounts, state.menu, callbacks.onStatus, navigation.onSearch, menu)
-                    HealthChip(state.problems, navigation.onFix)
+                // Its own surface with rounded bottom corners, so the list scrolls cleanly under it (3.1).
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = TOP_BAR_SHAPE) {
+                    Column(Modifier.padding(bottom = 8.dp)) {
+                        InboxTopBar(state.accounts, state.menu, callbacks.onStatus, navigation.onSearch, menu)
+                        HealthChip(state.problems, navigation.onFix)
+                    }
                 }
             },
             bottomBar = { if (!wide) InboxBottomBar(state.bar, state.selected, state.accounts, callbacks.bar) },
@@ -240,3 +245,5 @@ private fun ChatListBody(
 }
 
 const val INBOX_LIST = "inbox-list"
+
+private val TOP_BAR_SHAPE = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)

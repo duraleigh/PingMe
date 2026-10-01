@@ -2,6 +2,7 @@
 package org.pingme.core.store
 
 import org.pingme.core.model.MessageKind
+import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.Transport
 import kotlin.time.Instant
 
@@ -14,4 +15,6 @@ data class LastMessage(
     val sentAt: Instant,
     /** The sender's display name; null when the sender is not in the store. */
     val senderName: String?,
+    /** Sending, sent, delivered, read, or failed: shown on the row when the message is yours. */
+    val status: MessageStatus = MessageStatus.Sent,
 )
