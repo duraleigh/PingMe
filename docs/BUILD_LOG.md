@@ -1142,3 +1142,58 @@ all runs on the pretend "Demo" network, so nothing real is sent anywhere.
 - Anything confusing, slow, or broken.
 
 **Next:** Phase 3 (P3.1, the Go bridge) once the owner's Gate G1 feedback is in.
+
+## Gate G1 result (2026-10-01): feedback collected, fixes not started
+
+Owner tested `pingme-7527944-demo.apk` on the phone. Overall: the UI works well and is
+close to right. The owner added the `GIPHY_API_KEY` repository secret; GIF search needs
+a build made after that (any new CI build).
+
+What worked, confirmed by the owner: setup and the demo login, the inbox, chats,
+Settings, Spaces, Send later, obscured chats (screenshots are blocked, as designed), and
+a notification arrived from the demo network.
+
+**Feedback, sorted.** "Change to the design" means `UI_DESIGN.md` says otherwise today,
+so the owner approves the new wording before it is built (rule 2).
+
+Fixes to what was built (the design already says or allows this):
+1. **Bottom bar items sit left of centre.** Layout fix.
+2. **Inbox top bar has no background**, so rows slide up behind its text when
+   scrolling. Give it a surface colour with rounded bottom corners, like Google Messages.
+3. **Press and hold on a message: the reactions bar and the action menu overlap**, so
+   one cannot be used. Lay it out like Google Messages: reactions above the message, the
+   held message itself, and the action menu below it.
+4. **The mic seems to do nothing on a tap.** By design a voice note is recorded by
+   holding the mic (5.6), and a quick tap should say "too short". Seeing nothing at all
+   needs checking on the phone; a tap should also say "Hold to record".
+5. **Motion: Full and Extra look the same as the lower levels.** Needs checking: Full
+   should add the celebrate burst to reactions and Extra the edge glow for special emoji
+   (5.4), plus livelier transitions elsewhere.
+6. **A scheduled message's press-and-hold menu** should offer Edit, Reschedule, and
+   Unschedule (delete). 10.13 lists a scheduled message's actions; build them all there.
+
+Changes to the design (owner to approve):
+7. **One Send button, not a split button.** Tap to send; press and hold for Send later
+   (and Send as SMS where it applies). Today the design names the Expressive split button.
+8. **"All" may be removed from the bottom bar.** Today the design keeps All always first.
+9. **Spaces get an icon** chosen by the user, for the bottom bar, and a choice per space:
+   its chats also show in All, or only inside the space.
+10. **Read receipts in the inbox list**, as Google Messages shows them: the last message's
+    sent, delivered, or read mark on the row when it is yours.
+
+Already planned for a later phase:
+11. **Reply and Mark read from a notification.** Designed in 6.2 and built in P4.1 with
+    the rest of notifications; P4.1 should also add Copy code (10.6) there.
+
+Questions back to the owner:
+- **Flippy reactions** (10.8): when someone reacts to a message while you are on the
+  inbox, that chat's row flips over like a card to show the reaction for a moment, then
+  flips back. The demo sends reactions only now and then, so it is easy to miss; a
+  demo control to send one on demand would make it testable.
+
+Low priority, after the whole app works (owner's call):
+12. **The obscure blur should follow the bubble's shape**, or blur only the text inside
+    it, as Beeper does. Today it is a square-cornered mask.
+
+**Next:** the owner approves items 7 to 10 (or changes them), and says whether items 1 to 10
+are fixed now, before Phase 3, or folded into later phases. Phase 3 waits for that answer.
