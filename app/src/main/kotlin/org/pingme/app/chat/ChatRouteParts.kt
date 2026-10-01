@@ -28,6 +28,10 @@ internal fun headerActions(
     },
 )
 
+/** The same header actions, with the name and "Chat details" opening [onDetails]. */
+internal fun HeaderActions.copyWithDetails(onDetails: (() -> Unit)?) =
+    HeaderActions(onBack, onCall, onDetails, onSearch)
+
 /** Search in chat: picking a result or a date closes search and jumps there (UI_DESIGN.md 10.14). */
 internal fun searchHooks(
     viewModel: ChatViewModel,

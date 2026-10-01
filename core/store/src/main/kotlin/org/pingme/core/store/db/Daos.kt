@@ -545,3 +545,15 @@ interface MediaSaveJobDao {
     @Query("DELETE FROM media_save_jobs WHERE attachmentId = :attachmentId")
     suspend fun delete(attachmentId: String)
 }
+
+@Dao
+interface ChatOverridesDao {
+    @Query("SELECT * FROM chat_overrides WHERE chatId = :chatId")
+    fun observe(chatId: String): Flow<ChatOverridesEntity?>
+
+    @Query("SELECT * FROM chat_overrides WHERE chatId = :chatId")
+    suspend fun get(chatId: String): ChatOverridesEntity?
+
+    @Upsert
+    suspend fun upsert(overrides: ChatOverridesEntity)
+}

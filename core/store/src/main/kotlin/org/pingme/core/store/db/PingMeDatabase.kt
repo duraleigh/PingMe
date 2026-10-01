@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
         MergeLinkEntity::class,
         MediaSaveJobEntity::class,
         PinnedMessageEntity::class,
+        ChatOverridesEntity::class,
     ],
     version = PingMeDatabase.VERSION,
     exportSchema = true,
@@ -51,14 +52,16 @@ abstract class PingMeDatabase : RoomDatabase() {
 
     abstract fun mediaSaveJobDao(): MediaSaveJobDao
 
+    abstract fun chatOverridesDao(): ChatOverridesDao
+
     companion object {
         const val NAME = "pingme.db"
 
         /** The schema version. Bump it with a migration in [MIGRATIONS] and an exported schema. */
-        const val VERSION = 2
+        const val VERSION = 3
 
         /** Schema migrations, oldest first (BUILD_PLAN.md P1.6). MigrationTest checks every one. */
-        val MIGRATIONS: Array<Migration> = arrayOf(PinnedMessages)
+        val MIGRATIONS: Array<Migration> = arrayOf(PinnedMessages, ChatOverridesTable)
 
         /** Applies the settings every PingMe database needs, on-disk or in-memory. */
         fun configure(builder: Builder<PingMeDatabase>): PingMeDatabase =
@@ -85,5 +88,17 @@ private object PinnedMessages : Migration(1, 2) {
                 "`messages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         )
         connection.execSQL("CREATE INDEX IF NOT EXISTS `index_pinned_messages_chatId` ON `pinned_messages` (`chatId`)")
+    }
+}
+
+/** 2 to 3 (P2.5): each chat's own settings from Chat details (UI_DESIGN.md 3.4). */
+private object ChatOverridesTable : Migration(2, PingMeDatabase.VERSION) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `chat_overrides` (`chatId` TEXT NOT NULL, `soundUri` TEXT, " +
+                "`vibration` TEXT, `channelVersion` INTEGER NOT NULL, `lookJson` TEXT, `quickReactions` TEXT, " +
+                "PRIMARY KEY(`chatId`), FOREIGN KEY(`chatId`) REFERENCES `chats`(`id`) ON UPDATE NO ACTION " +
+                "ON DELETE CASCADE )",
+        )
     }
 }

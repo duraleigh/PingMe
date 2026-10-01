@@ -213,6 +213,28 @@ data class PinnedMessageEntity(
     val pinnedAt: Instant,
 )
 
+/** One chat's own settings (UI_DESIGN.md 3.4); removed with the chat. */
+@Entity(
+    tableName = "chat_overrides",
+    foreignKeys = [
+        ForeignKey(
+            entity = ChatEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["chatId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class ChatOverridesEntity(
+    @PrimaryKey val chatId: String,
+    val soundUri: String?,
+    val vibration: String?,
+    val channelVersion: Int,
+    val lookJson: String?,
+    /** Quick reactions joined by new lines; null follows the app-wide set. */
+    val quickReactions: String?,
+)
+
 @Entity(
     tableName = "persons",
     foreignKeys = [

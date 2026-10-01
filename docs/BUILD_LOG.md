@@ -922,3 +922,48 @@ fake GIF store stand in for the hardware and the network.
   Always, Only on Wi-Fi, and Never. This is an allowed exception to CLAUDE.md rule 8.
 
 **Next:** P2.5, Chat details.
+
+## P2.5 Chat details (done, 2026-10-01)
+
+Reached from the chat header (tap the name, or the menu's Chat details). Sections, per
+UI_DESIGN.md 3.4:
+- Header: photo, name with a pencil to change it here only, the network, the contact
+  card (contacts provider lookup) or "Add to contacts", and Search, Mute, Pin.
+- Media, Links, and Files tabs with the newest twelve; "See all" and the Search button
+  go back to the chat with search in chat open on that type.
+- Notifications: mute for 1 hour, 8 hours, 1 week, or until turned back on; this
+  chat's sound (the system ringtone picker or an audio file, kept with a persistable
+  read permission) and vibration (six patterns).
+- Look: this chat's outgoing bubble colour, bubble style, wallpaper, and text size,
+  over the app's appearance; "Use the app's look" resets it.
+- Quick reactions: this chat's own set of up to eight, or the app's.
+- Members (groups), pinned messages (tap to see one in the chat, or unpin), the photo
+  source (contact or network), Obscure messages, Low priority, the Instagram folder,
+  Archive, Block (where the network allows), and Delete, each final one asked first.
+
+New: `chat_overrides` table (schema 3, migration from 2), `ChatOverridesRepository`,
+`ChatLook` in core/ui, `ChatActions.muteUntil / rename / setAvatarSource / moveFolder`,
+and `ChatRequests`, which carries Chat details' search and jump requests back to the
+chat underneath.
+
+**Deviations and what comes later:**
+- **Merge and split** are not in Chat details yet. The plan builds merged chats in
+  Phase 7 (a merged chat is a view over several chats), and there is nothing to merge
+  or split before then. The merged chat's details (photo choice across networks, name,
+  default service, split) come with it.
+- This chat's sound and vibration are stored with a channel version now; they take
+  effect when notifications are built (P4.1), which creates the per-chat channel.
+- The photo choice is stored now; contact photos themselves arrive with contact
+  matching (Phase 7), so until then every avatar is the initials tile.
+
+**Fixed along the way:**
+- **P1.4:** the connection supervisor could miss a network change that came just
+  before its reconnect wait began, and sit out the whole backoff. Changes are now
+  counted; a new test covers the gap.
+- **Demo network:** with live activity off it no longer wakes every second to check;
+  it waits until live activity is turned on.
+- **Tests:** chat and inbox UI tests move the main thread's clock on while they wait
+  (CI failed once without it). The Chat details tests run on Robolectric's default
+  screen, because with a set screen size a text field in a dialog never settles there.
+
+**Next:** P2.6, Settings.
