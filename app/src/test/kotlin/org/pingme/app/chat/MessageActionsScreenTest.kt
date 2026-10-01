@@ -159,22 +159,46 @@ class MessageActionsScreenTest {
         compose.onNode(hasContentDescription("React with $emoji")).performTouchInput { click() }
     }
 
+    // A tap on [emoji] reaches the message: its reactions change. (Tapping the reaction you
+    // already gave takes it back, and the demo's history already carries some of yours.)
+    private fun tapLands(
+        message: Message,
+        emoji: String,
+    ) {
+        val before = stored(message)!!.reactions
+        holdAndTap(message.body!!, emoji)
+        waitFor { stored(message)!!.reactions != before }
+    }
+
+    // The incoming message drawn highest on screen right now.
+    private fun highestOnScreen(): Message =
+        vm.state.value.items
+            .filterIsInstance<ChatItem.Bubble>()
+            .map { it.message }
+            .filter { !it.isOutgoing && !it.body.isNullOrBlank() }
+            .mapNotNull { message ->
+                compose
+                    .onAllNodesWithText(message.body!!)
+                    .fetchSemanticsNodes()
+                    .singleOrNull()
+                    ?.let { message to it.boundsInRoot.top }
+            }.minBy { it.second }
+            .first
+
     @Test
     fun everyQuickReactionCanBeTappedWhereverTheBubbleIs() {
         val newest = theirs()
         val quick = listOf("❤️", "😂", "👍", "😮", "😢", "🔥")
-        quick.forEach { emoji ->
-            holdAndTap(newest.body!!, emoji)
-            waitFor { stored(newest)!!.reactions.any { it.emoji == emoji } }
+        quick.forEach { emoji -> tapLands(newest, emoji) }
+        // Scrolled to the very top, which loads the rest of the history first; then the highest
+        // message on screen, just under the header.
+        waitFor {
+            compose.onNode(hasTestTag(CHAT_LIST)).performScrollToIndex(vm.state.value.items.lastIndex)
+            !vm.state.value.moreHistory
         }
-        // The oldest message, scrolled up under the header.
-        val oldest = latest().last { !it.isOutgoing && !it.body.isNullOrBlank() }
         compose.onNode(hasTestTag(CHAT_LIST)).performScrollToIndex(vm.state.value.items.lastIndex)
-        waitFor { compose.onAllNodesWithText(oldest.body!!).fetchSemanticsNodes().isNotEmpty() }
-        quick.forEach { emoji ->
-            holdAndTap(oldest.body!!, emoji)
-            waitFor { stored(oldest)!!.reactions.any { it.emoji == emoji } }
-        }
+        val oldest = highestOnScreen()
+        quick.forEach { emoji -> tapLands(oldest, emoji) }
     }
 
     @Test
