@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Search in chat, obscured chats, and Send later (UI_DESIGN.md 10.10, 10.13, 10.14). -->
+<resources>
+    <string name="search_in_chat">Search this chat</string>
+    <string name="search_close">Close search</string>
+    <string name="search_text">Text</string>
+    <string name="search_photos">Photos</string>
+    <string name="search_videos">Videos</string>
+    <string name="search_links">Links</string>
+    <string name="search_files">Files</string>
+    <string name="search_voice">Voice notes</string>
+    <string name="search_gifs">GIFs</string>
+    <string name="search_from_anyone">From anyone</string>
+    <string name="search_from">From %1$s</string>
+    <string name="search_date">Jump to date</string>
+    <string name="search_none">Nothing found</string>
+    <string name="search_voice_note">Voice note</string>
+    <string name="obscured_hidden">Hidden message. Tap to show it for a few seconds.</string>
+    <string name="later_sends_at">Sends %1$s</string>
+    <string name="later_title">Send later</string>
+    <string name="later_in_an_hour">In 1 hour</string>
+    <string name="later_this_evening">This evening</string>
+    <string name="later_tomorrow_morning">Tomorrow morning</string>
+    <string name="later_tomorrow_same">Tomorrow at this time</string>
+    <string name="later_next_monday">Next Monday morning</string>
+    <string name="later_pick">Pick a date and time</string>
+    <string name="later_type">Or type when, like “friday 6pm”</string>
+    <string name="later_not_understood">Not sure when that is</string>
+    <string name="later_schedule">Schedule</string>
+    <string name="later_send_now">Send now</string>
+    <string name="later_change_time">Change time</string>
+    <string name="later_cancel">Cancel sending</string>
+</resources>

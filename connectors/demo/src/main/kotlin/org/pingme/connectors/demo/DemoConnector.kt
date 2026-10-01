@@ -54,6 +54,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -135,9 +136,17 @@ class DemoConnector(
     override suspend fun send(
         chatId: ChatId,
         draft: OutgoingMessage,
+        progress: (Float) -> Unit,
     ): SendResult {
         val world = world(chatId.accountId)
         if (chatId !in world.chats) return SendResult.Failed("This chat is gone", retryable = false)
+        // Media "uploads" in steps, so the bubble's progress has something to show.
+        if (draft.attachments.isNotEmpty()) {
+            for (step in 1..UPLOAD_STEPS) {
+                delay(UPLOAD_STEP)
+                progress(step.toFloat() / UPLOAD_STEPS)
+            }
+        }
         val message = server.addOutgoing(world, chatId, draft.body, draft)
         server.followUp(world, message)
         return SendResult.Sent(world.snapshot(message))
@@ -217,6 +226,24 @@ class DemoConnector(
                     .also(world::replaceMessage)
             }
         server.emit(world, ConnectorEvent.MessageUpdated(world.accountId, world.snapshot(deleted)))
+    }
+
+    override suspend fun edit(
+        messageId: MessageId,
+        text: String,
+    ) {
+        val limit =
+            capabilities.edit ?: throw UnsupportedCapabilityException("Editing is turned off on the demo network")
+        val world = world(messageId.accountId)
+        val edited =
+            synchronized(world) {
+                val message = world.findMessage(messageId)?.takeIf { it.isOutgoing } ?: return
+                if (limit is TimeLimit.Within && clock.now() - message.sentAt > limit.duration) {
+                    throw UnsupportedCapabilityException("Only possible for ${limit.duration} after sending")
+                }
+                message.copy(body = text, editedAt = clock.now()).also(world::replaceMessage)
+            }
+        server.emit(world, ConnectorEvent.MessageUpdated(world.accountId, world.snapshot(edited)))
     }
 
     override suspend fun downloadAttachment(attachment: Attachment): File =
@@ -355,5 +382,7 @@ class DemoConnector(
     companion object {
         /** What a demo login stores as its "credentials". */
         internal val DEMO_SECRET = "pingme-demo".toByteArray()
+        private const val UPLOAD_STEPS = 10
+        private val UPLOAD_STEP = 120.milliseconds
     }
 }

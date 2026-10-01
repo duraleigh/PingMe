@@ -191,6 +191,28 @@ data class ReactionEntity(
     val at: Instant,
 )
 
+/**
+ * A message pinned in its chat (UI_DESIGN.md 5.1): local, so it works on every network.
+ * The banner under the chat header shows the newest pin. Schema version 2.
+ */
+@Entity(
+    tableName = "pinned_messages",
+    foreignKeys = [
+        ForeignKey(
+            entity = MessageEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["messageId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("chatId")],
+)
+data class PinnedMessageEntity(
+    @PrimaryKey val messageId: String,
+    val chatId: String,
+    val pinnedAt: Instant,
+)
+
 @Entity(
     tableName = "persons",
     foreignKeys = [

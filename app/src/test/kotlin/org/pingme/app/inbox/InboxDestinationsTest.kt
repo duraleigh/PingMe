@@ -3,6 +3,8 @@ package org.pingme.app.inbox
 
 import android.os.Looper
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -50,9 +52,10 @@ class InboxDestinationsTest {
     @After
     fun tearDown() = demo.close()
 
+    // Moves the main thread's clock on as it waits, so progress does not depend on how busy the machine is.
     private fun waitFor(condition: () -> Boolean) =
         compose.waitUntil(TIMEOUT) {
-            shadowOf(Looper.getMainLooper()).idle()
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(STEP_MS))
             condition()
         }
 
@@ -127,6 +130,8 @@ class InboxDestinationsTest {
         compose.onNodeWithText("Name, number, or username").performTextInput("ana")
         waitForText("Add ana")
         compose.onNodeWithText("Add ana").performClick()
+        // The button turns on once the member shows as a chip.
+        waitFor { compose.onAllNodes(hasText("Make the group") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Make the group").performClick()
         waitFor { opened.isNotEmpty() }
         val group = runBlocking { demo.chats.get(opened.single()) }!!
@@ -135,5 +140,6 @@ class InboxDestinationsTest {
 
     private companion object {
         const val TIMEOUT = 15_000L
+        const val STEP_MS = 50L
     }
 }

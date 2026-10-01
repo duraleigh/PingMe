@@ -60,6 +60,8 @@ data class OutgoingAttachment(
     val kind: AttachmentKind,
     val fileName: String?,
     val caption: String?,
+    /** Length of a voice note or video, when PingMe knows it. */
+    val durationMs: Long? = null,
 )
 
 sealed interface SendResult {

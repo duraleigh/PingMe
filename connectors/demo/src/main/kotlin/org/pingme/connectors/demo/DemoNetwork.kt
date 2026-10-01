@@ -227,7 +227,7 @@ internal class DemoNetwork(
         sizeBytes = File(draft.localPath).length(),
         localPath = draft.localPath,
         remoteRef = null,
-        durationMs = null,
+        durationMs = draft.durationMs,
         width = null,
         height = null,
         isEphemeral = false,

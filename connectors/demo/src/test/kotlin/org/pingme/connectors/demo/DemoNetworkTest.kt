@@ -19,6 +19,7 @@ import org.pingme.core.connector.OutgoingMessage
 import org.pingme.core.connector.SendResult
 import org.pingme.core.connector.UnsupportedCapabilityException
 import org.pingme.core.connector.chat
+import org.pingme.core.connector.message
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatFolder
@@ -91,6 +92,39 @@ class DemoNetworkTest {
             }
             val other = demo.syncChats(account.id).first().id
             assertThrows(UnsupportedCapabilityException::class.java) { runBlocking { demo.block(other) } }
+            Unit
+        }
+
+    @Test
+    fun yourOwnRecentMessagesCanBeEdited() =
+        runBlocking {
+            val chat = demo.syncChats(account.id).first().id
+            val sent =
+                demo.send(
+                    chat,
+                    OutgoingMessage(account.id.message("draft"), "helo", emptyList(), null, null, false),
+                )
+            val id = (sent as SendResult.Sent).message.message.id
+            demo.edit(id, "hello")
+            val edited = demo.syncMessages(chat, before = null, limit = 50).map { it.message }.single { it.id == id }
+            assertEquals("hello", edited.body)
+            assertTrue(edited.editedAt != null)
+
+            val theirs = demo.syncMessages(chat, before = null, limit = 50).map { it.message }.first { !it.isOutgoing }
+            demo.edit(theirs.id, "not yours")
+            assertEquals(
+                "other people's messages are left alone",
+                theirs.body,
+                demo
+                    .syncMessages(chat, null, 50)
+                    .single {
+                        it.message.id ==
+                            theirs.id
+                    }.message.body,
+            )
+
+            controls.update { it.copy(capabilities = DemoControls.MINIMAL) }
+            assertThrows(UnsupportedCapabilityException::class.java) { runBlocking { demo.edit(id, "again") } }
             Unit
         }
 

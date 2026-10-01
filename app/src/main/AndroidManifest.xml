@@ -3,6 +3,47 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- The phone icon dials at once for RCS and SMS chats (UI_DESIGN.md 10.17); asked once. -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <!-- Tablets and Chromebooks without a phone line can still install PingMe. -->
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
+    <!-- Avatars and call rows from the phone's contacts (UI_DESIGN.md 10.17, 10.18). -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <!-- "Location" in the attach sheet sends where the phone is, only when the user taps it (UI_DESIGN.md 5.8). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Voice notes: hold the mic to record (UI_DESIGN.md 5.6). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Turns the screen off while a voice note plays at the ear. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Moves voice-note playback to the earpiece when the phone is raised. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- The apps the call icons and "open the app" hand off to (UI_DESIGN.md 10.17). -->
+    <queries>
+        <package android:name="com.whatsapp" />
+        <package android:name="org.thoughtcrime.securesms" />
+        <package android:name="org.telegram.messenger" />
+        <package android:name="com.google.android.apps.googlevoice" />
+        <package android:name="com.facebook.orca" />
+        <package android:name="com.instagram.android" />
+        <package android:name="com.google.android.apps.messaging" />
+        <package android:name="com.google.android.apps.tachyon" />
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+    </queries>
+
     <application
         android:name=".PingMeApp"
         android:allowBackup="false"
@@ -81,6 +122,16 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- Shares one picked or received file at a time with the camera and viewer apps. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/shared_files" />
+        </provider>
         <!-- WorkManager starts from PingMeApp with the Hilt worker factory instead. -->
         <provider
             android:name="androidx.startup.InitializationProvider"

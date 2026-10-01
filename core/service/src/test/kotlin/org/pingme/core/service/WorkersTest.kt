@@ -60,6 +60,7 @@ class WorkersTest : ServiceTest() {
                             scheduled,
                             applier,
                             clock,
+                            QuietAlarm(appContext, scheduled, clock),
                         )
                     }
 

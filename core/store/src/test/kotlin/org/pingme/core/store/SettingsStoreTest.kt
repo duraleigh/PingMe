@@ -78,4 +78,15 @@ class SettingsStoreTest : StoreTest() {
             settings.updateAppearanceJson { current -> (current ?: "") + "b" }
             assertEquals("ab", settings.appearanceJson.first())
         }
+
+    @Test
+    fun reactionsDefaultToTheDesignAndRemember() =
+        runTest {
+            assertEquals(listOf("❤️", "😂", "👍", "😮", "😢", "🔥"), settings.quickReactions.first())
+            assertEquals("❤️", settings.doubleTapReaction.first())
+            settings.setQuickReactions(listOf("🎉", "👀", "🙏"))
+            assertEquals(listOf("🎉", "👀", "🙏"), settings.quickReactions.first())
+            listOf("😀", "🐱", "😀").forEach { settings.addRecentEmoji(it) }
+            assertEquals("newest first, no repeats", listOf("😀", "🐱"), settings.recentEmoji.first())
+        }
 }

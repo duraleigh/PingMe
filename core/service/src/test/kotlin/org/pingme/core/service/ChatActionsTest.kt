@@ -140,6 +140,6 @@ class ChatActionsTest : ServiceTest() {
             )
             eventually { heard.isNotEmpty() }
             listening.cancel()
-            assertEquals(listOf(IncomingReaction(id, "😂")), heard)
+            assertEquals(listOf(IncomingReaction(id, "😂", accountId.message("m1"))), heard)
         }
 }

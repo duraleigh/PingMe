@@ -5,13 +5,15 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.pingme.core.model.ChatId
+import org.pingme.core.model.MessageId
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Someone else reacted in [chatId] with [emoji]. */
+/** Someone else reacted to [messageId] in [chatId] with [emoji]. */
 data class IncomingReaction(
     val chatId: ChatId,
     val emoji: String,
+    val messageId: MessageId? = null,
 )
 
 /**

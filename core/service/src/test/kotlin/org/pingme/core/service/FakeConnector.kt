@@ -96,6 +96,7 @@ class FakeConnector : Connector {
     override suspend fun send(
         chatId: ChatId,
         draft: OutgoingMessage,
+        progress: (Float) -> Unit,
     ) = sendResult(draft)
 
     override suspend fun react(
@@ -135,6 +136,11 @@ class FakeConnector : Connector {
     ): ChatId = throw UnsupportedCapabilityException("not used")
 
     override suspend fun block(chatId: ChatId) = throw UnsupportedCapabilityException("not used")
+
+    override suspend fun edit(
+        messageId: MessageId,
+        text: String,
+    ) = throw UnsupportedCapabilityException("not used")
 
     override suspend fun moveFolder(
         chatId: ChatId,

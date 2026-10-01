@@ -5,8 +5,9 @@ import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.pingme.core.connector.ActionNeededException
@@ -44,7 +45,9 @@ class ConnectorSupervisor
         @ApplicationScope private val scope: CoroutineScope,
     ) {
         private val sessions = mutableMapOf<AccountId, Job>()
-        private val networkChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+        // Counts network changes, so a wait that starts just after one still sees it.
+        private val networkChanges = MutableStateFlow(0L)
         private var watcher: Job? = null
 
         /** Starts following the account list. Safe to call more than once. */
@@ -63,7 +66,7 @@ class ConnectorSupervisor
 
         /** The phone's network changed: waiting retries go now, from the first backoff step. */
         fun onNetworkChanged() {
-            networkChanges.tryEmit(Unit)
+            networkChanges.update { it + 1 }
         }
 
         private fun reconcile(all: List<Account>) =
@@ -81,6 +84,8 @@ class ConnectorSupervisor
             var attempt = 0
             while (true) {
                 val outcome = runSession(account, connector)
+                // Noted as soon as the session ends, so a network change from then on is never missed.
+                val seen = networkChanges.value
                 when (outcome) {
                     Outcome.ActionNeeded -> return
                     Outcome.Dropped -> attempt = 0
@@ -90,7 +95,7 @@ class ConnectorSupervisor
                 val wait = retryDelays.delayFor(attempt)
                 accounts.updateState(account.id, ConnectionState.Reconnecting(attempt, clock.now() + wait))
                 // A network change cuts the wait short and starts the backoff over.
-                val networkCame = withTimeoutOrNull(wait) { networkChanges.first() } != null
+                val networkCame = withTimeoutOrNull(wait) { networkChanges.first { it != seen } } != null
                 if (networkCame) attempt = 0
             }
         }

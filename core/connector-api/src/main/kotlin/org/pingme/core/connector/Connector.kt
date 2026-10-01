@@ -53,9 +53,11 @@ interface Connector {
         limit: Int,
     ): List<MessageSnapshot>
 
+    /** Sends [draft]; [progress] hears how much of its media has gone, from 0 to 1 (UI_DESIGN.md 5.8). */
     suspend fun send(
         chatId: ChatId,
         draft: OutgoingMessage,
+        progress: (Float) -> Unit = {},
     ): SendResult
 
     /** Adds [emoji], or removes the user's reaction when [remove] is true. */
@@ -78,6 +80,15 @@ interface Connector {
     suspend fun delete(
         messageId: MessageId,
         forEveryone: Boolean,
+    )
+
+    /**
+     * Replaces the text of one of your messages (UI_DESIGN.md 3.3). Throws when
+     * `capabilities.edit` is null or its time limit has passed.
+     */
+    suspend fun edit(
+        messageId: MessageId,
+        text: String,
     )
 
     suspend fun downloadAttachment(attachment: Attachment): File

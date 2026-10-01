@@ -2,19 +2,28 @@
 package org.pingme.app.inbox
 
 import android.content.Context
+import android.os.Looper
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import org.pingme.app.chat.ChatViewModel
+import org.pingme.app.chat.MediaRequests
 import org.pingme.connectors.demo.DemoConnector
 import org.pingme.connectors.demo.DemoControls
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.connector.CredentialStore
+import org.pingme.core.connector.chat
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.ConnectionState
@@ -22,14 +31,17 @@ import org.pingme.core.model.NetworkId
 import org.pingme.core.model.NotificationMode
 import org.pingme.core.service.ChatActions
 import org.pingme.core.service.EventApplier
+import org.pingme.core.service.MessageActions
 import org.pingme.core.service.ReactionFeed
 import org.pingme.core.service.TypingTracker
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
 import org.pingme.core.store.MessageRepository
+import org.pingme.core.store.PinnedMessageRepository
 import org.pingme.core.store.SettingsRepository
 import org.pingme.core.store.db.PingMeDatabase
+import org.robolectric.Shadows.shadowOf
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
@@ -55,7 +67,17 @@ class DemoInbox(
     val applier = EventApplier(accounts, chats, messages, contacts, typing, reactions)
     val controls = DemoControls()
     val demo = DemoConnector(controls, MemoryCredentials(), dir.resolve("media"), Clock.System)
-    val actions = ChatActions(chats, messages, accounts, ConnectorRegistry(mapOf(NetworkId.DEMO to demo)), applier)
+    val registry = ConnectorRegistry(mapOf(NetworkId.DEMO to demo))
+    val actions = ChatActions(chats, messages, accounts, registry, applier)
+    val pins = PinnedMessageRepository(db)
+    val scheduledSends =
+        org.pingme.core.store
+            .ScheduledSendRepository(db)
+
+    /** Counts wake-ups instead of asking Android's job system, which tests do not start. */
+    val alarm = CountingAlarm(context, scheduledSends)
+    val messageActions =
+        MessageActions(chats, messages, pins, accounts, registry, applier, Clock.System, scheduledSends, alarm)
     val account =
         Account(
             AccountId("demo"),
@@ -90,12 +112,57 @@ class DemoInbox(
             InboxBarRepository(settings),
             Clock.System,
             SavedStateHandle(),
-        )
+        ).tracked()
 
     fun listViewModel(route: ChatListRoute) =
-        ChatListViewModel(chats, messages, accounts, typing, actions, Clock.System, route.toSavedState())
+        ChatListViewModel(chats, messages, accounts, typing, actions, Clock.System, route.toSavedState()).tracked()
 
-    fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle())
+    /** Downloads straight through the demo connector instead of WorkManager. */
+    private val media =
+        object : MediaRequests(context) {
+            override fun download(id: org.pingme.core.model.AttachmentId) {
+                scope.launch {
+                    val attachment = messages.attachment(id) ?: return@launch
+                    // A test may end mid-download and delete its folder; that download simply stops.
+                    val file = runCatching { demo.downloadAttachment(attachment) }.getOrNull() ?: return@launch
+                    messages.setAttachmentLocalPath(id, file.absolutePath)
+                }
+            }
+        }
+
+    val files =
+        org.pingme.app.chat.attach
+            .OutgoingFiles(context)
+    val recorder =
+        org.pingme.app.chat.voice
+            .FakeRecorder(context, dir)
+    val gifStore =
+        org.pingme.app.chat.gif
+            .FakeGifStore(context, dir)
+
+    fun chatViewModel(remote: String) =
+        ChatViewModel(
+            account.id.chat(remote).value,
+            chats,
+            messages,
+            pins,
+            accounts,
+            contacts,
+            typing,
+            registry,
+            actions,
+            messageActions,
+            media,
+            settings,
+            reactions,
+            files,
+            recorder,
+            gifStore,
+            org.pingme.core.store
+                .ChatSearchRepository(db),
+        ).tracked()
+
+    fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()
 
     fun newChatViewModel(group: Boolean) =
         NewChatViewModel(
@@ -104,7 +171,7 @@ class DemoInbox(
             ConnectorRegistry(mapOf(NetworkId.DEMO to demo)),
             actions,
             SavedStateHandle(mapOf("group" to group)),
-        )
+        ).tracked()
 
     private fun ChatListRoute.toSavedState() =
         SavedStateHandle(
@@ -118,8 +185,17 @@ class DemoInbox(
             ).toMap(),
         )
 
+    private val viewModels = mutableListOf<androidx.lifecycle.ViewModel>()
+
+    private fun <T : androidx.lifecycle.ViewModel> T.tracked() = also { viewModels += it }
+
+    /** View models and background work stop before the database closes. */
     fun close() {
-        scope.cancel()
+        // View models run on the main thread, so cancel them and let the main looper finish them off
+        // rather than blocking the main thread while waiting for them.
+        viewModels.forEach { it.viewModelScope.cancel() }
+        shadowOf(Looper.getMainLooper()).idle()
+        runBlocking { scope.coroutineContext.job.cancelAndJoin() }
         db.close()
     }
 
@@ -138,5 +214,17 @@ class DemoInbox(
         override suspend fun delete(ref: String) {
             secrets.remove(ref)
         }
+    }
+}
+
+/** A wake-up for scheduled sends that only counts, since tests do not start Android's job system. */
+class CountingAlarm(
+    context: Context,
+    scheduled: org.pingme.core.store.ScheduledSendRepository,
+) : org.pingme.core.service.work.SendAlarm(context, scheduled, Clock.System) {
+    var armed = 0
+
+    override suspend fun arm() {
+        armed++
     }
 }
