@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.chat.attach
 
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -18,7 +21,7 @@ import org.pingme.core.ui.theme.ThemeMode
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.GraphicsMode
 
-/** The split send button and the small file formats attachments use (UI_DESIGN.md 3.2, 5.8). */
+/** The send button (tap to send, hold for more) and the small file formats attachments use (UI_DESIGN.md 3.2, 5.8). */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SendButtonTest {
@@ -29,17 +32,38 @@ class SendButtonTest {
     val temp = TemporaryFolder()
 
     @Test
-    fun theMenuSendsAsSms() {
+    fun aTapSendsAndHoldingOffersTheOtherWays() {
         val sent = mutableListOf<String>()
         compose.setContent {
             PingMeTheme(Appearance(mode = ThemeMode.LIGHT)) {
-                SendButton(enabled = true, onSend = { sent += "network" }, onSendSms = { sent += "sms" })
+                SendButton(
+                    enabled = true,
+                    onSend = { sent += "network" },
+                    onSendSms = { sent += "sms" },
+                    onSendLater = { sent += "later" },
+                )
             }
         }
-        compose.onNode(hasContentDescription("Send")).performClick()
-        compose.onNode(hasContentDescription("More ways to send")).performClick()
+        compose.onNode(hasContentDescription("Send")).performTouchInput { click() }
+        assertEquals("a tap just sends, no menu", listOf("network"), sent)
+        compose.onNodeWithText("Send as SMS").assertDoesNotExist()
+        compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
+        compose.onNodeWithText("Send later").assertExists()
         compose.onNodeWithText("Send as SMS").performClick()
         assertEquals(listOf("network", "sms"), sent)
+    }
+
+    @Test
+    fun withNothingElseToOfferHoldingJustSends() {
+        var sent = 0
+        compose.setContent {
+            PingMeTheme(Appearance(mode = ThemeMode.LIGHT)) {
+                SendButton(enabled = true, onSend = { sent++ }, onSendSms = null)
+            }
+        }
+        compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
+        compose.onNodeWithText("Send later").assertDoesNotExist()
+        assertEquals(1, sent)
     }
 
     @Test

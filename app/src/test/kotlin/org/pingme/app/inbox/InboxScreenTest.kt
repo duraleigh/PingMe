@@ -8,6 +8,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
@@ -40,6 +44,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import kotlin.math.abs
 
 /** The inbox against the demo network (BUILD_PLAN.md P2.3, P2.8). */
 @RunWith(org.robolectric.RobolectricTestRunner::class)
@@ -105,6 +110,29 @@ class InboxScreenTest {
         compose.onNodeWithText("Casey Nguyen").assertDoesNotExist()
         compose.onNodeWithText("Sam Ortiz").performClick()
         assertEquals(listOf(id("sam")), opened)
+    }
+
+    @Test
+    fun aRowWhoseLastMessageIsYoursShowsItsMark() {
+        show()
+        // Dad's last message is yours and was read; Mom's is hers, so it carries no mark. A row
+        // reads as one item, so its name and its mark are on the same node.
+        compose.onNode(hasText("Dad") and hasContentDescription("Read")).assertExists()
+        compose.onNode(hasText("Mom") and hasContentDescription("Read")).assertDoesNotExist()
+        compose.onNode(hasText("Mom") and hasContentDescription("Delivered")).assertDoesNotExist()
+    }
+
+    @Test
+    fun theBottomBarsItemsAreSpreadEvenlyAcrossIt() {
+        show()
+        val bar = compose.onNode(hasTestTag(INBOX_BAR)).getBoundsInRoot()
+        val labels = listOf("All", "Unread", "Demo")
+        labels.forEachIndexed { i, label ->
+            val item = compose.onNode(hasText(label) and hasAnyAncestor(hasTestTag(INBOX_BAR))).getBoundsInRoot()
+            val centre = (item.left + item.right) / 2
+            val expected = bar.left + (bar.right - bar.left) * ((i + 0.5f) / labels.size)
+            assertTrue("$label centred at $centre, expected $expected", abs((centre - expected).value) < 2f)
+        }
     }
 
     @Test

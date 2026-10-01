@@ -83,7 +83,7 @@ class SendLaterScreenTest {
     @Test
     fun aMessageCanWaitAndThenGoAtOnce() {
         compose.onNode(hasTestTag(COMPOSER)).performTextInput("See you soon")
-        compose.onNode(hasContentDescription("More ways to send")).performClick()
+        compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
         compose.onNodeWithText("Send later").performClick()
         compose.onNode(hasTestTag(LATER_FIELD)).performTextInput("in 2 hours")
         compose.onNodeWithText("Schedule").performClick()
@@ -105,7 +105,7 @@ class SendLaterScreenTest {
     @Test
     fun aWaitingMessageOffersItsOwnActionsAndUnschedulingDeletesIt() {
         compose.onNode(hasTestTag(COMPOSER)).performTextInput("Happy birthday")
-        compose.onNode(hasContentDescription("More ways to send")).performClick()
+        compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
         compose.onNodeWithText("Send later").performClick()
         compose.onNode(hasTestTag(LATER_FIELD)).performTextInput("in 2 hours")
         compose.onNodeWithText("Schedule").performClick()

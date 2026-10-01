@@ -64,6 +64,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import org.pingme.app.R
+import org.pingme.app.chat.StatusMark
 import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Transport
@@ -265,6 +266,9 @@ private fun RowContent(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             TitleLine(row, now)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Your last message's mark, the same as in the chat (UI_DESIGN.md 3.1).
+                val mine = row.last?.takeIf { it.isOutgoing && !row.typing && !row.chat.isObscured }
+                if (mine != null) StatusMark(mine.status)
                 Text(
                     if (row.typing) stringResource(R.string.inbox_typing) else previewText(row),
                     Modifier.weight(1f),
