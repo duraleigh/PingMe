@@ -221,7 +221,32 @@ class DemoInbox(
                 org.pingme.core.store
                     .BackupStore(context, db),
                 context,
+                registry,
             ).tracked()
+
+    fun setupViewModel() =
+        org.pingme.app.setup
+            .SetupViewModel(settings, registry, SavedStateHandle())
+            .tracked()
+
+    fun loginViewModel(
+        again: AccountId? = null,
+        fromSetup: Boolean = false,
+    ) = org.pingme.app.login
+        .LoginViewModel(
+            registry,
+            accounts,
+            settings,
+            Clock.System,
+            context,
+            SavedStateHandle(
+                listOfNotNull<Pair<String, Any>>(
+                    "network" to NetworkId.DEMO.name,
+                    again?.let { "account" to it.value },
+                    "fromSetup" to fromSetup,
+                ).toMap(),
+            ),
+        ).tracked()
 
     fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()
 

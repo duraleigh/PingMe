@@ -19,11 +19,13 @@ import org.pingme.app.appearance.AppearanceRepository
 import org.pingme.app.inbox.InboxBarConfig
 import org.pingme.app.inbox.InboxBarItem
 import org.pingme.app.inbox.InboxBarRepository
+import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.AppSettings
 import org.pingme.core.model.Chat
 import org.pingme.core.model.KeywordRule
+import org.pingme.core.model.NetworkId
 import org.pingme.core.model.NotificationProfile
 import org.pingme.core.model.Space
 import org.pingme.core.store.AccountRepository
@@ -116,11 +118,15 @@ class SettingsViewModel
         private val bar: InboxBarRepository,
         private val backups: BackupStore,
         @param:ApplicationContext private val context: Context,
+        registry: ConnectorRegistry,
     ) : ViewModel(),
         SettingsActions,
         SpaceActions,
         BackupActions {
         private val backupStatus = MutableStateFlow(BackupStatus.IDLE)
+
+        /** The networks this build can connect, for Add account. */
+        val networks: List<NetworkId> = NetworkId.entries.filter { it in registry.networks }
 
         val state: StateFlow<SettingsState> =
             combine(

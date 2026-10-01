@@ -50,6 +50,7 @@ class SettingsScreenTest {
     private val opened = mutableListOf<SettingsPage>()
     private val openedAccounts = mutableListOf<AccountId>()
     private var restarts = 0
+    private val logins = mutableListOf<Pair<NetworkId, AccountId?>>()
 
     @Before
     fun setUp() {
@@ -70,7 +71,10 @@ class SettingsScreenTest {
             PingMeTheme(Appearance(mode = ThemeMode.LIGHT)) {
                 SettingsRoute(
                     page,
-                    SettingsNavigation({}, { opened += it }, { openedAccounts += it }, {}, { restarts++ }),
+                    SettingsNavigation({}, { opened += it }, { openedAccounts += it }, {}, { restarts++ }, { n, a ->
+                        logins +=
+                            n to a
+                    }),
                     account = account,
                     viewModel = vm,
                 )
@@ -106,6 +110,22 @@ class SettingsScreenTest {
         show(SettingsPage.ACCOUNTS)
         tap("Demo")
         assertEquals(listOf(demo.account.id), openedAccounts)
+    }
+
+    @Test
+    fun anAccountCanBeAddedFromAnyNetworkThisBuildHas() {
+        show(SettingsPage.ACCOUNTS)
+        tap("Add account")
+        waitFor { shown("Pretend messages to try PingMe. Nothing leaves your phone.") }
+        tap("Pretend messages to try PingMe. Nothing leaves your phone.")
+        waitFor { logins == listOf(NetworkId.DEMO to null) }
+    }
+
+    @Test
+    fun anAccountCanLogInAgain() {
+        show(SettingsPage.ACCOUNT, demo.account.id)
+        tap("Log in again")
+        assertEquals(listOf(NetworkId.DEMO to demo.account.id), logins)
     }
 
     @Test
