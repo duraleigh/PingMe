@@ -117,7 +117,7 @@ private fun ColumnScope.BubbleTop(
     val fellBack = message.transport == Transport.SMS && context.network == NetworkId.GMESSAGES
     if (message.isOutgoing && fellBack) SmsTag()
     message.quote?.let { QuoteBlock(it.senderName, it.text) { context.onQuote(message) } }
-    message.attachments.forEach { AttachmentView(it, context.onNeed, context.uploads[message.id]) }
+    message.attachments.forEach { AttachmentView(it, context.onNeed, context.uploads[message.id], context.player) }
 }
 
 /** Whether a message's time shows, per Appearance > Timestamps (UI_DESIGN.md 4.3). */

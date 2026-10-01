@@ -126,6 +126,9 @@ class DemoInbox(
     val files =
         org.pingme.app.chat.attach
             .OutgoingFiles(context)
+    val recorder =
+        org.pingme.app.chat.voice
+            .FakeRecorder(context, dir)
 
     fun chatViewModel(remote: String) =
         ChatViewModel(
@@ -143,6 +146,7 @@ class DemoInbox(
             settings,
             reactions,
             files,
+            recorder,
         ).tracked()
 
     fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()

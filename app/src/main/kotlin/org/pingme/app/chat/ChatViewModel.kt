@@ -15,6 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
@@ -24,12 +25,18 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.pingme.app.chat.voice.VoiceNotes
+import org.pingme.app.chat.voice.VoiceRecorder
+import org.pingme.app.chat.voice.asAttachment
 import org.pingme.core.connector.ConnectorRegistry
+import org.pingme.core.connector.OutgoingAttachment
 import org.pingme.core.model.Account
 import org.pingme.core.model.AttachmentId
+import org.pingme.core.model.AttachmentKind
 import org.pingme.core.model.Capabilities
 import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatId
+import org.pingme.core.model.MediaRule
 import org.pingme.core.model.Message
 import org.pingme.core.model.PersonId
 import org.pingme.core.service.ChatActions
@@ -42,6 +49,7 @@ import org.pingme.core.store.ContactRepository
 import org.pingme.core.store.MessageRepository
 import org.pingme.core.store.PinnedMessageRepository
 import javax.inject.Inject
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
 /** Asks for an attachment's file; a class of its own so tests can stand in for WorkManager. */
@@ -78,6 +86,15 @@ data class ChatUiState(
     val title: String get() = chat?.let { it.nameOverride ?: it.title }.orEmpty()
 }
 
+/** A message held back by the MMS size warning (UI_DESIGN.md 5.5, 5.6). */
+data class HeldBack(
+    val body: String,
+    val files: List<OutgoingAttachment>,
+    val forceSms: Boolean,
+) {
+    val bytes: Long get() = files.sumOf { java.io.File(it.localPath).length() }
+}
+
 /** The id a network gives "you" before any message says otherwise. */
 internal object SelfId {
     fun of(account: org.pingme.core.model.AccountId) = PersonId("${account.value}/me")
@@ -110,6 +127,7 @@ class ChatViewModel
         private val settingsRepo: org.pingme.core.store.SettingsRepository,
         reactionFeed: org.pingme.core.service.ReactionFeed,
         files: org.pingme.app.chat.attach.OutgoingFiles,
+        recorder: VoiceRecorder,
     ) : ViewModel() {
         /** Takes the chat id as text: Hilt cannot generate factories for value classes. */
         @AssistedFactory
@@ -126,6 +144,22 @@ class ChatViewModel
         val outbox =
             org.pingme.app.chat.attach
                 .Outbox(viewModelScope, files)
+
+        /** Hold to record, slide to cancel, slide up to lock (UI_DESIGN.md 5.6). */
+        val voice =
+            VoiceNotes(
+                viewModelScope,
+                recorder,
+                Clock.System,
+                { mediaRule(AttachmentKind.VOICE) != MediaRule.NATIVE },
+            ) {
+                dispatch("", listOf(it.asAttachment()), forceSms = false)
+            }
+
+        private val tooBig = MutableStateFlow<HeldBack?>(null)
+
+        /** A GIF or voice note over the carrier's MMS limit, waiting for the user to decide (UI_DESIGN.md 5.5). */
+        val heldBack: StateFlow<HeldBack?> = tooBig.asStateFlow()
 
         /** How far each sending message's media has got. */
         val uploads = messageActions.progress
@@ -218,15 +252,62 @@ class ChatViewModel
             text: String,
             forceSms: Boolean = false,
         ) {
-            val body = text.trim()
-            val files = outbox.take()
+            dispatch(text.trim(), outbox.take(), forceSms)
+        }
+
+        /** The user's answer to the MMS size warning: send it as it is, or not at all. */
+        fun answerHeldBack(send: Boolean) {
+            val held = tooBig.value ?: return
+            tooBig.value = null
+            if (send) go(held.body, held.files, held.forceSms)
+        }
+
+        private fun dispatch(
+            body: String,
+            files: List<OutgoingAttachment>,
+            forceSms: Boolean,
+        ) {
             if (body.isEmpty() && files.isEmpty()) return
+            if (overMmsLimit(files, forceSms)) {
+                tooBig.value = HeldBack(body, files, forceSms)
+                return
+            }
+            go(body, files, forceSms)
+        }
+
+        private fun go(
+            body: String,
+            files: List<OutgoingAttachment>,
+            forceSms: Boolean,
+        ) {
             val reply = replyTo.value
             replyTo.value = null
             stopTyping()
             viewModelScope.launch {
                 val name = reply?.let { state.value.names[it.senderId] ?: youOr(it) }
                 messageActions.send(chatId, body, reply, name, forceSms, files)
+            }
+        }
+
+        // GIFs and voice notes that will go as MMS are checked against the usual carrier limit.
+        private fun overMmsLimit(
+            files: List<OutgoingAttachment>,
+            forceSms: Boolean,
+        ): Boolean {
+            val limited =
+                files.filter { file ->
+                    val rule = mediaRule(file.kind) ?: return@filter false
+                    rule == MediaRule.MMS_SIZE_LIMITED || (forceSms && rule == MediaRule.NATIVE)
+                }
+            return limited.isNotEmpty() && limited.sumOf { java.io.File(it.localPath).length() } > MMS_LIMIT
+        }
+
+        private fun mediaRule(kind: AttachmentKind): MediaRule? {
+            val capabilities = state.value.capabilities ?: return null
+            return when (kind) {
+                AttachmentKind.GIF -> capabilities.gif
+                AttachmentKind.VOICE -> capabilities.voiceNote
+                else -> null
             }
         }
 
@@ -296,6 +377,9 @@ class ChatViewModel
 
         private companion object {
             const val STOP_AFTER = 5_000L
+
+            /** The size most carriers cap an MMS at. */
+            const val MMS_LIMIT = 1_000_000L
             const val YOU = "You"
             val TYPING_PAUSE = 5.seconds
         }

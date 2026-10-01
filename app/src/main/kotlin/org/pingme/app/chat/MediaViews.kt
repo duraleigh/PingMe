@@ -46,6 +46,8 @@ import org.pingme.app.chat.attach.launch
 import org.pingme.app.chat.attach.openFile
 import org.pingme.app.chat.attach.readPoint
 import org.pingme.app.chat.attach.vCardName
+import org.pingme.app.chat.voice.VoiceBubble
+import org.pingme.app.chat.voice.VoicePlayer
 import org.pingme.core.model.Attachment
 import org.pingme.core.model.AttachmentKind
 import java.io.File
@@ -61,6 +63,7 @@ internal fun AttachmentView(
     attachment: Attachment,
     onNeed: (Attachment) -> Unit,
     progress: Float? = null,
+    player: VoicePlayer? = null,
 ) {
     val need by rememberUpdatedState(onNeed)
     LaunchedEffect(attachment.id, attachment.localPath) { need(attachment) }
@@ -68,11 +71,29 @@ internal fun AttachmentView(
     val open = { attachment.localPath?.let { openFile(context, File(it), attachment.mimeType) } }
     Box(Modifier.padding(bottom = 6.dp)) {
         when (attachment.kind) {
-            AttachmentKind.IMAGE, AttachmentKind.GIF, AttachmentKind.STICKER -> Picture(attachment)
-            AttachmentKind.VIDEO -> VideoFrame(attachment) { open() }
-            AttachmentKind.LOCATION -> PlaceCard(attachment)
-            AttachmentKind.CONTACT -> FileLine(attachment, contactName(attachment)) { open() }
-            else -> FileLine(attachment, attachment.fileName ?: attachment.mimeType) { open() }
+            AttachmentKind.IMAGE, AttachmentKind.GIF, AttachmentKind.STICKER -> {
+                Picture(attachment)
+            }
+
+            AttachmentKind.VIDEO -> {
+                VideoFrame(attachment) { open() }
+            }
+
+            AttachmentKind.VOICE -> {
+                VoiceBubble(attachment, player)
+            }
+
+            AttachmentKind.LOCATION -> {
+                PlaceCard(attachment)
+            }
+
+            AttachmentKind.CONTACT -> {
+                FileLine(attachment, contactName(attachment)) { open() }
+            }
+
+            else -> {
+                FileLine(attachment, attachment.fileName ?: attachment.mimeType) { open() }
+            }
         }
         if (progress != null) {
             CircularProgressIndicator(

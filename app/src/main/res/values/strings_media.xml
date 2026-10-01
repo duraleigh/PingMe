@@ -16,4 +16,15 @@
     <string name="media_play_video">Play video</string>
     <string name="media_location">Location</string>
     <string name="media_contact">Contact</string>
+    <string name="voice_hold_to_record">Hold to record a voice note</string>
+    <string name="voice_too_short">Hold the mic to record, then let go to send</string>
+    <string name="voice_slide_to_cancel">‹ Slide to cancel</string>
+    <string name="voice_slide_up_to_lock">Slide up to keep recording hands-free</string>
+    <string name="voice_discard">Delete recording</string>
+    <string name="voice_play">Play voice note</string>
+    <string name="voice_pause">Pause voice note</string>
+    <string name="action_voice_reply">Voice reply</string>
+    <string name="mms_too_big_title">This may be too big for MMS</string>
+    <string name="mms_too_big_body">It is %1$s. Most carriers only take MMS up to about 1 MB, so it may not arrive.</string>
+    <string name="mms_send_anyway">Send anyway</string>
 </resources>

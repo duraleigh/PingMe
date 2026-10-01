@@ -2,7 +2,6 @@
 package org.pingme.app.chat.attach
 
 import android.os.Looper
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -119,7 +118,8 @@ class AttachScreenTest {
             vm.outbox.staged.value
                 .isEmpty()
         }
-        compose.onNode(hasContentDescription("Send")).assertIsNotEnabled()
+        // With nothing left to send, the button is the microphone again.
+        waitFor { compose.onAllNodes(hasTestTag(org.pingme.app.chat.voice.MIC)).fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun latestOutgoing() =

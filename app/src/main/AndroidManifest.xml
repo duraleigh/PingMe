@@ -15,6 +15,12 @@
     <!-- "Location" in the attach sheet sends where the phone is, only when the user taps it (UI_DESIGN.md 5.8). -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Voice notes: hold the mic to record (UI_DESIGN.md 5.6). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Turns the screen off while a voice note plays at the ear. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Moves voice-note playback to the earpiece when the phone is raised. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- The apps the call icons and "open the app" hand off to (UI_DESIGN.md 10.17). -->
     <queries>
         <package android:name="com.whatsapp" />

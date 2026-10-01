@@ -121,6 +121,15 @@ fun ChatUi.actionsFor(
     val pinned = state.pinned.any { it.id == message.id }
     return buildList {
         add(MessageAction(R.string.action_reply, UiR.drawable.ic_reply, { actions.onReply(message) }))
+        // One tap from the message to talking: the reply strip, then a locked recording (UI_DESIGN.md 5.6).
+        actions.composer.voice?.let { voice ->
+            add(
+                MessageAction(R.string.action_voice_reply, UiR.drawable.ic_keyboard_voice, {
+                    actions.onReply(message)
+                    voice.requestLocked()
+                }),
+            )
+        }
         if (!message.body.isNullOrBlank()) {
             add(
                 MessageAction(R.string.action_copy, UiR.drawable.ic_content_copy, {

@@ -85,6 +85,10 @@ fun ChatRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val forwardTargets by viewModel.forwardTargets.collectAsStateWithLifecycle()
     val uploads by viewModel.uploads.collectAsStateWithLifecycle()
+    val held by viewModel.heldBack.collectAsStateWithLifecycle()
+    val player =
+        org.pingme.app.chat.voice
+            .rememberVoicePlayer()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -123,6 +127,7 @@ fun ChatRoute(
                 incoming = viewModel.incomingReactions,
                 forwardTargets = forwardTargets,
                 uploads = uploads,
+                player = player,
                 composer =
                     composerHooks(
                         viewModel,
@@ -132,6 +137,8 @@ fun ChatRoute(
         modifier = modifier,
         snackbar = snackbar,
     )
+    org.pingme.app.chat.attach
+        .HeldBackDialog(held, viewModel::answerHeldBack)
 }
 
 private fun placeCall(
@@ -208,6 +215,7 @@ internal fun rowContext(
         actions.onNeed,
         { m -> m.replyTo?.let { onJump(it.value) } },
         actions.uploads,
+        actions.player,
     )
 
 @Composable

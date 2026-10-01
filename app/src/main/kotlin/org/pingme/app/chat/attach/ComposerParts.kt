@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -23,6 +24,7 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SplitButtonDefaults
 import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +43,7 @@ import coil3.compose.AsyncImage
 import org.pingme.app.R
 import org.pingme.core.connector.OutgoingAttachment
 import org.pingme.core.model.AttachmentKind
+import org.pingme.core.model.MediaRule
 import java.io.File
 import org.pingme.core.ui.R as UiR
 
@@ -158,6 +161,8 @@ internal fun composerHooks(
     onNotice: (Int) -> Unit,
 ) = org.pingme.app.chat.ComposerHooks(
     outbox = viewModel.outbox,
+    voice = viewModel.voice.takeIf { state.capabilities?.voiceNote?.let { it != MediaRule.UNSUPPORTED } == true },
+    onVoiceTooShort = { onNotice(R.string.voice_too_short) },
     onSendSms =
         if (state.account?.network == org.pingme.core.model.NetworkId.GMESSAGES) {
             { text -> viewModel.send(text, forceSms = true) }
@@ -178,3 +183,23 @@ const val STAGED = "staged"
 private val TILE = 72.dp
 private val REMOVE = 22.dp
 private val SEND_SIZE = 52.dp
+
+/** The MMS size warning for a GIF or voice note (UI_DESIGN.md 5.5, 5.6): send anyway, or not. */
+@Composable
+internal fun HeldBackDialog(
+    held: org.pingme.app.chat.HeldBack?,
+    onAnswer: (send: Boolean) -> Unit,
+) {
+    val waiting = held ?: return
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val size =
+        android.text.format.Formatter
+            .formatShortFileSize(context, waiting.bytes)
+    AlertDialog(
+        onDismissRequest = { onAnswer(false) },
+        title = { Text(stringResource(R.string.mms_too_big_title)) },
+        text = { Text(stringResource(R.string.mms_too_big_body, size)) },
+        confirmButton = { TextButton({ onAnswer(true) }) { Text(stringResource(R.string.mms_send_anyway)) } },
+        dismissButton = { TextButton({ onAnswer(false) }) { Text(stringResource(android.R.string.cancel)) } },
+    )
+}

@@ -38,6 +38,8 @@ class ChatScreenActions(
     val forwardTargets: List<Chat> = emptyList(),
     val composer: ComposerHooks = ComposerHooks(),
     val uploads: Map<org.pingme.core.model.MessageId, Float> = emptyMap(),
+    /** Plays voice notes; null in previews. */
+    val player: org.pingme.app.chat.voice.VoicePlayer? = null,
 )
 
 /** The composer's extras: attachments and other ways to send. Null ones are not offered. */
@@ -46,6 +48,9 @@ class ComposerHooks(
     /** "Send as SMS" from the split button, for chats paired through Google Messages. */
     val onSendSms: ((String) -> Unit)? = null,
     val onProblem: (org.pingme.app.chat.attach.AttachProblem) -> Unit = {},
+    /** Voice notes; null where the network cannot take them. */
+    val voice: org.pingme.app.chat.voice.VoiceNotes? = null,
+    val onVoiceTooShort: () -> Unit = {},
 )
 
 /** What a message row needs besides the message. */
@@ -58,6 +63,7 @@ class RowContext(
     val onQuote: (Message) -> Unit,
     /** How far each sending message's media has got. */
     val uploads: Map<org.pingme.core.model.MessageId, Float> = emptyMap(),
+    val player: org.pingme.app.chat.voice.VoicePlayer? = null,
 )
 
 /** One line of the action card. [enabled] false shows it greyed with [reason] (UI_DESIGN.md 1). */

@@ -192,62 +192,6 @@ private fun Message.toLast() =
     org.pingme.core.store
         .LastMessage(body, kind, isOutgoing, transport, sentAt, null)
 
-/** The text field and send button (UI_DESIGN.md 3.2). Attach, GIF, and the microphone join it in P2.4's media part. */
-@Composable
-internal fun Composer(
-    onSend: (String) -> Unit,
-    onTyping: (String) -> Unit,
-    editing: Message? = null,
-    hooks: ComposerHooks = ComposerHooks(),
-) {
-    // Editing starts from the message's text; a new edit (or none) starts afresh.
-    var text by rememberSaveable(editing?.id?.value) { mutableStateOf(editing?.body.orEmpty()) }
-    var attaching by remember { mutableStateOf(false) }
-    val outbox = hooks.outbox?.takeIf { editing == null }
-    val staged by (outbox?.staged ?: remember { MutableStateFlow(emptyList()) }).collectAsStateWithLifecycle()
-    val copying by (outbox?.busy ?: remember { MutableStateFlow(0) }).collectAsStateWithLifecycle()
-    StagedStrip(staged, copying > 0, { outbox?.remove(it) })
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        if (outbox != null) {
-            IconButton({ attaching = true }, Modifier.size(SEND_SIZE)) {
-                Icon(painterResource(UiR.drawable.ic_add), stringResource(R.string.attach))
-            }
-        }
-        TextField(
-            value = text,
-            onValueChange = {
-                text = it
-                onTyping(it)
-            },
-            modifier = Modifier.weight(1f).testTag(COMPOSER),
-            placeholder = { Text(stringResource(R.string.chat_message_hint)) },
-            shape = RoundedCornerShape(26.dp),
-            maxLines = COMPOSER_LINES,
-            textStyle = PingMeTheme.messageText,
-            colors =
-                TextFieldDefaults.colors(
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent,
-                ),
-        )
-        val ready = (text.isNotBlank() || staged.isNotEmpty()) && copying == 0
-        val sendWith = { send: (String) -> Unit ->
-            send(text)
-            text = ""
-        }
-        SendButton(ready, { sendWith(onSend) }, hooks.onSendSms?.takeIf { editing == null }?.let { { sendWith(it) } })
-    }
-    if (attaching && outbox != null) AttachSheet(outbox, hooks.onProblem) { attaching = false }
-}
-
-private const val COMPOSER_LINES = 6
-private val SEND_SIZE = 48.dp
-
 @Composable
 internal fun TopBars(
     state: ChatUiState,
