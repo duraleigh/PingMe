@@ -170,14 +170,11 @@ Every connector reports one of these states, and the UI shows it honestly:
 1. Confirm Google Messages is installed, is the default SMS app, and has RCS turned on.
    Show fix-it buttons for each if not.
 2. Ask for battery optimization exemption, explaining why.
-3. Start pairing. Google is retiring QR pairing in favor of Google account pairing, so
-   PingMe supports both and prefers whichever Google Messages on the phone currently
-   offers:
-   - **QR pairing**: PingMe shows a QR code, user scans it in Google Messages.
-     Awkward on one phone, so PingMe also offers to display the QR on another screen
-     or fall back to account pairing.
-   - **Google account pairing**: user signs in, then confirms a matching emoji inside
-     Google Messages. PingMe walks them through each step with screenshots.
+3. Start pairing with **Google account pairing**: the user signs in to Google, then
+   confirms a matching emoji inside Google Messages. PingMe walks them through each step
+   with screenshots. QR pairing is not offered: Google is retiring it in favour of account
+   pairing, and scanning a QR shown on the same phone is impossible anyway (owner's
+   decision, 2026-10-01).
 4. Initial sync of conversation history.
 
 ---
@@ -325,7 +322,7 @@ is a problem.
 
 | Network | Library | Language | License | Auth style | Owner's stance |
 |---|---|---|---|---|---|
-| Google Messages (RCS/SMS/MMS) | libgm (from mautrix-gmessages) | Go | AGPL-3.0 | QR or Google account pairing | Unofficial but tolerated for years |
+| Google Messages (RCS/SMS/MMS) | libgm (from mautrix-gmessages) | Go | AGPL-3.0 | Google account pairing | Unofficial but tolerated for years |
 | SMS/MMS native | Android telephony APIs | Kotlin | n/a | Default SMS role | Official |
 | WhatsApp | whatsmeow | Go | MPL-2.0 | Linked device (QR) | Against terms, bans are rare but possible |
 | Telegram | TDLib | C++ with Java binding | Boost | Phone number + code | Official, encouraged |
@@ -425,12 +422,12 @@ What this means in practice:
 
 ## 11. Open questions
 
-1. **Single-phone QR pairing.** Scanning a QR shown on the same phone is impossible.
-   Account pairing avoids this, but Google's account flow is the more fragile one.
-   Need to test whether Google Messages accepts a QR fed to it from an image, or whether
-   a second screen is acceptable for setup.
-2. **How aggressively Google revokes pairings.** Need data on how long pairings survive
-   under each method so PingMe can set expectations honestly in the UI.
+1. **Google sign-in inside PingMe.** Account pairing signs in to Google in an in-app web
+   page. Google sometimes refuses sign-in from embedded web pages. With QR pairing dropped
+   (decision log, 2026-10-01) there is no other way to pair, so this must be made to work;
+   find out in P3.2 and raise it with the owner at once if Google blocks it.
+2. **How aggressively Google revokes pairings.** Need data on how long account pairings
+   survive so PingMe can set expectations honestly in the UI.
 3. **gomobile and app size.** One Go AAR with three libraries could add 20 to 40 MB.
    Acceptable for v1, but worth measuring early.
 4. **Should Go own more?** If the Kotlin-Go boundary becomes painful, the unified store
@@ -466,3 +463,4 @@ What this means in practice:
 | 2026-09-30 | No PingMe servers | Privacy, cost, and matching the on-device model |
 | 2026-09-30 | Kotlin app, Go protocol libraries via gomobile | Best libraries are in Go; Android platform work belongs in Kotlin |
 | 2026-09-30 | Discord and iMessage out of scope | Discord bans it; iMessage has no Android path |
+| 2026-10-01 | Google Messages pairs by Google account only, no QR | Google is retiring QR pairing; a QR cannot be scanned on the same phone. Owner accepted the risk that pairing depends on Google sign-in working inside PingMe |

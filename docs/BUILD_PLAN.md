@@ -391,12 +391,11 @@ avatars, then the first connector's login flow rendered from `LoginStep`s.
 
 ### P3.2 Google Messages connector (`connectors/gmessages`)
 
-- Login flow: offers QR pairing (render the QR PingMe receives from libgm; show
-  "open Google Messages > Device pairing > QR scanner"; for single-phone setups, also
-  offer to display the QR on a second screen via share) and Google account pairing
-  (open a WebView to Google sign-in with the cookie domains libgm needs, then show
-  the emoji confirmation step). Follow libgm's current pairing implementation
-  exactly; it changes.
+- Login flow: Google account pairing only (owner's decision, 2026-10-01; no QR
+  pairing). Open a WebView to Google sign-in with the cookie domains libgm needs, then
+  show the emoji confirmation step. Follow libgm's current pairing implementation
+  exactly; it changes. If Google refuses sign-in inside the WebView, stop and tell the
+  owner at once: with no QR fallback there is no other way to pair.
 - Persist the pairing keys with `EncryptedFile` / Keystore-wrapped AES.
 - Map libgm conversations and messages into the model, including RCS vs SMS
   transport per message, reactions, replies, read receipts, typing, media.
@@ -408,8 +407,8 @@ avatars, then the first connector's login flow rendered from `LoginStep`s.
 ### P3.3 Acceptance for Phase 3
 
 - Contract tests against a recorded libgm session fixture.
-- **Gate G2**: the owner pairs with their Google Messages. Checklist: pair via each
-  method, receive an RCS message, send text, send an image, react, receive a
+- **Gate G2**: the owner pairs with their Google Messages. Checklist: pair with a Google
+  account (sign in, match the emoji), receive an RCS message, send text, send an image, react, receive a
   reaction, see typing, see RCS vs SMS bubbles, kill the app and confirm reconnection,
   toggle airplane mode and confirm reconnection, unpair from Google Messages and
   confirm the "Action needed" flow.

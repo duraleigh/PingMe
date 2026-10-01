@@ -1570,3 +1570,12 @@ over your PingMe Demo and keeps your setup.
 
 **Next:** your results. Anything wrong gets fixed and re-checked; when G1 passes, Phase 3 starts
 (P3.1, the Go bridge).
+## Owner decision for Phase 3 (2026-10-01): Google account pairing only
+
+The owner decided that PingMe pairs with Google Messages by **Google account pairing only**;
+QR pairing is not built. Reason: Google is retiring QR pairing, and a QR cannot be scanned
+on the same phone. The owner accepted the risk this brings: if Google refuses sign-in inside
+PingMe's in-app web page, there is no fallback way to pair, so that has to be solved, and is
+the first thing to check in P3.2. DESIGN.md (5.4, section 7, open question 1, decisions log)
+and BUILD_PLAN.md (P3.2, Gate G2) are updated to match. The general `ShowQr` login step stays,
+since WhatsApp and Signal link by QR.
