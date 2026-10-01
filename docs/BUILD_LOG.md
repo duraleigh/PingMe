@@ -308,9 +308,11 @@ Phase 1 must not start until the owner reports G0 results (BUILD_PLAN.md rule 1)
   owner says yes (CLAUDE.md rule 11, and the owner's own standing preference).
 - Never sit silently while something runs. Say what is running, about how long it takes,
   and do other useful work meanwhile (added 2026-10-01).
-- Keep test runs short: run only the affected tests while working, with a time limit on
-  every command; run the full `./gradlew check` once before each commit (about 2 to 4
-  minutes) (added 2026-10-01).
+- Keep test runs short: run only the affected tests while working; run the full
+  `./gradlew check` once before each commit (about 2 to 4 minutes). **The exact time
+  limits, the 60-second progress checks, and what counts as frozen are CLAUDE.md
+  rule 12; follow it to the letter** (added 2026-10-01, after a frozen run went
+  unnoticed for about 20 minutes).
 - The GIPHY API key is never committed (the repository is public). It lives in
   `local.properties` as `giphy.apiKey` (gitignored) and in the `GIPHY_API_KEY`
   repository secret for CI; the owner added that secret on 2026-10-01.
