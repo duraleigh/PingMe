@@ -92,7 +92,9 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 - **List items**: avatar, name, last message preview, network badge, time, unread dot
   (a chat is unread or not; no per-chat count, owner decision 2026-10-01),
   mute icon. Sender name shown in previews for groups. When the last message is yours,
-  its status mark (sending, sent, delivered, read, failed; the same marks as in the chat)
+  its status mark (sending, sent, delivered, read, failed; the same marks as in the chat:
+  one tick sent, two ticks delivered, two ticks inside a filled circle read, so read never
+  looks like delivered on any bubble colour; owner, Gate G2, 2026-10-01)
   shows before the preview, as Google Messages does (owner, Gate G1).
 - **Bottom bar**: its items are spaced evenly and centred across the full width.
 - **Swipe actions**: left and right swipes are user-assignable from Pin or unpin, Archive,
@@ -126,7 +128,7 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 |  ┌─────────────────────────┐                 |
 |  │ ┃ Sam: Are you still... │                 |   reply quote
 |  │ Yes! Leaving at 7       │                 |
-|  └─────────────────────────┘  ✓✓ Read        |
+|  └─────────────────────────┘  (✓✓) Read      |
 |                                              |
 |  ┌────────────────────────────────────┐      |
 |  │ ▶ ▁▃▅▇▅▃▁▃▅▂  0:12          1.5x  │      |   voice note

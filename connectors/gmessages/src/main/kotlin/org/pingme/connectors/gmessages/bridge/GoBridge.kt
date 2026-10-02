@@ -28,6 +28,9 @@ import kotlin.time.Instant
  * events into [ConnectorEvent]s. It remembers the participants of every conversation it
  * has seen, so senders and typing numbers resolve to people, and which messages it has
  * seen, so a repeat is an update and not a new message.
+ *
+ * The event loop, the history worker, and the chat-list sync all call in from their own
+ * threads, so every public method holds the one lock; the maps are not thread-safe.
  */
 @Suppress("TooManyFunctions") // One function per shape that crosses the bridge, plus the lookups the session needs.
 class GoBridge(
@@ -42,6 +45,7 @@ class GoBridge(
         val conversationId: String,
         val timestamp: Long,
         val reactions: Set<Reaction>,
+        val status: MessageStatus,
     )
 
     /** The account's own participant IDs: one per SIM, plus every "me" entry in a chat. */
@@ -57,25 +61,32 @@ class GoBridge(
     fun conversation(json: String): GmConversation = gmJson.decodeFromString(GmConversation.serializer(), json)
 
     /** Whether this conversation has been seen (listed, fetched, or announced by the phone). */
+    @Synchronized
     fun knows(conversationId: String): Boolean = conversationId in conversations
 
     /** The participant ID messages go out as in a conversation, or null when unknown. */
+    @Synchronized
     fun outgoingId(conversationId: String): String? = conversations[conversationId]?.outgoingId?.ifEmpty { null }
 
     /** Whether a conversation sends over RCS, or null when the chat is unknown. */
+    @Synchronized
     fun isRcs(conversationId: String): Boolean? = conversations[conversationId]?.outgoingIsRcs
 
     /** Your own reaction on a message, as last seen, or null. */
+    @Synchronized
     fun myReaction(messageId: String): String? = seen[messageId]?.reactions?.firstOrNull { it.senderId.isSelf() }?.emoji
 
     /** The conversation a message was seen in, or null when it has not been seen. */
+    @Synchronized
     fun conversationOf(messageId: String): String? = seen[messageId]?.conversationId
 
     /** A cursor for the messages older than a seen message, or null when it has not been seen. */
+    @Synchronized
     fun cursorBefore(messageId: String): GmCursor? =
         seen[messageId]?.let { GmCursor(messageId, it.timestamp / MICROS_PER_MILLI) }
 
     /** Data events become connector events; control events (ready, auth, logout) return nothing. */
+    @Synchronized
     fun translate(event: GmEvent): List<ConnectorEvent> =
         when (event) {
             is GmEvent.Conversation -> {
@@ -101,6 +112,7 @@ class GoBridge(
         }
 
     /** A conversation as a chat; also remembers its participants. */
+    @Synchronized
     fun chat(conv: GmConversation): ChatSnapshot {
         conversations[conv.id] = conv
         conv.participants.filter { it.isMe }.forEach { selfIds += it.id }
@@ -124,6 +136,7 @@ class GoBridge(
     /** Whether the phone has dropped a chat (deleted, binned, spam, or blocked). */
     fun isGone(conv: GmConversation) = conv.status in GONE_STATUSES
 
+    @Synchronized
     fun message(msg: GmMessage): MessageSnapshot {
         val id = accountId.message(msg.id)
         val chatId = accountId.chat(msg.conversationId)
@@ -134,7 +147,9 @@ class GoBridge(
         val deleted = msg.direction == "deleted"
         val body = listOf(msg.subject, msg.text, msg.pendingDownload).filter { it.isNotBlank() }.joinToString("\n")
         val attachments = if (deleted) emptyList() else msg.media.map { attachment(msg, it) }
-        if (deleted) seen.remove(msg.id) else remember(msg, reactions.toSet())
+        // The phone's events can arrive out of order: a tick never goes backwards.
+        val status = bestOf(seen[msg.id]?.status, status(msg))
+        if (deleted) seen.remove(msg.id) else remember(msg, reactions.toSet(), status)
         val message =
             Message(
                 id = id,
@@ -149,7 +164,7 @@ class GoBridge(
                 quote = null,
                 editedAt = null,
                 deletedForEveryone = deleted,
-                status = status(msg),
+                status = status,
                 reactions = reactions,
                 transport = transport(msg.transport),
                 networkRemoteId = msg.id,
@@ -214,9 +229,10 @@ class GoBridge(
     private fun remember(
         msg: GmMessage,
         reactions: Set<Reaction>,
+        status: MessageStatus,
     ) {
         seen.remove(msg.id)
-        seen[msg.id] = Seen(msg.conversationId, msg.timestamp, reactions)
+        seen[msg.id] = Seen(msg.conversationId, msg.timestamp, reactions, status)
         while (seen.size > REMEMBERED_MESSAGES) seen.remove(seen.keys.first())
     }
 
@@ -323,6 +339,18 @@ class GoBridge(
                 AttachmentKind.VOICE -> MessageKind.VOICE
                 AttachmentKind.AUDIO, AttachmentKind.FILE -> MessageKind.FILE
             }
+
+        /** The further-along of two statuses; a failure always shows. */
+        fun bestOf(
+            before: MessageStatus?,
+            now: MessageStatus,
+        ): MessageStatus =
+            if (before == null || now is MessageStatus.Failed || rank(now) >= rank(before)) now else before
+
+        /** The order ticks move in; anything else ranks with Sending. */
+        val TICK_ORDER = listOf(MessageStatus.Sending, MessageStatus.Sent, MessageStatus.Delivered, MessageStatus.Read)
+
+        fun rank(status: MessageStatus) = TICK_ORDER.indexOf(status).coerceAtLeast(0)
 
         fun status(msg: GmMessage): MessageStatus =
             when {

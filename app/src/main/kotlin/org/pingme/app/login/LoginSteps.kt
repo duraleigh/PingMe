@@ -25,6 +25,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -185,10 +186,26 @@ private fun WebSignIn(
     onRespond: (LoginResponse) -> Unit,
 ) {
     Stack {
+        val done = step.finishedUrlPrefix
+        var finished by remember(step.id) { mutableStateOf(false) }
+        val finish = {
+            if (!finished) {
+                finished = true
+                onRespond(LoginResponse.Cookies(cookiesFor(step.cookieDomains)))
+            }
+        }
         AndroidView(
             factory = { context ->
                 WebView(context).apply {
-                    webViewClient = WebViewClient()
+                    webViewClient =
+                        object : WebViewClient() {
+                            override fun onPageFinished(
+                                view: WebView?,
+                                url: String?,
+                            ) {
+                                if (done != null && url != null && url.startsWith(done)) finish()
+                            }
+                        }
                     @Suppress("SetJavaScriptEnabled") // Sign-in pages need it.
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
@@ -201,9 +218,7 @@ private fun WebSignIn(
             },
             modifier = Modifier.fillMaxWidth().height(WEB_HEIGHT),
         )
-        Button({ onRespond(LoginResponse.Cookies(cookiesFor(step.cookieDomains))) }, Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.login_web_done))
-        }
+        Button(finish, Modifier.fillMaxWidth()) { Text(stringResource(R.string.login_web_done)) }
     }
 }
 

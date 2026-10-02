@@ -3,6 +3,7 @@ package org.pingme.app.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -152,7 +154,11 @@ internal fun LinkCard(preview: org.pingme.core.model.LinkPreview) {
     }
 }
 
-/** Sending, sent, delivered, read, failed, scheduled (UI_DESIGN.md 3.2). */
+/**
+ * Sending, sent, delivered, read, failed, scheduled (UI_DESIGN.md 3.2). Read is the two ticks
+ * inside a filled circle, so it never looks like delivered whatever the bubble colour
+ * (owner, Gate G2: a colour change alone was invisible on the bubble).
+ */
 @Composable
 internal fun StatusMark(status: MessageStatus) {
     val (icon, label) =
@@ -164,15 +170,35 @@ internal fun StatusMark(status: MessageStatus) {
             is MessageStatus.Failed -> UiR.drawable.ic_error to R.string.status_failed
             is MessageStatus.Scheduled -> UiR.drawable.ic_schedule_send to R.string.status_scheduled
         }
-    val tint =
-        when (status) {
-            MessageStatus.Read -> MaterialTheme.colorScheme.primary
-            is MessageStatus.Failed -> MaterialTheme.colorScheme.error
-            else -> LocalContentColor.current.copy(alpha = FADED)
-        }
     val description = stringResource(label)
-    Icon(painterResource(icon), null, Modifier.size(14.dp).semantics { contentDescription = description }, tint = tint)
+    val described = Modifier.semantics { contentDescription = description }
+    when (status) {
+        MessageStatus.Read -> {
+            // Filled circle in the text colour, ticks cut out of it in the bubble's colour.
+            val ink = LocalContentColor.current
+            Box(described.size(MARK_BADGE).background(ink, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(painterResource(icon), null, Modifier.size(MARK_INNER), tint = contentColorFor(ink))
+            }
+        }
+
+        is MessageStatus.Failed -> {
+            Icon(painterResource(icon), null, described.size(MARK), tint = MaterialTheme.colorScheme.error)
+        }
+
+        else -> {
+            Icon(
+                painterResource(icon),
+                null,
+                described.size(MARK),
+                tint = LocalContentColor.current.copy(alpha = FADED),
+            )
+        }
+    }
 }
+
+private val MARK = 14.dp
+private val MARK_BADGE = 16.dp
+private val MARK_INNER = 11.dp
 
 /** Reaction chips under the bubble: each emoji once, with how many (UI_DESIGN.md 3.2). */
 @Composable

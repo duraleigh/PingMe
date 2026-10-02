@@ -18,6 +18,7 @@ import org.pingme.connectors.gmessages.bridge.GmCursor
 import org.pingme.connectors.gmessages.bridge.GmError
 import org.pingme.connectors.gmessages.bridge.GmEvent
 import org.pingme.connectors.gmessages.bridge.GmMedia
+import org.pingme.connectors.gmessages.bridge.GmMessage
 import org.pingme.connectors.gmessages.bridge.GmSendRequest
 import org.pingme.connectors.gmessages.bridge.GmSession
 import org.pingme.connectors.gmessages.bridge.GoBridge
@@ -48,10 +49,13 @@ import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.Transport
 import java.io.File
 import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * One account's live pairing (BUILD_PLAN.md P3.2): the bridge session, the event loop
@@ -72,7 +76,9 @@ internal class GmessagesSession(
     private val clock: Clock,
 ) {
     val go = GoBridge(accountId)
-    private val events = Channel<GmEvent>(Channel.UNLIMITED)
+
+    /** The phone's events, plus connector events the session makes itself (stand-in removals). */
+    private val events = Channel<Any>(Channel.UNLIMITED)
     private val session: GmSession =
         bridge.newSession(authJson) { json ->
             try {
@@ -83,22 +89,41 @@ internal class GmessagesSession(
                 Log.w(TAG, "Unreadable event from the bridge", e)
             }
         }
-    private val pending = ConcurrentHashMap<String, CompletableDeferred<MessageSnapshot>>()
-    private val provisional = ConcurrentHashMap<String, MessageId>()
+
+    /** Sends waiting for the phone's copy, by tmpId. */
+    private val outgoing = ConcurrentHashMap<String, Outgoing>()
     private val myReactions = ConcurrentHashMap<String, String>()
     private val connected = AtomicBoolean(false)
 
     @Volatile private var chats: List<ChatSnapshot>? = null
+
+    /**
+     * One send: what went out, so the phone's copy can be matched by its tmpId, or, when the
+     * phone drops that, by text and time. [waiter] is set while [send] waits; [standIn] once
+     * a stand-in message has been shown instead.
+     */
+    private class Outgoing(
+        val conversation: String,
+        val text: String,
+        val sentAt: Instant,
+        @Volatile var waiter: CompletableDeferred<MessageSnapshot>?,
+        @Volatile var standIn: MessageId? = null,
+    )
 
     /** Connects, then streams events until [close] or a failure. */
     fun flow(): Flow<ConnectorEvent> =
         channelFlow {
             try {
                 request { session.connect() }
-                for (event in events) handle(event)
+                for (event in events) {
+                    when (event) {
+                        is GmEvent -> handle(event)
+                        is ConnectorEvent -> send(event)
+                    }
+                }
             } finally {
                 session.disconnect()
-                pending.values.forEach { it.cancel() }
+                outgoing.values.forEach { it.waiter?.cancel() }
             }
         }
 
@@ -174,24 +199,28 @@ internal class GmessagesSession(
 
     /** A message echoing one of our sends completes the waiting send instead of arriving as new. */
     private suspend fun ProducerScope<ConnectorEvent>.echoOrForward(event: GmEvent.Message) {
+        val msg = event.message
         val translated = go.translate(event)
-        val waiter =
-            event.message.tmpId
-                .takeIf { it.isNotEmpty() }
-                ?.let { pending.remove(it) }
-        val standIn =
-            event.message.tmpId
-                .takeIf { it.isNotEmpty() }
-                ?.let { provisional.remove(it) }
+        val match = matchOutgoing(msg)
+        Log.i(
+            TAG,
+            "message id=${msg.id} conv=${msg.conversationId} tmpId=${msg.tmpId} status=${msg.statusName} " +
+                "fromMe=${msg.fromMe} old=${event.isOld} chars=${msg.text.length} media=${msg.media.size} " +
+                "reactions=${msg.reactions.size} match=${match?.let {
+                    if (it.waiter != null) "waiting" else "standIn"
+                } ?: "none"}",
+        )
         val snapshot = translated.firstOrNull { it is ConnectorEvent.NewMessage || it is ConnectorEvent.MessageUpdated }
+        val waiter = match?.waiter
+        val standIn = match?.standIn
         when {
-            waiter != null && snapshot != null -> {
+            match != null && snapshot != null && waiter != null -> {
                 waiter.complete(snapshotOf(snapshot))
                 translated.filterIsInstance<ConnectorEvent.ReactionChanged>().forEach { send(it) }
             }
 
-            standIn != null && snapshot != null -> {
-                send(ConnectorEvent.MessageRemoved(accountId, accountId.chat(event.message.conversationId), standIn))
+            match != null && snapshot != null && standIn != null -> {
+                send(ConnectorEvent.MessageRemoved(accountId, accountId.chat(msg.conversationId), standIn))
                 send(ConnectorEvent.NewMessage(accountId, snapshotOf(snapshot)))
             }
 
@@ -199,6 +228,25 @@ internal class GmessagesSession(
                 translated.forEach { send(it) }
             }
         }
+    }
+
+    /**
+     * The send a message from the phone belongs to: by its tmpId, or, when the phone did
+     * not keep that, the oldest recent send of the same text in the same chat.
+     */
+    private fun matchOutgoing(msg: GmMessage): Outgoing? {
+        if (!msg.fromMe) return null
+        val byTag = msg.tmpId.takeIf { it.isNotEmpty() }?.let { outgoing.remove(it) }
+        val now = clock.now()
+        val byText = {
+            outgoing.entries
+                .filter { (_, o) ->
+                    o.conversation == msg.conversationId && o.text == msg.text && now - o.sentAt < MATCH_WINDOW
+                }.minByOrNull { (_, o) -> o.sentAt }
+                ?.key
+                ?.let { outgoing.remove(it) }
+        }
+        return byTag ?: byText()
     }
 
     private fun snapshotOf(event: ConnectorEvent): MessageSnapshot =
@@ -237,10 +285,22 @@ internal class GmessagesSession(
         var cursor = anchor?.let { go.cursorBefore(it) ?: findCursor(conversation, it, limit) }
         if (anchor != null && cursor == null) return emptyList()
         val page = fetch(conversation, limit, cursor)
+        page.messages.forEach { retireStandIn(it) }
         return page.messages
             .filter { it.id != anchor && !it.hide }
             .filter { cursor == null || it.timestamp / MICROS_PER_MILLI < cursor.lastItemTimestamp }
             .map(go::message)
+    }
+
+    /** A sent message found in history retires its stand-in, as an echo would have. */
+    private fun retireStandIn(msg: GmMessage) {
+        val match = matchOutgoing(msg) ?: return
+        match.waiter?.complete(go.message(msg))
+        match.standIn?.let {
+            events.trySend(
+                ConnectorEvent.MessageRemoved(accountId, accountId.chat(msg.conversationId), it),
+            )
+        }
     }
 
     /** After a restart nothing is remembered: page from the newest until [anchor] shows up. */
@@ -284,13 +344,15 @@ internal class GmessagesSession(
         // draft.forceSms is ignored: Google Messages gives a paired device no "send this one as
         // SMS"; the phone picks RCS or SMS itself (owner, 2026-10-01).
         val conversation = chatId.remoteId
-        val tmpId = draft.clientId.remoteId
+        val tmpId = tmpIdFor(draft.clientId)
         val media =
             draft.attachments.mapIndexed { i, file ->
                 upload(file).also { progress((i + 1).toFloat() / draft.attachments.size) }
             }
         val waiter = CompletableDeferred<MessageSnapshot>()
-        pending[tmpId] = waiter
+        val record = Outgoing(conversation, draft.body.orEmpty(), clock.now(), waiter)
+        outgoing[tmpId] = record
+        Log.i(TAG, "send tmpId=$tmpId conv=$conversation chars=${draft.body.orEmpty().length} media=${media.size}")
         val refused =
             try {
                 val body =
@@ -302,7 +364,8 @@ internal class GmessagesSession(
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
-                pending.remove(tmpId)
+                outgoing.remove(tmpId)
+                Log.w(TAG, "send tmpId=$tmpId refused", e)
                 SendResult.Failed(sendFailure(e), retryable = GmError.codeOf(e) != GmError.REJECTED)
             }
         // Waited on a real-time dispatcher: the echo comes from the bridge's own thread, and a
@@ -315,8 +378,23 @@ internal class GmessagesSession(
             } else {
                 null
             }
-        pending.remove(tmpId)
-        return refused ?: SendResult.Sent(echoed ?: standIn(chatId, draft, media))
+        record.waiter = null
+        if (refused == null &&
+            echoed == null
+        ) {
+            Log.i(TAG, "send tmpId=$tmpId: no echo in $ECHO_TIMEOUT, showing a stand-in")
+        }
+        return refused ?: SendResult.Sent(echoed ?: standIn(chatId, draft, media, tmpId, record))
+    }
+
+    /**
+     * The phone keeps a send's tmpId only when it looks like one of its own (a UUID, as
+     * Google Messages generates). PingMe's pending ids are "pending-<uuid>", so the UUID
+     * inside is used, or a fresh one.
+     */
+    private fun tmpIdFor(clientId: MessageId): String {
+        val raw = clientId.remoteId.removePrefix("pending-")
+        return runCatching { UUID.fromString(raw).toString() }.getOrElse { UUID.randomUUID().toString() }
     }
 
     private suspend fun upload(file: OutgoingAttachment): GmMedia {
@@ -330,10 +408,11 @@ internal class GmessagesSession(
         chatId: ChatId,
         draft: OutgoingMessage,
         media: List<GmMedia>,
+        tmpId: String,
+        record: Outgoing,
     ): MessageSnapshot {
-        val tmpId = draft.clientId.remoteId
         val id = accountId.message("$STAND_IN$tmpId")
-        provisional[tmpId] = id
+        record.standIn = id
         val now = clock.now()
         val attachments =
             draft.attachments.mapIndexed { i, file ->
@@ -383,7 +462,7 @@ internal class GmessagesSession(
         remove: Boolean,
     ) {
         val remote = messageId.remoteId
-        if (remote.startsWith(STAND_IN)) throw UnsupportedCapabilityException("Wait for the message to finish sending")
+        if (!isPhoneId(remote)) throw UnsupportedCapabilityException("Wait for the message to finish sending")
         val conversation = go.conversationOf(remote).orEmpty()
         val mine = myReactions[remote] ?: go.myReaction(remote)
         if (remove) {
@@ -399,7 +478,7 @@ internal class GmessagesSession(
 
     suspend fun delete(messageId: MessageId) {
         val remote = messageId.remoteId
-        if (remote.startsWith(STAND_IN)) return
+        if (!isPhoneId(remote)) return
         request { session.deleteMessage(remote) }
     }
 
@@ -407,7 +486,8 @@ internal class GmessagesSession(
         chatId: ChatId,
         upTo: MessageId,
     ) {
-        if (upTo.remoteId.startsWith(STAND_IN)) return
+        // Only ids the phone gave out; its own pending and stand-in ids mean nothing to it.
+        if (!isPhoneId(upTo.remoteId)) return
         request { session.markRead(chatId.remoteId, upTo.remoteId) }
     }
 
@@ -466,6 +546,9 @@ internal class GmessagesSession(
 
     private fun loggedOut(reason: String) = ActionNeededException(reason, GOOGLE_MESSAGES_PACKAGE)
 
+    /** Google Messages ids are plain numbers; anything else is one of PingMe's own placeholders. */
+    private fun isPhoneId(remote: String) = remote.isNotEmpty() && remote.all { it.isDigit() }
+
     private fun kindOf(kind: AttachmentKind) =
         when (kind) {
             AttachmentKind.IMAGE -> MessageKind.IMAGE
@@ -494,5 +577,6 @@ internal class GmessagesSession(
         const val MICROS_PER_MILLI = 1000
         const val STAND_IN = "tmp/"
         val ECHO_TIMEOUT = 20.seconds
+        val MATCH_WINDOW = 3.minutes
     }
 }

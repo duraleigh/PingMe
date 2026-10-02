@@ -35,7 +35,7 @@ internal fun gmessagesLoginFlow(
 ): LoginFlow =
     loginFlow {
         if (!ready(checks)) return@loginFlow cancelled()
-        val cookies = ask(LoginStep.OpenWebView("web", bridge.signInUrl, COOKIE_DOMAINS))
+        val cookies = ask(LoginStep.OpenWebView("web", bridge.signInUrl, COOKIE_DOMAINS, SIGNED_IN_URL))
         if (cookies !is LoginResponse.Cookies) return@loginFlow cancelled()
         val result = pair(bridge, cookies.cookies) ?: return@loginFlow
         val ref = "gmessages/${result.phoneId}"
@@ -155,6 +155,12 @@ internal fun reasonFor(e: Exception): String =
             "Pairing failed: ${e.message?.substringAfter(": ", e.message.orEmpty())?.ifEmpty { "unknown error" }}"
         }
     }
+
+/**
+ * Sign-in is done when Google lands on the Messages for web config page, which is raw data
+ * nobody should have to look at; the UI moves on by itself there.
+ */
+private const val SIGNED_IN_URL = "https://messages.google.com/web/config"
 
 /** Where Google sign-in leaves the cookies the pairing needs (gobridge/gm/login.go). */
 private val COOKIE_DOMAINS = listOf("google.com", "messages.google.com")

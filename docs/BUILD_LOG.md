@@ -1839,3 +1839,89 @@ typing for a chat it has not listed yet. It fetches that one chat from the phone
 it, and then shows the typing. That is better on the phone too (typing in a chat that
 arrived after the list still shows) and makes the test independent of event order. The
 contract test module passed ten runs in a row, then the full check.
+
+## Gate G2, first evening on the owner's phone (2026-10-01): pairing works
+
+The owner installed `pingme-3cab646.apk` (put on the phone over Wi-Fi debugging from this
+computer) on a Motorola razr ultra 2025, Android 16, Google Messages September 2026.
+
+**What worked, first try:**
+- **Google sign-in inside PingMe was accepted** (the biggest risk): email, password, then
+  Google's Messages-for-web config page. The pairing emoji came, the owner tapped it in
+  Google Messages, and PingMe showed **Connected** with the real chat list, names, and RCS
+  tags, within about a minute.
+- Message history filled in per chat, with the right read marks on old messages.
+- Incoming texts arrived live, with a notification.
+- A reaction from the other side (❤️) showed under the right message.
+- Sending works: each text went out exactly once and was delivered (checked in Google
+  Messages).
+
+**What was wrong:**
+1. **Every sent text got a ghost copy** about 20 seconds later: the connector tags a send
+   with a tmpId and expects the phone's copy back with the same tag; it never matched, so
+   the stand-in stayed next to the real message (and showed a single tick forever). The
+   tag was PingMe's pending id (`pending-<uuid>`); the phone appears to keep only UUIDs.
+2. After the password, the owner saw Google's raw config page (a wall of JSON) and had to
+   tap "I have signed in" under it.
+3. Marking a chat read sometimes asked the phone about a PingMe placeholder id and waited
+   a minute for an answer that never came (`PingMeChatActions: Could not send the read
+   marker`).
+4. The app wrote almost nothing to the log, so none of this could be read from the phone.
+
+**Fixed (this change):**
+- The tmpId is now the UUID inside the pending id (or a fresh UUID). As a second line of
+  defence, the phone's copy is also matched by text and time (same chat, same text,
+  within three minutes), and a sent message found in a history page retires its stand-in
+  the same way an echo does.
+- The sign-in step takes landing on `messages.google.com/web/config` as "done" and moves
+  to the emoji by itself (`LoginStep.OpenWebView.finishedUrlPrefix`, a general option).
+  The sign-in pages themselves are unchanged.
+- Read marks, reactions, and deletes are only sent for ids the phone gave out (numbers).
+- A message's tick never goes backwards: later events with an older status keep the
+  further-along one (the reference bridge does the same with its status events).
+- The connector logs each send and each message from the phone (ids, tmpId, status) at
+  info level under `PingMeGmessages`, so the next test can be read from logcat.
+- The fake phone in the contract test keeps a tmpId only when it is a UUID, so the test
+  now catches the ghost-copy bug.
+
+5. **The connection dropped once and reconnected** (9:53 PM): `GoBridge.remember` threw
+   `NoSuchElementException` because the event loop, the history worker, and the chat-list
+   sync all wrote its maps from their own threads. Every public method of `GoBridge` now
+   holds one lock.
+6. **Read looked like delivered.** The read mark was the two ticks in the primary colour,
+   which on the owner's primary-coloured bubbles is invisible. Read is now the two ticks
+   inside a filled circle (text colour, ticks cut out), in the chat and the inbox row.
+   UI_DESIGN.md 3.1/3.2 and the decisions log say so. The owner's rule for this and any
+   later UI fix: it ships with the current phase's fixes, no separate Gate G1.
+7. The owner also noticed that contact photos are missing: expected, they come with
+   Phase 7 (people), which matches `Person.phoneNumber` to the phone's contacts.
+8. "What kind of tie do you need?" showed as sent while Google Messages showed it read.
+   The ghost copy was hiding the real copy's marks; whether the read event itself arrives
+   is checked in the morning (the log now says so, line by line).
+
+**Not yet checked from the G2 list:** sending a photo, typing indicators, RCS vs SMS
+bubbles side by side (every chat on the phone is RCS), delete for me, kill-and-restart,
+airplane mode, and unpairing.
+
+## Gate G2, morning checklist (2026-10-02)
+
+The fixed app is `pingme-<commit>.apk` from the newest green build on `main`; I put it on
+the phone over Wi-Fi debugging (turn it on and send the port). Everything stays paired;
+no need to sign in again. Then:
+
+1. Open Parker's chat: the ghost copies from last night are gone, and "what kind of tie
+   do you need?" shows the read mark (two ticks in a filled circle).
+2. Send a text: one bubble, a clock for a moment, then one tick, two ticks when it is
+   delivered, and the filled circle when it is read. Never a second copy.
+3. Receive a text: it shows, with a notification when PingMe is in the background.
+4. Send a photo; have one sent to you.
+5. Have someone type to you: "typing…" in the chat header.
+6. React to a message; have someone react to yours.
+7. Delete one of your own messages (Delete for me): gone in Google Messages too.
+8. Kill PingMe and open it again: reconnects by itself. Airplane mode for a minute:
+   "reconnecting", then connected.
+9. Settings > Accounts > Add account > Google Messages (as if pairing again): after the
+   password there is no gibberish page; it goes straight to the emoji. (Cancel there;
+   no need to pair twice.)
+
+Tell me what did not match, one line each.
