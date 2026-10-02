@@ -198,28 +198,35 @@ class LinkPreviewWorker
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
             val id = inputData.getString(KEY_MESSAGE)?.let { MessageId(it) } ?: return Result.failure()
-            val message = messages.get(id) ?: return Result.success()
-            if (message.linkPreview != null) return Result.success()
+            val message = messages.get(id) ?: return done("message gone")
+            if (message.linkPreview != null) return done("already has one")
             val url =
                 message.body?.let {
                     org.pingme.core.service.links.CleanLinks.LINK
                         .find(it)
                         ?.value
                 }
-                    ?: return Result.success()
+                    ?: return done("no link")
             val mode =
                 settings.app
                     .first()
                     .privacy.linkPreviews
-            if (!previews.allowed(mode)) return Result.success()
-            val preview = previews.fetch(url) ?: return Result.success()
+            if (!previews.allowed(mode)) return done("not allowed now ($mode)")
+            val preview = previews.fetch(url) ?: return done("nothing to show for $url")
             // Re-read: the message may have changed while the page loaded.
             messages.get(id)?.let { messages.upsert(it.copy(linkPreview = preview)) }
+            return done("stored: ${preview.title}")
+        }
+
+        // On the phone only (no telemetry, DESIGN.md 6.5): why a preview did or did not appear.
+        private fun done(why: String): Result {
+            android.util.Log.i(TAG, "preview: $why")
             return Result.success()
         }
 
         companion object {
             const val KEY_MESSAGE = "message"
+            private const val TAG = "PingMeLinks"
         }
     }
 

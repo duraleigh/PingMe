@@ -2134,6 +2134,13 @@ main (PR 27). Lesson kept: open stacked work against main.
   rules (utm parameters, Amazon referral tail, a Google redirect, a sign-in exception).
   Not built: a long-press item that shows the original link (UI_DESIGN.md 10.11 mentions
   it); the original is one Copy away, and the item can join the message menu later.
+- Checked on the emulator: a pasted Wikipedia link went out without its `utm_` tail and
+  grew a card with the page's picture, title, and site. The first two tries showed no
+  card: the demo's "delivered" and "read" updates re-saved the message without the preview
+  and wiped it, which Google Messages would do too. `MessageDao.upsert` now keeps a stored
+  preview when the new copy has none, the same way it keeps downloaded files
+  (`updatingAMessageKeepsItsFetchedLinkPreview`). The preview job also logs why it did or
+  did not store one, under `PingMeLinks`.
 
 ## P4.4 Acceptance and Gate G3 (2026-10-02)
 

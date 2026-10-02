@@ -42,7 +42,10 @@ class LinkPreviews(
             val target = links.clean(url).let { if (it.startsWith("http")) it else "https://$it" }
             val html = runCatching { read(target, PAGE_CAP) }.getOrElse { return@withContext failed(target, it) }
             val page = OpenGraph.parse(String(html, Charsets.UTF_8), target)
-            if (page.isEmpty) return@withContext null
+            if (page.isEmpty) {
+                Log.i(TAG, "no title, description, or picture in ${html.size} bytes from $target")
+                return@withContext null
+            }
             val image = page.image?.let { runCatching { keepImage(it) }.getOrNull() }
             LinkPreview(url, target, page.title, page.description, image, clock.now(), LinkPreviewSource.LOCAL)
         }

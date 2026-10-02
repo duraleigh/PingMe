@@ -349,8 +349,9 @@ interface MessageDao {
     /**
      * Inserts or updates a message with its attachments and reactions. Updates keep the row
      * (and its rowId) in place instead of replacing it, so nothing cascades by accident, and
-     * keep each attachment's downloaded file: a network's updated copy of a message (a
-     * reaction, a status, a history re-fetch) never carries the file PingMe already saved.
+     * keep each attachment's downloaded file and a link preview fetched on the phone: a
+     * network's updated copy of a message (a reaction, a status, a history re-fetch) never
+     * carries the file or the preview PingMe already saved.
      */
     @Transaction
     suspend fun upsert(
@@ -358,11 +359,12 @@ interface MessageDao {
         attachments: List<AttachmentEntity>,
         reactions: List<ReactionEntity>,
     ) {
-        val rowId = rowIdFor(message.id)
-        if (rowId == null) {
-            insertMessage(message.copy(rowId = 0))
+        val existing = get(message.id)?.message
+        val merged = if (message.linkPreview == null) message.copy(linkPreview = existing?.linkPreview) else message
+        if (existing == null) {
+            insertMessage(merged.copy(rowId = 0))
         } else {
-            updateMessage(message.copy(rowId = rowId))
+            updateMessage(merged.copy(rowId = existing.rowId))
         }
         val kept = attachmentsOf(message.id).filter { it.localPath != null }.associate { it.id to it.localPath }
         deleteAttachments(message.id)
