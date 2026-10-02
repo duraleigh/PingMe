@@ -20,9 +20,9 @@ sealed interface ChatItem {
         val message: Message,
         val firstInGroup: Boolean,
         val lastInGroup: Boolean,
-    ) : ChatItem {
-        override val key get() = message.id.value
-    }
+        /** Normally the message id; a sent message keeps the id of the pending bubble it replaced. */
+        override val key: String = message.id.value,
+    ) : ChatItem
 
     /** "Today", "Yesterday", or the date, above the first message of each day. */
     data class Day(
@@ -39,23 +39,33 @@ sealed interface ChatItem {
 
 /**
  * Builds the list from messages newest first. [firstUnreadId] is the oldest message that
- * was unread when the chat opened, if any.
+ * was unread when the chat opened, if any. [shownAs] gives the id a message is drawn under:
+ * a sent message keeps its pending bubble's id, so the swap from "sending" to sent changes
+ * one bubble in place instead of crossing two over (owner, Gate G2). An alias that another
+ * message in the list still owns is not used, so keys stay unique.
  */
 fun chatItems(
     newestFirst: List<Message>,
     firstUnreadId: String?,
     zone: ZoneId = ZoneId.systemDefault(),
+    shownAs: (Message) -> String = { it.id.value },
 ): List<ChatItem> {
     val items = mutableListOf<ChatItem>()
+    val ids = newestFirst.mapTo(HashSet()) { it.id.value }
+    val used = HashSet<String>()
     newestFirst.forEachIndexed { i, message ->
         val newer = newestFirst.getOrNull(i - 1)
         val older = newestFirst.getOrNull(i + 1)
         val day = message.day(zone)
+        val own = message.id.value
+        val alias = shownAs(message)
+        val key = if (alias == own || alias in ids || !used.add(alias)) own else alias
         items +=
             ChatItem.Bubble(
                 message = message,
                 firstInGroup = older == null || !together(older, message, zone),
                 lastInGroup = newer == null || !together(message, newer, zone),
+                key = key,
             )
         if (message.id.value == firstUnreadId) items += ChatItem.NewMessages
         if (older == null || older.day(zone) != day) items += ChatItem.Day(day)

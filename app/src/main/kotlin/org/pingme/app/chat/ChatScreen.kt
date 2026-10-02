@@ -163,7 +163,7 @@ fun ChatScreen(
     Notices(actions.menu, snackbar)
 
     fun jumpTo(id: String) {
-        val index = state.items.indexOfFirst { it.key == id }
+        val index = state.items.indexOfFirst { it.isMessage(id) }
         if (index < 0) return
         scope.launch {
             list.animateScrollToItem(index)
@@ -175,7 +175,7 @@ fun ChatScreen(
     // A message search asked for: scroll there once the list has loaded back to it.
     val jump = actions.search.jump
     LaunchedEffect(jump, state.items) {
-        if (jump != null && state.items.any { it.key == jump.value }) {
+        if (jump != null && state.items.any { it.isMessage(jump.value) }) {
             jumpTo(jump.value)
             actions.search.onJumped()
         }
@@ -241,14 +241,15 @@ private fun MessageList(
     val obscured = state.chat.isObscured
     val cover = MaterialTheme.colorScheme.surfaceContainerHighest
     val hiddenLabel = stringResource(R.string.obscured_hidden)
-    SideEffect { ui.shown = state.items.mapTo(HashSet()) { it.key } }
+    SideEffect { ui.shown = state.items.mapTo(HashSet()) { it.messageId ?: it.key } }
     // The list is drawn from the bottom: index 0 is the newest message.
     LazyColumn(Modifier.fillMaxSize().testTag(CHAT_LIST), state = list, reverseLayout = true) {
         items(state.items, key = { it.key }) { item ->
             val placement = Modifier.itemMotion(this, PingMeTheme.motion)
             when (item) {
                 is ChatItem.Bubble -> {
-                    val key = item.key
+                    // The screen's own maps go by message id; the list's key may be the pending id.
+                    val key = item.message.id.value
                     val tint =
                         when {
                             item.message.id in state.selection -> {
@@ -356,9 +357,10 @@ private fun LoadOlderWhenNearTop(
 }
 
 /**
- * A new message while you are at the bottom keeps you at the bottom; your own send takes you
- * there wherever you were, and so does the keyboard opening while you are near the bottom
- * (owner, Gate G2: a sent message hid behind the keyboard).
+ * The chat opens at its newest message. A message that arrives while you are near the
+ * bottom takes you to it; your own send takes you there wherever you were, and so does
+ * the keyboard opening while you are near the bottom (owner, Gate G2: sent and received
+ * messages hid below the keyboard).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -370,7 +372,8 @@ private fun StayAtBottom(
     val newest = newestItem?.key
     val mine = (newestItem as? ChatItem.Bubble)?.message?.isOutgoing == true
     LaunchedEffect(newest) {
-        if (mine || list.firstVisibleItemIndex <= 1) list.scrollToItem(0)
+        if (newest == null) return@LaunchedEffect
+        if (mine || list.firstVisibleItemIndex <= NEAR_BOTTOM) list.scrollToItem(0)
     }
     val keyboardUp = WindowInsets.isImeVisible
     LaunchedEffect(keyboardUp) {
@@ -451,6 +454,11 @@ private fun NewMessagesLine() {
         HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
     }
 }
+
+/** The message this line shows, if it is a bubble. Its list key may differ (a sent message keeps its pending key). */
+private val ChatItem.messageId: String? get() = (this as? ChatItem.Bubble)?.message?.id?.value
+
+private fun ChatItem.isMessage(id: String) = messageId == id || key == id
 
 const val CHAT_LIST = "chat-list"
 const val COMPOSER = "composer"

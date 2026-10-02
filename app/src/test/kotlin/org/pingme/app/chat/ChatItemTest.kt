@@ -99,4 +99,18 @@ class ChatItemTest {
         assertEquals(null, firstUnread(messages, unread = 0))
         assertEquals(LocalDate.of(2026, 9, 30), (chatItems(messages, null, ZoneOffset.UTC).last() as ChatItem.Day).date)
     }
+
+    @Test
+    fun aSentMessageKeepsThePendingBubblesKey() {
+        // The network's copy "net-1" replaced the pending bubble "pending-1": same key, one bubble.
+        val alias = mapOf("net-1" to "pending-1")
+        val shownAs = { m: Message -> alias[m.id.value] ?: m.id.value }
+        val sent = listOf(msg("net-1", now, "me"), msg("a", now - 1.minutes))
+        assertEquals(listOf("pending-1", "a"), chatItems(sent, null, ZoneOffset.UTC, shownAs).bubbleKeys())
+        // While the pending bubble is still in the list, the copy keeps its own id: keys stay unique.
+        val both = listOf(msg("net-1", now, "me"), msg("pending-1", now, "me"))
+        assertEquals(listOf("net-1", "pending-1"), chatItems(both, null, ZoneOffset.UTC, shownAs).bubbleKeys())
+    }
+
+    private fun List<ChatItem>.bubbleKeys() = filterIsInstance<ChatItem.Bubble>().map { it.key }
 }

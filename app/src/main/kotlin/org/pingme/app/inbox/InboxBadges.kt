@@ -9,6 +9,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
 import androidx.compose.foundation.gestures.AnchoredDraggableState
@@ -56,6 +57,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -82,23 +84,27 @@ import org.pingme.core.ui.R as UiR
 fun UnreadBadge(
     modifier: Modifier = Modifier,
     muted: Boolean = false,
+    size: Dp = UNREAD_DOT,
+    outlined: Boolean = false,
 ) {
     val description = stringResource(R.string.inbox_unread)
     // A dot, not a number: a chat is unread or it is not; nobody needs the count per chat, and
     // some networks (Google Messages) do not even report one (owner, 2026-10-01). Big enough
-    // to see at a glance (owner, Gate G2: the small badge was invisible).
+    // to see at a glance (owner, Gate G2: the small badge was invisible). [outlined] rims it
+    // in the background colour, so it stands off an avatar or ring under it.
+    val colour = if (muted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
     Box(
         modifier
             .semantics { this.contentDescription = description }
-            .size(UNREAD_DOT)
-            .background(
-                if (muted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
-                CircleShape,
-            ),
+            .size(size)
+            .then(if (outlined) Modifier.border(DOT_RIM, MaterialTheme.colorScheme.surface, CircleShape) else Modifier)
+            .padding(if (outlined) DOT_RIM else 0.dp)
+            .background(colour, CircleShape),
     )
 }
 
 private val UNREAD_DOT = 14.dp
+private val DOT_RIM = 2.dp
 
 /** The network's short name on its accent colour (UI_DESIGN.md 10.1). */
 @Composable

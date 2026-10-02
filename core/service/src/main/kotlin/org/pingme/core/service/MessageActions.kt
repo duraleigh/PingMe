@@ -49,6 +49,8 @@ import kotlin.time.Instant
  * history. Reactions and deletes come with the long-press actions.
  */
 @Singleton
+// One function per thing the chat screen can do to a message; the list reads as one.
+@Suppress("TooManyFunctions")
 class MessageActions
     @Inject
     constructor(
@@ -69,6 +71,13 @@ class MessageActions
 
         /** How far each sending message's media has got, from 0 to 1 (UI_DESIGN.md 5.8). */
         val progress: StateFlow<Map<MessageId, Float>> = uploads.asStateFlow()
+
+        /**
+         * The id a sent message first showed under, while it was "sending", or [id] itself. The
+         * chat keeps drawing the bubble under that first id, so the network's copy slides into
+         * the same bubble instead of a second one fading in over the first (owner, Gate G2).
+         */
+        fun shownAs(id: MessageId): MessageId = sent.originalOf(id) ?: id
 
         /**
          * Sends [text] to [chatId], as a reply to [replyTo] when given. The message shows at once
@@ -405,13 +414,19 @@ internal class SentCopies(
     private val messages: MessageRepository,
 ) {
     private val sentAs = java.util.concurrent.ConcurrentHashMap<MessageId, MessageId>()
+    private val sendingAs = java.util.concurrent.ConcurrentHashMap<MessageId, MessageId>()
 
     fun replaced(
         sending: MessageId,
         sent: MessageId,
     ) {
         sentAs[sending] = sent
+        // A retry sends the same pending bubble again: the newest copy keeps the first id.
+        sendingAs[sent] = sendingAs[sending] ?: sending
     }
+
+    /** The "sending" id that [sent] replaced, if it was ever a pending bubble. */
+    fun originalOf(sent: MessageId): MessageId? = sendingAs[sent]
 
     /** [message] as it is now. */
     suspend fun current(message: Message): Message = sentAs[message.id]?.let { messages.get(it) } ?: message
