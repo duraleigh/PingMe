@@ -60,6 +60,13 @@ class GoBridge(
 
     fun conversation(json: String): GmConversation = gmJson.decodeFromString(GmConversation.serializer(), json)
 
+    /**
+     * Whether a message is something to show. Google Messages' system notes (tombstones:
+     * "switched to RCS", "X joined") are not messages and never become bubbles; the phone
+     * shows them as centred notes, which PingMe does not have yet.
+     */
+    fun isShown(msg: GmMessage): Boolean = !msg.hide && msg.direction != "tombstone"
+
     /** Whether this conversation has been seen (listed, fetched, or announced by the phone). */
     @Synchronized
     fun knows(conversationId: String): Boolean = conversationId in conversations
@@ -204,7 +211,7 @@ class GoBridge(
         isOld: Boolean,
     ): List<ConnectorEvent> {
         val id = accountId.message(msg.id)
-        if (msg.hide) return emptyList()
+        if (!isShown(msg)) return emptyList()
         if (msg.direction == "deleted") {
             seen.remove(msg.id)
             return listOf(ConnectorEvent.MessageRemoved(accountId, accountId.chat(msg.conversationId), id))

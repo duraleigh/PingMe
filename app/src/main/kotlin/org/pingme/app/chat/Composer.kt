@@ -44,10 +44,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
 import org.pingme.app.R
+import org.pingme.app.chat.attach.AttachLaunchers
 import org.pingme.app.chat.attach.AttachSheet
 import org.pingme.app.chat.attach.Outbox
 import org.pingme.app.chat.attach.SendButton
 import org.pingme.app.chat.attach.StagedStrip
+import org.pingme.app.chat.attach.rememberAttachLaunchers
 import org.pingme.app.chat.gif.GifPickerSheet
 import org.pingme.app.chat.gif.GifPicks
 import org.pingme.app.chat.later.SendLaterSheet
@@ -125,7 +127,9 @@ internal fun Composer(
             onDismiss = { sheet = ComposerSheet.NONE },
         )
     }
-    ComposerSheets(sheet, hooks, outbox) { sheet = ComposerSheet.NONE }
+    // The pickers' listeners live here, where they outlive the attach sheet.
+    val pick = outbox?.let { rememberAttachLaunchers(it, hooks.onProblem) }
+    ComposerSheets(sheet, hooks, pick) { sheet = ComposerSheet.NONE }
 }
 
 /** Which sheet the composer has open. */
@@ -135,12 +139,12 @@ private enum class ComposerSheet { NONE, ATTACH, GIF, LATER }
 private fun ComposerSheets(
     sheet: ComposerSheet,
     hooks: ComposerHooks,
-    outbox: Outbox?,
+    pick: AttachLaunchers?,
     onClose: () -> Unit,
 ) {
     when (sheet) {
         ComposerSheet.ATTACH -> {
-            outbox?.let { AttachSheet(it, hooks.onProblem, onClose) }
+            pick?.let { AttachSheet(it, onClose) }
         }
 
         ComposerSheet.GIF -> {

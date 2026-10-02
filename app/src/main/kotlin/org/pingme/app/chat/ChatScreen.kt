@@ -6,10 +6,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -352,17 +355,30 @@ private fun LoadOlderWhenNearTop(
     }
 }
 
-/** A new message while you are at the bottom keeps you at the bottom. */
+/**
+ * A new message while you are at the bottom keeps you at the bottom; your own send takes you
+ * there wherever you were, and so does the keyboard opening while you are near the bottom
+ * (owner, Gate G2: a sent message hid behind the keyboard).
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StayAtBottom(
     list: LazyListState,
     state: ChatUiState,
 ) {
-    val newest = state.items.firstOrNull()?.key
+    val newestItem = state.items.firstOrNull()
+    val newest = newestItem?.key
+    val mine = (newestItem as? ChatItem.Bubble)?.message?.isOutgoing == true
     LaunchedEffect(newest) {
-        if (list.firstVisibleItemIndex <= 1) list.scrollToItem(0)
+        if (mine || list.firstVisibleItemIndex <= 1) list.scrollToItem(0)
+    }
+    val keyboardUp = WindowInsets.isImeVisible
+    LaunchedEffect(keyboardUp) {
+        if (keyboardUp && list.firstVisibleItemIndex <= NEAR_BOTTOM) list.scrollToItem(0)
     }
 }
+
+private const val NEAR_BOTTOM = 3
 
 /** "Jump to newest", with how many arrived below while you were scrolled up (UI_DESIGN.md 3.2). */
 @Composable

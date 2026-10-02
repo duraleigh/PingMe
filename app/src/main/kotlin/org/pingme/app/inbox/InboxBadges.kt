@@ -85,12 +85,20 @@ fun UnreadBadge(
 ) {
     val description = stringResource(R.string.inbox_unread)
     // A dot, not a number: a chat is unread or it is not; nobody needs the count per chat, and
-    // some networks (Google Messages) do not even report one (owner, 2026-10-01).
-    Badge(
-        modifier.semantics { this.contentDescription = description },
-        containerColor = if (muted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
+    // some networks (Google Messages) do not even report one (owner, 2026-10-01). Big enough
+    // to see at a glance (owner, Gate G2: the small badge was invisible).
+    Box(
+        modifier
+            .semantics { this.contentDescription = description }
+            .size(UNREAD_DOT)
+            .background(
+                if (muted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
+                CircleShape,
+            ),
     )
 }
+
+private val UNREAD_DOT = 14.dp
 
 /** The network's short name on its accent colour (UI_DESIGN.md 10.1). */
 @Composable

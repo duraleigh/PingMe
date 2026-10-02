@@ -45,6 +45,17 @@ suspend fun firstFrame(path: String): ImageBitmap? =
         }.getOrNull()
     }
 
+/** How long a video or audio file plays, in milliseconds, or null when unreadable. */
+suspend fun videoDurationMs(path: String): Long? =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            MediaMetadataRetriever().use {
+                it.setDataSource(path)
+                it.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+            }
+        }.getOrNull()
+    }
+
 /** Opens a file in whichever app on the phone shows that kind of file. */
 fun openFile(
     context: Context,

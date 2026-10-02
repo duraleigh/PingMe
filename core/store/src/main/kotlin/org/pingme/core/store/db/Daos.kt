@@ -343,9 +343,14 @@ interface MessageDao {
     @Insert
     suspend fun insertReactions(reactions: List<ReactionEntity>)
 
+    @Query("SELECT * FROM attachments WHERE messageId = :messageId")
+    suspend fun attachmentsOf(messageId: String): List<AttachmentEntity>
+
     /**
      * Inserts or updates a message with its attachments and reactions. Updates keep the row
-     * (and its rowId) in place instead of replacing it, so nothing cascades by accident.
+     * (and its rowId) in place instead of replacing it, so nothing cascades by accident, and
+     * keep each attachment's downloaded file: a network's updated copy of a message (a
+     * reaction, a status, a history re-fetch) never carries the file PingMe already saved.
      */
     @Transaction
     suspend fun upsert(
@@ -359,11 +364,26 @@ interface MessageDao {
         } else {
             updateMessage(message.copy(rowId = rowId))
         }
+        val kept = attachmentsOf(message.id).filter { it.localPath != null }.associate { it.id to it.localPath }
         deleteAttachments(message.id)
-        insertAttachments(attachments)
+        insertAttachments(attachments.map { if (it.localPath == null) it.copy(localPath = kept[it.id]) else it })
         deleteReactions(message.id)
         insertReactions(reactions)
     }
+
+    /** Stand-in copies of sent messages (ids with [prefix]) older than [before]: never resolved, so junk. */
+    @Query("DELETE FROM messages WHERE networkRemoteId LIKE :prefix || '%' AND sentAt < :before")
+    suspend fun deleteStandIns(
+        prefix: String,
+        before: Instant,
+    ): Int
+
+    /** Text messages with nothing to show (no body, no attachment): empty bubbles. */
+    @Query(
+        "DELETE FROM messages WHERE kind = 'TEXT' AND (body IS NULL OR body = '') AND deletedForEveryone = 0 " +
+            "AND id NOT IN (SELECT messageId FROM attachments)",
+    )
+    suspend fun deleteEmpty(): Int
 
     @Query("UPDATE messages SET status = :status WHERE id = :id")
     suspend fun updateStatus(

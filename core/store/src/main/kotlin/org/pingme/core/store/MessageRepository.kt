@@ -25,6 +25,7 @@ import org.pingme.core.store.db.toEntity
 import org.pingme.core.store.db.toModel
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
@@ -111,6 +112,16 @@ class MessageRepository
         ) = dao.deleteReaction(messageId.value, senderId.value, emoji)
 
         suspend fun delete(id: MessageId) = dao.delete(id.value)
+
+        /**
+         * Removes what should never have stayed: stand-in copies of sent messages (remote ids
+         * starting with [standInPrefix]) older than [before], and empty text bubbles. Returns
+         * how many went.
+         */
+        suspend fun deleteJunk(
+            standInPrefix: String,
+            before: Instant,
+        ): Int = dao.deleteStandIns(standInPrefix, before) + dao.deleteEmpty()
 
         /**
          * Full-text search over message text, sender names, and attachment names, newest

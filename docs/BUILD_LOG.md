@@ -1925,3 +1925,49 @@ no need to sign in again. Then:
    no need to pair twice.)
 
 Tell me what did not match, one line each.
+
+## Gate G2, second session on the owner's phone (2026-10-02, 4:30 to 5:10 AM)
+
+`pingme-424b50f.apk` went on over Wi-Fi debugging. The owner walked through the app and
+every problem was written down before anything was fixed (the owner's rule: look at
+everything first, then fix it all at once).
+
+**Confirmed fixed from the night before:** no ghost copies on new sends (the phone's copy
+matched the placeholder within a second every time, by its UUID tag); read marks correct
+and clearly different from delivered; sends logged line by line. A photo and a GIF went
+out and were delivered; a photo and a screenshot arrived; a reaction arrived.
+
+**Found, in the order seen:**
+7. **System notes drawn as bubbles.** Right after a GIF the phone sent a "switched to RCS"
+   note (a tombstone), which PingMe drew as an empty bubble from "you". Tombstones are not
+   messages and are no longer shown at all (`GoBridge.isShown`); empty text bubbles left
+   from before are removed by the clean-up below.
+8. **A sent picture or GIF went empty, then slowly filled in.** The phone's copy names the
+   media but not the file; PingMe swapped its placeholder for that copy and downloaded its
+   own picture back. The connector now keeps the just-sent files on the phone's copy.
+9. **The one ghost from the night before** could not be matched any more. `StoreHousekeeping`
+   runs at each start and removes stand-ins older than ten minutes and empty bubbles.
+10. **Gallery, Camera, File, and Contact lost their pick.** The pickers' listeners lived in
+    the attach sheet, which closes the moment a picker opens, so the answer landed nowhere.
+    The listeners now live in the composer (`rememberAttachLaunchers` is hoisted).
+11. **Reacting to a photo made it vanish; the morning's GIF vanished after a re-fetch.** Any
+    update to a message replaced its attachments, dropping the "where I saved it" path.
+    The store's upsert now keeps each attachment's downloaded file when the new copy has
+    none (`MessageDao.upsert`, test `updatingAMessageKeepsDownloadedFiles`).
+12. **Tapping a picture did nothing.** 13. **A video opened the "open with" list.** Both now
+    open full-screen inside PingMe (`MediaViewer`: pictures fit, videos play with the
+    platform player and its controls, close or back returns). UI_DESIGN.md 5.8 says so.
+14. **Pictures and videos were slivers.** They now fill the bubble's width, keep their shape
+    (from the media's size when known, else 4:3), and videos show their length.
+15. **Unread rows were invisible.** A 14 dp primary dot, bold name and preview at full
+    contrast, the time in the primary colour, and a faint primary tint across the row
+    (UI_DESIGN.md 3.1).
+16. **A sent message hid behind the keyboard.** The chat now scrolls to the bottom on your
+    own send wherever you were, and when the keyboard opens while you are near the bottom.
+    Also noted for the contacts phase: a chat with a bare phone number showed "80" as its
+    avatar (initials taken from the number); unknown numbers get a generic person icon.
+
+**Checklist for the next install** (same as before, plus): the GIF and photo bubbles show
+their picture at once and stay; reacting to a photo keeps it; tapping a picture or video
+opens it in PingMe; Gallery, Camera, and File put the pick in the message box; the unread
+chat in the inbox is obvious; a sent text sits above the keyboard; no empty bubbles.

@@ -44,6 +44,7 @@ class ConnectorSupervisor
         private val history: HistorySync,
         private val clock: Clock,
         private val retryDelays: RetryDelays,
+        private val housekeeping: StoreHousekeeping,
         @ApplicationScope private val scope: CoroutineScope,
     ) {
         private val sessions = mutableMapOf<AccountId, Job>()
@@ -55,7 +56,11 @@ class ConnectorSupervisor
         /** Starts following the account list. Safe to call more than once. */
         fun start() {
             if (watcher?.isActive == true) return
-            watcher = scope.launch { accounts.accounts().collect { reconcile(it) } }
+            watcher =
+                scope.launch {
+                    housekeeping.run()
+                    accounts.accounts().collect { reconcile(it) }
+                }
         }
 
         fun stop() {
