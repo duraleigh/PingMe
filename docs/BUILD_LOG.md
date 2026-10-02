@@ -1816,3 +1816,15 @@ Both questions in the P3.2 entry are answered:
 
 **Next:** when G2 passes, Phase 4 (notifications, background, and the message features
 that need the real network).
+
+## Fix after merging Phase 3 (2026-10-01): the send's echo wait on the test clock
+
+`main`'s build after #20 failed on `GmessagesContractTest.reactionsFollowTheCapability`,
+which had passed on every pull-request run and locally. The send waits up to 20 seconds for
+the phone to echo the message back; under the contract test's `runTest` that wait ran on
+the test's virtual clock, which skips ahead the moment the test coroutine is idle, so on a
+slow runner the wait "expired" before the echo (which comes from the bridge's own thread)
+was processed, the stand-in message came back, and reacting to a stand-in is refused. The
+wait now runs on a real-time dispatcher. Nothing changes on the phone, where there is no
+virtual clock. Checked by running the connector's tests three times in a row and the full
+check.

@@ -276,7 +276,16 @@ internal class GmessagesSession(
                 pending.remove(tmpId)
                 SendResult.Failed(sendFailure(e), retryable = GmError.codeOf(e) != GmError.REJECTED)
             }
-        val echoed = if (refused == null) withTimeoutOrNull(ECHO_TIMEOUT) { waiter.await() } else null
+        // Waited on a real-time dispatcher: the echo comes from the bridge's own thread, and a
+        // caller on a test clock would otherwise skip the wait and get the stand-in.
+        val echoed =
+            if (refused ==
+                null
+            ) {
+                withContext(Dispatchers.Default) { withTimeoutOrNull(ECHO_TIMEOUT) { waiter.await() } }
+            } else {
+                null
+            }
         pending.remove(tmpId)
         return refused ?: SendResult.Sent(echoed ?: standIn(chatId, draft, media))
     }
