@@ -2417,3 +2417,11 @@ stream would. The tag was moved to the fixed commit and built again.
 3. Reply, react, edit within 15 minutes, unsend: both sides match.
 4. Accept one request and decline another.
 5. Settings > Accounts > Instagram > "Show General in All" off: General chats leave All.
+
+**Shipped (2026-10-02, evening):** v0.3.0 (the Gate G3 fixes) at 5:02 PM, v0.4.0 (WhatsApp)
+at 6:46 PM after the tag was moved to the timing fix, v0.5.0 (Instagram) at 7:33 PM. Each
+link was emailed to the owner the moment the release existed and posted in the chat with
+its report. The owner tests all three on the phone and gives notes; Signal starts only
+after that list is fixed. The owner has already said WhatsApp sends do not seem to go
+out; that is looked at together over wireless debugging, log tag `PingMeWhatsapp` and the
+bridge's `GoLog` lines, before anything is changed.
