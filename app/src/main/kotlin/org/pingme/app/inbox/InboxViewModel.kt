@@ -56,6 +56,17 @@ class InboxViewModel
         private val appearance: org.pingme.app.appearance.AppearanceRepository,
     ) : ViewModel() {
         private val rowActions = RowActions(viewModelScope, actions)
+
+        /** The one-time "turn off Google Messages' notifications" prompt is due (UI_DESIGN.md 6.3). */
+        val gmessagesReminder: StateFlow<Boolean> =
+            combine(settings.app, accounts.accounts()) { app, all ->
+                !app.gmessagesNotificationsReminderShown && all.any { it.network == NetworkId.GMESSAGES }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), false)
+
+        fun dismissGmessagesReminder() {
+            viewModelScope.launch { settings.updateApp { it.copy(gmessagesNotificationsReminderShown = true) } }
+        }
+
         private val selected = saved.getStateFlow<String?>(SELECTED, null).map { it?.let(::decodeItem) }
 
         private val source =

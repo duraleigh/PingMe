@@ -39,20 +39,35 @@ class MediaKeeperTest : ServiceTest() {
 
     private suspend fun saveAll(on: Boolean) = settings.updateApp { it.copy(media = it.media.copy(saveAllMedia = on)) }
 
+    private fun document(remote: String) =
+        photo(
+            remote,
+        ).copy(id = accountId.attachment("$remote-d"), kind = AttachmentKind.FILE, mimeType = "application/pdf")
+
     @Test
-    fun mediaWaitsUntilShownWhileTheSettingIsOff() =
+    fun picturesDownloadOnArrivalButFilesWaitUntilShown() =
         runBlocking {
-            keeper.arrived(withPhoto("m1").message)
-            assertTrue(keeper.downloads.isEmpty())
+            // A received picture is there when the chat opens (owner, Gate G2); a document waits.
+            val both =
+                withPhoto(
+                    "m1",
+                ).let { it.copy(message = it.message.copy(attachments = listOf(photo("m1"), document("m1")))) }
+            keeper.arrived(both.message)
+            keeper.arrived(withPhoto("m2", outgoing = true).message)
+            assertEquals(listOf(photo("m1").id), keeper.downloads)
         }
 
     @Test
-    fun incomingMediaDownloadsOnArrivalWhenOn() =
+    fun everyIncomingFileDownloadsOnArrivalWhenOn() =
         runBlocking {
             saveAll(true)
-            keeper.arrived(withPhoto("m1").message)
-            keeper.arrived(withPhoto("m2", outgoing = true).message)
-            assertEquals(listOf(photo("m1").id), keeper.downloads)
+            val both =
+                withPhoto(
+                    "m1",
+                ).let { it.copy(message = it.message.copy(attachments = listOf(photo("m1"), document("m1")))) }
+            keeper.arrived(both.message)
+            assertEquals(listOf(photo("m1").id, document("m1").id), keeper.downloads)
+            assertTrue(keeper.downloads.isNotEmpty())
         }
 
     @Test

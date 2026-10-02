@@ -21,9 +21,11 @@ import javax.inject.Singleton
 import kotlin.time.Clock
 
 /**
- * "Save all incoming media" (UI_DESIGN.md 10.16). With it on, media is fetched as it arrives
- * instead of when it is first shown, and each downloaded file is copied once to the folder
- * the user chose; without a folder it stays in app storage.
+ * Incoming media. Pictures, GIFs, stickers, videos, and voice notes are fetched the moment
+ * they arrive, so they are there when the chat opens (owner, Gate G2: a received picture
+ * sat empty for far too long); other files wait until shown. "Save all incoming media"
+ * (UI_DESIGN.md 10.16) fetches everything on arrival and copies each downloaded file once
+ * to the folder the user chose; without a folder it stays in app storage.
  */
 @Singleton
 open class MediaKeeper
@@ -34,16 +36,16 @@ open class MediaKeeper
         private val messages: MessageRepository,
         private val clock: Clock,
     ) {
-        /** A message arrived; with the setting on, its media downloads now. */
+        /** A message arrived: its pictures and the like download now; with the setting on, everything does. */
         suspend fun arrived(message: Message) {
-            if (message.isOutgoing ||
-                !settings.app
+            if (message.isOutgoing) return
+            val everything =
+                settings.app
                     .first()
                     .media.saveAllMedia
-            ) {
-                return
-            }
-            message.attachments.filter { it.localPath == null }.forEach { download(it.id) }
+            message.attachments
+                .filter { it.localPath == null && (everything || it.kind in ON_ARRIVAL) }
+                .forEach { download(it.id) }
         }
 
         protected open fun download(id: AttachmentId) {
@@ -94,4 +96,15 @@ open class MediaKeeper
             } catch (_: SecurityException) {
                 false
             }
+
+        private companion object {
+            val ON_ARRIVAL =
+                setOf(
+                    org.pingme.core.model.AttachmentKind.IMAGE,
+                    org.pingme.core.model.AttachmentKind.GIF,
+                    org.pingme.core.model.AttachmentKind.STICKER,
+                    org.pingme.core.model.AttachmentKind.VIDEO,
+                    org.pingme.core.model.AttachmentKind.VOICE,
+                )
+        }
     }

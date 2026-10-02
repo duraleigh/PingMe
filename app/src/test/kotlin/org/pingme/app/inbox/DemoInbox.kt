@@ -68,7 +68,23 @@ class DemoInbox(
     val controls = DemoControls()
     val demo = DemoConnector(controls, MemoryCredentials(), dir.resolve("media"), Clock.System)
     val registry = ConnectorRegistry(mapOf(NetworkId.DEMO to demo))
-    val actions = ChatActions(chats, messages, accounts, registry, applier, settings)
+    val presence =
+        org.pingme.core.service.notify
+            .ChatPresence()
+    val router =
+        org.pingme.core.service.NotificationRouter(
+            context,
+            chats,
+            messages,
+            contacts,
+            org.pingme.core.store
+                .ChatOverridesRepository(db),
+            accounts,
+            settings,
+            presence,
+            Clock.System,
+        )
+    val actions = ChatActions(chats, messages, accounts, registry, applier, settings, router)
     val pins = PinnedMessageRepository(db)
     val scheduledSends =
         org.pingme.core.store
@@ -196,6 +212,7 @@ class DemoInbox(
             requests,
             overrides,
             transcriber,
+            presence,
         ).tracked()
 
     fun detailsViewModel(remote: String) =

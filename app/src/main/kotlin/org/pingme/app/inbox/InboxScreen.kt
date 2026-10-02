@@ -69,6 +69,8 @@ fun InboxRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     ShowMessages(viewModel.messages, snackbar)
+    val remind by viewModel.gmessagesReminder.collectAsStateWithLifecycle()
+    if (remind) GmessagesReminder(viewModel::dismissGmessagesReminder)
     InboxScreen(
         state = state,
         callbacks =
@@ -89,6 +91,25 @@ fun InboxRoute(
         reactions = viewModel.reactions,
         snackbar = snackbar,
         modifier = modifier,
+    )
+}
+
+/**
+ * Once, after Google Messages is connected: a reminder to turn off its own notifications, so
+ * texts do not arrive twice (UI_DESIGN.md 6.3). A reminder only; the owner opens Google's
+ * settings themselves (owner decision, 2026-10-02).
+ */
+@Composable
+private fun GmessagesReminder(onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { androidx.compose.material3.Text(stringResource(R.string.notify_gm_title)) },
+        text = { androidx.compose.material3.Text(stringResource(R.string.notify_gm_note)) },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onDismiss) {
+                androidx.compose.material3.Text(stringResource(R.string.notify_gm_got_it))
+            }
+        },
     )
 }
 

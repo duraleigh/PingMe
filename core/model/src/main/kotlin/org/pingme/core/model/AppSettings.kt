@@ -21,6 +21,8 @@ data class AppSettings(
     val textingMode: TextingMode = TextingMode.GOOGLE_MESSAGES,
     /** Setup has run to the end once (BUILD_PLAN.md P2.7); until then PingMe opens on it. */
     val setupDone: Boolean = false,
+    /** The one-time "turn off Google Messages' notifications" prompt has been seen (UI_DESIGN.md 6.3). */
+    val gmessagesNotificationsReminderShown: Boolean = false,
 )
 
 /** Google Messages mode keeps Google Messages as the SMS app; native SMS mode makes PingMe it (DESIGN.md 5.2). */

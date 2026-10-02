@@ -2023,3 +2023,53 @@ Google Messages' notification settings, only a reminder under Settings > Notific
 a one-time prompt to turn them off by hand; scheduled sends keep the background job as the
 fallback when the exact-alarm permission is declined; the viewer's download goes to a
 "PingMe" album in Photos.
+
+## P4.1 Notifications, part 1 (2026-10-02, from 10:42 AM)
+
+Started straight after the v0.1.0 release, as the owner directed; the fix list's
+notification items (18, 21, 25) are folded in here.
+
+Done:
+- `NotificationRouter` rebuilt around `decide(chat, message, now, keywords, settings,
+  overrides, account, visible)`: keyword rule (named on the notification; one with
+  "override" beats mute and low priority) > the chat's own channel (`chat_<id>_<n>`, from
+  `ChatOverrides`) > Instagram folder (`folder_<name>_<n>`) > account (`account_<id>_<n>`,
+  Off drops, Silent shows without sound, the network's sound and vibration from
+  Settings > Notifications) > `default`. Pure, tested in `NotificationDecisionTest`.
+- **Fresh only (21):** the supervisor asks `router.isFresh(event)` before the store takes
+  the message; a message already stored (a reaction or status change re-sends it from
+  Google Messages) never notifies again (`NotificationRouterTest`).
+- **Tap, clear, actions (25):** `MessageNotifications` posts one conversation notification
+  per chat (MessagingStyle with a Person per sender, a long-lived conversation shortcut, a
+  group summary, Reply with inline text, Mark read). The tap intent carries the chat id;
+  `MainActivity` (now singleTop) hands it to `NotificationTaps`, and the navigation host
+  opens that chat. `ChatActions.setRead` and `ChatActions.opened` (called when a chat's
+  screen starts) clear the chat's notification; `ChatPresence` (set while the chat screen is
+  resumed) keeps the open chat from notifying at all. `NotificationActionReceiver` handles
+  Reply (sends, then marks read) and Mark read.
+- **Media (18):** "sent a picture" wording per message kind; `MediaKeeper.arrived` now
+  fetches pictures, GIFs, stickers, videos, and voice notes on arrival for every incoming
+  message (documents still wait until shown; "Save all incoming media" fetches everything),
+  and `MediaDownloadWorker` logs how long each download took under `PingMeMedia`.
+- `NotificationChannels`: one channel per sound, versioned ids, older versions of the same
+  channel deleted when a new one is made (UI_DESIGN.md 6.1).
+- The workflow's release job now finds the APK by name pattern; the job output it relied
+  on came through empty on the v0.1.0 build and the release went out without its file.
+
+Deviation to settle with the owner: **chat bubbles metadata** (BUILD_PLAN.md P4.1) is not
+attached yet. Android bubbles need an activity flagged embeddable with "always a new
+document" launch mode; putting that on the one `MainActivity` would change how the app
+behaves in Recents. The right shape is a small bubble-only activity; proposed for the
+second notification pass, after the owner says whether bubbles matter to them.
+
+Part 2, same session:
+- **One-time codes** (UI_DESIGN.md 10.6): `OneTimeCodes.find` spots four to eight digits
+  near a telling word (code, OTP, verification, sign in, ...) or Google's "G-123456"; the
+  notification gets a "Copy code" button, and with "Auto-copy one-time codes" on the code
+  goes to the clipboard the moment it arrives, marked sensitive, with a toast. Years and
+  phone numbers are left alone (`OneTimeCodesTest`, `NotificationRouterTest`).
+- **Google Messages reminder** (UI_DESIGN.md 6.3): a row at the top of Settings >
+  Notifications when a Google Messages account exists, and a one-time prompt on the inbox
+  (`AppSettings.gmessagesNotificationsReminderShown`). Wording only; no button that opens
+  Google's settings (owner decision, 2026-10-02). The plan's "during setup" moment is
+  covered by the prompt, which shows the first time the inbox opens after pairing.

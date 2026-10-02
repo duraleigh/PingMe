@@ -135,7 +135,17 @@ class ChatViewModel
         requests: ChatRequests,
         overridesRepo: org.pingme.core.store.ChatOverridesRepository,
         transcriber: org.pingme.app.chat.voice.VoiceTranscriber,
+        private val presence: org.pingme.core.service.notify.ChatPresence,
     ) : ViewModel() {
+        /** The chat is (or is no longer) the one on screen: its messages notify only while it is not. */
+        fun visible(on: Boolean) {
+            if (on) {
+                presence.visible = chatId
+            } else if (presence.visible == chatId) {
+                presence.visible = null
+            }
+        }
+
         /** Voice-note transcripts, when Settings turns them on (UI_DESIGN.md 5.6). */
         val transcripts =
             org.pingme.app.chat.voice
@@ -312,6 +322,7 @@ class ChatViewModel
                 }
             }
             viewModelScope.launch {
+                chatActions.opened(chatId)
                 unreadAtOpen.value = chat.filterNotNull().first().unreadCount
                 // While the chat is open, whatever arrives is read.
                 chat.filterNotNull().collect { if (it.unreadCount > 0) chatActions.setRead(chatId, read = true) }

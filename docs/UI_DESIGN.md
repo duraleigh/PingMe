@@ -438,11 +438,24 @@ Every chat is registered as an Android conversation with a person and a shortcut
 Android's own per-conversation controls, priority conversations, and chat bubbles all
 work. Notifications offer inline Reply and Mark read actions and are grouped per chat.
 
+Behaviour the owner set at Gate G2 (2026-10-02):
+- Tapping the notification opens that chat, landing on the newest message.
+- Opening or reading the chat takes its notification down; so does Reply or Mark read
+  from the notification. The chat on screen never raises one.
+- Only a message PingMe has not stored before notifies. A reaction, a delivery or read
+  change, or a re-sent copy of a known message never does.
+- Media reads as "<sender> sent a picture" (video, GIF, sticker, voice message, file,
+  location, contact), and pictures, GIFs, stickers, videos, and voice notes are fetched
+  the moment they arrive, so they are there when the chat opens.
+- A keyword match is named under the notification ("Keyword: urgent").
+
 ### 6.3 Avoiding double notifications
 
-In Google Messages mode, PingMe offers during setup to open Google Messages'
-notification settings so the user can silence them, since both apps will otherwise
-notify.
+In Google Messages mode both apps would notify for every text. PingMe reminds the user to
+turn Google Messages' own notifications off: once as a prompt the first time the inbox
+opens after pairing, and always as the first row under Settings > Notifications. The
+reminder names the path (Settings > Apps > Messages > Notifications) and nothing more; PingMe
+never opens or changes another app's settings (owner decision, 2026-10-02).
 
 ---
 

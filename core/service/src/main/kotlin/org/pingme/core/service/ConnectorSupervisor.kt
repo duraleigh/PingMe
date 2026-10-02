@@ -131,8 +131,10 @@ class ConnectorSupervisor
                             history.chatsArrived(chats)
                         }
                     }
+                    // Fresh is decided before the store has the message; the notification goes after.
+                    val fresh = router.isFresh(event)
                     applier.apply(event)
-                    router.onEvent(event)
+                    router.onEvent(event, fresh)
                     if (event is ConnectorEvent.NewMessage) keeper.arrived(event.message.message)
                 }
                 if (connected) Outcome.Dropped else Outcome.Failed

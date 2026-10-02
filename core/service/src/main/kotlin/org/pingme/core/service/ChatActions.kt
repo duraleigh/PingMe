@@ -25,6 +25,8 @@ import kotlin.time.Instant
  * 10.10). Everything is local except marking read, which also tells the network.
  */
 @Singleton
+// One function per thing the inbox or chat details can do to a chat; the list reads as one.
+@Suppress("TooManyFunctions")
 class ChatActions
     @Inject
     constructor(
@@ -34,7 +36,11 @@ class ChatActions
         private val registry: ConnectorRegistry,
         private val applier: EventApplier,
         private val settings: org.pingme.core.store.SettingsRepository,
+        private val notifications: NotificationRouter,
     ) {
+        /** The chat is on screen: its notification comes down at once (owner, Gate G2). */
+        fun opened(id: ChatId) = notifications.clear(id)
+
         /** Pins or unpins. Returns false when pinning would pass [MAX_PINS]. */
         suspend fun setPinned(
             id: ChatId,
@@ -78,6 +84,7 @@ class ChatActions
         ) {
             if (read) {
                 chats.update(id) { it.copy(unreadCount = 0) }
+                notifications.clear(id)
                 sendReadMarker(id)
             } else {
                 chats.update(id) { if (it.unreadCount > 0) it else it.copy(unreadCount = 1) }
