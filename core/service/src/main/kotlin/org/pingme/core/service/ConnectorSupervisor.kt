@@ -45,6 +45,7 @@ class ConnectorSupervisor
         private val clock: Clock,
         private val retryDelays: RetryDelays,
         private val housekeeping: StoreHousekeeping,
+        private val previews: org.pingme.core.service.links.PreviewRequests,
         @ApplicationScope private val scope: CoroutineScope,
     ) {
         private val sessions = mutableMapOf<AccountId, Job>()
@@ -135,7 +136,10 @@ class ConnectorSupervisor
                     val fresh = router.isFresh(event)
                     applier.apply(event)
                     router.onEvent(event, fresh)
-                    if (event is ConnectorEvent.NewMessage) keeper.arrived(event.message.message)
+                    if (event is ConnectorEvent.NewMessage) {
+                        keeper.arrived(event.message.message)
+                        if (fresh) previews.request(event.message.message)
+                    }
                 }
                 if (connected) Outcome.Dropped else Outcome.Failed
             } catch (e: CancellationException) {

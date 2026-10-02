@@ -49,6 +49,8 @@ class ChatScreenActions(
     val settings: org.pingme.core.model.AppSettings =
         org.pingme.core.model
             .AppSettings(),
+    /** Strips tracking from a shown link; identity when the setting is off. */
+    val cleanLink: (String) -> String = { it },
 )
 
 /** The composer's extras: attachments and other ways to send. Null ones are not offered. */
@@ -79,6 +81,8 @@ class RowContext(
     /** Received GIFs play by themselves; off, a tap plays one (UI_DESIGN.md 5.5). */
     val gifsAutoplay: Boolean = true,
     val transcripts: org.pingme.app.chat.voice.Transcripts? = null,
+    /** Incoming links shown cleaned when "Clean links I receive" is on (UI_DESIGN.md 10.11). */
+    val cleanLink: (String) -> String = { it },
 )
 
 /** One line of the action card. [enabled] false shows it greyed with [reason] (UI_DESIGN.md 1). */

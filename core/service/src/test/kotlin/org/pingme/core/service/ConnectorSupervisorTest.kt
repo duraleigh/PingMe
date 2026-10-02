@@ -40,6 +40,7 @@ class ConnectorSupervisorTest : ServiceTest() {
                 clock = clock,
                 retryDelays = { delays(it) },
                 housekeeping = StoreHousekeeping(messages, clock),
+                previews = QuietPreviews(context),
                 scope = scope,
             )
         runBlocking { credentials.save("cred", byteArrayOf(1)) }

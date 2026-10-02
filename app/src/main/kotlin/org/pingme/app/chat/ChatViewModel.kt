@@ -136,6 +136,8 @@ class ChatViewModel
         overridesRepo: org.pingme.core.store.ChatOverridesRepository,
         transcriber: org.pingme.app.chat.voice.VoiceTranscriber,
         private val presence: org.pingme.core.service.notify.ChatPresence,
+        /** The ClearURLs rules, for links shown cleaned (UI_DESIGN.md 10.11). */
+        val links: org.pingme.core.service.links.CleanLinks,
     ) : ViewModel() {
         /** The chat is (or is no longer) the one on screen: its messages notify only while it is not. */
         fun visible(on: Boolean) {

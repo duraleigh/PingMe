@@ -704,6 +704,8 @@ Outgoing links are stripped of tracking parameters before sending, using the
 open-source ClearURLs rule set kept up to date in the app. Incoming links are shown
 cleaned, with the original kept and available from the link's long-press menu.
 Settings > Privacy has "Clean links I send" (on) and "Clean links I receive" (on).
+The rule set ships inside the app (`assets/clearurls/`, LGPL-3.0, licence beside it) and
+is refreshed by a build command; the stored message always keeps the original text.
 
 ### 10.12 Link previews
 
@@ -712,7 +714,9 @@ sends preview data with the message (WhatsApp, Telegram, Signal, Instagram,
 Messenger), PingMe uses that and fetches nothing. Otherwise PingMe fetches the page's
 metadata from the phone. Because that reveals the phone's IP address to the site,
 Settings > Privacy > "Generate link previews" offers Always, Only on Wi-Fi, and
-Never. Previews are cached with the message.
+Never. Previews are cached with the message. PingMe reads at most 1 MB of the page and
+2 MB of its picture, with short timeouts, and only fetches when a message carries a link
+and no preview came with it.
 
 ### 10.13 Send later
 

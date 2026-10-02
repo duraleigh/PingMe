@@ -36,13 +36,14 @@ internal fun findLinks(text: String): List<IntRange> =
 internal fun linked(
     text: String,
     preview: LinkPreview?,
+    clean: (String) -> String = { it },
 ): AnnotatedString =
     buildAnnotatedString {
         var at = 0
         for (range in findLinks(text)) {
             append(text.substring(at, range.first))
             val raw = text.substring(range)
-            val shown = preview?.takeIf { it.url == raw }?.cleanedUrl ?: raw
+            val shown = preview?.takeIf { it.url == raw }?.cleanedUrl ?: clean(raw)
             val target = if (shown.startsWith("http")) shown else "https://$shown"
             withLink(LinkAnnotation.Url(target, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline)))) {
                 append(shown)

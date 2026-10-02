@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import java.net.URI
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.ksp)
@@ -35,4 +37,20 @@ dependencies {
     // Tests build the store directly on an in-memory database.
     testImplementation(libs.androidx.room.runtime)
     testImplementation(libs.androidx.datastore.preferences)
+}
+
+// Refreshes the vendored ClearURLs rules and their licence (UI_DESIGN.md 10.11). Run by hand.
+tasks.register("updateClearUrls") {
+    description = "Downloads the latest ClearURLs rules into src/main/assets/clearurls"
+    doLast {
+        val dir = layout.projectDirectory.dir("src/main/assets/clearurls").asFile
+        dir.mkdirs()
+        mapOf(
+            "https://rules2.clearurls.xyz/data.minify.json" to "data.minify.json",
+            "https://raw.githubusercontent.com/ClearURLs/Rules/master/LICENSE" to "LICENSE",
+        ).forEach { (url, name) ->
+            URI(url).toURL().openStream().use { dir.resolve(name).outputStream().use { out -> it.copyTo(out) } }
+        }
+        println("ClearURLs rules refreshed; update the date in README.md")
+    }
 }

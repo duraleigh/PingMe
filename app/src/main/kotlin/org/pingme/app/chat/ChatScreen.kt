@@ -138,6 +138,7 @@ fun ChatRoute(
                     transcripts = viewModel.transcripts.takeIf { appSettings.media.transcribeVoice },
                     search = searchHooks(viewModel, searching, jump),
                     composer = composerHooks(viewModel, state, notice),
+                    cleanLink = { if (appSettings.privacy.cleanLinksReceived) viewModel.links.clean(it) else it },
                 ),
             modifier = modifier,
             snackbar = snackbar,
@@ -227,6 +228,7 @@ internal fun rowContext(
         actions.player,
         actions.settings.media.gifsAutoplay,
         actions.transcripts,
+        actions.cleanLink,
     )
 
 @Composable

@@ -62,6 +62,7 @@ class WorkersTest : ServiceTest() {
                             clock,
                             QuietAlarm(appContext, scheduled, clock),
                             router,
+                            QuietPreviews(appContext),
                         )
                     }
 

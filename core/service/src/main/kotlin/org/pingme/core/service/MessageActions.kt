@@ -64,6 +64,8 @@ class MessageActions
         private val scheduled: ScheduledSendRepository,
         private val alarm: SendAlarm,
         private val settings: org.pingme.core.store.SettingsRepository,
+        private val links: org.pingme.core.service.links.CleanLinks,
+        private val previews: org.pingme.core.service.links.PreviewRequests,
     ) {
         private val uploads = MutableStateFlow<Map<MessageId, Float>>(emptyMap())
 
@@ -92,6 +94,7 @@ class MessageActions
             attachments: List<OutgoingAttachment> = emptyList(),
         ): Message {
             val network = networkOf(chatId)
+            val text = cleaned(text)
             val pending =
                 pendingMessage(chatId, text, replyTo, replyToName, network, forceSms).let { message ->
                     val files = attachments.mapIndexed { i, a -> a.asAttachment(message.id, i) }
@@ -215,6 +218,7 @@ class MessageActions
             attachments: List<OutgoingAttachment> = emptyList(),
             replacing: Message? = null,
         ): Message {
+            val text = cleaned(text)
             val base =
                 replacing ?: pendingMessage(chatId, text, replyTo, replyToName, networkOf(chatId), forceSms = false)
             val files = replacing?.attachments ?: attachments.mapIndexed { i, a -> a.asAttachment(base.id, i) }
@@ -324,6 +328,7 @@ class MessageActions
                     sent.replaced(pending.id, result.message.message.id)
                     messages.delete(pending.id)
                     applier.apply(ConnectorEvent.NewMessage(pending.chatId.accountId, result.message))
+                    previews.request(result.message.message)
                     result.message.message
                 }
 
@@ -373,6 +378,17 @@ class MessageActions
             network == NetworkId.GMESSAGES -> Transport.RCS
             else -> Transport.NETWORK
         }
+
+        /** Outgoing links lose their tracking parameters when "Clean links I send" is on (UI_DESIGN.md 10.11). */
+        private suspend fun cleaned(text: String): String =
+            if (settings.app
+                    .first()
+                    .privacy.cleanLinksSent
+            ) {
+                links.cleanText(text)
+            } else {
+                text
+            }
 
         private suspend fun networkOf(chatId: ChatId) = accounts.get(chatId.accountId)?.network
 

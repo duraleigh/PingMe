@@ -2101,3 +2101,69 @@ passes. Not a code problem; noted so the next session does not chase it.
   with Allow (Android's own "Alarms and reminders" page for PingMe) and Not now
   (`ExactAlarmAsk`). The owner's phone has never been asked before because the old
   background job needed nothing.
+
+Pull requests: P4.1 merged at 11:18 AM. P4.2 was first opened stacked on the P4.1 branch;
+GitHub closed it when that branch was deleted on merge, so it was opened again against
+main (PR 27). Lesson kept: open stacked work against main.
+
+## P4.3 Media saving, link previews, clean links (2026-10-02, from 11:05 AM)
+
+- **Save to Photos (item 23):** the full-screen viewer has a download button top right;
+  `saveToGallery` writes the picture or video through the media store into
+  `Pictures/PingMe` or `Movies/PingMe`, which Photos shows as a "PingMe" album. No storage
+  permission is needed on Android 10 and newer. "Save all incoming media" already fetched
+  everything on arrival and copied it to the chosen folder (`MediaKeeper`); the plan's
+  "MediaStore for a public folder" is covered by the folder picker's document tree, which
+  works for public folders too.
+- **Link previews (UI_DESIGN.md 10.12):** `LinkPreviews.fetch` reads at most 1 MB of the
+  page with short timeouts, `OpenGraph.parse` takes the Open Graph, Twitter, or plain
+  title, description, and picture (picture capped at 2 MB, kept under `files/previews`),
+  and `LinkPreviewWorker` stores the result on the message when the network sent none.
+  "Generate link previews": Always, Only on Wi-Fi (an unmetered network), Never.
+  `PreviewRequests` asks for one when a fresh incoming message, a sent message, or a
+  scheduled send carries a link and no preview. Tests: `OpenGraphTest`, `LinkPreviewsTest`
+  (a one-shot local web server).
+- **Clean links (UI_DESIGN.md 10.11):** the ClearURLs rules (206 providers) are vendored
+  under `core/service/src/main/assets/clearurls/` with their LGPL-3.0 licence and a README
+  naming the source and date; `./gradlew :core:service:updateClearUrls` refreshes them.
+  `CleanLinks.clean` unwraps redirections, applies raw rules, and drops the named
+  parameters; `cleanText` does it for every link in a text. "Clean links I send" cleans
+  the text as it is sent or scheduled (`MessageActions`); "Clean links I receive" cleans
+  links as they are drawn (`linked(text, preview, clean)`), the stored message keeps the
+  original, which Copy and Forward carry. Tests: `CleanLinksTest` against the vendored
+  rules (utm parameters, Amazon referral tail, a Google redirect, a sign-in exception).
+  Not built: a long-press item that shows the original link (UI_DESIGN.md 10.11 mentions
+  it); the original is one Copy away, and the item can join the message menu later.
+
+## P4.4 Acceptance and Gate G3 (2026-10-02)
+
+Unit tests in place: router precedence and keyword matching (`NotificationDecisionTest`,
+`NotificationRouterTest`), one-time codes (`OneTimeCodesTest`), ClearURLs application
+(`CleanLinksTest`), the schedule parser (`WhenParserTest`, from P2), the exact alarm
+(`SendAlarmTest`), late sends (`WorkersTest`).
+
+**Gate G3 checklist, on the owner's phone** (the fixes from Gate G2 ride along):
+
+1. Get a text while PingMe is in the background: one notification, "Name: text", with
+   Reply and Mark read. Tap it: that chat opens at the new message and the notification
+   is gone. Get a picture: the notification says "Name sent a picture" and the picture is
+   already there when the chat opens; the log says how long it took.
+2. Have someone react to a message: no new notification.
+3. Open a chat and leave it open: a message arriving in it raises no notification.
+4. Chat details > Notifications > Sound: pick a sound; a text in that chat uses it.
+5. Settings > Notifications > Keywords: add a word; a text with it (from a muted chat too,
+   with Override on) notifies and names the word.
+6. Get a real one-time code: the notification offers "Copy code"; with "Auto-copy one-time
+   codes" on, the code is on the clipboard the moment it arrives.
+7. Settings > Notifications shows the Google Messages reminder at the top; the one-time
+   prompt appeared once on the inbox.
+8. Press and hold Send, schedule a message two minutes out, and swipe PingMe away
+   entirely: it goes on the minute. The first time, PingMe asks for "Alarms and
+   reminders"; allow it.
+9. Send yourself a link with tracking (for example one with `utm_source=` in it): the
+   sent bubble shows it cleaned, and a preview card appears under it with the page's title.
+10. Open a picture full screen, tap the download icon top right: it is in Photos under
+    "PingMe".
+11. From Gate G2: one bubble through a send, unread pinned tiles with the ring, pinned
+    layout at one, two, and four pins, the chat landing at the bottom, and the status bar
+    icon at full size.
