@@ -268,7 +268,10 @@ class ChatViewModel
                     chat = c,
                     account = a,
                     capabilities = a?.let { registry[it.network]?.capabilities },
-                    items = chatItems(newestFirst, unread?.let { firstUnread(newestFirst, it) }),
+                    items =
+                        chatItems(newestFirst, unread?.let { firstUnread(newestFirst, it) }) {
+                            messageActions.shownAs(it.id).value
+                        },
                     names = nameMap,
                     typing = typers.mapNotNull { nameMap[it] },
                     pinned = pins,

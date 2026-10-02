@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Status-bar icon: the launcher icon's chat bubble, in the single colour Android requires. -->
+<!--
+  Status-bar icon: the launcher icon's chat bubble, in the single colour Android requires.
+  Drawn to fill its 24 dp box, like every other app's, so it is the same size in the
+  status bar as Google Messages' (owner, Gate G2: it came out half the size).
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="24"
+    android:viewportHeight="24">
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M40,34 H68 A10,10 0 0 1 78,44 V60 A10,10 0 0 1 68,70 H46 L34,80 L37.5,69.7 A10,10 0 0 1 30,60 V44 A10,10 0 0 1 40,34 Z" />
+        android:pathData="M5.5,1 H18.5 A5,5 0 0 1 23.5,6 V14 A5,5 0 0 1 18.5,19 H8 L2,24 L3.75,18.85 A5,5 0 0 1 0.5,14 V6 A5,5 0 0 1 5.5,1 Z" />
 </vector>

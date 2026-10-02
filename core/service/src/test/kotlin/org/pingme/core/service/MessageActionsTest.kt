@@ -75,6 +75,21 @@ class MessageActionsTest : ServiceTest() {
         }
 
     @Test
+    fun aSentMessageIsShownUnderItsPendingId() =
+        runTest {
+            seed()
+            var sending: org.pingme.core.model.MessageId? = null
+            connector.sendResult = { draft ->
+                sending = draft.clientId
+                SendResult.Sent(messageSnapshot("net-1", body = draft.body!!, outgoing = true))
+            }
+            val sent = actions.send(chatId, "hi")
+            // The chat draws the network's copy under the pending bubble's id, so it is one bubble throughout.
+            assertEquals(sending, actions.shownAs(sent.id))
+            assertEquals("an id that was never pending is its own", sending, actions.shownAs(sending!!))
+        }
+
+    @Test
     fun actingOnTheSendingCopyActsOnTheSentMessage() =
         runTest {
             seed()

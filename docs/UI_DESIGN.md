@@ -85,8 +85,14 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 ```
 
 - **Pinned row**: horizontally scrolling tiles of the user's pinned chats, drawn with the
-  chosen shape family. An unread dot sits on the tile. Long-press to reorder or unpin.
+  chosen shape family. Long-press to reorder or unpin.
   Users can choose a grid, a row, or "pinned at top of list" style. Up to 12 pins.
+  In the grid, one or two pins sit centred, three to five share the width evenly, and
+  more wrap at five a line (owner, Gate G2). An unread tile must shout as loudly as an
+  unread row (owner, Gate G2: a dot alone was missed): a 3 dp ring in the primary colour
+  around the avatar, following the tile's shape, a 20 dp dot rimmed in the background
+  colour on its corner, and the name in bold primary colour. Muted chats use the
+  outline colour for all three.
 - **Top app bar**: has its own surface colour with rounded bottom corners, so the list
   scrolls underneath it cleanly, as Google Messages does (owner, Gate G1).
 - **List items**: avatar, name, last message preview, network badge, time, unread dot

@@ -1971,3 +1971,55 @@ out and were delivered; a photo and a screenshot arrived; a reaction arrived.
 their picture at once and stay; reacting to a photo keeps it; tapping a picture or video
 opens it in PingMe; Gallery, Camera, and File put the pick in the message box; the unread
 chat in the inbox is obvious; a sent text sits above the keyboard; no empty bubbles.
+
+## Gate G2, third round: screen fixes before Phase 4 (2026-10-02, from 9:12 AM)
+
+The owner finished the second session's list in the morning (items 17 to 26 below), checked
+item 9 of the checklist (Add account > Google Messages went from the Google account page
+straight to the emoji, no gibberish page; cancelled there, existing account untouched), and
+chose how the rest goes: the plain screen fixes ship first as their own build, and the
+notification and media items ride with Phase 4, all checked together at **Gate G3**. Gate
+G2 is therefore passed with those items carried forward. The owner's instructions for the
+work: a release on the private repository with the APK, the link emailed the moment it
+exists and posted in the chat, then Phase 4 straight away with a check-in every half hour.
+
+**Found in the second session, after item 16:**
+17. **Two bubbles when a send went through.** The pending bubble and the phone's copy have
+    different ids, so the list faded one out while the other faded in, overlapping.
+18. **Incoming pictures and videos took far too long** to fill in; the owner wants them
+    fetched on arrival and the notification to say "X sent a picture". (Phase 4.)
+19. **Pinned tiles showed nothing when unread** (the dot was missed).
+20. **New messages hid below the keyboard**, received ones too; a chat opened from a
+    notification should land on the newest message.
+21. **A reaction raised a "new message" notification.** (Phase 4.)
+22. Check marks only showed on tap: the owner's own Timestamps setting; dropped.
+23. **A download button in the full-screen viewer**, saving to a PingMe album in Photos.
+    (Phase 4.)
+24. **Pinned row layout**: three or four pins should fill the width, one or two sit centred.
+25. **Notifications did nothing when tapped and never cleared** on reading the chat. (Phase 4.)
+26. **The status bar icon was half the size** of Google Messages' and the debugging icon.
+
+**Fixed in this round (17, 19, 20, 24, 26):**
+- 17: `MessageActions.shownAs` gives the pending id a sent message replaced (`SentCopies`
+  keeps the reverse map); `chatItems` draws the phone's copy under that key, so Compose
+  updates one bubble in place; a key still owned by another message in the list is not
+  used, so keys stay unique (tests `aSentMessageKeepsThePendingBubblesKey`,
+  `aSentMessageIsShownUnderItsPendingId`). Everything else on the chat screen (touch
+  gating, bubble bounds, wobble, reveal, jump-to) goes by the message id, never the list
+  key; mixing them up made sent messages untouchable (caught by
+  `MessageActionsScreenTest`). Left as is: the rarer swap from a 20-second stand-in to the
+  phone's copy, which comes through the connector's events, not a send.
+- 19: `PinnedTile`: a 3 dp primary ring around the avatar in the tile's shape, a 20 dp
+  dot rimmed in the surface colour, the name bold in primary (UI_DESIGN.md 3.1).
+- 20: `StayAtBottom` scrolls to the newest message when one arrives while you are within
+  three items of the bottom (was one), and never before the list has content.
+- 24: `PinnedGrid`: one or two pins centred at 84 dp, three to five share the width, more
+  wrap at five (`PinnedGridTest`).
+- 26: `ic_stat_message` redrawn on a 24 dp viewport filling the box; before, the bubble
+  used the launcher icon's 108 canvas and filled under half of it.
+
+Phase 4 decisions from the owner, recorded here for P4.1 and P4.3: no button that opens
+Google Messages' notification settings, only a reminder under Settings > Notifications and
+a one-time prompt to turn them off by hand; scheduled sends keep the background job as the
+fallback when the exact-alarm permission is declined; the viewer's download goes to a
+"PingMe" album in Photos.
