@@ -119,13 +119,12 @@ class FakeWaSession(
     override fun connect() {
         if (!isLoggedIn()) throw IllegalStateException("NOT_LOGGED_IN: this phone number is not linked")
         connected = true
-        thread(isDaemon = true) {
-            emit(WaEvent.Connected(ownId(), ownPhone(), ownLid(), pushName()))
-            emit(WaEvent.History("RECENT", 100, samChat(), samHistory()))
-            emit(WaEvent.History("RECENT", 100, group(), emptyList()))
-            pending.forEach { emit(it) }
-            pending.clear()
-        }
+        // Delivered before connect returns, as a queued stream would be read right after connecting.
+        emit(WaEvent.Connected(ownId(), ownPhone(), ownLid(), pushName()))
+        emit(WaEvent.History("RECENT", 100, samChat(), samHistory()))
+        emit(WaEvent.History("RECENT", 100, group(), emptyList()))
+        pending.forEach { emit(it) }
+        pending.clear()
     }
 
     override fun disconnect() {
