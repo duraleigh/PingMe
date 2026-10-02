@@ -5,8 +5,11 @@ import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.MessageId
+import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.PersonId
 import org.pingme.core.model.Reaction
+import org.pingme.core.model.Space
+import kotlin.time.Instant
 
 /** Everything a live connection reports (DESIGN.md 6.2). Every event names its account. */
 sealed interface ConnectorEvent {
@@ -68,6 +71,35 @@ sealed interface ConnectorEvent {
     data class State(
         override val accountId: AccountId,
         val state: ConnectionState,
+    ) : ConnectorEvent
+
+    /** A message deleted for everyone on the network: its text and files go, a note stays (UI_DESIGN.md 5.3). */
+    data class MessageRevoked(
+        override val accountId: AccountId,
+        val chatId: ChatId,
+        val messageId: MessageId,
+    ) : ConnectorEvent
+
+    /** A message's text changed on the network (WhatsApp edits). */
+    data class MessageEdited(
+        override val accountId: AccountId,
+        val chatId: ChatId,
+        val messageId: MessageId,
+        val body: String,
+        val editedAt: Instant,
+    ) : ConnectorEvent
+
+    /** A delivery or read tick for one of your messages, without the whole message again. */
+    data class StatusChanged(
+        override val accountId: AccountId,
+        val messageId: MessageId,
+        val status: MessageStatus,
+    ) : ConnectorEvent
+
+    /** A network grouping of chats, such as a WhatsApp community, as it stands now (UI_DESIGN.md 10.4). */
+    data class SpaceUpdated(
+        override val accountId: AccountId,
+        val space: Space,
     ) : ConnectorEvent
 
     /** Older messages arriving in bulk (history sync). [complete] when nothing older is left. */

@@ -473,9 +473,11 @@ The phase number is kept so earlier notes still read; there is no Gate G4.
 Each connector follows the same shape as P3.2 and passes the contract test before its
 gate. Build in this order, one gate each (G5 to G10):
 
-1. **WhatsApp** (`whatsmeow` via the Go bridge): QR link, history sync, text/media,
-   reactions, replies, delete for everyone with time limit, communities exposed as
-   `Space`s, view-once media saved when delivered.
+1. **WhatsApp** (`whatsmeow` via the Go bridge): linked by the eight-character
+   "link with phone number" code, never by QR (owner, 2026-10-02); history sync,
+   text/media, reactions, replies, edits, delete for everyone with time limit,
+   communities exposed as `Space`s, view-once media saved when delivered. The device
+   keys live in a SQLite file per number through the pure Go driver (`modernc.org/sqlite`).
 2. **Telegram** (TDLib, built with its official Android build instructions into an
    AAR under `connectors/telegram/libs/`; if a maintained prebuilt exists on Maven
    Central at build time, prefer it and record the coordinates): phone + code login,

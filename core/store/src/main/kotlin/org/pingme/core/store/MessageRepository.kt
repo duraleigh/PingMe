@@ -129,6 +129,12 @@ class MessageRepository
             emoji: String,
         ) = dao.deleteReaction(messageId.value, senderId.value, emoji)
 
+        /** Every reaction [senderId] has on a message: a network that does not say which one went. */
+        suspend fun removeReactions(
+            messageId: MessageId,
+            senderId: PersonId,
+        ) = dao.deleteReactionsBy(messageId.value, senderId.value)
+
         suspend fun delete(id: MessageId) = dao.delete(id.value)
 
         /**

@@ -454,6 +454,12 @@ interface MessageDao {
     @Upsert
     suspend fun upsertReaction(reaction: ReactionEntity)
 
+    @Query("DELETE FROM reactions WHERE messageId = :messageId AND senderId = :senderId")
+    suspend fun deleteReactionsBy(
+        messageId: String,
+        senderId: String,
+    )
+
     @Query("DELETE FROM reactions WHERE messageId = :messageId AND senderId = :senderId AND emoji = :emoji")
     suspend fun deleteReaction(
         messageId: String,
