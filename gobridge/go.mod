@@ -4,6 +4,7 @@ module pingme.org/gobridge
 go 1.26.0
 
 require (
+	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/rs/zerolog v1.35.1
 	go.mau.fi/mautrix-gmessages v0.2609.0
 	go.mau.fi/util v0.10.1

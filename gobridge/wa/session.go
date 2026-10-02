@@ -22,7 +22,6 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
 
-	_ "modernc.org/sqlite" // The pure Go SQLite driver the device store runs on.
 )
 
 // EventSink receives every event as one JSON object. Kotlin implements it. Calls come
@@ -57,8 +56,7 @@ type Session struct {
 // yet: PairCode links it; IsLoggedIn says which.
 func NewSession(dbPath string, sink EventSink) (*Session, error) {
 	ctx := context.Background()
-	address := "file:" + dbPath + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)"
-	container, err := sqlstore.New(ctx, "sqlite", address, waLogger("store"))
+	container, err := sqlstore.New(ctx, "sqlite3", storeAddress(dbPath), waLogger("store"))
 	if err != nil {
 		return nil, fmt.Errorf("could not open the WhatsApp store: %w", err)
 	}

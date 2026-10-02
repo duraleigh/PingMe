@@ -2280,7 +2280,13 @@ phase); per-chat sound, keyword rules, and auto-copy still untested by the owner
 Built straight after the Gate G3 release, as the owner asked, with no phone access.
 
 - **Go bridge (`gobridge/wa`)**: whatsmeow `v0.0.0-20260929112325-8b41cfe6d9c4` with
-  `modernc.org/sqlite v1.60.1` (pure Go, so the device store needs no native SQLite).
+  `github.com/mattn/go-sqlite3` for the device store on the phone (C SQLite, built by
+  gomobile with the NDK) and `modernc.org/sqlite` standing in for `go test` on a
+  development machine (`driver_android.go`, `driver_host.go`). The pure Go driver was
+  the first choice everywhere and crashed the app the moment a store opened on the
+  x86_64 emulator: its libc makes the raw `stat` and `lstat` system calls, which
+  Android's app sandbox forbids on x86_64 (arm64 phones have no such calls, so it would
+  have worked there, but not a thing to ship on a guess).
   `NewSession(dbPath, sink)` opens one store per linked number; `PairCode(phone)`
   connects anonymously and asks for the eight-character code (`PairPhone`, shown as a
   Chrome companion); events come back as JSON (`connected`, `message`, `receipt`,
