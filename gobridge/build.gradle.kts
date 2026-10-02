@@ -28,6 +28,7 @@ val buildGoBridge =
         commandLine("./build.sh")
         androidHome?.let { environment("ANDROID_HOME", it) }
         inputs.dir(layout.projectDirectory.dir("gm"))
+        inputs.dir(layout.projectDirectory.dir("wa"))
         inputs.files("go.mod", "go.sum", "build.sh")
         outputs.file(goBridgeAar)
     }

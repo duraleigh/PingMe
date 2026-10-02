@@ -36,51 +36,71 @@ class EventApplier
     ) {
         suspend fun apply(event: ConnectorEvent) {
             when (event) {
-                is ConnectorEvent.NewMessage -> {
-                    applyNewMessage(event.message)
+                is ConnectorEvent.NewMessage -> applyNewMessage(event.message)
+                is ConnectorEvent.MessageUpdated -> saveMessage(event.message)
+                is ConnectorEvent.MessageRemoved -> messages.delete(event.messageId)
+                is ConnectorEvent.ReactionChanged -> applyReaction(event)
+                is ConnectorEvent.ReadReceipt -> messages.markOutgoingRead(event.chatId, event.upTo)
+                is ConnectorEvent.MessageRevoked -> applyRevoke(event)
+                is ConnectorEvent.MessageEdited -> applyEdit(event)
+                is ConnectorEvent.StatusChanged -> messages.updateStatus(event.messageId, event.status)
+                is ConnectorEvent.HistoryBatch -> applyHistory(event)
+                else -> applyChatEvent(event)
+            }
+        }
+
+        // Chats, typing, spaces, and the account's state: everything that is not a message.
+        private suspend fun applyChatEvent(event: ConnectorEvent) {
+            when (event) {
+                is ConnectorEvent.Typing -> typing.set(event.chatId, event.personId, event.typing)
+                is ConnectorEvent.ChatUpdated -> applyChat(event.chat)
+                is ConnectorEvent.ChatRemoved -> chats.delete(event.chatId)
+                is ConnectorEvent.State -> accounts.updateState(event.accountId, event.state)
+                is ConnectorEvent.SpaceUpdated -> applySpace(event.space)
+                else -> Unit
+            }
+        }
+
+        /** A reaction taken away with no emoji named (WhatsApp) drops whatever that sender had on it. */
+        private suspend fun applyReaction(event: ConnectorEvent.ReactionChanged) {
+            when {
+                event.removed && event.reaction.emoji.isEmpty() -> {
+                    messages.removeReactions(event.messageId, event.reaction.senderId)
                 }
 
-                is ConnectorEvent.MessageUpdated -> {
-                    saveMessage(event.message)
+                event.removed -> {
+                    messages.removeReaction(event.messageId, event.reaction.senderId, event.reaction.emoji)
                 }
 
-                is ConnectorEvent.MessageRemoved -> {
-                    messages.delete(event.messageId)
-                }
-
-                is ConnectorEvent.ReactionChanged -> {
-                    if (event.removed) {
-                        messages.removeReaction(event.messageId, event.reaction.senderId, event.reaction.emoji)
-                    } else {
-                        messages.addReaction(event.messageId, event.reaction)
-                        announceIfFromSomeoneElse(event)
-                    }
-                }
-
-                is ConnectorEvent.ReadReceipt -> {
-                    messages.markOutgoingRead(event.chatId, event.upTo)
-                }
-
-                is ConnectorEvent.Typing -> {
-                    typing.set(event.chatId, event.personId, event.typing)
-                }
-
-                is ConnectorEvent.ChatUpdated -> {
-                    applyChat(event.chat)
-                }
-
-                is ConnectorEvent.ChatRemoved -> {
-                    chats.delete(event.chatId)
-                }
-
-                is ConnectorEvent.State -> {
-                    accounts.updateState(event.accountId, event.state)
-                }
-
-                is ConnectorEvent.HistoryBatch -> {
-                    applyHistory(event)
+                else -> {
+                    messages.addReaction(event.messageId, event.reaction)
+                    announceIfFromSomeoneElse(event)
                 }
             }
+        }
+
+        /** Deleted for everyone: the text and files go, "This message was deleted" stays (UI_DESIGN.md 5.3). */
+        private suspend fun applyRevoke(event: ConnectorEvent.MessageRevoked) {
+            val message = messages.get(event.messageId) ?: return
+            messages.upsert(
+                message.copy(
+                    body = null,
+                    kind = org.pingme.core.model.MessageKind.DELETED,
+                    attachments = emptyList(),
+                    deletedForEveryone = true,
+                ),
+            )
+        }
+
+        private suspend fun applyEdit(event: ConnectorEvent.MessageEdited) {
+            val message = messages.get(event.messageId) ?: return
+            messages.upsert(message.copy(body = event.body, editedAt = event.editedAt))
+        }
+
+        /** A network space; the user's own choices for it (icon, whether it shows in All) stay. */
+        private suspend fun applySpace(space: org.pingme.core.model.Space) {
+            val own = chats.space(space.id)
+            chats.upsertSpace(own?.let { space.copy(icon = it.icon, showInAll = it.showInAll) } ?: space)
         }
 
         /**

@@ -2274,3 +2274,78 @@ release from the emailed link and tests alone.
 
 Not in this round, for later phases: a generic avatar for unknown numbers (contacts
 phase); per-chat sound, keyword rules, and auto-copy still untested by the owner.
+
+## Phase 6, network 1: WhatsApp (2026-10-02, evening)
+
+Built straight after the Gate G3 release, as the owner asked, with no phone access.
+
+- **Go bridge (`gobridge/wa`)**: whatsmeow `v0.0.0-20260929112325-8b41cfe6d9c4` with
+  `github.com/mattn/go-sqlite3` for the device store on the phone (C SQLite, built by
+  gomobile with the NDK) and `modernc.org/sqlite` standing in for `go test` on a
+  development machine (`driver_android.go`, `driver_host.go`). The pure Go driver was
+  the first choice everywhere and crashed the app the moment a store opened on the
+  x86_64 emulator: its libc makes the raw `stat` and `lstat` system calls, which
+  Android's app sandbox forbids on x86_64 (arm64 phones have no such calls, so it would
+  have worked there, but not a thing to ship on a guess).
+  `NewSession(dbPath, sink)` opens one store per linked number; `PairCode(phone)`
+  connects anonymously and asks for the eight-character code (`PairPhone`, shown as a
+  Chrome companion); events come back as JSON (`connected`, `message`, `receipt`,
+  `history` per conversation, `typing`, `group`, `chatRead`, `loggedOut`,
+  `temporaryBan`, ...). Requests: `SendText`, `SendMedia` (upload then the right proto per
+  kind: image, video, GIF, voice note as push-to-talk, audio, document, sticker),
+  `SendReaction`, `Revoke`, `Edit`, `MarkRead`, `SetTyping`, `Download` (by direct path
+  and keys, so no proto is kept), `RequestHistory` (on-demand pages), `CheckNumber`,
+  `CreateGroup`, `Block`, `ListGroups`, `Contacts`. `convert.go` flattens every message
+  shape into one `Message` JSON; `convert_test.go` covers text with reply, media, voice,
+  GIF, reaction, revoke, edit, and groups in a community. `build.sh` binds `./gm ./wa`.
+- **Kotlin (`connectors/whatsapp`)**: the same shape as Google Messages. `WaBridge` and
+  `GomobileWaBridge` (the gomobile classes; `ProfilePictureURL` keeps gomobile's name),
+  `WaJson` (the DTOs and the sealed `WaEvent`), `WaTranslate` (ids: a chat is its
+  WhatsApp id, a message is `<chat>/<id>`; chats, members, names from the address book,
+  the account's own phone and hidden ids; a bounded memory of seen messages for ticks,
+  reactions, and read markers; a per-chat memory of recent messages for history pages),
+  `WhatsappSession` (connect, list groups, spaces from communities, history pages first
+  from memory then from the phone, sends with one file per message and the text as the
+  first file's caption, reactions, revokes, edits, read markers, typing, downloads;
+  places and contacts are written from the message itself), `WhatsappConnector`,
+  `WhatsappLogin` (number, then the code shown large with the path to type it, then
+  Done; the credential ref `whatsapp/<digits>` names the store), `WhatsappModule`.
+- **New connector events**, applied by `EventApplier`: `MessageRevoked` (text and files
+  go, "This message was deleted" stays), `MessageEdited`, `StatusChanged` (a delivery or
+  read tick without the whole message), `SpaceUpdated` (a community; the user's icon and
+  "show in All" choices are kept).
+- **Capabilities**: native replies, delete for me, delete for everyone within 2 days,
+  any emoji, native GIFs and voice notes, typing, read receipts, edit within 15 minutes,
+  start a chat and make a group, block, several numbers, calls through the WhatsApp
+  entry in the phone's contacts.
+- **Tests**: `WaTranslateTest` (ids and names, media and voice, reactions, revokes,
+  edits, receipts only on your own messages and never backwards, history order and the
+  page memory, communities as spaces), `WhatsappContractTest` against `FakeWaBridge`
+  (a pretend WhatsApp that links with any number, brings a short history on connect,
+  queues what arrives before the connection is up, and records sends, reactions, and
+  revokes).
+- **Limits, written down**: history older than what the session has seen is fetched from
+  the phone only while PingMe remembers the anchor message (after a restart the history
+  ends where the store ends); the first page of a chat asked for right after connecting
+  waits up to 3 seconds for the history sync. View-once media arrives marked ephemeral
+  and downloads like any other picture, which is the "saved when delivered" the plan
+  asks for. No QR path exists, by the owner's decision. Not tried against WhatsApp
+  itself: the owner links a real number at Gate G5.
+
+**Gate G5 checklist, on the owner's phone:**
+
+1. Settings > Accounts > Add account > WhatsApp: type your number with the country
+   code; PingMe shows an eight-character code. On the phone: WhatsApp > Linked devices >
+   Link a device > Link with phone number instead; type the code. PingMe says Done and
+   the inbox fills with your WhatsApp chats and recent history (groups first, then
+   people as the history lands).
+2. Send a text, a picture, and a voice note from PingMe; they appear in WhatsApp on the
+   phone and the other side. Ticks turn delivered and read.
+3. Get a text, a picture, a voice note, and a reaction: the message shows in PingMe with
+   a notification; the reaction lands on its message; typing shows in the header.
+4. Reply to a message: the quote shows on both sides. React from PingMe. Edit one of
+   your messages within 15 minutes. Delete one for everyone: both sides show it gone.
+5. A community's groups show under one space in the bottom bar (add the space in
+   Settings > Inbox bar).
+6. Swipe PingMe away and get a message: the notification still comes (the connection
+   lives in the service).

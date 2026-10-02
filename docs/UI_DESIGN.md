@@ -210,6 +210,11 @@ Covered in DESIGN.md section 5.4. Visually: full-screen steps, one decision per
 screen, a shape-morphing loading indicator while waiting for Google Messages to confirm,
 and the emoji-match step shows the emoji at display size.
 
+WhatsApp links by phone number only (owner, 2026-10-02): the number with its country
+code, then the eight-character code shown at display size with the path to type it on
+the phone (WhatsApp > Linked devices > Link a device > Link with phone number instead),
+then Done. There is no QR step.
+
 ### 3.7 Adaptive layouts
 
 - Phones: single pane, bottom navigation bar.
