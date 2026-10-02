@@ -2349,3 +2349,71 @@ Built straight after the Gate G3 release, as the owner asked, with no phone acce
    Settings > Inbox bar).
 6. Swipe PingMe away and get a message: the notification still comes (the connection
    lives in the service).
+
+**Release v0.4.0, first try (2026-10-02, 5:47 PM):** GitHub's build of the tag failed:
+`historyPagesBackwardsNewestFirst` in the WhatsApp contract test asked for the first page
+before the pretend network's history had landed on the slow runner (the wait was 3 s). The
+wait is now 10 s, and the fake delivers its history before `connect` returns, as a queued
+stream would. The tag was moved to the fixed commit and built again.
+
+## Phase 6, network 2: Instagram (2026-10-02, evening)
+
+- **Library**: `github.com/mautrix/instagram` turned out to be the old Python bridge, not a
+  Go module. The Go code lives in `go.mau.fi/mautrix-meta v0.2609.0`: `pkg/instameow`
+  is the Instagram direct-message client (the "split" the plan expected), with
+  `pkg/messagix/cookies`, `httpclient`, and `methods` beside it. It pins a fork of its
+  HTTP library through a `replace` rule, which `gobridge/go.mod` now carries too
+  (`github.com/imroc/req/v3` to `github.com/beeper/req/v3`); without it the build broke on
+  a newer QUIC library.
+- **Go bridge (`gobridge/ig`)**: `NewSession(cookiesJSON, sink)` takes the instagram.com
+  cookies (sessionid, csrftoken, ds_user_id, and the rest when present); `Connect` loads
+  the inbox (one `thread` event per conversation with its newest messages, then
+  `inboxLoaded`) and keeps the live connection up; `ListThreads("INBOX" or "PENDING",
+  cursor)` pages the inbox and the request queue; `Thread`, `Messages` (older than a
+  message), `SendText`, `SendMedia` (upload through the website's upload endpoint, then
+  send), `SendReaction`, `Unsend`, `Edit`, `MarkRead` (the website's two calls),
+  `SetTyping`, `AcceptRequest`, `DeleteThread`, `Download` (signed CDN links), and
+  `SearchUsers`. Instagram keys a thread by two ids (a short "fbid" and a long one);
+  the bridge keeps both and fetches the pair when a listing has not said. Events: text,
+  pictures, videos, GIFs and stickers, voice notes, view-once media (and the note when
+  Instagram no longer shows one), shared posts and reels as link cards, reactions, edits,
+  unsends, read markers, read receipts, folder moves, typing, sign-out.
+- **Kotlin (`connectors/instagram`)**: the same shape as the other two. Folders
+  (UI_DESIGN.md 6.4): a thread whose system folder is PENDING, SPAM, or HIDDEN_REQUESTS
+  is a request; a folder named GENERAL is General; the rest is Primary. Unread: marked
+  unread by Instagram, or a message from someone else after the account's own read
+  receipt. Requests are accepted or declined through the bridge; the request queue is
+  listed on every connect and sync. Capabilities: native replies, delete for me, unsend
+  any time, any emoji, GIFs and voice notes, typing, read receipts, edit within 15
+  minutes, folders, several accounts; calls open the thread. Not built this round, and
+  shown disabled with the reason: starting a chat and making a group from PingMe,
+  blocking, and moving a chat between Primary and General (the website's own interface
+  has no such move; Instagram's app does it).
+- **Sign-in**: the instagram.com sign-in page in the in-app browser; the user taps Done
+  once on the home feed; the cookies are checked by opening a session, then saved under
+  `instagram/<user id>`. Refreshed cookies are saved again whenever a connection reports
+  them.
+- **Tests**: `IgTranslateTest` (folders, people and unread, history order, media, shares
+  as cards, reactions, unsends, read receipts, a request moving to Primary),
+  `InstagramContractTest` against `FakeIgBridge`.
+- **Emulator finding**: the instagram.com sign-in page loads in the in-app browser (its
+  fields and buttons are all there in the view tree, at full size) but paints white on
+  the emulator, while the emulator's Chrome paints it. Google's sign-in page paints fine
+  in the same browser. Wide viewport, overview mode, and software rendering changed
+  nothing, so it looks like the emulator's graphics and Instagram's page, not the
+  browser setup; the phone's real graphics should paint it. In case it does not, the
+  sign-in now falls back to pasting the cookies from any browser (a `Cookie:` header,
+  a cURL command, or JSON), the way the reference bridge takes them.
+- Not tried against Instagram itself: the owner signs in at Gate G6.
+
+**Gate G6 checklist, on the owner's phone:**
+
+1. Settings > Accounts > Add account > Instagram: sign in on the page that opens, tap
+   Done on the home feed. The inbox fills with your Instagram chats; the bottom bar's
+   Instagram button long-press offers Primary only, General only, or both; the Requests
+   row shows the request queue.
+2. Send a text and a picture; get a text, a picture, a voice note, a reaction, and a
+   shared reel (it shows as a card). Typing shows in the header.
+3. Reply, react, edit within 15 minutes, unsend: both sides match.
+4. Accept one request and decline another.
+5. Settings > Accounts > Instagram > "Show General in All" off: General chats leave All.

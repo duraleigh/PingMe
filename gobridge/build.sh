@@ -16,7 +16,7 @@ out=build/gobridge.aar
 stamp=build/gobridge.aar.sha256
 targets="${GOBRIDGE_TARGETS:-android/arm64,android/amd64,android/arm}"
 
-hash=$(find go.mod go.sum gm wa build.sh -type f ! -path 'build/*' -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+hash=$(find go.mod go.sum gm wa ig build.sh -type f ! -path 'build/*' -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
 if [ "${1:-}" != "--force" ] && [ -f "$out" ] && [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$hash" ]; then
   echo "gobridge.aar is up to date"
   exit 0
@@ -40,6 +40,6 @@ go test ./...
 
 echo "Binding the Go bridge for $targets (first build: several minutes)"
 mkdir -p build
-gomobile bind -target "$targets" -androidapi 29 -javapkg org.pingme.gobridge -o "$out" ./gm ./wa
+gomobile bind -target "$targets" -androidapi 29 -javapkg org.pingme.gobridge -o "$out" ./gm ./wa ./ig
 echo "$hash" > "$stamp"
 ls -l "$out"
