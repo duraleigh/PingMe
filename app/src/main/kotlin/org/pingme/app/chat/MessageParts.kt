@@ -74,18 +74,17 @@ internal fun ColumnScope.SenderName(name: String) {
     )
 }
 
-/** "This one fell back to SMS" (UI_DESIGN.md 10.1). */
+/** "This one went as SMS" or MMS (UI_DESIGN.md 10.1), small, where the status marks would be. */
 @Composable
-internal fun SmsTag() {
+internal fun TransportTag(transport: Transport) {
     Text(
-        "SMS",
+        if (transport == Transport.MMS) "MMS" else "SMS",
         Modifier
-            .padding(bottom = 4.dp)
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
-            .padding(horizontal = 6.dp, vertical = 1.dp),
+            .background(LocalContentColor.current.copy(alpha = QUOTE_TINT), RoundedCornerShape(4.dp))
+            .padding(horizontal = 4.dp, vertical = 0.dp),
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.ExtraBold,
-        color = MaterialTheme.colorScheme.onSurface,
+        color = LocalContentColor.current.copy(alpha = FADED),
     )
 }
 

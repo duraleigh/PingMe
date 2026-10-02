@@ -9,6 +9,7 @@ import org.pingme.core.connector.remoteId
 import org.pingme.core.model.AvatarSource
 import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatKind
+import org.pingme.core.model.Message
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
@@ -31,6 +32,7 @@ class EventApplier
         private val contacts: ContactRepository,
         private val typing: TypingTracker,
         private val reactionFeed: ReactionFeed,
+        private val tapbacks: Tapbacks,
     ) {
         suspend fun apply(event: ConnectorEvent) {
             when (event) {
@@ -76,7 +78,22 @@ class EventApplier
                 }
 
                 is ConnectorEvent.HistoryBatch -> {
-                    event.messages.forEach { saveMessage(it) }
+                    applyHistory(event)
+                }
+            }
+        }
+
+        /**
+         * Older messages land first, then the reaction texts among them become reactions on
+         * what they refer to, which is now in the store (iPhone tapbacks over SMS; owner, Gate G3).
+         */
+        private suspend fun applyHistory(event: ConnectorEvent.HistoryBatch) {
+            val (reactions, plain) = event.messages.partition { Tapbacks.parse(it.message.body.orEmpty()) != null }
+            plain.forEach { saveMessage(it) }
+            reactions.forEach { snapshot ->
+                when (val reaction = tapbacks.asReaction(snapshot.message)) {
+                    null -> saveMessage(snapshot)
+                    else -> apply(reaction)
                 }
             }
         }
@@ -101,6 +118,7 @@ class EventApplier
         private suspend fun applyNewMessage(snapshot: MessageSnapshot) {
             saveMessage(snapshot)
             val message = snapshot.message
+            if (message.isOutgoing) retireStandIns(message)
             snapshot.sender?.let { typing.set(message.chatId, it.id, typing = false) }
             chats.update(message.chatId) { chat ->
                 chat.copy(
@@ -110,6 +128,20 @@ class EventApplier
                     isArchived = chat.isArchived && message.isOutgoing,
                 )
             }
+        }
+
+        /**
+         * The network's own copy of a sent message has come: a stand-in the connector showed
+         * for it (same chat, same text, same number of files) goes, even when the connector
+         * itself has forgotten the send, as after a restart (owner, Gate G3: a scheduled SMS
+         * showed twice).
+         */
+        private suspend fun retireStandIns(message: Message) {
+            if (message.networkRemoteId.startsWith(STAND_IN_PREFIX)) return
+            messages
+                .standIns(message.chatId, STAND_IN_PREFIX)
+                .filter { it.body == message.body && it.attachments.size == message.attachments.size }
+                .forEach { messages.delete(it.id) }
         }
 
         private suspend fun saveMessage(snapshot: MessageSnapshot) {
@@ -140,6 +172,9 @@ class EventApplier
             ).toNewChat()
         }
     }
+
+/** How connectors mark the remote id of a stand-in they show while the network's copy is slow. */
+const val STAND_IN_PREFIX = "tmp/"
 
 private fun Chat.withSnapshot(s: ChatSnapshot) =
     copy(

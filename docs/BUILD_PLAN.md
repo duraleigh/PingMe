@@ -360,9 +360,10 @@ Storage (save all media, folder), Spaces, Backup.
 
 ### P2.7 Setup flow
 
-Mode choice (Google Messages mode or Native SMS mode), permissions with plain
-explanations, battery optimisation exemption request, contacts permission for
-avatars, then the first connector's login flow rendered from `LoginStep`s.
+Permissions with plain explanations, battery optimisation exemption request, contacts
+permission for avatars, then the first connector's login flow rendered from
+`LoginStep`s. (The Google Messages versus native SMS choice that opened setup was
+removed at Gate G3, 2026-10-02: Google Messages is the one way texts reach PingMe.)
 
 ### P2.8 Acceptance for Phase 2
 
@@ -454,14 +455,16 @@ scheduled send while the app is closed, link preview, cleaned link.
 
 ---
 
-## 6. Phase 5: native SMS mode
+## 6. Phase 5: removed (native SMS mode, roadmap only)
 
-- `RoleManager.ROLE_SMS` request, `SmsReceiver`, `MmsReceiver`, `HeadlessSmsSendService`,
-  `SmsManager` send with multipart, MMS via `SmsManager.sendMultimediaMessage` and
-  the platform's MMS content provider; read history from `Telephony.Sms` and
-  `Telephony.Mms`.
-- Mode switch in Settings with the RCS trade-off explained.
-- **Gate G4**: owner switches modes both ways, sends and receives SMS and MMS.
+Native SMS mode (PingMe as the phone's texting app: `RoleManager.ROLE_SMS`,
+`SmsReceiver`, `MmsReceiver`, `HeadlessSmsSendService`, `SmsManager` sends, history
+from `Telephony.Sms` and `Telephony.Mms`, a mode switch in Settings) was taken out of
+the plan by the owner on 2026-10-02 at Gate G3. Google Messages is the one way texts
+reach PingMe, so there is no mode choice in setup or Settings. The idea stays on the
+roadmap for after the Android app is finished, together with a desktop app (its own
+pairings, with device sync) and Android chat bubbles (pending the owner's decision).
+The phase number is kept so earlier notes still read; there is no Gate G4.
 
 ---
 

@@ -449,6 +449,20 @@ Behaviour the owner set at Gate G2 (2026-10-02):
   the moment they arrive, so they are there when the chat opens.
 - A keyword match is named under the notification ("Keyword: urgent").
 
+Behaviour the owner set at Gate G3 (2026-10-02):
+- With PingMe open on any screen but that chat, a message makes its sound and nothing
+  lands in the shade. The chat on screen stays silent.
+- A chat read elsewhere (on the phone, in Google Messages) or deleted takes its
+  notification down, and the group line goes with the last one.
+- A picture's notification says "sent a picture" with no "downloading" note, and shows the
+  picture once it is in. Pictures are fetched the moment Google Messages has finished
+  fetching them itself, with no retry wait.
+- An iPhone reaction that arrives as text over SMS ("Loved an image", "Laughed at “…”")
+  lands as a reaction on the message it means, never as a bubble, and never notifies.
+- Google Messages is one network, named "Google Messages" everywhere; RCS, SMS, and MMS are
+  how a message travelled. RCS, SMS, and MMS with one number are one thread (the phone can
+  keep two conversations for one person); no other network ever folds chats on its own.
+
 ### 6.3 Avoiding double notifications
 
 In Google Messages mode both apps would notify for every text. PingMe reminds the user to
@@ -596,14 +610,13 @@ has a network badge next to it.
 | Network | Signature | Light-mode bubble | Note |
 |---|---|---|---|
 | Google Messages, RCS | Device dynamic primary | Primary container, full saturation | Follows the phone's theme |
-| Google Messages, SMS fallback | Same hue, desaturated | Primary container at reduced chroma, outlined edge, "SMS" tag on the bubble | Instantly reads as "this one fell back" |
+| Google Messages, SMS or MMS | Same hue, desaturated | Primary container at reduced chroma, outlined edge, a small "SMS" or "MMS" tag where the status marks sit (RCS bubbles keep the marks; incoming SMS and MMS get the tag too) | Instantly reads as "this one went the old way" (owner, Gate G3) |
 | WhatsApp | Bright green | Light mint tint | |
 | Google Voice | Deep teal-green | Light teal tint, darker text | Clearly a different green from WhatsApp |
 | Signal | Signal blue | Light periwinkle tint | |
 | Telegram | Sky blue | Light sky tint | Lighter and cooler than Signal |
 | Messenger | Messenger blue-violet | Light lavender-blue tint | Between Signal and Instagram |
 | Instagram | Magenta-pink | Light pink tint | |
-| Native SMS mode | Neutral | Surface container highest | |
 
 All of these are defaults. The Appearance studio can override any network's colour,
 and a per-chat override wins over both.

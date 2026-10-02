@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -28,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
 import org.pingme.app.inbox.EditBarSheet
@@ -137,6 +139,7 @@ private fun SpaceDialog(
                     Modifier.fillMaxWidth(),
                     label = { Text(stringResource(R.string.spaces_name)) },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 )
                 SettingsSectionHeader(stringResource(R.string.spaces_icon))
                 IconPicker(draft.icon) { draft = draft.copy(icon = it) }

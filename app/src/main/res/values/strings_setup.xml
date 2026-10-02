@@ -6,13 +6,6 @@
     <string name="setup_allow">Allow</string>
     <string name="setup_step">Step %1$d of %2$d</string>
 
-    <string name="setup_mode_title">How should texts reach PingMe?</string>
-    <string name="setup_mode_gm">Google Messages mode</string>
-    <string name="setup_mode_gm_badge">Recommended</string>
-    <string name="setup_mode_gm_body">Google Messages stays your texting app and keeps RCS on. PingMe pairs with it and gets your RCS, SMS, and MMS through it. PingMe asks for no SMS permissions.</string>
-    <string name="setup_mode_sms">Native SMS mode</string>
-    <string name="setup_mode_sms_body">PingMe becomes your texting app. SMS and MMS never disconnect, but RCS is off, because Google Messages turns it off when it is not the texting app.</string>
-    <string name="setup_mode_later">You can change this later in Settings.</string>
 
     <string name="setup_notify_title">Get told about new messages</string>
     <string name="setup_notify_body">PingMe shows a notification when a message comes in, and one quiet notification while it stays connected. Android asks you to allow this.</string>

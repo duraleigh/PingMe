@@ -94,7 +94,8 @@ internal fun AttachmentView(
                 VideoFrame(attachment, view)
             }
 
-            AttachmentKind.VOICE -> {
+            // Any audio plays in the bubble: play, waveform, length (owner, Gate G3).
+            AttachmentKind.VOICE, AttachmentKind.AUDIO -> {
                 VoiceBubble(attachment, player, transcripts = transcripts)
             }
 

@@ -21,7 +21,7 @@ import kotlin.time.toJavaInstant
 val NetworkId.displayName: String
     get() =
         when (this) {
-            NetworkId.GMESSAGES -> "RCS"
+            NetworkId.GMESSAGES -> "Google Messages"
             NetworkId.SMS -> "SMS"
             NetworkId.WHATSAPP -> "WhatsApp"
             NetworkId.TELEGRAM -> "Telegram"
@@ -34,24 +34,57 @@ val NetworkId.displayName: String
         }
 
 /**
- * The short badge on an inbox row. Google Messages shows RCS or SMS by how the newest
- * message went (UI_DESIGN.md 10.1).
+ * The short badge on an inbox row. Google Messages is the network; its badge says how the
+ * newest message went, RCS, SMS, or MMS (UI_DESIGN.md 10.1; owner, Gate G3).
  */
 fun badgeLabel(
     network: NetworkId,
     transport: Transport?,
 ): String =
     when (network) {
-        NetworkId.GMESSAGES -> if (transport == Transport.SMS) "SMS" else "RCS"
-        NetworkId.SMS -> "SMS"
-        NetworkId.WHATSAPP -> "WA"
-        NetworkId.TELEGRAM -> "TG"
-        NetworkId.SIGNAL -> "Signal"
-        NetworkId.GVOICE -> "Voice"
-        NetworkId.INSTAGRAM -> "IG"
-        NetworkId.MESSENGER -> "FB"
-        NetworkId.FBPAGE -> "Page"
-        NetworkId.DEMO -> "Demo"
+        NetworkId.GMESSAGES -> {
+            when (transport) {
+                Transport.SMS -> "SMS"
+                Transport.MMS -> "MMS"
+                else -> "RCS"
+            }
+        }
+
+        NetworkId.SMS -> {
+            "SMS"
+        }
+
+        NetworkId.WHATSAPP -> {
+            "WA"
+        }
+
+        NetworkId.TELEGRAM -> {
+            "TG"
+        }
+
+        NetworkId.SIGNAL -> {
+            "Signal"
+        }
+
+        NetworkId.GVOICE -> {
+            "Voice"
+        }
+
+        NetworkId.INSTAGRAM -> {
+            "IG"
+        }
+
+        NetworkId.MESSENGER -> {
+            "FB"
+        }
+
+        NetworkId.FBPAGE -> {
+            "Page"
+        }
+
+        NetworkId.DEMO -> {
+            "Demo"
+        }
     }
 
 /** "now", a time today, a weekday this week, or a date (UI_DESIGN.md 3.1). */

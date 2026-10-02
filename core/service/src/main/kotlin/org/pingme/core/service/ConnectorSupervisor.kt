@@ -46,6 +46,7 @@ class ConnectorSupervisor
         private val retryDelays: RetryDelays,
         private val housekeeping: StoreHousekeeping,
         private val previews: org.pingme.core.service.links.PreviewRequests,
+        private val tapbacks: Tapbacks,
         @ApplicationScope private val scope: CoroutineScope,
     ) {
         private val sessions = mutableMapOf<AccountId, Job>()
@@ -72,7 +73,11 @@ class ConnectorSupervisor
             }
         }
 
-        /** The phone's network changed: waiting retries go now, from the first backoff step. */
+        /**
+         * The phone's network changed: waiting retries go now, from the first backoff step,
+         * and a live connection is dropped and opened again at once, since the old one may
+         * be dead without saying so (owner, Gate G3: stale connections after a Wi-Fi change).
+         */
         fun onNetworkChanged() {
             networkChanges.update { it + 1 }
         }
@@ -95,9 +100,22 @@ class ConnectorSupervisor
                 // Noted as soon as the session ends, so a network change from then on is never missed.
                 val seen = networkChanges.value
                 when (outcome) {
-                    Outcome.ActionNeeded -> return
-                    Outcome.Dropped -> attempt = 0
-                    Outcome.Failed -> Unit
+                    Outcome.ActionNeeded -> {
+                        return
+                    }
+
+                    Outcome.Dropped -> {
+                        attempt = 0
+                    }
+
+                    Outcome.Failed -> {
+                        Unit
+                    }
+
+                    Outcome.NetworkChanged -> {
+                        attempt = 0
+                        continue
+                    }
                 }
                 attempt++
                 val wait = retryDelays.delayFor(attempt)
@@ -115,33 +133,28 @@ class ConnectorSupervisor
         ): Outcome {
             val creds = loadCredentials(account) ?: return actionNeeded(account.id, "Sign in again", null)
             var connected = false
+            var networkChanged = false
+            val networkAtStart = networkChanges.value
             return try {
-                connector.connect(account, creds).collect { event ->
-                    if (event is ConnectorEvent.State) {
-                        val state = event.state
-                        if (state is ConnectionState.ActionNeeded) {
-                            throw ActionNeededException(
-                                state.reason,
-                                state.deepLink,
-                            )
+                kotlinx.coroutines.coroutineScope {
+                    // A network change while connected closes the session; it is opened again at once.
+                    val watcher =
+                        launch {
+                            networkChanges.first { it != networkAtStart }
+                            networkChanged = true
+                            connector.disconnect(account.id)
                         }
-                        if (state == ConnectionState.Connected && !connected) {
-                            connected = true
-                            val chats = connector.syncChats(account.id)
-                            applier.applyChats(chats)
-                            history.chatsArrived(chats)
-                        }
-                    }
-                    // Fresh is decided before the store has the message; the notification goes after.
-                    val fresh = router.isFresh(event)
-                    applier.apply(event)
-                    router.onEvent(event, fresh)
-                    if (event is ConnectorEvent.NewMessage) {
-                        keeper.arrived(event.message.message)
-                        if (fresh) previews.request(event.message.message)
+                    try {
+                        collectSession(account, connector, creds) { connected = true }
+                    } finally {
+                        watcher.cancel()
                     }
                 }
-                if (connected) Outcome.Dropped else Outcome.Failed
+                when {
+                    networkChanged && connected -> Outcome.NetworkChanged
+                    connected -> Outcome.Dropped
+                    else -> Outcome.Failed
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ActionNeededException) {
@@ -153,7 +166,61 @@ class ConnectorSupervisor
                 // Google Messages, a socket closed while the phone slept. Logged on the
                 // phone only (no telemetry, DESIGN.md 6.5).
                 Log.w(TAG, "${account.network} connection ended; retrying", e)
-                if (connected) Outcome.Dropped else Outcome.Failed
+                when {
+                    networkChanged && connected -> Outcome.NetworkChanged
+                    connected -> Outcome.Dropped
+                    else -> Outcome.Failed
+                }
+            }
+        }
+
+        /** Every event of one connection into the store, until the connection ends. */
+        private suspend fun collectSession(
+            account: Account,
+            connector: org.pingme.core.connector.Connector,
+            creds: Credentials,
+            onConnected: () -> Unit,
+        ) {
+            var connected = false
+            connector.connect(account, creds).collect { raw ->
+                // An iPhone reaction sent as text lands on the message it means, not as a bubble.
+                val event = tapbacks.rewrite(raw)
+                if (event is ConnectorEvent.State) {
+                    val state = event.state
+                    if (state is ConnectionState.ActionNeeded) {
+                        throw ActionNeededException(
+                            state.reason,
+                            state.deepLink,
+                        )
+                    }
+                    if (state == ConnectionState.Connected && !connected) {
+                        connected = true
+                        onConnected()
+                        val chats = connector.syncChats(account.id)
+                        applier.applyChats(chats)
+                        history.chatsArrived(chats)
+                    }
+                }
+                // Fresh is decided before the store has the message; the notification goes after.
+                val fresh = router.isFresh(event)
+                applier.apply(event)
+                router.onEvent(event, fresh)
+                // Media downloads when the message comes and again when an update brings the
+                // file the phone has now finished fetching itself (owner, Gate G3).
+                when (event) {
+                    is ConnectorEvent.NewMessage -> {
+                        keeper.arrived(event.message.message)
+                        if (fresh) previews.request(event.message.message)
+                    }
+
+                    is ConnectorEvent.MessageUpdated -> {
+                        keeper.arrived(event.message.message)
+                    }
+
+                    else -> {
+                        Unit
+                    }
+                }
             }
         }
 
@@ -182,6 +249,9 @@ class ConnectorSupervisor
 
             /** The user must act; stop until they do. */
             ActionNeeded,
+
+            /** Was connected; dropped on purpose because the network changed: go again now. */
+            NetworkChanged,
         }
     }
 

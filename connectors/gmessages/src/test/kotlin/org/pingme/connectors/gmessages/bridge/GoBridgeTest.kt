@@ -85,6 +85,75 @@ class GoBridgeTest {
     }
 
     @Test
+    fun twoConversationsWithOnePersonAreOneChat() {
+        // The phone keeps an RCS and an SMS conversation for Sam; PingMe shows one thread (owner, Gate G3).
+        val page = bridge.conversationPage(fixture.conversationsJson)
+        val rcs = page.conversations.first { it.id == "12" }
+        val sms = rcs.copy(id = "56", type = "SMS", unread = false, lastMessageAt = rcs.lastMessageAt + 1_000_000)
+        val first = bridge.chat(rcs)
+        val second = bridge.chat(sms)
+        assertEquals(account.chat("12"), first.id)
+        assertEquals(account.chat("12"), second.id)
+        assertEquals("one is unread, so the chat is", 1, second.unreadCount)
+        assertEquals(sms.lastMessageAt / 1000, second.lastActivityAt.toEpochMilliseconds())
+        assertEquals(setOf("12", "56"), bridge.group("12"))
+        assertEquals(listOf("56"), bridge.aliases())
+        // Sends go where the talk is: the SMS conversation had the newer message.
+        assertEquals("56", bridge.liveConversation("12"))
+        // A message in the SMS conversation lands in the same chat.
+        val smsText =
+            bridge
+                .messagePage(
+                    fixture.messagesJson("12"),
+                ).messages[2]
+                .copy(id = "9001", conversationId = "56")
+        assertEquals(account.chat("12"), bridge.message(smsText).message.chatId)
+        // Typing in either conversation shows in the one chat.
+        val typing = bridge.translate(GmEvent.Typing("56", "+15555550123", typing = true)).single()
+        assertEquals(account.chat("12"), (typing as ConnectorEvent.Typing).chatId)
+        // Groups never fold, and nor do chats with different numbers.
+        val group = page.conversations.first { it.id == "34" }
+        assertEquals(account.chat("34"), bridge.chat(group).id)
+    }
+
+    @Test
+    fun whenTheShownConversationGoesTheChatMovesToTheOther() {
+        val page = bridge.conversationPage(fixture.conversationsJson)
+        val rcs = page.conversations.first { it.id == "12" }
+        val sms = rcs.copy(id = "56", type = "SMS")
+        bridge.chat(rcs)
+        bridge.chat(sms)
+        val events = bridge.translate(GmEvent.Conversation(rcs.copy(status = "DELETED")))
+        assertEquals(account.chat("12"), (events[0] as ConnectorEvent.ChatRemoved).chatId)
+        assertEquals(account.chat("56"), (events[1] as ConnectorEvent.ChatUpdated).chat.id)
+        assertEquals("56", bridge.canonical("56"))
+    }
+
+    @Test
+    fun thePhonesDownloadingNoteIsNotTextAndAudioIsAVoiceMessage() {
+        bridge.conversationPage(fixture.conversationsJson).conversations.forEach(bridge::chat)
+        val page = bridge.messagePage(fixture.messagesJson("12"))
+        val downloading = page.messages[0].copy(text = "", pendingDownload = "Downloading message...")
+        assertNull(bridge.message(downloading).message.body)
+        val failed = page.messages[0].copy(text = "", pendingDownload = "Message download failed")
+        assertEquals("Message download failed", bridge.message(failed).message.body)
+        val audio =
+            page.messages[0].copy(
+                id = "1004",
+                media = listOf(page.messages[0].media[0].copy(mime = "audio/mp4")),
+            )
+        assertEquals(MessageKind.VOICE, bridge.message(audio).message.kind)
+        assertEquals(
+            AttachmentKind.AUDIO,
+            bridge
+                .message(audio)
+                .message.attachments
+                .single()
+                .kind,
+        )
+    }
+
+    @Test
     fun eventsBecomeConnectorEvents() {
         val events = fixture.events.map { bridge.parse(it) }
         val translated = events.flatMap { bridge.translate(it) }

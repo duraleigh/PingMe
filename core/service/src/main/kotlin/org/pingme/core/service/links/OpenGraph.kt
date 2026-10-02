@@ -54,8 +54,8 @@ object OpenGraph {
     ): String? = runCatching { URL(URL(base), link.trim()).toString() }.getOrNull()
 
     private fun clean(text: String): String =
-        text
-            .replace(ENTITY) { ENTITIES[it.value] ?: it.value }
+        Entities
+            .decode(text)
             .replace(Regex("\\s+"), " ")
             .trim()
 
@@ -65,16 +65,107 @@ object OpenGraph {
     private val TITLE =
         Regex("""<title[^>]*>(.*?)</title>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     private val KEYS = setOf("property", "name")
-    private val ENTITY = Regex("&(?:amp|quot|#39|apos|lt|gt|#x27|nbsp);")
-    private val ENTITIES =
+}
+
+/**
+ * HTML character references in a page's title and description: named, decimal, and hex,
+ * decoded again when a site encoded them twice ("&amp;#x20;"; owner, Gate G3: gibberish
+ * in a card).
+ */
+internal object Entities {
+    fun decode(text: String): String {
+        var out = text
+        repeat(PASSES) {
+            val next = once(out)
+            if (next == out) return out
+            out = next
+        }
+        return out
+    }
+
+    private fun once(text: String): String =
+        REFERENCE.replace(text) { match ->
+            val name = match.groupValues[1]
+            val decoded =
+                when {
+                    name.startsWith("#x", ignoreCase = true) -> codePoint(name.substring(2).toIntOrNull(HEX))
+                    name.startsWith("#") -> codePoint(name.substring(1).toIntOrNull())
+                    else -> NAMED[name]
+                }
+            decoded ?: match.value
+        }
+
+    private fun codePoint(value: Int?): String? =
+        value
+            ?.takeIf { it in 1..MAX_CODE_POINT && it !in SURROGATES }
+            ?.let { String(Character.toChars(it)) }
+
+    private const val PASSES = 3
+    private const val HEX = 16
+    private const val MAX_CODE_POINT = 0x10FFFF
+    private val SURROGATES = 0xD800..0xDFFF
+    private val REFERENCE = Regex("&(#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[a-zA-Z][a-zA-Z0-9]{1,31});")
+    private val NAMED =
         mapOf(
-            "&amp;" to "&",
-            "&quot;" to "\"",
-            "&#39;" to "'",
-            "&apos;" to "'",
-            "&#x27;" to "'",
-            "&lt;" to "<",
-            "&gt;" to ">",
-            "&nbsp;" to " ",
+            "amp" to "&",
+            "lt" to "<",
+            "gt" to ">",
+            "quot" to "\"",
+            "apos" to "'",
+            "nbsp" to " ",
+            "ndash" to "–",
+            "mdash" to "—",
+            "hellip" to "…",
+            "lsquo" to "‘",
+            "rsquo" to "’",
+            "ldquo" to "“",
+            "rdquo" to "”",
+            "laquo" to "«",
+            "raquo" to "»",
+            "bull" to "•",
+            "middot" to "·",
+            "copy" to "©",
+            "reg" to "®",
+            "trade" to "™",
+            "deg" to "°",
+            "euro" to "€",
+            "pound" to "£",
+            "yen" to "¥",
+            "cent" to "¢",
+            "times" to "×",
+            "divide" to "÷",
+            "plusmn" to "±",
+            "frac12" to "½",
+            "frac14" to "¼",
+            "frac34" to "¾",
+            "sect" to "§",
+            "para" to "¶",
+            "iexcl" to "¡",
+            "iquest" to "¿",
+            "shy" to "",
+            "ensp" to " ",
+            "emsp" to " ",
+            "thinsp" to " ",
+            "zwj" to "",
+            "zwnj" to "",
+            "eacute" to "é",
+            "egrave" to "è",
+            "ecirc" to "ê",
+            "aacute" to "á",
+            "agrave" to "à",
+            "acirc" to "â",
+            "auml" to "ä",
+            "ouml" to "ö",
+            "uuml" to "ü",
+            "oacute" to "ó",
+            "uacute" to "ú",
+            "iacute" to "í",
+            "ntilde" to "ñ",
+            "ccedil" to "ç",
+            "szlig" to "ß",
+            "Eacute" to "É",
+            "Auml" to "Ä",
+            "Ouml" to "Ö",
+            "Uuml" to "Ü",
         )
 }

@@ -70,6 +70,9 @@ class NotificationRouter
     ) {
         private val channels = NotificationChannels(context)
         private val shown = MessageNotifications(context)
+        private val sounds =
+            org.pingme.core.service.notify
+                .NotificationSounds(context)
 
         /**
          * Whether [event] brings a message the store has not seen. Ask before the event is
@@ -81,11 +84,19 @@ class NotificationRouter
             return !message.isOutgoing && messages.get(message.id) == null
         }
 
-        /** Posts for a fresh incoming message, after it has been stored. */
+        /**
+         * Posts for a fresh incoming message, after it has been stored. A chat the network
+         * now reports as read (read on the phone, in Google Messages) takes its notification
+         * down (owner, Gate G3).
+         */
         suspend fun onEvent(
             event: ConnectorEvent,
             fresh: Boolean = true,
         ) {
+            if (event is ConnectorEvent.ChatUpdated && event.chat.unreadCount == 0) {
+                clear(event.chat.id)
+                return
+            }
             if (event !is ConnectorEvent.NewMessage || !fresh) return
             val message = event.message.message
             val chat = chats.get(message.chatId) ?: return
@@ -103,17 +114,33 @@ class NotificationRouter
                     presence.visible,
                 )
             if (decision !is NotificationDecision.Notify) return
-            if (!allowed()) return
-            val sender = event.message.sender ?: contacts.person(message.senderId)
-            val channel = channelFor(decision, chat, account, app)
             // A one-time code gets a Copy code button; with auto-copy on it is copied at once (UI_DESIGN.md 10.6).
             val code = if (chat.isObscured) null else OneTimeCodes.find(message.body)
             if (code != null && app.autoCopyCodes) OneTimeCodes.copy(context, code)
+            val channel = channelFor(decision, chat, account, app)
+            // PingMe open on another screen: the sound, and nothing in the shade (owner, Gate G3).
+            if (presence.appVisible) {
+                if (!decision.silent) sounds.play(channel)
+                return
+            }
+            if (!allowed()) return
+            val sender = event.message.sender ?: contacts.person(message.senderId)
             shown.post(decision.copy(channelId = channel), chat, message, sender, code)
         }
 
         /** Takes this chat's notifications down: it was opened, read, or replied to. */
         fun clear(chatId: ChatId) = shown.clear(chatId)
+
+        /** A picture has finished downloading: the notification for its message shows it (owner, Gate G3). */
+        suspend fun pictureArrived(
+            attachment: org.pingme.core.model.Attachment,
+            file: java.io.File,
+        ) {
+            if (attachment.kind !in PICTURES) return
+            val messageId = messages.messageOf(attachment.id) ?: return
+            val message = messages.get(messageId) ?: return
+            shown.showPicture(message.chatId, messageId, file, attachment.mimeType)
+        }
 
         /** A scheduled message went out well after its time (UI_DESIGN.md 10.13): say so. */
         suspend fun sentLate(message: Message) {
@@ -185,6 +212,12 @@ class NotificationRouter
 
         companion object {
             const val DEFAULT_CHANNEL = NotificationChannels.DEFAULT
+            private val PICTURES =
+                setOf(
+                    org.pingme.core.model.AttachmentKind.IMAGE,
+                    org.pingme.core.model.AttachmentKind.GIF,
+                    org.pingme.core.model.AttachmentKind.STICKER,
+                )
             private const val CHAT = "chat_"
             private const val KEYWORD = "keyword_"
             private const val FOLDER = "folder_"

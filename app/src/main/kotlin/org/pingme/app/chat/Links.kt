@@ -30,28 +30,43 @@ internal fun findLinks(text: String): List<IntRange> =
         .toList()
 
 /**
- * [text] with its links underlined and tappable. A link the [preview] has a cleaned
- * version of shows and opens the cleaned one; the original stays in the message.
+ * [text] with its links underlined and tappable, shown cleaned. The link the [preview]
+ * card stands for leaves the text: the card opens it, and the other words stay (owner,
+ * Gate G3). Null when nothing but that link was there.
  */
 internal fun linked(
     text: String,
     preview: LinkPreview?,
     clean: (String) -> String = { it },
-): AnnotatedString =
-    buildAnnotatedString {
-        var at = 0
-        for (range in findLinks(text)) {
-            append(text.substring(at, range.first))
-            val raw = text.substring(range)
-            val shown = preview?.takeIf { it.url == raw }?.cleanedUrl ?: clean(raw)
-            val target = if (shown.startsWith("http")) shown else "https://$shown"
-            withLink(LinkAnnotation.Url(target, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline)))) {
-                append(shown)
+): AnnotatedString? {
+    val carded = preview?.url
+    val result =
+        buildAnnotatedString {
+            var at = 0
+            for (range in findLinks(text)) {
+                val raw = text.substring(range)
+                if (raw == carded) {
+                    // The space around the link goes with it, so the words close up.
+                    append(text.substring(at, range.first).trimEnd())
+                    at = range.last + 1
+                    while (at < text.length && text[at] == ' ') at++
+                    if (length > 0 && at < text.length) append(' ')
+                    continue
+                }
+                append(text.substring(at, range.first))
+                val shown = clean(raw)
+                val target = if (shown.startsWith("http")) shown else "https://$shown"
+                withLink(
+                    LinkAnnotation.Url(target, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))),
+                ) {
+                    append(shown)
+                }
+                at = range.last + 1
             }
-            at = range.last + 1
+            append(text.substring(at))
         }
-        append(text.substring(at))
-    }
+    return result.takeIf { it.isNotBlank() }
+}
 
 private val LINK = Regex("""(?i)\b(?:https?://|www\.)[^\s<>"]+""")
 private const val TRAILING = ".,;:!?)]}'"

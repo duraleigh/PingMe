@@ -122,7 +122,7 @@ private val ColorSource.kind
 /** The networks with their own colours, and how they are named in the studio. */
 private val NETWORK_ROWS =
     listOf(
-        NetworkId.GMESSAGES to "RCS",
+        NetworkId.GMESSAGES to "Google Messages",
         NetworkId.WHATSAPP to "WhatsApp",
         NetworkId.GVOICE to "Google Voice",
         NetworkId.SIGNAL to "Signal",

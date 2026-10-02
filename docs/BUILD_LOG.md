@@ -2182,3 +2182,95 @@ the release build attached `pingme-v0.2.0.apk` by itself (the fixed release step
 Link emailed to the owner at 12:21 PM and posted in the chat. Phone off the network at
 that moment; install over Wi-Fi debugging when it is back, then Gate G3 with the checklist
 above. Phase 4 took 1 h 40 min from start to release, against an estimate of 7 to 8 hours.
+
+## Gate G3 fixes (2026-10-02, afternoon)
+
+The owner ran Gate G3 on the phone with v0.2.0 and gave 17 items. All of them are in this
+round, on branch `g3-fixes`. Nothing on the phone was touched: the owner installs the
+release from the emailed link and tests alone.
+
+1. **Media the instant the phone has it.** Google Messages sends a picture twice: first
+   while it is still downloading it itself (no media reference, status
+   INCOMING_AUTO_DOWNLOADING), then complete. The first copy used to start a download that
+   failed and retried on WorkManager's backoff (30 s, then minutes). Now `MediaKeeper`
+   skips attachments with no remote reference, `MediaDownloadWorker` succeeds quietly on
+   one (no retry chain), and `ConnectorSupervisor` asks the keeper again on every
+   `MessageUpdated`, which is when the reference arrives. The "Downloading message..." note
+   is no longer part of the message text (`GoBridge`); failure notes still are. When the
+   download finishes, `NotificationRouter.pictureArrived` redraws the chat's notification
+   with the picture in its line (`MessagingStyle.Message.setData`, through the app's
+   FileProvider, read leave granted to the system UI), without sounding again.
+2. **Notification not clearing.** Three gaps closed: a chat the phone reports as read
+   (a `ChatUpdated` with no unread) takes its notification down; deleting a chat does too;
+   and the group summary line is cancelled by looking at what is really in the shade, not
+   at memory. Test: `aChatReadOnThePhoneTakesItsNotificationDown`.
+3. **iPhone reactions as text.** `Tapbacks` reads "Loved an image", "Laughed at “…”",
+   "Removed a heart from “…”" and the other five verbs, finds the message meant (the
+   quoted text, or the newest picture, video, or voice message before it, within the last
+   200 messages of the chat) and turns the text into a `ReactionChanged` event. Live
+   messages are rewritten in `ConnectorSupervisor` before storing, so they never notify;
+   history batches apply them after the messages they refer to (`EventApplier`). A
+   reaction text whose target cannot be found stays a message, which should be rare.
+   Tests: `TapbacksTest`.
+4. **Audio plays in the bubble.** Any audio attachment (kind AUDIO or VOICE) draws as the
+   voice-note player (play, waveform, length, speed); the message kind is "voice message"
+   for notifications and inbox previews. Format unchanged (AAC in .m4a).
+5. **Foreground: sound only.** `ChatPresence.appVisible` follows the process lifecycle
+   (`PingMeApp`, `lifecycle-process`). With PingMe on screen, the router plays the channel's
+   sound (`NotificationSounds`: the channel's own sound, nothing for silent channels or
+   under Do not disturb) and posts nothing. The chat on screen stays silent as before.
+6. **Scheduled send shown twice.** Two causes. The connector matched a late echo by text
+   only within 3 minutes; now 24 hours. And a stand-in was never retired after a restart,
+   because the connector forgets its sends: `EventApplier` now deletes a stand-in (same
+   chat, same text, same number of files) when the network's own copy of an outgoing
+   message arrives. A latent bug went with it: stand-ins carried a plain UUID as their
+   remote id, so `StoreHousekeeping` never found them; they are marked `tmp/` now.
+7. **Browser identity for previews.** `LinkPreviews` sends Chrome on Android's user agent
+   and an Accept-Language header; the New York Times and others answer the page.
+8. **Entities.** `Entities.decode` handles named, decimal, and hex references and runs up
+   to three passes, so a twice-encoded `&amp;#x20;` comes out right.
+9. **Final site on the card.** Redirects are followed by hand (up to five hops, across
+   http and https), and the card's link is the final address, cleaned; the site line
+   shows its host.
+10. **Link text leaves the bubble when a card shows it**; other words stay; a bubble
+    that was only the link shows the card alone. The card opens the link. No card, the link
+    stays (`linked` in `Links.kt`, `LinksTest`).
+11. **Google Messages is one network.** The account and bar label say "Google Messages"
+    (bar dot "GM"); the row badge says RCS, SMS, or MMS by the newest message. Outgoing RCS
+    bubbles keep their marks; SMS and MMS bubbles, both directions, carry a small tag in
+    the marks' place (`TransportTag`), and the old tag above the bubble is gone. **One
+    thread per number:** `GoBridge` folds one-to-one conversations with the same number
+    (last ten digits, so with or without a country code) under the oldest conversation's
+    id, which is stable while it lives; messages, typing, and reads from either land in
+    that chat; sends and typing go to whichever conversation last had a message
+    (`liveConversation`); read markers go to the conversation the message came from. On
+    listing, the folded conversations' old rows are removed (`ChatRemoved`), so the second
+    Terry Sanford row goes on the first sync after the update. History: the first page of
+    every folded conversation is fetched; older pages follow the conversation the oldest
+    stored message came from. If the shown conversation is deleted on the phone, the chat
+    moves to the next oldest (its messages are fetched again). Groups never fold, and no
+    other network folds anything on its own. **Send as SMS:** checked libgm's
+    `SendMessageRequest` again: it has `forceRCS` and nothing to force SMS. Google gives a
+    paired device no way to send one message as SMS, so the hold-menu item cannot be built
+    through this pairing; the phone itself decides. Tests: `twoConversationsWithOnePersonAreOneChat`,
+    `whenTheShownConversationGoesTheChatMovesToTheOther`.
+12. **Phase 5 out.** BUILD_PLAN.md section 6 is now a roadmap note (native SMS mode,
+    desktop app, chat bubbles after the Android app); Gate G4 is gone. The mode page left
+    setup, `TextingMode` left the settings model (old saved settings still load: unknown
+    keys are ignored), and the strings and preview went with it.
+13. **Sentence capitalisation** on the composer and every text box except numbers and
+    addresses: chat rename, group name, space name, account name, keyword, search boxes,
+    GIF and emoji search, send-later words.
+14. **Group count**: everyone else plus you, not counting a member the network lists as
+    you ("You") twice.
+15. **Bottom bar**: a small dot for unread, no count.
+16. **Read only while on screen**: `ChatViewModel` marks read (and clears the
+    notification) only while the chat is resumed; a chat left in the back stack no longer
+    swallows new messages.
+17. **Network change**: `ConnectionService` reports only real changes (a loss then a new
+    network, or a different network), and `ConnectorSupervisor` closes a live session on
+    one and opens it again at once, with no backoff (`Outcome.NetworkChanged`). Test:
+    `aNetworkChangeWhileConnectedOpensTheConnectionAgainAtOnce`.
+
+Not in this round, for later phases: a generic avatar for unknown numbers (contacts
+phase); per-chat sound, keyword rules, and auto-copy still untested by the owner.

@@ -93,7 +93,7 @@ abstract class ServiceTest {
         contacts = ContactRepository(db)
         typing = TypingTracker(scope)
         reactionFeed = ReactionFeed()
-        applier = EventApplier(accounts, chats, messages, contacts, typing, reactionFeed)
+        applier = EventApplier(accounts, chats, messages, contacts, typing, reactionFeed, Tapbacks(messages))
         presence =
             org.pingme.core.service.notify
                 .ChatPresence()

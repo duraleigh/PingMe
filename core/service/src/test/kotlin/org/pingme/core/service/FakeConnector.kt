@@ -74,7 +74,12 @@ class FakeConnector : Connector {
         return flow { session(account) }
     }
 
-    override suspend fun disconnect(accountId: AccountId) = Unit
+    /** Fires when disconnect is called, for a session that waits to be closed. */
+    val closed = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+
+    override suspend fun disconnect(accountId: AccountId) {
+        closed.emit(Unit)
+    }
 
     override suspend fun syncChats(accountId: AccountId) = chats
 

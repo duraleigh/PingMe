@@ -110,6 +110,26 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun theNetworksCopyOfASentMessageRetiresItsStandIn() =
+        runTest {
+            seed()
+            val standIn =
+                messageSnapshot("tmp/abc", body = "On my way", outgoing = true).let {
+                    it.copy(message = it.message.copy(networkRemoteId = "tmp/abc"))
+                }
+            applier.apply(ConnectorEvent.MessageUpdated(accountId, standIn))
+            applier.apply(
+                ConnectorEvent.NewMessage(accountId, messageSnapshot("777", body = "On my way", outgoing = true)),
+            )
+            assertEquals(null, messages.get(accountId.message("tmp/abc")))
+            assertEquals("On my way", messages.get(accountId.message("777"))!!.body)
+            // A different text keeps its stand-in: that send is still waiting.
+            applier.apply(ConnectorEvent.MessageUpdated(accountId, standIn))
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("778", body = "Other", outgoing = true)))
+            assertEquals("On my way", messages.get(accountId.message("tmp/abc"))!!.body)
+        }
+
+    @Test
     fun historyBatchesAddMessagesWithoutCountingThemUnread() =
         runTest {
             seed()

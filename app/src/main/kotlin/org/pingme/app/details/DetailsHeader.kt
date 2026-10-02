@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -110,9 +112,13 @@ private fun RenameDialog(
         title = { Text(stringResource(R.string.details_rename)) },
         text = {
             Column {
-                OutlinedTextField(text, {
-                    text = it
-                }, label = { Text(stringResource(R.string.details_rename_hint)) }, singleLine = true)
+                OutlinedTextField(
+                    text,
+                    { text = it },
+                    label = { Text(stringResource(R.string.details_rename_hint)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                )
                 Text(
                     stringResource(R.string.details_rename_note),
                     Modifier.padding(top = 8.dp),

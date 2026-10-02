@@ -380,6 +380,29 @@ interface MessageDao {
         before: Instant,
     ): Int
 
+    /** Stand-in copies of sent messages still shown in a chat. */
+    @Transaction
+    @Query("SELECT * FROM messages WHERE chatId = :chatId AND networkRemoteId LIKE :prefix || '%'")
+    suspend fun standIns(
+        chatId: String,
+        prefix: String,
+    ): List<MessageWithParts>
+
+    /** The newest [limit] messages of a chat sent at or before [before], newest first. */
+    @Transaction
+    @Query(
+        "SELECT * FROM messages WHERE chatId = :chatId AND sentAt <= :before " +
+            "ORDER BY sentAt DESC, rowId DESC LIMIT :limit",
+    )
+    suspend fun before(
+        chatId: String,
+        before: Instant,
+        limit: Int,
+    ): List<MessageWithParts>
+
+    @Query("SELECT messageId FROM attachments WHERE id = :id")
+    suspend fun messageOfAttachment(id: String): String?
+
     /** Text messages with nothing to show (no body, no attachment): empty bubbles. */
     @Query(
         "DELETE FROM messages WHERE kind = 'TEXT' AND (body IS NULL OR body = '') AND deletedForEveryone = 0 " +

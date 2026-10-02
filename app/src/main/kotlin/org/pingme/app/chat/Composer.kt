@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -215,6 +217,8 @@ private fun RowScope.MessageField(
         placeholder = { Text(stringResource(R.string.chat_message_hint)) },
         shape = RoundedCornerShape(26.dp),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = COMPOSER_LINES),
+        // Sentences start with a capital, as in any messaging keyboard (owner, Gate G3).
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         textStyle = PingMeTheme.messageText,
         colors =
             TextFieldDefaults.colors(

@@ -27,7 +27,6 @@ class StoreHousekeeping
 
         private companion object {
             const val TAG = "PingMeHousekeeping"
-            const val STAND_IN_PREFIX = "tmp/"
             val STAND_IN_AGE = 10.minutes
         }
     }

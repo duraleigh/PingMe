@@ -224,7 +224,10 @@ class ChatActions
         }
 
         /** Deletes the chat and its messages from this phone. The network keeps its copy. */
-        suspend fun delete(id: ChatId) = chats.delete(id)
+        suspend fun delete(id: ChatId) {
+            notifications.clear(id)
+            chats.delete(id)
+        }
 
         private suspend fun change(
             id: ChatId,
