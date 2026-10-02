@@ -28,6 +28,24 @@ object ServiceProvidesModule {
 
     @Provides
     fun retryDelays(): RetryDelays = Backoff
+
+    @Provides
+    @Singleton
+    fun cleanLinks(
+        @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context,
+    ): org.pingme.core.service.links.CleanLinks =
+        org.pingme.core.service.links.CleanLinks
+            .fromAssets(context)
+
+    @Provides
+    @Singleton
+    fun linkPreviews(
+        @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context,
+        links: org.pingme.core.service.links.CleanLinks,
+        clock: kotlin.time.Clock,
+    ): org.pingme.core.service.links.LinkPreviews =
+        org.pingme.core.service.links
+            .LinkPreviews(context, links, clock)
 }
 
 @Module

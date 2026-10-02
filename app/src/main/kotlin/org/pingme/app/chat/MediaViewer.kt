@@ -6,6 +6,7 @@ import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Icon
@@ -24,6 +25,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 import org.pingme.app.R
 import org.pingme.core.model.Attachment
 import org.pingme.core.model.AttachmentKind
@@ -56,10 +58,29 @@ internal fun MediaViewer(
             IconButton(onClose, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(4.dp)) {
                 Icon(painterResource(UiR.drawable.ic_close), stringResource(R.string.back), tint = Color.White)
             }
+            // Top right: save to the PingMe album in Photos (owner, Gate G2).
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val scope = androidx.compose.runtime.rememberCoroutineScope()
+            val saved = stringResource(R.string.media_saved)
+            val failed = stringResource(R.string.media_save_failed)
+            IconButton(
+                onClick = {
+                    scope.launch {
+                        val ok = saveToGallery(context, attachment)
+                        val said = if (ok) saved else failed
+                        android.widget.Toast
+                            .makeText(context, said, android.widget.Toast.LENGTH_SHORT)
+                            .show()
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(4.dp),
+            ) {
+                Icon(painterResource(UiR.drawable.ic_download), stringResource(R.string.media_save), tint = Color.White)
+            }
             attachment.fileName?.let {
                 Text(
                     it,
-                    Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp),
+                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp),
                     color = Color.White.copy(alpha = NAME_ALPHA),
                 )
             }

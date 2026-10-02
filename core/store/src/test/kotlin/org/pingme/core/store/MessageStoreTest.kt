@@ -69,6 +69,27 @@ class MessageStoreTest : StoreTest() {
         }
 
     @Test
+    fun updatingAMessageKeepsItsFetchedLinkPreview() =
+        runTest {
+            seed()
+            messages.upsert(message("m", "c", body = "see https://e.com/x"))
+            val preview =
+                org.pingme.core.model.LinkPreview(
+                    "https://e.com/x",
+                    "https://e.com/x",
+                    "Title",
+                    null,
+                    null,
+                    now,
+                    org.pingme.core.model.LinkPreviewSource.LOCAL,
+                )
+            messages.upsert(messages.get(MessageId("m"))!!.copy(linkPreview = preview))
+            // The network's delivered or read copy carries no preview; the fetched one stays.
+            messages.upsert(message("m", "c", body = "see https://e.com/x"))
+            assertEquals("Title", messages.get(MessageId("m"))!!.linkPreview?.title)
+        }
+
+    @Test
     fun junkIsStandInsOlderThanTheCutOffAndEmptyBubbles() =
         runTest {
             seed()

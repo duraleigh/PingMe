@@ -8,6 +8,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.ConnectorRegistry
@@ -16,6 +17,7 @@ import org.pingme.core.connector.SendResult
 import org.pingme.core.connector.accountId
 import org.pingme.core.model.AttachmentId
 import org.pingme.core.model.ChatId
+import org.pingme.core.model.MessageId
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.ScheduledSend
 import org.pingme.core.service.EventApplier
@@ -122,6 +124,7 @@ class ScheduledSendWorker
         private val clock: Clock,
         private val alarm: SendAlarm,
         private val notifications: org.pingme.core.service.NotificationRouter,
+        private val previews: org.pingme.core.service.links.PreviewRequests,
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
             val results = scheduled.due(clock.now()).map { send(it) }
@@ -152,6 +155,7 @@ class ScheduledSendWorker
                     applier.apply(ConnectorEvent.MessageUpdated(send.accountId, result.message))
                     scheduled.delete(send.messageId)
                     if (clock.now() - send.sendAt > LATE) notifications.sentLate(result.message.message)
+                    previews.request(result.message.message)
                     Outcome.Done
                 }
 
@@ -179,9 +183,8 @@ class ScheduledSendWorker
     }
 
 /**
- * Link previews fetched on the phone when the network sent none (UI_DESIGN.md 10.12).
- * The plan builds the fetch, the 1 MB cap, and the Wi-Fi rule in P4.3; until then the
- * worker is registered but has nothing to do.
+ * Fetches a link preview on the phone when the network sent none (UI_DESIGN.md 10.12),
+ * within the 1 MB cap and the "Generate link previews" setting (Always, Only on Wi-Fi, Never).
  */
 @HiltWorker
 class LinkPreviewWorker
@@ -189,8 +192,42 @@ class LinkPreviewWorker
     constructor(
         @Assisted context: Context,
         @Assisted params: WorkerParameters,
+        private val messages: MessageRepository,
+        private val settings: org.pingme.core.store.SettingsRepository,
+        private val previews: org.pingme.core.service.links.LinkPreviews,
     ) : CoroutineWorker(context, params) {
-        override suspend fun doWork(): Result = Result.success()
+        override suspend fun doWork(): Result {
+            val id = inputData.getString(KEY_MESSAGE)?.let { MessageId(it) } ?: return Result.failure()
+            val message = messages.get(id) ?: return done("message gone")
+            if (message.linkPreview != null) return done("already has one")
+            val url =
+                message.body?.let {
+                    org.pingme.core.service.links.CleanLinks.LINK
+                        .find(it)
+                        ?.value
+                }
+                    ?: return done("no link")
+            val mode =
+                settings.app
+                    .first()
+                    .privacy.linkPreviews
+            if (!previews.allowed(mode)) return done("not allowed now ($mode)")
+            val preview = previews.fetch(url) ?: return done("nothing to show for $url")
+            // Re-read: the message may have changed while the page loaded.
+            messages.get(id)?.let { messages.upsert(it.copy(linkPreview = preview)) }
+            return done("stored: ${preview.title}")
+        }
+
+        // On the phone only (no telemetry, DESIGN.md 6.5): why a preview did or did not appear.
+        private fun done(why: String): Result {
+            android.util.Log.i(TAG, "preview: $why")
+            return Result.success()
+        }
+
+        companion object {
+            const val KEY_MESSAGE = "message"
+            private const val TAG = "PingMeLinks"
+        }
     }
 
 /**
@@ -228,6 +265,15 @@ object Work {
     )
 
     fun sendScheduled(context: Context) = enqueue<ScheduledSendWorker>(context, "scheduled-send")
+
+    fun linkPreview(
+        context: Context,
+        messageId: org.pingme.core.model.MessageId,
+    ) = enqueue<LinkPreviewWorker>(
+        context,
+        "preview:${messageId.value}",
+        LinkPreviewWorker.KEY_MESSAGE to messageId.value,
+    )
 
     /**
      * Wakes the scheduled sender after [delay], replacing any earlier wake-up, so it runs when

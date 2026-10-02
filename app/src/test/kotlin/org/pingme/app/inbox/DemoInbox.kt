@@ -68,6 +68,10 @@ class DemoInbox(
     val controls = DemoControls()
     val demo = DemoConnector(controls, MemoryCredentials(), dir.resolve("media"), Clock.System)
     val registry = ConnectorRegistry(mapOf(NetworkId.DEMO to demo))
+    val links =
+        org.pingme.core.service.links
+            .CleanLinks
+            .fromAssets(context)
     val presence =
         org.pingme.core.service.notify
             .ChatPresence()
@@ -104,6 +108,8 @@ class DemoInbox(
             scheduledSends,
             alarm,
             settings,
+            links,
+            CountingPreviews(context),
         )
     val account =
         Account(
@@ -213,6 +219,7 @@ class DemoInbox(
             overrides,
             transcriber,
             presence,
+            links,
         ).tracked()
 
     fun detailsViewModel(remote: String) =
@@ -338,5 +345,16 @@ class CountingAlarm(
 
     override suspend fun arm() {
         armed++
+    }
+}
+
+/** Records which messages would get a link preview fetched, instead of asking Android's job system. */
+class CountingPreviews(
+    context: Context,
+) : org.pingme.core.service.links.PreviewRequests(context) {
+    val requested = mutableListOf<org.pingme.core.model.Message>()
+
+    override fun request(message: org.pingme.core.model.Message) {
+        requested += message
     }
 }

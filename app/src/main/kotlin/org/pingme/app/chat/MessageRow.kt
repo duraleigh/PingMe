@@ -87,7 +87,7 @@ fun MessageRow(
         }
         Column(bubbleModifier, horizontalAlignment = if (outgoing) Alignment.End else Alignment.Start) {
             MessageBubble(
-                text = bodyText(message),
+                text = bodyText(message, context.cleanLink),
                 outgoing = outgoing,
                 network = context.network,
                 transport = message.transport,
@@ -145,10 +145,13 @@ fun showsTime(
 }
 
 @Composable
-private fun bodyText(message: Message): androidx.compose.ui.text.AnnotatedString? =
+private fun bodyText(
+    message: Message,
+    clean: (String) -> String,
+): androidx.compose.ui.text.AnnotatedString? =
     when {
         message.deletedForEveryone || message.kind == MessageKind.DELETED -> null
-        else -> message.body?.let { linked(it, message.linkPreview) }
+        else -> message.body?.let { linked(it, message.linkPreview, clean) }
     }
 
 @Composable

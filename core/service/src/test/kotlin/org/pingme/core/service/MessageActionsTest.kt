@@ -40,6 +40,10 @@ class MessageActionsTest : ServiceTest() {
             scheduledSends,
             alarm,
             settings,
+            org.pingme.core.service.links
+                .CleanLinks
+                .fromAssets(context),
+            QuietPreviews(context),
         )
     }
     private val scheduledSends by lazy {
