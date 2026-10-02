@@ -2176,3 +2176,9 @@ Unit tests in place: router precedence and keyword matching (`NotificationDecisi
 11. From Gate G2: one bubble through a send, unread pinned tiles with the ring, pinned
     layout at one, two, and four pins, the chat landing at the bottom, and the status bar
     icon at full size.
+
+**Phase 4 shipped (2026-10-02, 12:20 PM):** PRs 25, 27, 28 merged; main tagged `v0.2.0`;
+the release build attached `pingme-v0.2.0.apk` by itself (the fixed release step works).
+Link emailed to the owner at 12:21 PM and posted in the chat. Phone off the network at
+that moment; install over Wi-Fi debugging when it is back, then Gate G3 with the checklist
+above. Phase 4 took 1 h 40 min from start to release, against an estimate of 7 to 8 hours.
