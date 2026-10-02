@@ -726,7 +726,11 @@ picker offers, in one sheet:
 Scheduled messages show in the chat as a pending bubble with a clock, editable and
 cancellable until they go. PingMe has no server, so sending happens from the phone
 using an exact alarm. If the phone is off or the network is disconnected at that
-moment, PingMe sends as soon as it can and notifies the user that it went late.
+moment, PingMe sends as soon as it can and notifies the user that it went late (more
+than five minutes after its time: "Sent late to <chat>", tap opens the chat). Android 12
+and newer only allow exact alarms once the user grants "Alarms and reminders"; PingMe
+asks once, after the first scheduled send, and without it falls back to a background
+job that may run a few minutes late.
 
 ### 10.14 Search in chat
 

@@ -2073,3 +2073,31 @@ Part 2, same session:
   (`AppSettings.gmessagesNotificationsReminderShown`). Wording only; no button that opens
   Google's settings (owner decision, 2026-10-02). The plan's "during setup" moment is
   covered by the prompt, which shows the first time the inbox opens after pairing.
+
+Checked on the emulator (demo build): a demo reply while PingMe was in the background
+posted "Morgan Diaz / Just landed" with Reply and Mark read; tapping it opened that chat at
+the new message and the notification was gone. The connection notification's icon now
+matches the others' size in the shade.
+
+Known flake: `:app:lintAnalyzeDebugUnitTest` crashed twice today inside lint itself
+("Unexpected failure during lint analysis of AppIconSwitcherTest.kt"), both times right
+after a ktlint format run. Running that one lint task alone passes, and the full check then
+passes. Not a code problem; noted so the next session does not chase it.
+
+## P4.2 Scheduled sends on an exact alarm (2026-10-02, from 11:00 AM)
+
+- `SendAlarm.arm` sets an exact, allow-while-idle alarm for the earliest scheduled message
+  when "Alarms and reminders" is allowed (`AlarmManager.canScheduleExactAlarms`), and
+  always keeps the delayed background job as the fallback, which waits for a network
+  connection. With the permission declined only the job runs, which may be minutes late
+  (owner, 2026-10-02: keep the fallback). `SendAlarmTest`.
+- `ScheduledSendReceiver`: the alarm enqueues the sender; boot and a change of the
+  permission re-arm the alarm. Permissions `SCHEDULE_EXACT_ALARM` and
+  `RECEIVE_BOOT_COMPLETED` in the service manifest.
+- Late sends notify (UI_DESIGN.md 10.13): a scheduled message that goes more than five
+  minutes after its time raises "Sent late to <chat>" with the text; tap opens the chat
+  (`NotificationRouter.sentLate`, test `aSendThatGoesWellAfterItsTimeSaysSo`).
+- The composer asks once per chat, after the first scheduled send without the permission,
+  with Allow (Android's own "Alarms and reminders" page for PingMe) and Not now
+  (`ExactAlarmAsk`). The owner's phone has never been asked before because the old
+  background job needed nothing.

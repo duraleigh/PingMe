@@ -27,6 +27,10 @@
     <string name="later_pick">Pick a date and time</string>
     <string name="later_type">Or type when, like “friday 6pm”</string>
     <string name="later_not_understood">Not sure when that is</string>
+    <string name="later_exact_title">Send on the minute?</string>
+    <string name="later_exact_body">Android only lets PingMe send a scheduled message at the exact time if you allow it under Alarms and reminders. Without that, the message may go a few minutes late, or wait until the phone wakes up.</string>
+    <string name="later_exact_allow">Allow</string>
+    <string name="later_exact_not_now">Not now</string>
     <string name="later_schedule">Schedule</string>
     <string name="later_send_now">Send now</string>
     <string name="later_reschedule">Reschedule</string>

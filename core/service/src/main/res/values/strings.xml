@@ -19,6 +19,7 @@
     <string name="notification_sent_file">sent a file</string>
     <string name="notification_sent_location">sent a location</string>
     <string name="notification_sent_contact">sent a contact</string>
+    <string name="notification_sent_late">Sent late to %1$s</string>
     <string name="notification_copy_code">Copy code</string>
     <string name="notification_code_label">One-time code</string>
     <string name="notification_code_copied">Code %1$s copied</string>

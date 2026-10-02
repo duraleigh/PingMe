@@ -102,6 +102,26 @@ internal class MessageNotifications(
         }
     }
 
+    /** "Sent late to <chat>": a scheduled message that missed its time but went (UI_DESIGN.md 10.13). */
+    fun postLate(
+        channelId: String,
+        chat: Chat,
+        message: Message,
+    ) {
+        val title = context.getString(R.string.notification_sent_late, chat.nameOverride ?: chat.title)
+        val notification =
+            NotificationCompat
+                .Builder(context, channelId)
+                .setSmallIcon(R.drawable.ic_stat_message)
+                .setContentTitle(title)
+                .setContentText(message.body ?: lineFor(message))
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .setAutoCancel(true)
+                .setContentIntent(openChat(chat.id))
+                .build()
+        show(chat.id.value, LATE_ID, notification)
+    }
+
     /** Takes the chat's notification down and forgets its lines. */
     @Synchronized
     fun clear(chatId: ChatId) {
@@ -250,6 +270,7 @@ internal class MessageNotifications(
     companion object {
         const val MESSAGE_ID = 100
         private const val SUMMARY_ID = 101
+        private const val LATE_ID = 102
         private const val SUMMARY_TAG = "summary"
         private const val GROUP = "org.pingme.messages"
         private const val MAX_LINES = 8

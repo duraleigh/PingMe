@@ -118,15 +118,14 @@ internal fun Composer(
             onSendLater = hooks.onSchedule?.takeIf { editing == null }?.let { { sheet = ComposerSheet.LATER } },
         )
     }
-    if (sheet == ComposerSheet.LATER) {
-        SendLaterSheet(
-            onPick = { at ->
-                hooks.onSchedule?.invoke(field.text.toString(), at)
-                field.clearText()
-            },
-            onDismiss = { sheet = ComposerSheet.NONE },
-        )
-    }
+    org.pingme.app.chat.later.LaterSheetWithAsk(
+        open = sheet == ComposerSheet.LATER,
+        onSchedule = { at ->
+            hooks.onSchedule?.invoke(field.text.toString(), at)
+            field.clearText()
+        },
+        onDismiss = { sheet = ComposerSheet.NONE },
+    )
     // The pickers' listeners live here, where they outlive the attach sheet.
     val pick = outbox?.let { rememberAttachLaunchers(it, hooks.onProblem) }
     ComposerSheets(sheet, hooks, pick) { sheet = ComposerSheet.NONE }

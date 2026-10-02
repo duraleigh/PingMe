@@ -8,12 +8,26 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- The foreground service keeps chat connections open (DESIGN.md 3.3, 6.4). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+    <!-- Scheduled sends go out on the minute, even while the phone sleeps (UI_DESIGN.md 10.13). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Alarms do not survive a restart; the next scheduled send is set again at boot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application>
         <service
             android:name=".ConnectionService"
             android:exported="false"
             android:foregroundServiceType="remoteMessaging" />
+
+        <!-- The exact alarm for scheduled sends; re-armed at boot and when the permission is granted (P4.2). -->
+        <receiver
+            android:name=".work.ScheduledSendReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Reply and Mark read from a notification (UI_DESIGN.md 6.2). -->
         <receiver
