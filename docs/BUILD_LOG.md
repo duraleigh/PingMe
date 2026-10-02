@@ -2140,7 +2140,9 @@ main (PR 27). Lesson kept: open stacked work against main.
   and wiped it, which Google Messages would do too. `MessageDao.upsert` now keeps a stored
   preview when the new copy has none, the same way it keeps downloaded files
   (`updatingAMessageKeepsItsFetchedLinkPreview`). The preview job also logs why it did or
-  did not store one, under `PingMeLinks`.
+  did not store one, under `PingMeLinks`. The viewer's save button was not tried on the
+  emulator (the only demo picture sits a hundred messages up); it is item 10 of the Gate
+  G3 checklist.
 
 ## P4.4 Acceptance and Gate G3 (2026-10-02)
 
