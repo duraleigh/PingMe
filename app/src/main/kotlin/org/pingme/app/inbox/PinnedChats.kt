@@ -87,7 +87,6 @@ private fun PinnedTile(
             Avatar(row.title, size = TILE_AVATAR, shape = PingMeTheme.shapes.pinnedTile(index))
             if (row.isUnread) {
                 UnreadBadge(
-                    row.chat.unreadCount,
                     Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-4).dp),
                     muted = row.chat.isMuted,
                 )

@@ -107,14 +107,12 @@ internal fun Composer(
             send(field.text.toString())
             field.clearText()
         }
-        val sms = hooks.onSendSms?.takeIf { editing == null }
         MicOrSend(
             voice,
             hooks.onVoiceTooShort,
             something = field.text.isNotBlank() || staged.isNotEmpty(),
             ready = copying == 0,
             onSend = { sendWith(onSend) },
-            onSendSms = sms?.let { { sendWith(it) } },
             onSendLater = hooks.onSchedule?.takeIf { editing == null }?.let { { sheet = ComposerSheet.LATER } },
         )
     }
@@ -178,13 +176,12 @@ private fun MicOrSend(
     something: Boolean,
     ready: Boolean,
     onSend: () -> Unit,
-    onSendSms: (() -> Unit)?,
     onSendLater: (() -> Unit)?,
 ) {
     if (voice != null && !something && ready) {
         MicButton(voice, onTooShort = onTooShort)
     } else {
-        SendButton(something && ready, onSend, onSendSms, onSendLater = onSendLater)
+        SendButton(something && ready, onSend, onSendLater = onSendLater)
     }
 }
 

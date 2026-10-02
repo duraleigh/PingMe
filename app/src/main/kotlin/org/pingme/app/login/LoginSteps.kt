@@ -74,6 +74,10 @@ internal fun LoginStepView(
                 WebSignIn(step, onRespond)
             }
 
+            is LoginStep.Fix -> {
+                FixIt(step, onRespond)
+            }
+
             is LoginStep.WaitForConfirmation -> {
                 Waiting(step.hint, step.emoji)
             }
@@ -187,6 +191,11 @@ private fun WebSignIn(
                     webViewClient = WebViewClient()
                     @Suppress("SetJavaScriptEnabled") // Sign-in pages need it.
                     settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    // Google refuses sign-in from pages that announce themselves as a WebView
+                    // ("this browser may not be secure"); the plain Chrome-on-Android string passes.
+                    settings.userAgentString = browserUserAgent(settings.userAgentString)
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                     loadUrl(step.url)
                 }
             },
@@ -198,6 +207,10 @@ private fun WebSignIn(
     }
 }
 
+/** The WebView's own user agent without the parts that mark it as a WebView. */
+internal fun browserUserAgent(webViewAgent: String): String =
+    webViewAgent.replace("; wv", "").replace(Regex("Version/\\d+(\\.\\d+)* "), "")
+
 private fun cookiesFor(domains: List<String>): Map<String, String> {
     val jar = CookieManager.getInstance()
     return domains
@@ -208,7 +221,7 @@ private fun cookiesFor(domains: List<String>): Map<String, String> {
 
 // Every step's parts, stacked and centred.
 @Composable
-private fun Stack(content: @Composable ColumnScope.() -> Unit) {
+internal fun Stack(content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth(), Arrangement.spacedBy(16.dp), Alignment.CenterHorizontally, content)
 }
 

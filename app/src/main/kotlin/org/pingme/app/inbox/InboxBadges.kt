@@ -49,7 +49,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -81,16 +80,16 @@ import org.pingme.core.ui.R as UiR
 
 @Composable
 fun UnreadBadge(
-    count: Int,
     modifier: Modifier = Modifier,
     muted: Boolean = false,
 ) {
-    val description = pluralStringResource(R.plurals.inbox_unread, count, count)
+    val description = stringResource(R.string.inbox_unread)
+    // A dot, not a number: a chat is unread or it is not; nobody needs the count per chat, and
+    // some networks (Google Messages) do not even report one (owner, 2026-10-01).
     Badge(
         modifier.semantics { this.contentDescription = description },
         containerColor = if (muted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
-        contentColor = if (muted) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary,
-    ) { Text(if (count > MAX_BADGE) "$MAX_BADGE+" else count.toString()) }
+    )
 }
 
 /** The network's short name on its accent colour (UI_DESIGN.md 10.1). */
@@ -157,7 +156,6 @@ fun TypingDots(modifier: Modifier = Modifier) {
     }
 }
 
-private const val MAX_BADGE = 99
 private const val BADGE_TINT = 0.28f
 private const val DOTS = 3
 private const val DOT_BOUNCE_MS = 350

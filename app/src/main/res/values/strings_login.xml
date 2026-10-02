@@ -9,6 +9,7 @@
     <string name="login_web_done">I have signed in</string>
     <string name="login_try_again">Try again</string>
     <string name="login_starting">Starting…</string>
+    <string name="login_check_again">Check again</string>
     <string name="accounts_add">Add account</string>
     <string name="account_log_in_again">Log in again</string>
     <string name="account_log_in_again_note">Use this when the network has logged PingMe out.</string>

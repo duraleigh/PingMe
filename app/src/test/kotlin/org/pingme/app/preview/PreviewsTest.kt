@@ -68,6 +68,8 @@ class PreviewsTest {
 
     @Test fun loginCode() = draws("That code didn't work.") { LoginCodePreview() }
 
+    @Test fun loginFix() = draws("Check again") { LoginFixPreview() }
+
     private companion object {
         const val FRAME_MS = 500L
     }

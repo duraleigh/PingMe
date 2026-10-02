@@ -29,11 +29,20 @@ import kotlin.time.Instant
  * has seen, so senders and typing numbers resolve to people, and which messages it has
  * seen, so a repeat is an update and not a new message.
  */
+@Suppress("TooManyFunctions") // One function per shape that crosses the bridge, plus the lookups the session needs.
 class GoBridge(
     private val accountId: AccountId,
 ) {
     private val conversations = HashMap<String, GmConversation>()
-    private val seenReactions = LinkedHashMap<String, Map<Reaction, Unit>>()
+
+    /** What was last seen of each message, newest last; bounded, so memory stays flat. */
+    private val seen = LinkedHashMap<String, Seen>()
+
+    private class Seen(
+        val conversationId: String,
+        val timestamp: Long,
+        val reactions: Set<Reaction>,
+    )
 
     /** The account's own participant IDs: one per SIM, plus every "me" entry in a chat. */
     private val selfIds = HashSet<String>()
@@ -54,8 +63,14 @@ class GoBridge(
     fun isRcs(conversationId: String): Boolean? = conversations[conversationId]?.outgoingIsRcs
 
     /** Your own reaction on a message, as last seen, or null. */
-    fun myReaction(messageId: String): String? =
-        seenReactions[messageId]?.keys?.firstOrNull { it.senderId.isSelf() }?.emoji
+    fun myReaction(messageId: String): String? = seen[messageId]?.reactions?.firstOrNull { it.senderId.isSelf() }?.emoji
+
+    /** The conversation a message was seen in, or null when it has not been seen. */
+    fun conversationOf(messageId: String): String? = seen[messageId]?.conversationId
+
+    /** A cursor for the messages older than a seen message, or null when it has not been seen. */
+    fun cursorBefore(messageId: String): GmCursor? =
+        seen[messageId]?.let { GmCursor(messageId, it.timestamp / MICROS_PER_MILLI) }
 
     /** Data events become connector events; control events (ready, auth, logout) return nothing. */
     fun translate(event: GmEvent): List<ConnectorEvent> =
@@ -116,6 +131,7 @@ class GoBridge(
         val deleted = msg.direction == "deleted"
         val body = listOf(msg.subject, msg.text, msg.pendingDownload).filter { it.isNotBlank() }.joinToString("\n")
         val attachments = if (deleted) emptyList() else msg.media.map { attachment(msg, it) }
+        if (deleted) seen.remove(msg.id) else remember(msg, reactions.toSet())
         val message =
             Message(
                 id = id,
@@ -172,34 +188,33 @@ class GoBridge(
         val id = accountId.message(msg.id)
         if (msg.hide) return emptyList()
         if (msg.direction == "deleted") {
-            seenReactions.remove(msg.id)
+            seen.remove(msg.id)
             return listOf(ConnectorEvent.MessageRemoved(accountId, accountId.chat(msg.conversationId), id))
         }
+        val before = seen[msg.id]
         val snapshot = message(msg)
-        val seen = seenReactions.containsKey(msg.id)
-        val before = seenReactions[msg.id]?.keys.orEmpty()
         val now = snapshot.message.reactions.toSet()
-        remember(msg.id, now)
         val main =
-            if (seen || isOld) {
+            if (before != null || isOld) {
                 ConnectorEvent.MessageUpdated(accountId, snapshot)
             } else {
                 ConnectorEvent.NewMessage(accountId, snapshot)
             }
-        val changes =
-            (now - before).map { ConnectorEvent.ReactionChanged(accountId, id, it, removed = false) } +
-                (before - now).map { ConnectorEvent.ReactionChanged(accountId, id, it, removed = true) }
         // A message seen for the first time carries its reactions already; only later changes flip.
-        return listOf(main) + if (seen) changes else emptyList()
+        if (before == null) return listOf(main)
+        val changes =
+            (now - before.reactions).map { ConnectorEvent.ReactionChanged(accountId, id, it, removed = false) } +
+                (before.reactions - now).map { ConnectorEvent.ReactionChanged(accountId, id, it, removed = true) }
+        return listOf(main) + changes
     }
 
     private fun remember(
-        messageId: String,
+        msg: GmMessage,
         reactions: Set<Reaction>,
     ) {
-        seenReactions.remove(messageId)
-        seenReactions[messageId] = reactions.associateWith { }
-        while (seenReactions.size > REMEMBERED_MESSAGES) seenReactions.remove(seenReactions.keys.first())
+        seen.remove(msg.id)
+        seen[msg.id] = Seen(msg.conversationId, msg.timestamp, reactions)
+        while (seen.size > REMEMBERED_MESSAGES) seen.remove(seen.keys.first())
     }
 
     private fun typing(event: GmEvent.Typing): ConnectorEvent.Typing? {

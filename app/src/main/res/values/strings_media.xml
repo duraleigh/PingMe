@@ -12,7 +12,6 @@
     <string name="attach_no_location">Could not find where you are. Check that location is on.</string>
     <string name="attach_no_camera">No camera app on this phone</string>
     <string name="chat_send_options">More ways to send</string>
-    <string name="chat_send_sms">Send as SMS</string>
     <string name="media_play_video">Play video</string>
     <string name="media_location">Location</string>
     <string name="media_contact">Contact</string>

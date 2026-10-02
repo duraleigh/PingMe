@@ -464,3 +464,6 @@ What this means in practice:
 | 2026-09-30 | Kotlin app, Go protocol libraries via gomobile | Best libraries are in Go; Android platform work belongs in Kotlin |
 | 2026-09-30 | Discord and iMessage out of scope | Discord bans it; iMessage has no Android path |
 | 2026-10-01 | Google Messages pairs by Google account only, no QR | Google is retiring QR pairing; a QR cannot be scanned on the same phone. Owner accepted the risk that pairing depends on Google sign-in working inside PingMe |
+| 2026-10-01 | No "Send as SMS" for one message | Google Messages gives a paired device no such choice; the phone picks RCS or SMS |
+| 2026-10-01 | Chats show an unread dot, not a count | Nobody needs the number per chat, and Google Messages reports only whether a chat is unread |
+| 2026-10-01 | One APK with all three chip types, for now | 103 MB measured with the Go bridge; splitting per chip type is a release-time job |

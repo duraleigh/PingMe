@@ -33,21 +33,20 @@ import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
 
 /**
- * The send button (UI_DESIGN.md 2.2, 3.2): tap to send; press and hold for Send later (10.13)
- * and, in Google Messages chats, Send as SMS. One button: the owner found the Expressive split
- * button too easy to mis-tap (Gate G1).
+ * The send button (UI_DESIGN.md 2.2, 3.2): tap to send; press and hold for Send later (10.13).
+ * One button: the owner found the Expressive split button too easy to mis-tap (Gate G1). There
+ * is no Send as SMS: Google Messages does not let a paired device choose it (owner, 2026-10-01).
  */
 @Composable
 fun SendButton(
     enabled: Boolean,
     onSend: () -> Unit,
-    onSendSms: (() -> Unit)?,
     modifier: Modifier = Modifier,
     onSendLater: (() -> Unit)? = null,
 ) {
     val label = stringResource(R.string.chat_send)
     val moreLabel = stringResource(R.string.chat_send_options)
-    val more = onSendSms != null || onSendLater != null
+    val more = onSendLater != null
     var open by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val haptics = PingMeTheme.appearance.haptics
@@ -82,17 +81,16 @@ fun SendButton(
                 tint = if (enabled) colours.contentColor else colours.disabledContentColor,
             )
         }
-        SendOptions(open, { open = false }, onSendLater, onSendSms)
+        SendOptions(open, { open = false }, onSendLater)
     }
 }
 
-/** What holding Send offers: Send later (10.13) and, in Google Messages chats, Send as SMS. */
+/** What holding Send offers: Send later (10.13). */
 @Composable
 private fun SendOptions(
     open: Boolean,
     onClose: () -> Unit,
     onSendLater: (() -> Unit)?,
-    onSendSms: (() -> Unit)?,
 ) {
     DropdownMenu(open, onClose) {
         onSendLater?.let { later ->
@@ -102,16 +100,6 @@ private fun SendOptions(
                 onClick = {
                     onClose()
                     later()
-                },
-            )
-        }
-        onSendSms?.let { sms ->
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.chat_send_sms)) },
-                leadingIcon = { Icon(painterResource(UiR.drawable.ic_sms), null) },
-                onClick = {
-                    onClose()
-                    sms()
                 },
             )
         }

@@ -51,7 +51,7 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 | Connected button group | Inbox filters (All, Unread, per network) |
 | FAB menu | Inbox: New chat, New group |
 | Horizontal floating toolbar | Chat screen: contextual actions during multi-select |
-| Send button | One button: tap to send; press and hold for Send later and Send as SMS. (Owner decision at Gate G1, 2026-10-01: a split button is too easy to mis-tap, so the Expressive split button is not used here.) |
+| Send button | One button: tap to send; press and hold for Send later. (Owner decision at Gate G1, 2026-10-01: a split button is too easy to mis-tap, so the Expressive split button is not used here. Owner decision at Phase 3, 2026-10-01: no Send as SMS, because Google Messages gives a paired device no such choice.) |
 | Loading indicator (shape-morphing) | Sync, history backfill, pairing |
 | Toggle buttons | Chat settings, reaction set editor |
 | Sliders (expressive) | Font size, corner radius, animation intensity |
@@ -85,11 +85,12 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 ```
 
 - **Pinned row**: horizontally scrolling tiles of the user's pinned chats, drawn with the
-  chosen shape family. Unread count sits as a badge. Long-press to reorder or unpin.
+  chosen shape family. An unread dot sits on the tile. Long-press to reorder or unpin.
   Users can choose a grid, a row, or "pinned at top of list" style. Up to 12 pins.
 - **Top app bar**: has its own surface colour with rounded bottom corners, so the list
   scrolls underneath it cleanly, as Google Messages does (owner, Gate G1).
-- **List items**: avatar, name, last message preview, network badge, time, unread badge,
+- **List items**: avatar, name, last message preview, network badge, time, unread dot
+  (a chat is unread or not; no per-chat count, owner decision 2026-10-01),
   mute icon. Sender name shown in previews for groups. When the last message is yours,
   its status mark (sending, sent, delivered, read, failed; the same marks as in the chat)
   shows before the preview, as Google Messages does (owner, Gate G1).
@@ -144,7 +145,7 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   section 10.1 for the palette and the RCS versus SMS distinction. Consecutive messages from the same sender are
   grouped with tighter spacing and only the last bubble carries the tail.
 - **Status**: sending, sent, delivered, read, failed. Failed messages show a retry
-  button and a "send as SMS" option where applicable.
+  button; no "send as SMS" (Google Messages gives paired devices no such choice).
 - **Day separators** and a "new messages" divider.
 - **Header**: avatar, name, network badge, live status (typing, online, last seen where
   the network provides it). Tap opens Chat details.

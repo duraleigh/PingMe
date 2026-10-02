@@ -294,9 +294,9 @@ Everything in `UI_DESIGN.md` 3.1 as finalised in this conversation:
 - Compact top bar: small wordmark, status pill (cycles states in the demo), search,
   avatar. Avatar opens the account menu (Settings, Appearance, Notifications,
   Accounts, Archived, Low priority, Requests, General, spaces).
-- Pinned grid: five per row, wrapping, shaped avatars, unread badge, typing dots
+- Pinned grid: five per row, wrapping, shaped avatars, unread dot, typing dots
   overlay. Pinned chats are excluded from the list.
-- Rows with typing overlay, mute icon, network badge, folder tag, unread badge.
+- Rows with typing overlay, mute icon, network badge, folder tag, unread dot.
 - Swipe left and right, each assignable (Pin, Archive, Mute, Mark read/unread, Low
   priority, Delete, Off) with the reveal layer and haptics. Use
   `AnchoredDraggable`.
@@ -325,7 +325,7 @@ Everything in `UI_DESIGN.md` 3.1 as finalised in this conversation:
   `Canvas` particle layer; honours `LocalReduceMotion` / system animator scale.
 - Reply strip; swipe-right on a bubble to reply.
 - Composer: attach, network chip (merged chats), GIF, text field, mic/send split
-  button with Send later and Send as SMS.
+  button with Send later (Send as SMS was dropped: owner, 2026-10-01).
 - Voice notes: hold to record, slide to cancel, slide up to lock; waveform;
   playback with speed and proximity earpiece switch (`AudioManager`).
 - GIF picker sheet with pluggable provider; Tenor provider reads its key from

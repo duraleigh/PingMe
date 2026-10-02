@@ -54,8 +54,6 @@ class ChatScreenActions(
 /** The composer's extras: attachments and other ways to send. Null ones are not offered. */
 class ComposerHooks(
     val outbox: org.pingme.app.chat.attach.Outbox? = null,
-    /** "Send as SMS" from the split button, for chats paired through Google Messages. */
-    val onSendSms: ((String) -> Unit)? = null,
     val onProblem: (org.pingme.app.chat.attach.AttachProblem) -> Unit = {},
     /** Voice notes; null where the network cannot take them. */
     val voice: org.pingme.app.chat.voice.VoiceNotes? = null,
