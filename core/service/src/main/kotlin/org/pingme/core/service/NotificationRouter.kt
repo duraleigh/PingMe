@@ -115,6 +115,14 @@ class NotificationRouter
         /** Takes this chat's notifications down: it was opened, read, or replied to. */
         fun clear(chatId: ChatId) = shown.clear(chatId)
 
+        /** A scheduled message went out well after its time (UI_DESIGN.md 10.13): say so. */
+        suspend fun sentLate(message: Message) {
+            if (!allowed()) return
+            val chat = chats.get(message.chatId) ?: return
+            val channel = channels.ensure(NotificationChannels.DEFAULT, context.getString(R.string.channel_messages))
+            shown.postLate(channel, chat, message)
+        }
+
         private fun allowed() =
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED

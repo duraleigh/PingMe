@@ -61,6 +61,7 @@ class WorkersTest : ServiceTest() {
                             applier,
                             clock,
                             QuietAlarm(appContext, scheduled, clock),
+                            router,
                         )
                     }
 
@@ -147,6 +148,42 @@ class WorkersTest : ServiceTest() {
             assertNull(messages.get(pending.id))
             assertEquals("see you", messages.get(accountId.message("net-1"))?.body)
             assertEquals(emptyList<ScheduledSend>(), scheduled.due(now))
+        }
+
+    @Test
+    fun aSendThatGoesWellAfterItsTimeSaysSo() =
+        runTest {
+            seed()
+            org.robolectric.Shadows
+                .shadowOf(context.applicationContext as android.app.Application)
+                .grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+            val pending =
+                messageSnapshot("pending", outgoing = true)
+                    .message
+                    .copy(status = MessageStatus.Scheduled(now - 20.minutes))
+            messages.upsert(pending)
+            val draft = OutgoingMessage(pending.id, "running late", emptyList(), null, null, forceSms = false)
+            scheduled.upsert(
+                ScheduledSend(
+                    pending.id,
+                    now - 20.minutes,
+                    accountId,
+                    accountId.chat("c1"),
+                    Json.encodeToString(OutgoingMessage.serializer(), draft),
+                    0,
+                ),
+            )
+            connector.sendResult = { SendResult.Sent(messageSnapshot("net-1", body = it.body!!, outgoing = true)) }
+            val worker = TestListenableWorkerBuilder<ScheduledSendWorker>(context).setWorkerFactory(factory).build()
+            assertEquals(ListenableWorker.Result.success(), worker.doWork())
+            val manager = context.getSystemService(android.app.NotificationManager::class.java)
+            val late =
+                org.robolectric.Shadows
+                    .shadowOf(manager)
+                    .allNotifications
+                    .single()
+            assertEquals("Sent late to Sam Ortiz", late.extras.getString(android.app.Notification.EXTRA_TITLE))
+            assertEquals("running late", late.extras.getString(android.app.Notification.EXTRA_TEXT))
         }
 
     @Test

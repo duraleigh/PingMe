@@ -105,7 +105,8 @@ class MediaDownloadWorker
 
 /**
  * Sends every scheduled message whose time has come, including late ones (UI_DESIGN.md
- * 10.13). [SendAlarm] wakes it; the exact alarm and the "sent late" notice arrive in P4.2.
+ * 10.13). [SendAlarm] wakes it, by exact alarm or by the fallback job; a message that goes
+ * more than a few minutes after its time raises a "sent late" notice.
  */
 @HiltWorker
 class ScheduledSendWorker
@@ -120,6 +121,7 @@ class ScheduledSendWorker
         private val applier: EventApplier,
         private val clock: Clock,
         private val alarm: SendAlarm,
+        private val notifications: org.pingme.core.service.NotificationRouter,
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
             val results = scheduled.due(clock.now()).map { send(it) }
@@ -149,6 +151,7 @@ class ScheduledSendWorker
                     messages.delete(send.messageId)
                     applier.apply(ConnectorEvent.MessageUpdated(send.accountId, result.message))
                     scheduled.delete(send.messageId)
+                    if (clock.now() - send.sendAt > LATE) notifications.sentLate(result.message.message)
                     Outcome.Done
                 }
 
@@ -169,6 +172,9 @@ class ScheduledSendWorker
 
         companion object {
             const val MAX_ATTEMPTS = 5
+
+            /** Later than this after its time, a scheduled send is announced as late (UI_DESIGN.md 10.13). */
+            val LATE = kotlin.time.Duration.parse("5m")
         }
     }
 
