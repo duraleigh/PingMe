@@ -39,6 +39,7 @@ class ConnectorSupervisorTest : ServiceTest() {
                 history = history,
                 clock = clock,
                 retryDelays = { delays(it) },
+                housekeeping = StoreHousekeeping(messages, clock),
                 scope = scope,
             )
         runBlocking { credentials.save("cred", byteArrayOf(1)) }

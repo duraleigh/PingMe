@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.pingme.core.model.AttachmentId
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.LinkPreview
 import org.pingme.core.model.LinkPreviewSource
@@ -47,6 +48,40 @@ class MessageStoreTest : StoreTest() {
                 )
             messages.upsert(m)
             assertEquals(m, messages.get(MessageId("m")))
+        }
+
+    @Test
+    fun updatingAMessageKeepsDownloadedFiles() =
+        runTest {
+            seed()
+            messages.upsert(message("m", "c", attachments = listOf(attachment("x", "pic.jpg"))))
+            messages.setAttachmentLocalPath(AttachmentId("x"), "/data/pic.jpg")
+            // The network's updated copy (a reaction, a status) names the file but has no path.
+            messages.upsert(message("m", "c", attachments = listOf(attachment("x", "pic.jpg"))))
+            assertEquals(
+                "/data/pic.jpg",
+                messages
+                    .get(MessageId("m"))!!
+                    .attachments
+                    .single()
+                    .localPath,
+            )
+        }
+
+    @Test
+    fun junkIsStandInsOlderThanTheCutOffAndEmptyBubbles() =
+        runTest {
+            seed()
+            val old = message("tmp-old", "c", body = "ghost").copy(networkRemoteId = "tmp/1", sentAt = now - 30.minutes)
+            val fresh = message("tmp-new", "c", body = "pending").copy(networkRemoteId = "tmp/2", sentAt = now)
+            val empty = message("empty", "c", body = null)
+            val real = message("real", "c", body = "hello")
+            listOf(old, fresh, empty, real).forEach { messages.upsert(it) }
+            assertEquals(2, messages.deleteJunk("tmp/", now - 10.minutes))
+            assertNull(messages.get(MessageId("tmp-old")))
+            assertNull(messages.get(MessageId("empty")))
+            assertEquals("pending", messages.get(MessageId("tmp-new"))!!.body)
+            assertEquals("hello", messages.get(MessageId("real"))!!.body)
         }
 
     @Test

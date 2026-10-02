@@ -152,6 +152,21 @@ class GoBridgeTest {
     }
 
     @Test
+    fun systemNotesAreNeverBubbles() {
+        val msg = (bridge.parse(fixture.events.first { "\"message\"" in it }) as GmEvent.Message).message
+        val note =
+            msg.copy(
+                id = "9001",
+                direction = "tombstone",
+                statusName = "TOMBSTONE_PROTOCOL_SWITCH_TO_RCS",
+                text = "",
+            )
+        assertTrue(bridge.translate(GmEvent.Message(note)).isEmpty())
+        assertEquals(false, bridge.isShown(note))
+        assertEquals(true, bridge.isShown(msg))
+    }
+
+    @Test
     fun aTickNeverGoesBackwards() {
         val page = bridge.messagePage(fixture.messagesJson("12"))
         val read = page.messages[1] // outgoing, OUTGOING_DISPLAYED

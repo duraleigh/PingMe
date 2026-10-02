@@ -8,7 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -23,7 +24,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -47,6 +50,7 @@ import org.pingme.app.chat.attach.launch
 import org.pingme.app.chat.attach.openFile
 import org.pingme.app.chat.attach.readPoint
 import org.pingme.app.chat.attach.vCardName
+import org.pingme.app.chat.attach.videoDurationMs
 import org.pingme.app.chat.voice.VoiceBubble
 import org.pingme.app.chat.voice.VoicePlayer
 import org.pingme.core.model.Attachment
@@ -72,18 +76,22 @@ internal fun AttachmentView(
     LaunchedEffect(attachment.id, attachment.localPath) { need(attachment) }
     val context = LocalContext.current
     val open = { attachment.localPath?.let { openFile(context, File(it), attachment.mimeType) } }
+    // Pictures and videos open inside PingMe (owner, Gate G2); files go to the app that handles them.
+    var viewing by remember { mutableStateOf(false) }
+    val view = { if (attachment.localPath != null) viewing = true }
+    if (viewing) MediaViewer(attachment) { viewing = false }
     Box(Modifier.padding(bottom = 6.dp)) {
         when (attachment.kind) {
             AttachmentKind.GIF -> {
-                if (autoplay) Picture(attachment) else GifOnTap(attachment)
+                if (autoplay) Picture(attachment, view) else GifOnTap(attachment, view)
             }
 
             AttachmentKind.IMAGE, AttachmentKind.STICKER -> {
-                Picture(attachment)
+                Picture(attachment, view)
             }
 
             AttachmentKind.VIDEO -> {
-                VideoFrame(attachment) { open() }
+                VideoFrame(attachment, view)
             }
 
             AttachmentKind.VOICE -> {
@@ -112,23 +120,29 @@ internal fun AttachmentView(
 }
 
 @Composable
-private fun Picture(attachment: Attachment) {
+private fun Picture(
+    attachment: Attachment,
+    onOpen: () -> Unit,
+) {
     AsyncImage(
         model = attachment.localPath?.let(::File),
         contentDescription = attachment.fileName ?: stringResource(R.string.kind_image),
         contentScale = ContentScale.Crop,
-        modifier = Modifier.mediaFrame(),
+        modifier = Modifier.mediaFrame(attachment).clickable(onClick = onOpen),
     )
 }
 
 // Data saver: a GIF shows still with a GIF mark until tapped (UI_DESIGN.md 5.5).
 @Composable
-private fun GifOnTap(attachment: Attachment) {
+private fun GifOnTap(
+    attachment: Attachment,
+    onOpen: () -> Unit,
+) {
     var playing by androidx.compose.runtime.saveable.rememberSaveable(attachment.id.value) {
         androidx.compose.runtime.mutableStateOf(false)
     }
     if (playing) {
-        Picture(attachment)
+        Picture(attachment, onOpen)
         return
     }
     val context = LocalContext.current
@@ -138,7 +152,7 @@ private fun GifOnTap(attachment: Attachment) {
             .data(attachment.localPath?.let(::File))
             .decoderFactory(coil3.decode.BitmapFactoryDecoder.Factory())
             .build()
-    Box(Modifier.mediaFrame().clickable { playing = true }, Alignment.Center) {
+    Box(Modifier.mediaFrame(attachment).clickable { playing = true }, Alignment.Center) {
         AsyncImage(still, attachment.fileName, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
         Surface(shape = CircleShape, color = Color.Black.copy(alpha = SCRIM), contentColor = Color.White) {
             Text(
@@ -158,7 +172,10 @@ private fun VideoFrame(
     val frame by produceState<ImageBitmap?>(null, attachment.localPath) {
         value = attachment.localPath?.let { firstFrame(it) }
     }
-    Box(Modifier.mediaFrame().clickable(onClick = onOpen), Alignment.Center) {
+    val length by produceState<Long?>(attachment.durationMs, attachment.localPath) {
+        value = attachment.durationMs ?: attachment.localPath?.let { videoDurationMs(it) }
+    }
+    Box(Modifier.mediaFrame(attachment).clickable(onClick = onOpen), Alignment.Center) {
         frame?.let {
             androidx.compose.foundation.Image(it, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
         }
@@ -169,7 +186,25 @@ private fun VideoFrame(
                 Modifier.padding(10.dp).size(28.dp),
             )
         }
+        length?.let {
+            Text(
+                clockLength(it),
+                Modifier.align(Alignment.BottomStart).padding(10.dp),
+                color = Color.White,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+            )
+        }
     }
+}
+
+/** 0:13, 1:05, 1:02:03. */
+internal fun clockLength(ms: Long): String {
+    val total = ms / MS_PER_SECOND
+    val seconds = total % SECONDS_PER_MINUTE
+    val minutes = total / SECONDS_PER_MINUTE % SECONDS_PER_MINUTE
+    val hours = total / SECONDS_PER_MINUTE / SECONDS_PER_MINUTE
+    return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
 }
 
 @Composable
@@ -220,13 +255,22 @@ private fun CardLine(
     }
 }
 
+// A picture or video fills its bubble's width and keeps its shape (owner, Gate G2: no slivers).
 @Composable
-private fun Modifier.mediaFrame() =
+private fun Modifier.mediaFrame(attachment: Attachment) =
     this
-        .widthIn(max = MEDIA_WIDTH)
-        .heightIn(min = MEDIA_MIN, max = MEDIA_MAX)
+        .fillMaxWidth()
+        .widthIn(min = MEDIA_MIN, max = MEDIA_WIDTH)
+        .aspectRatio(aspectOf(attachment))
         .clip(RoundedCornerShape(12.dp))
         .background(LocalContentColor.current.copy(alpha = TINT))
+
+private fun aspectOf(attachment: Attachment): Float {
+    val w = attachment.width ?: return DEFAULT_ASPECT
+    val h = attachment.height ?: return DEFAULT_ASPECT
+    if (w <= 0 || h <= 0) return DEFAULT_ASPECT
+    return (w.toFloat() / h).coerceIn(MIN_ASPECT, MAX_ASPECT)
+}
 
 @Composable
 private fun contactName(attachment: Attachment): String {
@@ -236,9 +280,13 @@ private fun contactName(attachment: Attachment): String {
     return name ?: attachment.fileName?.removeSuffix(".vcf") ?: stringResource(R.string.media_contact)
 }
 
-private val MEDIA_WIDTH = 260.dp
-private val MEDIA_MIN = 120.dp
-private val MEDIA_MAX = 320.dp
+private val MEDIA_WIDTH = 320.dp
+private val MEDIA_MIN = 160.dp
+private const val DEFAULT_ASPECT = 4f / 3f
+private const val MIN_ASPECT = 0.6f
+private const val MAX_ASPECT = 2f
+private const val MS_PER_SECOND = 1000L
+private const val SECONDS_PER_MINUTE = 60L
 private val CARD_MIN = 180.dp
 private val PROGRESS = 44.dp
 private const val TINT = 0.12f

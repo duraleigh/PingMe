@@ -287,7 +287,7 @@ internal class GmessagesSession(
         val page = fetch(conversation, limit, cursor)
         page.messages.forEach { retireStandIn(it) }
         return page.messages
-            .filter { it.id != anchor && !it.hide }
+            .filter { it.id != anchor && go.isShown(it) }
             .filter { cursor == null || it.timestamp / MICROS_PER_MILLI < cursor.lastItemTimestamp }
             .map(go::message)
     }
@@ -384,7 +384,22 @@ internal class GmessagesSession(
         ) {
             Log.i(TAG, "send tmpId=$tmpId: no echo in $ECHO_TIMEOUT, showing a stand-in")
         }
-        return refused ?: SendResult.Sent(echoed ?: standIn(chatId, draft, media, tmpId, record))
+        return refused ?: SendResult.Sent(echoed?.keepingFiles(draft) ?: standIn(chatId, draft, media, tmpId, record))
+    }
+
+    /**
+     * The phone's copy of a sent message names its media but not the files; PingMe has just
+     * uploaded those very files, so the bubble keeps showing them instead of downloading its
+     * own picture back.
+     */
+    private fun MessageSnapshot.keepingFiles(draft: OutgoingMessage): MessageSnapshot {
+        if (draft.attachments.isEmpty() || message.attachments.isEmpty()) return this
+        val attachments =
+            message.attachments.mapIndexed { i, a ->
+                val sent = draft.attachments.getOrNull(i) ?: return@mapIndexed a
+                a.copy(localPath = sent.localPath, durationMs = a.durationMs ?: sent.durationMs)
+            }
+        return copy(message = message.copy(attachments = attachments))
     }
 
     /**

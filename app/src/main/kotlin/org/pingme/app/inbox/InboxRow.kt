@@ -255,7 +255,10 @@ private fun RowContent(
     val unread = row.isUnread
     val colours = MaterialTheme.colorScheme
     Row(
-        Modifier.padding(horizontal = 20.dp, vertical = vertical),
+        Modifier
+            // An unread row is tinted whole, on top of the bold text and the dot (owner, Gate G2).
+            .background(if (unread) colours.primary.copy(alpha = UNREAD_TINT) else Color.Transparent)
+            .padding(horizontal = 20.dp, vertical = vertical),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -274,7 +277,7 @@ private fun RowContent(
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (unread) colours.onSurface else colours.onSurfaceVariant,
-                    fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+                    fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -420,3 +423,5 @@ private const val SHOW_MS = 900L
 private const val HALF_TURN = 180f
 private const val QUARTER_TURN = 90f
 private const val CAMERA = 12f
+
+private const val UNREAD_TINT = 0.08f

@@ -90,7 +90,10 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 - **Top app bar**: has its own surface colour with rounded bottom corners, so the list
   scrolls underneath it cleanly, as Google Messages does (owner, Gate G1).
 - **List items**: avatar, name, last message preview, network badge, time, unread dot
-  (a chat is unread or not; no per-chat count, owner decision 2026-10-01),
+  (a chat is unread or not; no per-chat count, owner decision 2026-10-01). An unread row
+  must be obvious at a glance (owner, Gate G2): a 14 dp dot in the primary colour, name
+  and preview in bold at full contrast, the time in the primary colour, and a faint
+  primary tint across the whole row,
   mute icon. Sender name shown in previews for groups. When the last message is yours,
   its status mark (sending, sent, delivered, read, failed; the same marks as in the chat:
   one tick sent, two ticks delivered, two ticks inside a filled circle read, so read never
@@ -390,6 +393,19 @@ the Google Voice app.
 
 The "+" button opens a bottom sheet: Camera, Gallery, File, Location, Contact. Images
 support multi-select with captions. Everything reports send progress on the bubble.
+
+Pictures and videos fill their bubble's width and keep their shape (a video shows its
+length in the corner), and a tap opens them full-screen inside PingMe: pictures fit the
+screen, videos play with play, pause, and seek; back or the close button returns to the
+chat. Files and contact cards open in the app that handles them. Never hand a picture or
+video to another app (owner, Gate G2, 2026-10-02).
+
+A sent picture or video keeps showing the file PingMe just sent; it is never thrown away
+and downloaded back. Updates to a message from the network (a reaction, a status, a
+history re-fetch) never lose files PingMe already saved.
+
+The network's system notes ("switched to RCS", "X joined") are not messages and are not
+drawn as bubbles.
 
 ---
 

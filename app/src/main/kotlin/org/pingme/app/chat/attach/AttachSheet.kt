@@ -49,15 +49,17 @@ import org.pingme.core.ui.R as UiR
 /** Why an attach option could not finish, for the chat's snackbar. */
 enum class AttachProblem { NO_LOCATION, NO_CAMERA }
 
-/** The "+" sheet: Camera, Gallery, File, Location, Contact (UI_DESIGN.md 5.8). */
+/**
+ * The "+" sheet: Camera, Gallery, File, Location, Contact (UI_DESIGN.md 5.8). [pick] comes
+ * from the composer, which stays on screen: the sheet closes as soon as a picker opens, and
+ * a picker's answer must land somewhere that still exists (Gate G2: photos went nowhere).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttachSheet(
-    outbox: Outbox,
-    onProblem: (AttachProblem) -> Unit,
+    pick: AttachLaunchers,
     onDismiss: () -> Unit,
 ) {
-    val pick = rememberAttachLaunchers(outbox, onProblem)
     ModalBottomSheet(onDismissRequest = onDismiss) {
         FlowRow(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 24.dp),
@@ -104,7 +106,7 @@ class AttachLaunchers(
 )
 
 @Composable
-private fun rememberAttachLaunchers(
+fun rememberAttachLaunchers(
     outbox: Outbox,
     onProblem: (AttachProblem) -> Unit,
 ): AttachLaunchers {
