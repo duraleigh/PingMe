@@ -56,6 +56,9 @@ class GoBridge(
 
     fun conversation(json: String): GmConversation = gmJson.decodeFromString(GmConversation.serializer(), json)
 
+    /** Whether this conversation has been seen (listed, fetched, or announced by the phone). */
+    fun knows(conversationId: String): Boolean = conversationId in conversations
+
     /** The participant ID messages go out as in a conversation, or null when unknown. */
     fun outgoingId(conversationId: String): String? = conversations[conversationId]?.outgoingId?.ifEmpty { null }
 

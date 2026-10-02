@@ -1828,3 +1828,14 @@ was processed, the stand-in message came back, and reacting to a stand-in is ref
 wait now runs on a real-time dispatcher. Nothing changes on the phone, where there is no
 virtual clock. Checked by running the connector's tests three times in a row and the full
 check.
+
+A second timing race, in the test double this time: `typingFollowsTheCapability` timed out
+once on CI. `FakeGmBridge` attached the session, then sent "settings" and "ready"; a typing
+event from the test thread could land in between, before the connector had listed the
+chats, so it was dropped as "unknown chat" (which is what the connector should do with
+typing for a chat it did not know). Two changes: the fake delivers its events under one
+lock, so "ready" comes first as it does on the phone; and the connector no longer drops
+typing for a chat it has not listed yet. It fetches that one chat from the phone, announces
+it, and then shows the typing. That is better on the phone too (typing in a chat that
+arrived after the list still shows) and makes the test independent of event order. The
+contract test module passed ten runs in a row, then the full check.
