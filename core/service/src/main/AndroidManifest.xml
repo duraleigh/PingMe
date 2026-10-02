@@ -14,6 +14,11 @@
             android:name=".ConnectionService"
             android:exported="false"
             android:foregroundServiceType="remoteMessaging" />
+
+        <!-- Reply and Mark read from a notification (UI_DESIGN.md 6.2). -->
+        <receiver
+            android:name=".notify.NotificationActionReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

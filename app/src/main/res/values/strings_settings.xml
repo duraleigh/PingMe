@@ -70,6 +70,9 @@
 
     <string name="motion_flippy">Flippy reactions</string>
     <string name="motion_flippy_note">A chat\'s row in the inbox flips over to show a new reaction.</string>
+    <string name="notify_gm_title">Turn off Google Messages\' notifications</string>
+    <string name="notify_gm_note">PingMe notifies you of every text, so Google Messages should not: otherwise each one arrives twice. In the phone\'s Settings, open Apps, then Messages, then Notifications, and turn them off. PingMe does not change another app\'s settings.</string>
+    <string name="notify_gm_got_it">Got it</string>
     <string name="notify_networks">Each network</string>
     <string name="notify_folders">Instagram folders</string>
     <string name="notify_folder_requests">Requests</string>

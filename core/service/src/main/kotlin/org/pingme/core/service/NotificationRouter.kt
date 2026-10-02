@@ -2,18 +2,32 @@
 package org.pingme.core.service
 
 import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.first
 import org.pingme.core.connector.ConnectorEvent
+import org.pingme.core.model.Account
 import org.pingme.core.model.Chat
+import org.pingme.core.model.ChatId
+import org.pingme.core.model.ChatOverrides
+import org.pingme.core.model.KeywordRule
+import org.pingme.core.model.KeywordScope
 import org.pingme.core.model.Message
+import org.pingme.core.model.NotificationMode
+import org.pingme.core.model.NotificationSettings
+import org.pingme.core.service.notify.ChatPresence
+import org.pingme.core.service.notify.MessageNotifications
+import org.pingme.core.service.notify.NotificationChannels
+import org.pingme.core.service.notify.OneTimeCodes
+import org.pingme.core.store.AccountRepository
+import org.pingme.core.store.ChatOverridesRepository
 import org.pingme.core.store.ChatRepository
+import org.pingme.core.store.ContactRepository
+import org.pingme.core.store.MessageRepository
+import org.pingme.core.store.SettingsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Clock
@@ -25,15 +39,20 @@ sealed interface NotificationDecision {
 
     data class Notify(
         val channelId: String,
+        /** The keyword that matched, named on the notification (UI_DESIGN.md 10.9). */
+        val keyword: String? = null,
+        /** Shown without a sound: the account, folder, or chat is set to Silent. */
+        val silent: Boolean = false,
     ) : NotificationDecision
 }
 
 /**
- * Decides whether and how a new message notifies (BUILD_PLAN.md P1.4 skeleton; the full
- * precedence of keyword, per-chat, folder, and account channels, conversation styling, OTP
- * detection, and reply actions arrive in P4.1). Today: outgoing, muted, and low priority
- * messages stay quiet, obscured chats show "New message" only, and everything else posts
- * a plain notification on the default channel.
+ * Decides whether and how a new message notifies (BUILD_PLAN.md P4.1). Precedence: a
+ * matching keyword rule > the chat's own channel > the Instagram folder's > the account's >
+ * default. Dropped: your own messages, a message already in the store (a reaction or a
+ * status change re-sends the message; owner, Gate G2), the chat on screen, muted and low
+ * priority chats unless a keyword overrides, and accounts or folders set to Off. Obscured
+ * chats show "New message" only (UI_DESIGN.md 10.10).
  */
 @Singleton
 class NotificationRouter
@@ -41,73 +60,241 @@ class NotificationRouter
     constructor(
         @ApplicationContext private val context: Context,
         private val chats: ChatRepository,
+        private val messages: MessageRepository,
+        private val contacts: ContactRepository,
+        private val overrides: ChatOverridesRepository,
+        private val accounts: AccountRepository,
+        private val settings: SettingsRepository,
+        private val presence: ChatPresence,
         private val clock: Clock,
     ) {
-        suspend fun onEvent(event: ConnectorEvent) {
-            if (event !is ConnectorEvent.NewMessage) return
+        private val channels = NotificationChannels(context)
+        private val shown = MessageNotifications(context)
+
+        /**
+         * Whether [event] brings a message the store has not seen. Ask before the event is
+         * applied: afterwards every message is in the store.
+         */
+        suspend fun isFresh(event: ConnectorEvent): Boolean {
+            if (event !is ConnectorEvent.NewMessage) return false
+            val message = event.message.message
+            return !message.isOutgoing && messages.get(message.id) == null
+        }
+
+        /** Posts for a fresh incoming message, after it has been stored. */
+        suspend fun onEvent(
+            event: ConnectorEvent,
+            fresh: Boolean = true,
+        ) {
+            if (event !is ConnectorEvent.NewMessage || !fresh) return
             val message = event.message.message
             val chat = chats.get(message.chatId) ?: return
-            val decision = decide(chat, message, clock.now())
-            if (decision is NotificationDecision.Notify) post(decision, chat, message)
+            val account = accounts.get(chat.accountId)
+            val app = settings.app.first().notifications
+            val decision =
+                decide(
+                    chat,
+                    message,
+                    clock.now(),
+                    settings.keywordRules().first(),
+                    app,
+                    overrides.get(chat.id),
+                    account,
+                    presence.visible,
+                )
+            if (decision !is NotificationDecision.Notify) return
+            if (!allowed()) return
+            val sender = event.message.sender ?: contacts.person(message.senderId)
+            val channel = channelFor(decision, chat, account, app)
+            // A one-time code gets a Copy code button; with auto-copy on it is copied at once (UI_DESIGN.md 10.6).
+            val code = if (chat.isObscured) null else OneTimeCodes.find(message.body)
+            if (code != null && app.autoCopyCodes) OneTimeCodes.copy(context, code)
+            shown.post(decision.copy(channelId = channel), chat, message, sender, code)
         }
 
-        private fun post(
+        /** Takes this chat's notifications down: it was opened, read, or replied to. */
+        fun clear(chatId: ChatId) = shown.clear(chatId)
+
+        private fun allowed() =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+
+        // The channel exists by the time the notification goes out, with the sound its owner chose.
+        private suspend fun channelFor(
             decision: NotificationDecision.Notify,
             chat: Chat,
-            message: Message,
-        ) {
-            val allowed =
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-                    PackageManager.PERMISSION_GRANTED
-            if (!allowed) return
-            ensureDefaultChannel()
-            val text =
-                if (chat.isObscured) {
-                    context.getString(
-                        R.string.notification_new_message,
-                    )
-                } else {
-                    message.body.orEmpty()
+            account: Account?,
+            app: NotificationSettings,
+        ): String {
+            val id = decision.channelId
+            val chatName = chat.nameOverride ?: chat.title
+            return when {
+                id == NotificationChannels.DEFAULT -> {
+                    channels.ensure(id, context.getString(R.string.channel_messages))
                 }
-            val notification =
-                NotificationCompat
-                    .Builder(context, decision.channelId)
-                    .setSmallIcon(R.drawable.ic_stat_message)
-                    .setContentTitle(chat.nameOverride ?: chat.title)
-                    .setContentText(text)
-                    .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-                    .setAutoCancel(true)
-                    .build()
-            NotificationManagerCompat.from(context).notify(chat.id.value, 0, notification)
-        }
 
-        private fun ensureDefaultChannel() {
-            val manager = context.getSystemService(NotificationManager::class.java)
-            if (manager.getNotificationChannel(DEFAULT_CHANNEL) == null) {
-                manager.createNotificationChannel(
-                    NotificationChannel(
-                        DEFAULT_CHANNEL,
-                        context.getString(R.string.channel_messages),
-                        NotificationManager.IMPORTANCE_HIGH,
-                    ),
-                )
+                id.startsWith(CHAT) -> {
+                    val own = overrides.get(chat.id)
+                    channels.ensure(id, chatName, NotificationMode.NORMAL, own.soundUri, own.vibration)
+                }
+
+                id.startsWith(KEYWORD) -> {
+                    val profile = app.keywords[decision.keyword.orEmpty()]
+                    val name = context.getString(R.string.channel_keyword, decision.keyword.orEmpty())
+                    channels.ensure(
+                        id,
+                        name,
+                        profile?.mode ?: NotificationMode.NORMAL,
+                        profile?.soundUri,
+                        profile?.vibration,
+                    )
+                }
+
+                id.startsWith(FOLDER) -> {
+                    val folder = chat.folder
+                    val profile = folder?.let { app.folder(it) }
+                    channels.ensure(
+                        id,
+                        folder?.name.orEmpty(),
+                        profile?.mode ?: NotificationMode.NORMAL,
+                        profile?.soundUri,
+                        profile?.vibration,
+                    )
+                }
+
+                else -> {
+                    val profile = account?.let { app.network(it.network) }
+                    channels.ensure(
+                        id,
+                        account?.displayName ?: context.getString(R.string.channel_messages),
+                        account?.notificationMode ?: NotificationMode.NORMAL,
+                        profile?.soundUri,
+                        profile?.vibration,
+                    )
+                }
             }
         }
 
         companion object {
-            const val DEFAULT_CHANNEL = "default"
+            const val DEFAULT_CHANNEL = NotificationChannels.DEFAULT
+            private const val CHAT = "chat_"
+            private const val KEYWORD = "keyword_"
+            private const val FOLDER = "folder_"
+            private const val ACCOUNT = "account_"
 
+            /** The pure decision, so it can be tested without Android. */
+            @Suppress("LongParameterList")
             fun decide(
                 chat: Chat,
                 message: Message,
                 now: Instant,
+                keywords: List<KeywordRule> = emptyList(),
+                settings: NotificationSettings = NotificationSettings(),
+                overrides: ChatOverrides? = null,
+                account: Account? = null,
+                visible: ChatId? = null,
             ): NotificationDecision {
-                val muted = chat.isMuted && chat.muteUntil.let { it == null || it > now }
+                if (message.isOutgoing || visible == chat.id) return NotificationDecision.Drop
+                val keyword = keywords.firstOrNull { it.matches(message.body, chat) }
+                val folder = chat.folder
                 return when {
-                    message.isOutgoing -> NotificationDecision.Drop
-                    muted || chat.isLowPriority -> NotificationDecision.Drop
-                    else -> NotificationDecision.Notify(DEFAULT_CHANNEL)
+                    keyword != null && keyword.overridesSilence -> {
+                        keywordChannel(keyword, settings)
+                    }
+
+                    isQuiet(chat, now) -> {
+                        NotificationDecision.Drop
+                    }
+
+                    keyword != null -> {
+                        keywordChannel(keyword, settings)
+                    }
+
+                    overrides?.isCustomNotification == true -> {
+                        NotificationDecision.Notify("$CHAT${chat.id.value}_${overrides.channelVersion}")
+                    }
+
+                    folder != null -> {
+                        profileChannel("$FOLDER${folder.name}", settings.folder(folder), NotificationMode.NORMAL)
+                    }
+
+                    account == null -> {
+                        NotificationDecision.Notify(DEFAULT_CHANNEL)
+                    }
+
+                    else -> {
+                        accountChannel(account, settings)
+                    }
                 }
+            }
+
+            private fun isQuiet(
+                chat: Chat,
+                now: Instant,
+            ): Boolean {
+                val muted = chat.isMuted && chat.muteUntil.let { it == null || it > now }
+                return muted || chat.isLowPriority
+            }
+
+            // Off drops; Silent shows without a sound; the channel id carries the profile's version.
+            private fun profileChannel(
+                stem: String,
+                profile: org.pingme.core.model.NotificationProfile,
+                accountMode: NotificationMode,
+            ): NotificationDecision {
+                if (profile.mode == NotificationMode.OFF ||
+                    accountMode == NotificationMode.OFF
+                ) {
+                    return NotificationDecision.Drop
+                }
+                return NotificationDecision.Notify(
+                    "${stem}_${profile.channelVersion}",
+                    silent = profile.mode == NotificationMode.SILENT || accountMode == NotificationMode.SILENT,
+                )
+            }
+
+            private fun accountChannel(
+                account: Account,
+                settings: NotificationSettings,
+            ): NotificationDecision {
+                val profile = settings.network(account.network)
+                val plain =
+                    profile ==
+                        org.pingme.core.model
+                            .NotificationProfile() &&
+                        account.notificationMode == NotificationMode.NORMAL
+                if (plain) return NotificationDecision.Notify(DEFAULT_CHANNEL)
+                return profileChannel("$ACCOUNT${account.id.value}", profile, account.notificationMode)
+            }
+
+            private fun keywordChannel(
+                rule: KeywordRule,
+                settings: NotificationSettings,
+            ): NotificationDecision.Notify {
+                val profile = settings.keywords[rule.id.value]
+                return NotificationDecision.Notify(
+                    "$KEYWORD${rule.id.value}_${profile?.channelVersion ?: 0}",
+                    keyword = rule.pattern,
+                    silent = profile?.mode == NotificationMode.SILENT,
+                )
             }
         }
     }
+
+/** Whether [text] in [chat] trips this rule (UI_DESIGN.md 10.9). */
+fun KeywordRule.matches(
+    text: String?,
+    chat: Chat,
+): Boolean {
+    if (text.isNullOrBlank() || pattern.isBlank()) return false
+    val inScope =
+        when (val where = scope) {
+            KeywordScope.All -> true
+            is KeywordScope.Accounts -> chat.accountId in where.ids
+            is KeywordScope.Chats -> chat.id in where.ids
+        }
+    if (!inScope) return false
+    val quoted = Regex.escape(pattern)
+    val options = if (caseSensitive) emptySet() else setOf(RegexOption.IGNORE_CASE)
+    return Regex(if (wholeWord) "\\b$quoted\\b" else quoted, options).containsMatchIn(text)
+}

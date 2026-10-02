@@ -181,15 +181,20 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Fetched by pattern, not by the build job's output: that output arrived empty on the
+      # first tagged build (v0.1.0) and the release went out without its file.
       - uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.build.outputs.apk }}
+          pattern: pingme-*.apk
+          merge-multiple: true
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" "${{ needs.build.outputs.apk }}" \
+          apk=$(ls pingme-*.apk | grep -v -- '-demo.apk' | head -1)
+          test -n "$apk"
+          gh release create "${{ github.ref_name }}" "$apk" \
             --repo "${{ github.repository }}" \
             --title "PingMe ${{ github.ref_name }}" \
             --generate-notes

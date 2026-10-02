@@ -93,6 +93,11 @@ fun ChatRoute(
         hiltViewModel<ChatViewModel, ChatViewModel.Factory>(key = chatId.value) { it.create(chatId.value) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // On screen and resumed: no notifications for this chat; paused or gone: they come back.
+    androidx.lifecycle.compose.LifecycleResumeEffect(chatId) {
+        viewModel.visible(true)
+        onPauseOrDispose { viewModel.visible(false) }
+    }
     val forwardTargets by viewModel.forwardTargets.collectAsStateWithLifecycle()
     val uploads by viewModel.uploads.collectAsStateWithLifecycle()
     val held by viewModel.heldBack.collectAsStateWithLifecycle()

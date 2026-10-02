@@ -72,6 +72,7 @@ abstract class ServiceTest {
     protected lateinit var reactionFeed: ReactionFeed
     protected lateinit var applier: EventApplier
     protected lateinit var router: NotificationRouter
+    protected lateinit var presence: org.pingme.core.service.notify.ChatPresence
     protected lateinit var keeper: CountingKeeper
     protected lateinit var history: CountingHistory
 
@@ -93,7 +94,22 @@ abstract class ServiceTest {
         typing = TypingTracker(scope)
         reactionFeed = ReactionFeed()
         applier = EventApplier(accounts, chats, messages, contacts, typing, reactionFeed)
-        router = NotificationRouter(context, chats, clock)
+        presence =
+            org.pingme.core.service.notify
+                .ChatPresence()
+        router =
+            NotificationRouter(
+                context,
+                chats,
+                messages,
+                contacts,
+                org.pingme.core.store
+                    .ChatOverridesRepository(db),
+                accounts,
+                settings,
+                presence,
+                clock,
+            )
         keeper = CountingKeeper(context, settings, messages, clock)
         history = CountingHistory(context, messages)
     }

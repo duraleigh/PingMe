@@ -33,6 +33,7 @@ class ChatActionsTest : ServiceTest() {
             ),
             applier,
             settings,
+            router,
         )
     }
 

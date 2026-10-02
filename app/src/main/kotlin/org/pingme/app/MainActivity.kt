@@ -12,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import org.pingme.core.service.ConnectionService
+import org.pingme.core.service.notify.NotificationTaps
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.ui.theme.PingMeTheme
 import javax.inject.Inject
@@ -21,11 +22,15 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject lateinit var accounts: AccountRepository
 
+    @Inject lateinit var taps: NotificationTaps
+
     private val theme: ThemeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         lifecycleScope.launch { ConnectionService.startIfNeeded(this@MainActivity, accounts) }
+        // A tapped notification names its chat; the navigation host opens it (owner, Gate G2).
+        taps.fromIntent(intent)
         enableEdgeToEdge()
         setContent {
             val appearance by theme.appearance.collectAsStateWithLifecycle()
@@ -35,5 +40,11 @@ class MainActivity : ComponentActivity() {
             val done = setupDone
             if (look != null && done != null) PingMeTheme(look) { PingMeNavHost(startAtSetup = !done) }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        taps.fromIntent(intent)
     }
 }

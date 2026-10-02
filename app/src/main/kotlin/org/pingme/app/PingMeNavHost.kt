@@ -14,12 +14,14 @@ import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldPaneScope
 import androidx.compose.material3.adaptive.navigation.NavigableListDetailPaneScaffold
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -128,6 +130,7 @@ fun PingMeNavHost(
     modifier: Modifier = Modifier,
 ) {
     val nav = rememberNavController()
+    OpenTappedChat(nav)
     MotionNavHost(nav, startDestination = if (startAtSetup) Setup else Home, modifier = modifier) {
         composable<Home> { InboxHome(nav) }
         setupAndLogin(nav)
@@ -184,6 +187,18 @@ fun PingMeNavHost(
                 nav.navigate(OpenChat(it.value)) { popUpTo(Home) }
             })
         }
+    }
+}
+
+/** A tapped notification opens its chat, over whatever was showing (owner, Gate G2). */
+@Composable
+private fun OpenTappedChat(nav: NavController) {
+    val taps = hiltViewModel<org.pingme.app.notify.NotificationTapViewModel>().taps
+    val requested by taps.requested.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(requested) {
+        val chat = requested ?: return@LaunchedEffect
+        nav.navigate(OpenChat(chat.value)) { launchSingleTop = true }
+        taps.consume()
     }
 }
 

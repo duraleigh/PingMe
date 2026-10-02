@@ -50,6 +50,13 @@ fun NotificationsPage(
     }
     val networks = state.accounts.map { it.network }.distinct()
     Column(modifier) {
+        // A reminder only, no button into Google's settings (owner, 2026-10-02; UI_DESIGN.md 6.3).
+        if (NetworkId.GMESSAGES in networks) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.notify_gm_title)) },
+                supportingContent = { Text(stringResource(R.string.notify_gm_note)) },
+            )
+        }
         if (networks.isNotEmpty()) SettingsSectionHeader(stringResource(R.string.notify_networks))
         networks.forEach { network ->
             ProfileRows(network.displayName, notify.network(network)) { profile ->

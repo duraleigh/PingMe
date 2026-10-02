@@ -78,19 +78,28 @@ class MediaDownloadWorker
             if (attachment.localPath != null) return Result.success()
             val account = accounts.get(id.accountId) ?: return Result.failure()
             val connector = registry[account.network] ?: return Result.failure()
+            val started = System.currentTimeMillis()
             return runCatching { connector.downloadAttachment(attachment) }.fold(
                 onSuccess = { file ->
                     messages.setAttachmentLocalPath(id, file.absolutePath)
                     keeper.downloaded(attachment, file)
+                    // On the phone only (no telemetry, DESIGN.md 6.5): how long media takes to come in.
+                    val took = System.currentTimeMillis() - started
+                    android.util.Log.i(TAG, "downloaded ${attachment.kind} ${file.length()} bytes in $took ms")
                     Result.success()
                 },
-                onFailure = { if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure() },
+                onFailure = {
+                    val took = System.currentTimeMillis() - started
+                    android.util.Log.w(TAG, "download of ${attachment.kind} failed after $took ms", it)
+                    if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
+                },
             )
         }
 
         companion object {
             const val KEY_ATTACHMENT = "attachment"
             const val MAX_ATTEMPTS = 5
+            private const val TAG = "PingMeMedia"
         }
     }
 
