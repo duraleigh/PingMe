@@ -1816,3 +1816,26 @@ Both questions in the P3.2 entry are answered:
 
 **Next:** when G2 passes, Phase 4 (notifications, background, and the message features
 that need the real network).
+
+## Fix after merging Phase 3 (2026-10-01): the send's echo wait on the test clock
+
+`main`'s build after #20 failed on `GmessagesContractTest.reactionsFollowTheCapability`,
+which had passed on every pull-request run and locally. The send waits up to 20 seconds for
+the phone to echo the message back; under the contract test's `runTest` that wait ran on
+the test's virtual clock, which skips ahead the moment the test coroutine is idle, so on a
+slow runner the wait "expired" before the echo (which comes from the bridge's own thread)
+was processed, the stand-in message came back, and reacting to a stand-in is refused. The
+wait now runs on a real-time dispatcher. Nothing changes on the phone, where there is no
+virtual clock. Checked by running the connector's tests three times in a row and the full
+check.
+
+A second timing race, in the test double this time: `typingFollowsTheCapability` timed out
+once on CI. `FakeGmBridge` attached the session, then sent "settings" and "ready"; a typing
+event from the test thread could land in between, before the connector had listed the
+chats, so it was dropped as "unknown chat" (which is what the connector should do with
+typing for a chat it did not know). Two changes: the fake delivers its events under one
+lock, so "ready" comes first as it does on the phone; and the connector no longer drops
+typing for a chat it has not listed yet. It fetches that one chat from the phone, announces
+it, and then shows the typing. That is better on the phone too (typing in a chat that
+arrived after the list still shows) and makes the test independent of event order. The
+contract test module passed ten runs in a row, then the full check.

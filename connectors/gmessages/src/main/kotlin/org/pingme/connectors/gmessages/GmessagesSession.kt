@@ -123,15 +123,44 @@ internal class GmessagesSession(
                 echoOrForward(event)
             }
 
+            else -> {
+                dataEvents(event).forEach { send(it) }
+            }
+        }
+    }
+
+    /** Chats, messages, typing, and settings: what GoBridge turns into connector events. */
+    private suspend fun dataEvents(event: GmEvent): List<ConnectorEvent> =
+        when (event) {
+            is GmEvent.Typing -> {
+                typingEvents(event)
+            }
+
             is GmEvent.Settings -> {
-                go.translate(event)
                 if (!event.settings.rcsEnabled) Log.i(TAG, "RCS is off in Google Messages; texts go as SMS")
+                go.translate(event)
             }
 
             else -> {
-                go.translate(event).forEach { send(it) }
+                go.translate(event)
             }
         }
+
+    /** Typing in a chat not listed yet (it can arrive before the list) fetches that chat first. */
+    private suspend fun typingEvents(event: GmEvent.Typing): List<ConnectorEvent> {
+        if (go.knows(event.conversationId)) return go.translate(event)
+        val chat =
+            try {
+                go.chat(go.conversation(request { session.getConversation(event.conversationId) }))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                Log.w(TAG, "Typing in an unknown chat ${event.conversationId}", e)
+                return emptyList()
+            }
+        return listOf(ConnectorEvent.ChatUpdated(accountId, chat)) + go.translate(event)
     }
 
     /** The events that end the session: unpaired needs the user; the rest get a reconnect. */
@@ -276,7 +305,16 @@ internal class GmessagesSession(
                 pending.remove(tmpId)
                 SendResult.Failed(sendFailure(e), retryable = GmError.codeOf(e) != GmError.REJECTED)
             }
-        val echoed = if (refused == null) withTimeoutOrNull(ECHO_TIMEOUT) { waiter.await() } else null
+        // Waited on a real-time dispatcher: the echo comes from the bridge's own thread, and a
+        // caller on a test clock would otherwise skip the wait and get the stand-in.
+        val echoed =
+            if (refused ==
+                null
+            ) {
+                withContext(Dispatchers.Default) { withTimeoutOrNull(ECHO_TIMEOUT) { waiter.await() } }
+            } else {
+                null
+            }
         pending.remove(tmpId)
         return refused ?: SendResult.Sent(echoed ?: standIn(chatId, draft, media))
     }
