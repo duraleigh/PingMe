@@ -30,8 +30,30 @@ import org.pingme.core.service.R
 internal class MessageNotifications(
     private val context: Context,
 ) {
+    /** One unread line and the message it is for. */
+    private class Line(
+        val messageId: org.pingme.core.model.MessageId,
+        val text: CharSequence,
+        val at: Long,
+        val who: Person,
+        var picture: Pair<String, android.net.Uri>? = null,
+    ) {
+        fun styled() =
+            NotificationCompat.MessagingStyle
+                .Message(text, at, who)
+                .apply { picture?.let { (mime, uri) -> setData(mime, uri) } }
+    }
+
+    /** What the last post for a chat was, so the notification can be drawn again with a picture. */
+    private class Posted(
+        val decision: NotificationDecision.Notify,
+        val chat: Chat,
+        val code: String?,
+    )
+
     /** The unread lines shown per chat, so each new message joins the last ones. */
-    private val lines = HashMap<ChatId, MutableList<NotificationCompat.MessagingStyle.Message>>()
+    private val lines = HashMap<ChatId, MutableList<Line>>()
+    private val posted = HashMap<ChatId, Posted>()
 
     private val manager get() = NotificationManagerCompat.from(context)
 
@@ -46,31 +68,68 @@ internal class MessageNotifications(
         val title = chat.nameOverride ?: chat.title
         val who = person(sender?.displayName ?: title, message.senderId.value)
         val text = if (chat.isObscured) context.getString(R.string.notification_new_message) else lineFor(message)
-        val line = NotificationCompat.MessagingStyle.Message(text, message.sentAt.toEpochMilliseconds(), who)
         val history = lines.getOrPut(chat.id) { mutableListOf() }
         if (chat.isObscured) history.clear()
-        history += line
+        history += Line(message.id, text, message.sentAt.toEpochMilliseconds(), who)
         while (history.size > MAX_LINES) history.removeAt(0)
+        posted[chat.id] = Posted(decision, chat, code)
+        publishShortcut(chat, title, who)
+        render(chat.id, alert = true)
+    }
+
+    /**
+     * A picture for a message still in the shade has arrived: the notification shows it
+     * (owner, Gate G3), without sounding again.
+     */
+    @Synchronized
+    fun showPicture(
+        chatId: ChatId,
+        messageId: org.pingme.core.model.MessageId,
+        file: java.io.File,
+        mimeType: String,
+    ) {
+        val line = lines[chatId]?.firstOrNull { it.messageId == messageId } ?: return
+        val uri =
+            runCatching {
+                androidx.core.content.FileProvider
+                    .getUriForFile(context, "${context.packageName}.files", file)
+            }.getOrNull() ?: return
+        // The shade is drawn by the system UI, which needs leave to read the file.
+        runCatching { context.grantUriPermission(SYSTEM_UI, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        line.picture = mimeType to uri
+        render(chatId, alert = false)
+    }
+
+    // Draws the chat's notification from its lines; [alert] sounds it for a new message.
+    private fun render(
+        chatId: ChatId,
+        alert: Boolean,
+    ) {
+        val last = posted[chatId] ?: return
+        val history = lines[chatId]?.takeIf { it.isNotEmpty() } ?: return
+        val chat = last.chat
+        val decision = last.decision
+        val title = chat.nameOverride ?: chat.title
+        val newest = history.last()
         val style =
             NotificationCompat.MessagingStyle(me()).setGroupConversation(chat.kind == ChatKind.GROUP).also { s ->
                 if (chat.kind == ChatKind.GROUP) s.conversationTitle = title
-                history.forEach { s.addMessage(it) }
+                history.forEach { s.addMessage(it.styled()) }
             }
-        publishShortcut(chat, title, who)
         val notification =
             NotificationCompat
                 .Builder(context, decision.channelId)
                 .setSmallIcon(R.drawable.ic_stat_message)
                 .setStyle(style)
                 .setContentTitle(title)
-                .setContentText(text)
+                .setContentText(newest.text)
                 .setShortcutId(chat.id.value)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setWhen(message.sentAt.toEpochMilliseconds())
+                .setWhen(newest.at)
                 .setShowWhen(true)
                 .setAutoCancel(true)
-                .setOnlyAlertOnce(false)
+                .setOnlyAlertOnce(!alert)
                 .setSilent(decision.silent)
                 .setGroup(GROUP)
                 .setContentIntent(openChat(chat.id))
@@ -79,7 +138,7 @@ internal class MessageNotifications(
                 .apply {
                     decision.keyword?.let { setSubText(context.getString(R.string.notification_keyword, it)) }
                     // A one-time code gets its own button (UI_DESIGN.md 10.6).
-                    code?.let { addAction(copyCodeAction(chat.id, it)) }
+                    last.code?.let { addAction(copyCodeAction(chat.id, it)) }
                 }.build()
         show(chat.id.value, MESSAGE_ID, notification)
         show(SUMMARY_TAG, SUMMARY_ID, summary(decision.channelId))
@@ -122,12 +181,21 @@ internal class MessageNotifications(
         show(chat.id.value, LATE_ID, notification)
     }
 
-    /** Takes the chat's notification down and forgets its lines. */
+    /**
+     * Takes the chat's notification down and forgets its lines. The group line goes with the
+     * last chat's notification, judged by what is really in the shade, not by memory (owner,
+     * Gate G3: a line stayed after the message was read).
+     */
     @Synchronized
     fun clear(chatId: ChatId) {
         lines.remove(chatId)
+        posted.remove(chatId)
         manager.cancel(chatId.value, MESSAGE_ID)
-        if (lines.isEmpty()) manager.cancel(SUMMARY_TAG, SUMMARY_ID)
+        val others =
+            runCatching { manager.activeNotifications }
+                .getOrDefault(emptyList())
+                .any { it.id == MESSAGE_ID && it.tag != chatId.value }
+        if (!others) manager.cancel(SUMMARY_TAG, SUMMARY_ID)
     }
 
     // Groups every chat's notification under one line when there are several.
@@ -275,5 +343,6 @@ internal class MessageNotifications(
         private const val GROUP = "org.pingme.messages"
         private const val MAX_LINES = 8
         private const val ME = "me"
+        private const val SYSTEM_UI = "com.android.systemui"
     }
 }

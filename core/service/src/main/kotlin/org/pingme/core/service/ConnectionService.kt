@@ -39,9 +39,25 @@ class ConnectionService : Service() {
 
     private var accountWatch: Job? = null
 
+    // Only a real change counts: not the network already in use when the service starts.
     private val networkCallback =
         object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) = supervisor.onNetworkChanged()
+            private var current: Network? = null
+            private var lost = false
+
+            override fun onAvailable(network: Network) {
+                val changed = lost || (current != null && current != network)
+                current = network
+                lost = false
+                if (changed) supervisor.onNetworkChanged()
+            }
+
+            override fun onLost(network: Network) {
+                if (current == network) {
+                    current = null
+                    lost = true
+                }
+            }
         }
 
     override fun onCreate() {

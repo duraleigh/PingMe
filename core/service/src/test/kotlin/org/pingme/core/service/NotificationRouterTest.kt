@@ -92,6 +92,31 @@ class NotificationRouterTest : ServiceTest() {
         }
 
     @Test
+    fun aChatReadOnThePhoneTakesItsNotificationDown() =
+        runBlocking {
+            seed()
+            arrive(ConnectorEvent.NewMessage(accountId, messageSnapshot("m1")))
+            assertEquals(1, posted().size)
+            val read = chatSnapshot().copy(unreadCount = 0)
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, read))
+            router.onEvent(ConnectorEvent.ChatUpdated(accountId, read), fresh = false)
+            assertTrue(posted().isEmpty())
+            assertTrue("the group line goes with it", shadowOf(manager).allNotifications.isEmpty())
+        }
+
+    @Test
+    fun withPingMeOpenNothingLandsInTheShade() =
+        runBlocking {
+            seed()
+            presence.appVisible = true
+            arrive(ConnectorEvent.NewMessage(accountId, messageSnapshot("m1")))
+            assertTrue(posted().isEmpty())
+            presence.appVisible = false
+            arrive(ConnectorEvent.NewMessage(accountId, messageSnapshot("m2")))
+            assertEquals(1, posted().size)
+        }
+
+    @Test
     fun theChatOnScreenDoesNotNotify() =
         runBlocking {
             seed()

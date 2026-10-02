@@ -3,8 +3,12 @@ package org.pingme.app
 
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import org.pingme.core.service.notify.ChatPresence
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -13,6 +17,24 @@ class PingMeApp :
     Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
+    @Inject lateinit var presence: ChatPresence
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
+
+    override fun onCreate() {
+        super.onCreate()
+        // With PingMe on screen a message makes its sound and nothing lands in the shade (owner, Gate G3).
+        ProcessLifecycleOwner.get().lifecycle.addObserver(
+            object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) {
+                    presence.appVisible = true
+                }
+
+                override fun onStop(owner: LifecycleOwner) {
+                    presence.appVisible = false
+                }
+            },
+        )
+    }
 }

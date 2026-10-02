@@ -134,11 +134,10 @@ private fun liveStatus(state: ChatUiState): String {
         }
 
         chat.kind == ChatKind.GROUP -> {
-            pluralStringResource(
-                R.plurals.chat_members,
-                chat.participants.size + 1,
-                chat.participants.size + 1,
-            )
+            // Everyone else plus you; a network that lists you among the members is not counted twice
+            // (owner, Gate G3: the count was one too many).
+            val others = chat.participants.count { it != state.me && state.names[it] != YOU }
+            pluralStringResource(R.plurals.chat_members, others + 1, others + 1)
         }
 
         else -> {
@@ -146,6 +145,8 @@ private fun liveStatus(state: ChatUiState): String {
         }
     }
 }
+
+private const val YOU = "You"
 
 /** RCS or SMS in a Google Messages chat follows the newest message. */
 private fun ChatUiState.lastTransport() =

@@ -19,7 +19,6 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.pingme.app.inbox.DemoInbox
 import org.pingme.core.model.NetworkId
-import org.pingme.core.model.TextingMode
 import org.pingme.core.ui.theme.Appearance
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.theme.ThemeMode
@@ -28,7 +27,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.GraphicsMode
 import java.time.Duration
 
-/** First-run setup: mode, permissions with reasons, then the first network (BUILD_PLAN.md P2.7). */
+/** First-run setup: permissions with reasons, then the first network (BUILD_PLAN.md P2.7). */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SetupScreenTest {
@@ -69,7 +68,6 @@ class SetupScreenTest {
 
     // Skips every permission, whatever pages this Android version has.
     private fun skipToNetworks() {
-        tap("Next")
         while (!shown("Connect your first network")) {
             tap("Not now")
             compose.waitForIdle()
@@ -77,22 +75,9 @@ class SetupScreenTest {
     }
 
     @Test
-    fun googleMessagesModeIsRecommendedAndNativeSmsCanBePicked() {
-        assertTrue(shown("Recommended"))
-        tap("Native SMS mode")
-        waitFor {
-            runBlocking {
-                demo.settings.app
-                    .first()
-                    .textingMode == TextingMode.NATIVE_SMS
-            }
-        }
-    }
-
-    @Test
     fun eachPermissionSaysWhy() {
-        tap("Next")
-        waitFor { vm.page.value == 1 }
+        // No texting-mode page any more: Google Messages is the one way (owner, Gate G3).
+        assertEquals(0, vm.page.value)
         val pages = vm.pages
         if (SetupPage.NOTIFICATIONS in pages) assertTrue(shown("Get told about new messages"))
         assertTrue(SetupPage.BATTERY in pages && SetupPage.CONTACTS in pages)
@@ -122,7 +107,8 @@ class SetupScreenTest {
 
     @Test
     fun backGoesToThePageBefore() {
-        tap("Next")
+        // The first page is a permission ask now; "Not now" moves on.
+        tap("Not now")
         waitFor { vm.page.value == 1 }
         assertTrue(vm.back())
         assertEquals(0, vm.page.value)

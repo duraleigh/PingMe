@@ -58,6 +58,20 @@ class MediaKeeperTest : ServiceTest() {
         }
 
     @Test
+    fun aPictureThePhoneHasNotFetchedYetWaitsForTheUpdate() =
+        runBlocking {
+            // No remote reference yet: the phone is still downloading it itself (owner, Gate G3).
+            val pending =
+                withPhoto("m1").let {
+                    it.copy(message = it.message.copy(attachments = listOf(photo("m1").copy(remoteRef = null))))
+                }
+            keeper.arrived(pending.message)
+            assertTrue(keeper.downloads.isEmpty())
+            keeper.arrived(withPhoto("m1").message)
+            assertEquals(listOf(photo("m1").id), keeper.downloads)
+        }
+
+    @Test
     fun everyIncomingFileDownloadsOnArrivalWhenOn() =
         runBlocking {
             saveAll(true)

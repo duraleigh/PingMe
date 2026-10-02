@@ -98,7 +98,7 @@ fun MessageRow(
                     if (showTime || message.status is MessageStatus.Failed ||
                         message.status is MessageStatus.Scheduled
                     ) {
-                        Footer(message)
+                        Footer(message, context.network)
                     }
                 },
             )
@@ -118,8 +118,6 @@ private fun ColumnScope.BubbleTop(
     val message = item.message
     val groupStart = context.kind == ChatKind.GROUP && item.firstInGroup
     if (!message.isOutgoing && groupStart && sender != null) SenderName(sender)
-    val fellBack = message.transport == Transport.SMS && context.network == NetworkId.GMESSAGES
-    if (message.isOutgoing && fellBack) SmsTag()
     message.quote?.let { QuoteBlock(it.senderName, it.text) { context.onQuote(message) } }
     message.attachments.forEach {
         AttachmentView(
@@ -154,8 +152,16 @@ private fun bodyText(
         else -> message.body?.let { linked(it, message.linkPreview, clean) }
     }
 
+/**
+ * The time, then the status marks on an RCS message you sent, or a small SMS or MMS tag on a
+ * text that went the old way, in either direction (owner, Gate G3: the tag sits where the
+ * marks would, not above the bubble).
+ */
 @Composable
-private fun Footer(message: Message) {
+private fun Footer(
+    message: Message,
+    network: NetworkId,
+) {
     val deleted = message.deletedForEveryone || message.kind == MessageKind.DELETED
     Row(
         Modifier.padding(top = 2.dp),
@@ -180,7 +186,20 @@ private fun Footer(message: Message) {
             style = MaterialTheme.typography.labelSmall,
             color = LocalContentColor.current.copy(alpha = FADED),
         )
-        if (message.isOutgoing) StatusMark(message.status)
+        val oldWay = network == NetworkId.GMESSAGES && message.transport != Transport.RCS
+        when {
+            message.status is MessageStatus.Failed || message.status is MessageStatus.Scheduled -> {
+                if (message.isOutgoing) StatusMark(message.status)
+            }
+
+            oldWay -> {
+                TransportTag(message.transport)
+            }
+
+            message.isOutgoing -> {
+                StatusMark(message.status)
+            }
+        }
     }
 }
 

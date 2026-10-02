@@ -36,18 +36,23 @@ class LinkPreviews(
             LinkPreviewMode.WIFI_ONLY -> unmetered()
         }
 
-    /** The preview for [url], or null when the page gives nothing or cannot be read. */
+    /**
+     * The preview for [url], or null when the page gives nothing or cannot be read. The
+     * card's link is where the page really is, after any redirects (a share.google link
+     * ends on the site it points to; owner, Gate G3), cleaned of tracking.
+     */
     suspend fun fetch(url: String): LinkPreview? =
         withContext(Dispatchers.IO) {
             val target = links.clean(url).let { if (it.startsWith("http")) it else "https://$it" }
-            val html = runCatching { read(target, PAGE_CAP) }.getOrElse { return@withContext failed(target, it) }
-            val page = OpenGraph.parse(String(html, Charsets.UTF_8), target)
+            val fetched = runCatching { read(target, PAGE_CAP) }.getOrElse { return@withContext failed(target, it) }
+            val landed = links.clean(fetched.finalUrl)
+            val page = OpenGraph.parse(String(fetched.bytes, Charsets.UTF_8), landed)
             if (page.isEmpty) {
-                Log.i(TAG, "no title, description, or picture in ${html.size} bytes from $target")
+                Log.i(TAG, "no title, description, or picture in ${fetched.bytes.size} bytes from $landed")
                 return@withContext null
             }
             val image = page.image?.let { runCatching { keepImage(it) }.getOrNull() }
-            LinkPreview(url, target, page.title, page.description, image, clock.now(), LinkPreviewSource.LOCAL)
+            LinkPreview(url, landed, page.title, page.description, image, clock.now(), LinkPreviewSource.LOCAL)
         }
 
     private fun failed(
@@ -58,23 +63,43 @@ class LinkPreviews(
         return null
     }
 
-    // At most [cap] bytes, with short timeouts, following redirects as the platform does.
+    private class Fetched(
+        val bytes: ByteArray,
+        /** Where the content came from, after redirects. */
+        val finalUrl: String,
+    )
+
+    // At most [cap] bytes, with short timeouts, following redirects itself (across http and
+    // https too, which the platform does not) so the final address is known.
     private fun read(
         address: String,
         cap: Int,
-    ): ByteArray {
-        val connection = URL(address).openConnection() as HttpURLConnection
-        try {
-            connection.connectTimeout = TIMEOUT_MS
-            connection.readTimeout = TIMEOUT_MS
-            connection.instanceFollowRedirects = true
-            connection.setRequestProperty("User-Agent", USER_AGENT)
-            connection.setRequestProperty("Accept", "text/html,image/*;q=0.8,*/*;q=0.5")
-            if (connection.responseCode !in HTTP_OK) throw IOException("HTTP ${connection.responseCode}")
-            return connection.inputStream.use { it.readUpTo(cap) }
-        } finally {
-            connection.disconnect()
+    ): Fetched {
+        var url = address
+        var hops = 0
+        while (hops <= MAX_REDIRECTS) {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            try {
+                connection.connectTimeout = TIMEOUT_MS
+                connection.readTimeout = TIMEOUT_MS
+                connection.instanceFollowRedirects = false
+                connection.setRequestProperty("User-Agent", USER_AGENT)
+                connection.setRequestProperty("Accept", "text/html,image/*;q=0.8,*/*;q=0.5")
+                connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+                val code = connection.responseCode
+                val location = connection.getHeaderField("Location")
+                if (code in REDIRECTS && location != null) {
+                    url = URL(URL(url), location).toString()
+                    hops++
+                    continue
+                }
+                if (code !in HTTP_OK) throw IOException("HTTP $code")
+                return Fetched(connection.inputStream.use { it.readUpTo(cap) }, url)
+            } finally {
+                connection.disconnect()
+            }
         }
+        throw IOException("more than $MAX_REDIRECTS redirects")
     }
 
     // Reads at most [cap] bytes (readNBytes needs Android 13; the app runs on 10 and newer).
@@ -92,7 +117,7 @@ class LinkPreviews(
     }
 
     private fun keepImage(address: String): String? {
-        val bytes = read(address, IMAGE_CAP)
+        val bytes = read(address, IMAGE_CAP).bytes
         if (bytes.isEmpty()) return null
         val dir = File(context.filesDir, "previews").apply { mkdirs() }
         val digest = MessageDigest.getInstance("SHA-256").digest(address.toByteArray())
@@ -116,6 +141,15 @@ class LinkPreviews(
         const val FILE_NAME_LENGTH = 32
         const val BUFFER = 16_384
         val HTTP_OK = 200..299
-        const val USER_AGENT = "Mozilla/5.0 (Linux; Android) PingMe link preview"
+        val REDIRECTS = setOf(301, 302, 303, 307, 308)
+        const val MAX_REDIRECTS = 5
+
+        /**
+         * What Chrome on Android sends. Sites that refuse unknown readers (the New York
+         * Times answered 403; owner, Gate G3) serve the page and its preview tags to this.
+         */
+        const val USER_AGENT =
+            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/130.0.0.0 Mobile Safari/537.36"
     }
 }

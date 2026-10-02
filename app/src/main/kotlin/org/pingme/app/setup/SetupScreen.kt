@@ -44,7 +44,6 @@ fun SetupRoute(
     viewModel: SetupViewModel = hiltViewModel(),
 ) {
     val index by viewModel.page.collectAsStateWithLifecycle()
-    val mode by viewModel.mode.collectAsStateWithLifecycle()
     val pages = viewModel.pages
     BackHandler { if (!viewModel.back()) navigation.onLeave() }
     Scaffold(modifier) { padding ->
@@ -63,10 +62,6 @@ fun SetupRoute(
             )
             LinearWavyProgressIndicator({ (index + 1f) / pages.size }, Modifier.fillMaxWidth())
             when (pages[index]) {
-                SetupPage.MODE -> {
-                    ModePage(mode, viewModel::setMode, viewModel::next)
-                }
-
                 SetupPage.NOTIFICATIONS -> {
                     NotificationsPage(viewModel::next)
                 }

@@ -26,6 +26,19 @@ class OpenGraphTest {
     }
 
     @Test
+    fun characterReferencesAreDecodedEvenWhenEncodedTwice() {
+        val html =
+            """
+            <html><head><title>Tom &amp;amp; Jerry &amp;#x2013; it&#8217;s on &#x1F600;</title>
+            <meta name="description" content="Caf&eacute; &amp;#x20;open&hellip;">
+            </head></html>
+            """.trimIndent()
+        val page = OpenGraph.parse(html, "https://example.com")
+        assertEquals("Tom & Jerry – it’s on 😀", page.title)
+        assertEquals("Café open…", page.description)
+    }
+
+    @Test
     fun aPageWithoutTagsStillHasItsTitle() {
         val page = OpenGraph.parse("<html><head><title>  Just a\n title </title></head></html>", "https://e.com")
         assertEquals("Just a title", page.title)

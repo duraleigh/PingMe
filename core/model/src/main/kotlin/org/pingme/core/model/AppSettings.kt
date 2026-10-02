@@ -17,17 +17,11 @@ data class AppSettings(
     val flippyReactions: Boolean? = null,
     /** Emoji that also get the screen-edge glow at Extra intensity (UI_DESIGN.md 5.4). */
     val specialEmoji: Set<String> = emptySet(),
-    /** How texts reach PingMe (DESIGN.md 5.2), picked during setup and changeable later. */
-    val textingMode: TextingMode = TextingMode.GOOGLE_MESSAGES,
     /** Setup has run to the end once (BUILD_PLAN.md P2.7); until then PingMe opens on it. */
     val setupDone: Boolean = false,
     /** The one-time "turn off Google Messages' notifications" prompt has been seen (UI_DESIGN.md 6.3). */
     val gmessagesNotificationsReminderShown: Boolean = false,
 )
-
-/** Google Messages mode keeps Google Messages as the SMS app; native SMS mode makes PingMe it (DESIGN.md 5.2). */
-@Serializable
-enum class TextingMode { GOOGLE_MESSAGES, NATIVE_SMS }
 
 /** How one network, account, or Instagram folder notifies (UI_DESIGN.md 6.1, 6.4, 6.5). */
 @Serializable

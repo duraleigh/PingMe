@@ -36,7 +36,12 @@ open class MediaKeeper
         private val messages: MessageRepository,
         private val clock: Clock,
     ) {
-        /** A message arrived: its pictures and the like download now; with the setting on, everything does. */
+        /**
+         * A message arrived or changed: its pictures and the like download now; with the
+         * setting on, everything does. A file the phone has not finished fetching itself (no
+         * remote reference yet) waits for the update that brings one, with no retry in between
+         * (owner, Gate G3: a picture took minutes to show).
+         */
         suspend fun arrived(message: Message) {
             if (message.isOutgoing) return
             val everything =
@@ -44,7 +49,7 @@ open class MediaKeeper
                     .first()
                     .media.saveAllMedia
             message.attachments
-                .filter { it.localPath == null && (everything || it.kind in ON_ARRIVAL) }
+                .filter { it.localPath == null && it.remoteRef != null && (everything || it.kind in ON_ARRIVAL) }
                 .forEach { download(it.id) }
         }
 
@@ -105,6 +110,7 @@ open class MediaKeeper
                     org.pingme.core.model.AttachmentKind.STICKER,
                     org.pingme.core.model.AttachmentKind.VIDEO,
                     org.pingme.core.model.AttachmentKind.VOICE,
+                    org.pingme.core.model.AttachmentKind.AUDIO,
                 )
         }
     }

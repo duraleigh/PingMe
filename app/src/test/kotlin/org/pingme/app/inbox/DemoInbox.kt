@@ -64,7 +64,17 @@ class DemoInbox(
     val contacts = ContactRepository(db)
     val typing = TypingTracker(scope)
     val reactions = ReactionFeed()
-    val applier = EventApplier(accounts, chats, messages, contacts, typing, reactions)
+    val applier =
+        EventApplier(
+            accounts,
+            chats,
+            messages,
+            contacts,
+            typing,
+            reactions,
+            org.pingme.core.service
+                .Tapbacks(messages),
+        )
     val controls = DemoControls()
     val demo = DemoConnector(controls, MemoryCredentials(), dir.resolve("media"), Clock.System)
     val registry = ConnectorRegistry(mapOf(NetworkId.DEMO to demo))

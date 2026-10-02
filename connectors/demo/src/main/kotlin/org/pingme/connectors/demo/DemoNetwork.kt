@@ -267,8 +267,8 @@ internal class DemoNetwork(
         when (kind) {
             AttachmentKind.IMAGE -> MessageKind.IMAGE
             AttachmentKind.VIDEO -> MessageKind.VIDEO
-            AttachmentKind.AUDIO, AttachmentKind.FILE -> MessageKind.FILE
-            AttachmentKind.VOICE -> MessageKind.VOICE
+            AttachmentKind.FILE -> MessageKind.FILE
+            AttachmentKind.AUDIO, AttachmentKind.VOICE -> MessageKind.VOICE
             AttachmentKind.GIF -> MessageKind.GIF
             AttachmentKind.STICKER -> MessageKind.STICKER
             AttachmentKind.CONTACT -> MessageKind.CONTACT

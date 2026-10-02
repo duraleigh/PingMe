@@ -11,12 +11,10 @@ import androidx.compose.ui.unit.dp
 import org.pingme.app.R
 import org.pingme.app.login.LoginStepView
 import org.pingme.app.setup.AskPage
-import org.pingme.app.setup.ModePage
 import org.pingme.app.setup.NetworkPage
 import org.pingme.core.connector.LoginStep
 import org.pingme.core.connector.TextKind
 import org.pingme.core.model.NetworkId
-import org.pingme.core.model.TextingMode
 import org.pingme.core.ui.theme.Appearance
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.theme.ThemeMode
@@ -29,10 +27,6 @@ private fun Screen(content: @Composable () -> Unit) =
     PingMeTheme(Appearance(mode = ThemeMode.LIGHT)) {
         Surface { Column(Modifier.padding(24.dp)) { content() } }
     }
-
-@Preview(name = "Setup: texting mode", widthDp = 411, heightDp = 891)
-@Composable
-internal fun SetupModePreview() = Screen { ModePage(TextingMode.GOOGLE_MESSAGES, {}, {}) }
 
 @Preview(name = "Setup: stay connected", widthDp = 411, heightDp = 891)
 @Composable

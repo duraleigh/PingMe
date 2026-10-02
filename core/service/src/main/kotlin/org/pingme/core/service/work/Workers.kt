@@ -73,11 +73,14 @@ class MediaDownloadWorker
         private val accounts: AccountRepository,
         private val messages: MessageRepository,
         private val keeper: org.pingme.core.service.MediaKeeper,
+        private val notifications: org.pingme.core.service.NotificationRouter,
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
             val id = inputData.getString(KEY_ATTACHMENT)?.let(::AttachmentId) ?: return Result.failure()
             val attachment = messages.attachment(id) ?: return Result.success()
             if (attachment.localPath != null) return Result.success()
+            // The phone has not fetched it itself yet; the update that brings a reference asks again.
+            if (attachment.remoteRef == null) return Result.success()
             val account = accounts.get(id.accountId) ?: return Result.failure()
             val connector = registry[account.network] ?: return Result.failure()
             val started = System.currentTimeMillis()
@@ -85,6 +88,7 @@ class MediaDownloadWorker
                 onSuccess = { file ->
                     messages.setAttachmentLocalPath(id, file.absolutePath)
                     keeper.downloaded(attachment, file)
+                    notifications.pictureArrived(attachment, file)
                     // On the phone only (no telemetry, DESIGN.md 6.5): how long media takes to come in.
                     val took = System.currentTimeMillis() - started
                     android.util.Log.i(TAG, "downloaded ${attachment.kind} ${file.length()} bytes in $took ms")

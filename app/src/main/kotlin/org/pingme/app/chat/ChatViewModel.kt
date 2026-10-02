@@ -139,8 +139,15 @@ class ChatViewModel
         /** The ClearURLs rules, for links shown cleaned (UI_DESIGN.md 10.11). */
         val links: org.pingme.core.service.links.CleanLinks,
     ) : ViewModel() {
-        /** The chat is (or is no longer) the one on screen: its messages notify only while it is not. */
+        private val onScreen = MutableStateFlow(false)
+
+        /**
+         * The chat is (or is no longer) the one on screen: its messages notify only while it is
+         * not, and count as read only while it is (owner, Gate G3: a chat left behind in the
+         * back stack kept marking new messages read).
+         */
         fun visible(on: Boolean) {
+            onScreen.value = on
             if (on) {
                 presence.visible = chatId
             } else if (presence.visible == chatId) {
@@ -324,10 +331,13 @@ class ChatViewModel
                 }
             }
             viewModelScope.launch {
-                chatActions.opened(chatId)
                 unreadAtOpen.value = chat.filterNotNull().first().unreadCount
-                // While the chat is open, whatever arrives is read.
-                chat.filterNotNull().collect { if (it.unreadCount > 0) chatActions.setRead(chatId, read = true) }
+                // While the chat is on screen, whatever arrives is read and its notification goes.
+                combine(chat.filterNotNull(), onScreen, ::Pair).collect { (c, shown) ->
+                    if (!shown) return@collect
+                    chatActions.opened(chatId)
+                    if (c.unreadCount > 0) chatActions.setRead(chatId, read = true)
+                }
             }
         }
 

@@ -56,8 +56,6 @@ class PreviewsTest {
 
     @Test fun storageSpacesBackup() = draws("Backup saved.") { StorageSpacesBackupPreview() }
 
-    @Test fun setupMode() = draws("Google Messages mode") { SetupModePreview() }
-
     @Test fun setupBattery() = draws("Stay connected") { SetupBatteryPreview() }
 
     @Test fun setupNetwork() = draws("Instagram") { SetupNetworkPreview() }

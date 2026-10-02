@@ -29,6 +29,8 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
+// One function per question the app asks of its messages; the list reads as one.
+@Suppress("TooManyFunctions")
 class MessageRepository
     @Inject
     constructor(
@@ -71,6 +73,22 @@ class MessageRepository
         suspend fun oldest(chatId: ChatId): MessageId? = dao.oldestId(chatId.value)?.let(::MessageId)
 
         suspend fun newest(chatId: ChatId): MessageId? = dao.newestId(chatId.value)?.let(::MessageId)
+
+        /** The newest [limit] messages sent at or before [before], newest first. */
+        suspend fun before(
+            chatId: ChatId,
+            before: Instant,
+            limit: Int,
+        ): List<Message> = dao.before(chatId.value, before, limit).map { it.toModel() }
+
+        /** Stand-in copies of sent messages (remote ids starting with [standInPrefix]) still shown in [chatId]. */
+        suspend fun standIns(
+            chatId: ChatId,
+            standInPrefix: String,
+        ): List<Message> = dao.standIns(chatId.value, standInPrefix).map { it.toModel() }
+
+        /** The message an attachment belongs to. */
+        suspend fun messageOf(id: AttachmentId): MessageId? = dao.messageOfAttachment(id.value)?.let(::MessageId)
 
         suspend fun upsert(message: Message) =
             dao.upsert(message.toEntity(), message.attachmentEntities(), message.reactionEntities())

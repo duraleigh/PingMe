@@ -204,15 +204,10 @@ private fun narrowingLabel(
         }
     }
 
+// Unread shows as a small dot, not a count (owner, Gate G3: the numbers were loud).
 @Composable
 private fun BarIcon(entry: BarEntry) {
-    BadgedBox(badge = {
-        if (entry.badge >
-            0
-        ) {
-            Badge { Text(if (entry.badge > MAX_BADGE) "$MAX_BADGE+" else "${entry.badge}") }
-        }
-    }) {
+    BadgedBox(badge = { if (entry.badge > 0) Badge(Modifier.size(UNREAD_DOT)) }) {
         when (val item = entry.item) {
             null -> Icon(painterResource(UiR.drawable.ic_forum), null)
             InboxBarItem.Unread -> Icon(painterResource(UiR.drawable.ic_mark_chat_unread), null)
@@ -232,7 +227,8 @@ fun NetworkDot(
     val accent = PingMeTheme.networkColors.accent(network)
     Box(modifier.size(24.dp).background(accent, CircleShape), contentAlignment = Alignment.Center) {
         Text(
-            badgeLabel(network, null).take(2),
+            // Two letters: "GM" for Google Messages, the badge's start for the rest.
+            if (network == NetworkId.GMESSAGES) "GM" else badgeLabel(network, null).take(2),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.ExtraBold,
             color =
@@ -382,7 +378,7 @@ fun NewMenu(
     }
 }
 
-private const val MAX_BADGE = 99
+private val UNREAD_DOT = 7.dp
 private const val HALF = 0.5f
 
 const val INBOX_BAR = "inbox-bar"

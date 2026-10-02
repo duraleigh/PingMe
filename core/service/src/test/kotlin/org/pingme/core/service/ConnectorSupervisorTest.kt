@@ -3,6 +3,7 @@ package org.pingme.core.service
 
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -41,6 +42,7 @@ class ConnectorSupervisorTest : ServiceTest() {
                 retryDelays = { delays(it) },
                 housekeeping = StoreHousekeeping(messages, clock),
                 previews = QuietPreviews(context),
+                tapbacks = Tapbacks(messages),
                 scope = scope,
             )
         runBlocking { credentials.save("cred", byteArrayOf(1)) }
@@ -126,6 +128,23 @@ class ConnectorSupervisorTest : ServiceTest() {
             supervisor.start()
             eventually { state() is ConnectionState.Reconnecting }
             assertEquals(1, connector.connects.get())
+            supervisor.onNetworkChanged()
+            eventually { connector.connects.get() == 2 }
+        }
+
+    @Test
+    fun aNetworkChangeWhileConnectedOpensTheConnectionAgainAtOnce() =
+        runBlocking {
+            // The old connection may be dead without saying so (owner, Gate G3).
+            delays = { 10.minutes }
+            connector.sessions +=
+                {
+                    emit(ConnectorEvent.State(accountId, ConnectionState.Connected))
+                    connector.closed.first()
+                }
+            accounts.upsert(account())
+            supervisor.start()
+            eventually { state() == ConnectionState.Connected && connector.connects.get() == 1 }
             supervisor.onNetworkChanged()
             eventually { connector.connects.get() == 2 }
         }

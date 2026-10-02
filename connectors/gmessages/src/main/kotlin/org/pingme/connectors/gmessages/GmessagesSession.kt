@@ -53,7 +53,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
@@ -136,7 +136,11 @@ internal class GmessagesSession(
         when (event) {
             is GmEvent.Ready -> {
                 val first = !connected.getAndSet(true)
-                if (first || event.resync) listChats().forEach { send(ConnectorEvent.ChatUpdated(accountId, it)) }
+                if (first || event.resync) {
+                    listChats().forEach { send(ConnectorEvent.ChatUpdated(accountId, it)) }
+                    // Conversations now folded into another chat leave no row of their own behind.
+                    go.aliases().forEach { send(ConnectorEvent.ChatRemoved(accountId, accountId.chat(it))) }
+                }
                 if (first) send(ConnectorEvent.State(accountId, ConnectionState.Connected))
             }
 
@@ -220,7 +224,9 @@ internal class GmessagesSession(
             }
 
             match != null && snapshot != null && standIn != null -> {
-                send(ConnectorEvent.MessageRemoved(accountId, accountId.chat(msg.conversationId), standIn))
+                send(
+                    ConnectorEvent.MessageRemoved(accountId, accountId.chat(go.canonical(msg.conversationId)), standIn),
+                )
                 send(ConnectorEvent.NewMessage(accountId, snapshotOf(snapshot)))
             }
 
@@ -274,22 +280,34 @@ internal class GmessagesSession(
     /** The chats from the last listing, or a fresh one. */
     suspend fun syncChats(): List<ChatSnapshot> = chats ?: listChats()
 
-    /** Up to [limit] messages older than [before] (the newest when null), newest first. */
+    /**
+     * Up to [limit] messages older than [before] (the newest when null), newest first. A chat
+     * that folds several conversations with one person starts with the newest page of each;
+     * older pages follow the conversation the anchor message came from.
+     */
     suspend fun syncMessages(
         chatId: ChatId,
         before: MessageId?,
         limit: Int,
     ): List<MessageSnapshot> {
-        val conversation = chatId.remoteId
-        val anchor = before?.remoteId
-        var cursor = anchor?.let { go.cursorBefore(it) ?: findCursor(conversation, it, limit) }
-        if (anchor != null && cursor == null) return emptyList()
+        val anchor = before?.remoteId ?: return go.group(chatId.remoteId).flatMap { newestPage(it, limit) }
+        val conversation = go.conversationOf(anchor) ?: chatId.remoteId
+        val cursor = go.cursorBefore(anchor) ?: findCursor(conversation, anchor, limit) ?: return emptyList()
         val page = fetch(conversation, limit, cursor)
         page.messages.forEach { retireStandIn(it) }
         return page.messages
             .filter { it.id != anchor && go.isShown(it) }
-            .filter { cursor == null || it.timestamp / MICROS_PER_MILLI < cursor.lastItemTimestamp }
+            .filter { it.timestamp / MICROS_PER_MILLI < cursor.lastItemTimestamp }
             .map(go::message)
+    }
+
+    private suspend fun newestPage(
+        conversation: String,
+        limit: Int,
+    ): List<MessageSnapshot> {
+        val page = fetch(conversation, limit, null)
+        page.messages.forEach { retireStandIn(it) }
+        return page.messages.filter { go.isShown(it) }.map(go::message)
     }
 
     /** A sent message found in history retires its stand-in, as an echo would have. */
@@ -298,7 +316,7 @@ internal class GmessagesSession(
         match.waiter?.complete(go.message(msg))
         match.standIn?.let {
             events.trySend(
-                ConnectorEvent.MessageRemoved(accountId, accountId.chat(msg.conversationId), it),
+                ConnectorEvent.MessageRemoved(accountId, accountId.chat(go.canonical(msg.conversationId)), it),
             )
         }
     }
@@ -342,8 +360,9 @@ internal class GmessagesSession(
         progress: (Float) -> Unit,
     ): SendResult {
         // draft.forceSms is ignored: Google Messages gives a paired device no "send this one as
-        // SMS"; the phone picks RCS or SMS itself (owner, 2026-10-01).
-        val conversation = chatId.remoteId
+        // SMS"; the phone picks RCS or SMS itself (owner, 2026-10-01; checked again at Gate G3:
+        // libgm's SendMessageRequest has forceRCS and nothing for SMS).
+        val conversation = go.liveConversation(chatId.remoteId)
         val tmpId = tmpIdFor(draft.clientId)
         val media =
             draft.attachments.mapIndexed { i, file ->
@@ -384,7 +403,8 @@ internal class GmessagesSession(
         ) {
             Log.i(TAG, "send tmpId=$tmpId: no echo in $ECHO_TIMEOUT, showing a stand-in")
         }
-        return refused ?: SendResult.Sent(echoed?.keepingFiles(draft) ?: standIn(chatId, draft, media, tmpId, record))
+        val sent = echoed?.keepingFiles(draft) ?: standIn(chatId, conversation, draft, media, tmpId, record)
+        return refused ?: SendResult.Sent(sent)
     }
 
     /**
@@ -419,8 +439,10 @@ internal class GmessagesSession(
     }
 
     /** The message as sent, shown until the phone echoes the real one. */
+    @Suppress("LongParameterList") // Everything the stand-in has to look like the real message.
     private fun standIn(
         chatId: ChatId,
+        conversation: String,
         draft: OutgoingMessage,
         media: List<GmMedia>,
         tmpId: String,
@@ -451,7 +473,7 @@ internal class GmessagesSession(
             Message(
                 id = id,
                 chatId = chatId,
-                senderId = accountId.person(go.outgoingId(chatId.remoteId) ?: "me"),
+                senderId = accountId.person(go.outgoingId(conversation) ?: "me"),
                 sentAt = now,
                 receivedAt = now,
                 body = draft.body?.ifBlank { null },
@@ -463,8 +485,9 @@ internal class GmessagesSession(
                 deletedForEveryone = false,
                 status = MessageStatus.Sent,
                 reactions = emptyList(),
-                transport = if (go.isRcs(chatId.remoteId) == false) Transport.SMS else Transport.RCS,
-                networkRemoteId = tmpId,
+                transport = if (go.isRcs(conversation) == false) Transport.SMS else Transport.RCS,
+                // Marked as a stand-in here too, so the store can retire it when the real copy comes.
+                networkRemoteId = "$STAND_IN$tmpId",
                 linkPreview = null,
                 isOutgoing = true,
             )
@@ -503,10 +526,11 @@ internal class GmessagesSession(
     ) {
         // Only ids the phone gave out; its own pending and stand-in ids mean nothing to it.
         if (!isPhoneId(upTo.remoteId)) return
-        request { session.markRead(chatId.remoteId, upTo.remoteId) }
+        val conversation = go.conversationOf(upTo.remoteId) ?: go.liveConversation(chatId.remoteId)
+        request { session.markRead(conversation, upTo.remoteId) }
     }
 
-    suspend fun typing(chatId: ChatId) = request { session.setTyping(chatId.remoteId) }
+    suspend fun typing(chatId: ChatId) = request { session.setTyping(go.liveConversation(chatId.remoteId)) }
 
     /** Finds or starts a chat; the new chat is announced through the event stream too. */
     suspend fun openChat(
@@ -521,8 +545,10 @@ internal class GmessagesSession(
                 )
             }
         val conversation = go.conversation(json)
+        // Registered now, so the id is the folded chat's; the event tells the store about it.
+        val chat = go.chat(conversation)
         events.trySend(GmEvent.Conversation(conversation))
-        return accountId.chat(conversation.id)
+        return chat.id
     }
 
     /** Downloads an attachment's file (full size, or the thumbnail while the phone uploads the rest). */
@@ -573,7 +599,8 @@ internal class GmessagesSession(
             AttachmentKind.STICKER -> MessageKind.STICKER
             AttachmentKind.CONTACT -> MessageKind.CONTACT
             AttachmentKind.LOCATION -> MessageKind.LOCATION
-            AttachmentKind.AUDIO, AttachmentKind.FILE -> MessageKind.FILE
+            AttachmentKind.AUDIO -> MessageKind.VOICE
+            AttachmentKind.FILE -> MessageKind.FILE
         }
 
     private fun sendFailure(e: Exception) =
@@ -592,6 +619,11 @@ internal class GmessagesSession(
         const val MICROS_PER_MILLI = 1000
         const val STAND_IN = "tmp/"
         val ECHO_TIMEOUT = 20.seconds
-        val MATCH_WINDOW = 3.minutes
+
+        /**
+         * How long a send without a tmpId echo can still be matched by its text: a slow SMS
+         * echo after a dropped connection otherwise left a second copy (owner, Gate G3).
+         */
+        val MATCH_WINDOW = 24.hours
     }
 }
