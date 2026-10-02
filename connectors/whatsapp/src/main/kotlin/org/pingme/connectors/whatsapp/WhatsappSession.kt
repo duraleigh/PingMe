@@ -458,7 +458,7 @@ internal class WhatsappSession(
         const val SECONDS_PER_HOUR = 3600L
         const val WHATSAPP_PACKAGE = "package:com.whatsapp"
         val HISTORY_WAIT = 30.seconds
-        const val FIRST_PAGE_WAIT_MS = 3000
+        const val FIRST_PAGE_WAIT_MS = 10_000
         const val FIRST_PAGE_STEP_MS = 100
     }
 }
