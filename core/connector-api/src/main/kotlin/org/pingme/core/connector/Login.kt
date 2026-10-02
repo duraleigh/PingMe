@@ -39,11 +39,16 @@ sealed interface LoginStep {
         val error: String?,
     ) : LoginStep
 
-    /** Open [url] in an in-app browser and answer with the cookies for [cookieDomains]. */
+    /**
+     * Open [url] in an in-app browser and answer with the cookies for [cookieDomains]. When
+     * the browser reaches a page whose address starts with [finishedUrlPrefix], the UI
+     * answers by itself; otherwise the user says when they are done.
+     */
     data class OpenWebView(
         override val id: String,
         val url: String,
         val cookieDomains: List<String>,
+        val finishedUrlPrefix: String? = null,
     ) : LoginStep
 
     /**

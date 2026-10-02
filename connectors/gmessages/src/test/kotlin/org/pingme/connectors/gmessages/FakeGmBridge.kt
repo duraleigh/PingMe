@@ -24,6 +24,7 @@ import org.pingme.connectors.gmessages.bridge.SessionFixture
 import org.pingme.connectors.gmessages.bridge.gmJson
 import org.pingme.core.connector.CredentialStore
 import java.io.File
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -127,7 +128,7 @@ class FakePhone(
         val other = other(conversationId)
         val message =
             GmMessage(
-                id = "r${ids.incrementAndGet()}",
+                id = "${BASE_ID + ids.incrementAndGet()}",
                 conversationId = conversationId,
                 participantId = other.id,
                 timestamp = now(),
@@ -167,7 +168,7 @@ class FakePhone(
     internal fun send(request: GmSendRequest): GmMessage {
         val message =
             GmMessage(
-                id = "s${ids.incrementAndGet()}",
+                id = "${BASE_ID + ids.incrementAndGet()}",
                 conversationId = request.conversationId,
                 participantId = ME,
                 timestamp = now(),
@@ -177,7 +178,8 @@ class FakePhone(
                 fromMe = true,
                 sent = true,
                 transport = if (conversations[request.conversationId]?.outgoingIsRcs == true) "RCS" else "SMS",
-                tmpId = request.tmpId,
+                // The phone keeps a tmpId only when it is a UUID, as its own are.
+                tmpId = request.tmpId.takeIf { runCatching { UUID.fromString(it) }.isSuccess }.orEmpty(),
                 text = request.text,
                 media = request.media,
                 replyToId = request.replyToId,
@@ -257,6 +259,9 @@ class FakePhone(
 
     companion object {
         const val ME = "2"
+
+        /** Message ids are numbers on the phone; the fake's start after the fixture's. */
+        const val BASE_ID = 5000
         const val MICROS = 1000L
         const val INCOMING_COMPLETE = 100
         const val OUTGOING_COMPLETE = 1

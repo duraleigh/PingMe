@@ -152,6 +152,17 @@ class GoBridgeTest {
     }
 
     @Test
+    fun aTickNeverGoesBackwards() {
+        val page = bridge.messagePage(fixture.messagesJson("12"))
+        val read = page.messages[1] // outgoing, OUTGOING_DISPLAYED
+        assertEquals(MessageStatus.Read, bridge.message(read).message.status)
+        val older = read.copy(read = false, delivered = false, sent = true, statusName = "OUTGOING_COMPLETE")
+        assertEquals(MessageStatus.Read, bridge.message(older).message.status)
+        val failed = read.copy(failed = true, failReason = "Sending failed")
+        assertTrue(bridge.message(failed).message.status is MessageStatus.Failed)
+    }
+
+    @Test
     fun errorCodesComeBeforeTheColon() {
         assertEquals(GmError.LOGGED_OUT, GmError.codeOf(Exception("LOGGED_OUT: Google said no")))
         assertNull(GmError.codeOf(Exception("something else happened")))

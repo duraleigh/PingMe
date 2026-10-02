@@ -467,3 +467,5 @@ What this means in practice:
 | 2026-10-01 | No "Send as SMS" for one message | Google Messages gives a paired device no such choice; the phone picks RCS or SMS |
 | 2026-10-01 | Chats show an unread dot, not a count | Nobody needs the number per chat, and Google Messages reports only whether a chat is unread |
 | 2026-10-01 | One APK with all three chip types, for now | 103 MB measured with the Go bridge; splitting per chip type is a release-time job |
+| 2026-10-01 | "Read" is two ticks in a filled circle, not a colour change | On the owner's bubble colour the coloured ticks were indistinguishable from delivered |
+| 2026-10-01 | UI fixes found at a later gate ship with that gate's fixes | No separate Gate G1 round; the owner checks everything at the current gate |

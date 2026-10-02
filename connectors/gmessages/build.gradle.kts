@@ -9,6 +9,9 @@ plugins {
 
 android {
     namespace = "org.pingme.connectors.gmessages"
+
+    // The connector logs what the phone sends (android.util.Log); unit tests have no Android.
+    testOptions.unitTests.isReturnDefaultValues = true
 }
 
 dependencies {
