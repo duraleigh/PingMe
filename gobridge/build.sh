@@ -69,5 +69,19 @@ fi
 echo "Binding the Go bridge for $targets (first build: several minutes)"
 mkdir -p build
 gomobile bind -target "$targets" -androidapi 29 -javapkg org.pingme.gobridge -o "$out" ./gm ./wa ./ig ./sig
+
+# Signal's library is C++ and needs the NDK's C++ runtime, which an app must ship itself:
+# it goes into the AAR beside libgojni.so for every chip that was bound.
+sysroot="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib"
+python3 - "$out" "$sysroot" <<'PY'
+import sys, zipfile
+aar, sysroot = sys.argv[1], sys.argv[2]
+triples = {"arm64-v8a": "aarch64-linux-android", "x86_64": "x86_64-linux-android", "armeabi-v7a": "arm-linux-androideabi"}
+with zipfile.ZipFile(aar, "a", zipfile.ZIP_DEFLATED) as z:
+    present = set(z.namelist())
+    for abi, triple in triples.items():
+        if f"jni/{abi}/libgojni.so" in present and f"jni/{abi}/libc++_shared.so" not in present:
+            z.write(f"{sysroot}/{triple}/libc++_shared.so", f"jni/{abi}/libc++_shared.so")
+PY
 echo "$hash" > "$stamp"
 ls -l "$out"
