@@ -600,21 +600,21 @@ send button is disabled with that reason rather than failing after the fact.
 What the UI can offer per network. Connectors report these at runtime; this table is
 the expected result.
 
-| Feature | RCS via Google Messages | SMS/MMS native | WhatsApp | Telegram | Signal | Instagram | Google Voice |
-|---|---|---|---|---|---|---|---|
-| Reply to message | Yes | Quoted text | Yes | Yes | Yes | Yes | Quoted text |
-| Delete for me | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
-| Delete for everyone | Open question | No | Yes, time limited | Yes | Yes, time limited | Yes, unsend | No |
-| Reactions, any emoji | Yes | Text fallback | Yes | Limited set | Yes | Yes | Text fallback |
-| GIF | Yes | MMS, size limited | Yes | Yes | Yes | Yes | MMS, size limited |
-| Voice note | Yes, presentation open question | MMS audio | Yes | Yes | Yes | Yes | MMS audio |
-| Typing indicator | Yes | No | Yes | Yes | Yes | Yes | No |
-| Read receipts | Yes | No | Yes | Yes | Yes | Yes | No |
-| Edit message | No | No | Yes, time limited | Yes | No | Yes, time limited | No |
-| Native pins | No | No | Yes | Yes | No | No | No |
-| Inbox folders | No | No | No | Folders (Telegram) | No | Primary, General, Requests | No |
-| Several accounts at once | One phone number | One SIM per account | Yes | Yes | Yes | Yes | Yes |
-| Start new conversation | Yes | Yes | Yes | Yes | Yes | Yes | Open question, library cannot today |
+| Feature | RCS via Google Messages | SMS/MMS native | WhatsApp | Telegram | Signal | Instagram | Google Voice | Messenger | Facebook Page |
+|---|---|---|---|---|---|---|---|---|---|
+| Reply to message | Yes | Quoted text | Yes | Yes | Yes | Yes | Quoted text | Yes | Quoted text |
+| Delete for me | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Delete for everyone | Open question | No | Yes, time limited | Yes | Yes, time limited | Yes, unsend | No | Yes, unsend | No |
+| Reactions, any emoji | Yes | Text fallback | Yes | Limited set | Yes | Yes | Text fallback | Yes | Text fallback |
+| GIF | Yes | MMS, size limited | Yes | Yes | Yes | Yes | MMS, size limited | Yes | Yes |
+| Voice note | Yes, presentation open question | MMS audio | Yes | Yes | Yes | Yes | MMS audio | Yes | As audio file |
+| Typing indicator | Yes | No | Yes | Yes | Yes | Yes | No | Yes | No |
+| Read receipts | Yes | No | Yes | Yes | Yes | Yes | No | Yes | No |
+| Edit message | No | No | Yes, time limited | Yes | No | Yes, time limited | No | Yes, 15 minutes | No |
+| Native pins | No | No | Yes | Yes | No | No | No | No | No |
+| Inbox folders | No | No | No | Folders (Telegram) | No | Primary, General, Requests | No | Inbox, Requests | No |
+| Several accounts at once | One phone number | One SIM per account | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Start new conversation | Yes | Yes | Yes | Yes | Yes | Yes | Open question, library cannot today | Yes, by name | No, people write first |
 
 ---
 

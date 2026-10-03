@@ -16,7 +16,7 @@ out=build/gobridge.aar
 stamp=build/gobridge.aar.sha256
 targets="${GOBRIDGE_TARGETS:-android/arm64,android/amd64,android/arm}"
 
-hash=$(find go.mod go.sum gm wa ig build.sh -type f ! -path 'build/*' -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+hash=$(find go.mod go.sum gm wa ig sig gv fb libsignal/VERSION build.sh -type f ! -path 'build/*' -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
 if [ "${1:-}" != "--force" ] && [ -f "$out" ] && [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$hash" ]; then
   echo "gobridge.aar is up to date"
   exit 0
@@ -34,12 +34,54 @@ export GOTOOLCHAIN="${GOTOOLCHAIN:-auto}"
 # gomobile is installed into GOPATH/bin, which Gradle's environment may not have on PATH.
 export PATH="$PATH:$(go env GOPATH)/bin"
 
-echo "Checking the Go bridge"
-go vet ./...
-go test ./...
+# Signal's native library (Rust), built once per version by the libsignal workflow and
+# attached to the release "libsignal-<version>": one file per phone chip, and a Linux
+# one for the host tests. Downloaded here when missing (gh is signed in locally; CI
+# passes GH_TOKEN).
+libsignal_version=$(cat libsignal/VERSION)
+fetch_libsignal() {
+  local abi="$1" target="libsignal/$1/libsignal_ffi.a"
+  if [ -f "$target" ]; then return; fi
+  echo "Fetching Signal's native library for $abi ($libsignal_version)"
+  mkdir -p "libsignal/$abi"
+  gh release download "libsignal-$libsignal_version" --pattern "libsignal_ffi-$abi.a" --output "$target" --repo duraleigh/PingMe
+}
+for abi in arm64-v8a x86_64 armeabi-v7a; do fetch_libsignal "$abi"; done
+# The host copy only serves the host checks; a machine that skips them can do without it.
+if fetch_libsignal host-linux-amd64; then
+  mkdir -p libsignal/host && cp libsignal/host-linux-amd64/libsignal_ffi.a libsignal/host/
+elif [ "${GOBRIDGE_SKIP_HOST_CHECKS:-0}" != 1 ]; then
+  echo "Signal's native library for the host checks is missing" >&2
+  exit 1
+fi
+
+# GOBRIDGE_HOST_TAGS: build tags for the host checks ("hostclang" when CC is clang or zig).
+# GOBRIDGE_SKIP_HOST_CHECKS=1 skips them on a machine without a host C toolchain and zlib
+# (the Signal package's tests link Signal's library); CI never sets it.
+if [ "${GOBRIDGE_SKIP_HOST_CHECKS:-0}" = 1 ]; then
+  echo "Skipping the Go bridge's host checks (GOBRIDGE_SKIP_HOST_CHECKS=1)"
+else
+  echo "Checking the Go bridge"
+  go vet -tags "${GOBRIDGE_HOST_TAGS:-}" ./...
+  go test -tags "${GOBRIDGE_HOST_TAGS:-}" ./...
+fi
 
 echo "Binding the Go bridge for $targets (first build: several minutes)"
 mkdir -p build
-gomobile bind -target "$targets" -androidapi 29 -javapkg org.pingme.gobridge -o "$out" ./gm ./wa ./ig
+gomobile bind -target "$targets" -androidapi 29 -javapkg org.pingme.gobridge -o "$out" ./gm ./wa ./ig ./sig ./gv ./fb
+
+# Signal's library is C++ and needs the NDK's C++ runtime, which an app must ship itself:
+# it goes into the AAR beside libgojni.so for every chip that was bound.
+sysroot="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib"
+python3 - "$out" "$sysroot" <<'PY'
+import sys, zipfile
+aar, sysroot = sys.argv[1], sys.argv[2]
+triples = {"arm64-v8a": "aarch64-linux-android", "x86_64": "x86_64-linux-android", "armeabi-v7a": "arm-linux-androideabi"}
+with zipfile.ZipFile(aar, "a", zipfile.ZIP_DEFLATED) as z:
+    present = set(z.namelist())
+    for abi, triple in triples.items():
+        if f"jni/{abi}/libgojni.so" in present and f"jni/{abi}/libc++_shared.so" not in present:
+            z.write(f"{sysroot}/{triple}/libc++_shared.so", f"jni/{abi}/libc++_shared.so")
+PY
 echo "$hash" > "$stamp"
 ls -l "$out"

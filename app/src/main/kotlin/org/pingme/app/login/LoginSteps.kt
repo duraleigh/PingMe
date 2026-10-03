@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.graphics.scale
 import org.pingme.app.BuildConfig
 import org.pingme.app.R
 import org.pingme.core.connector.LoginResponse
@@ -142,8 +143,7 @@ private fun Qr(
         if (step.canShare) {
             OutlinedButton({
                 onRespond(LoginResponse.ShareRequested)
-                val share = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, step.qrData)
-                context.startActivity(Intent.createChooser(share, null))
+                context.startActivity(Intent.createChooser(shareQr(context, step.qrData), null))
             }) { Text(stringResource(R.string.login_qr_share)) }
         }
     }
@@ -230,6 +230,33 @@ private fun WebSignIn(
         Button(finish, Modifier.fillMaxWidth()) { Text(stringResource(R.string.login_web_done)) }
     }
 }
+
+/**
+ * The QR code as a picture to send to another screen (email, a computer, a tablet), since
+ * the phone cannot scan its own screen (owner, 2026-10-02: Signal links by QR only). The
+ * link itself rides along as text for anyone who would rather make the code themselves.
+ */
+private fun shareQr(
+    context: android.content.Context,
+    data: String,
+): Intent {
+    val dir = java.io.File(context.cacheDir, "qr").apply { mkdirs() }
+    val file = java.io.File(dir, "link-code.png")
+    val small = qrBitmap(data)
+    val big = small.scale(small.width * QR_SCALE, small.height * QR_SCALE, filter = false)
+    file.outputStream().use { big.compress(android.graphics.Bitmap.CompressFormat.PNG, PNG_QUALITY, it) }
+    val uri =
+        androidx.core.content.FileProvider
+            .getUriForFile(context, "${context.packageName}.files", file)
+    return Intent(Intent.ACTION_SEND)
+        .setType("image/png")
+        .putExtra(Intent.EXTRA_STREAM, uri)
+        .putExtra(Intent.EXTRA_TEXT, data)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+}
+
+private const val QR_SCALE = 12
+private const val PNG_QUALITY = 100
 
 /** The WebView's own user agent without the parts that mark it as a WebView. */
 internal fun browserUserAgent(webViewAgent: String): String =
