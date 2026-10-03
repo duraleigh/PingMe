@@ -76,6 +76,23 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun anOldMessageHandedBackAfterReopeningDoesNotCountAsUnreadAgain() =
+        runTest {
+            seed()
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m1", sentAt = now + 1.minutes)))
+            chats.update(chatId) { it.copy(unreadCount = 0, readUpTo = now + 1.minutes) }
+            // The bridge forgot what it had shown and reports the same message as new.
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m1", sentAt = now + 1.minutes)))
+            assertEquals(0, chats.get(chatId)?.unreadCount)
+            // A message from before the read mark that the store never saw is not news either.
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m0", sentAt = now)))
+            assertEquals(0, chats.get(chatId)?.unreadCount)
+            // A genuinely new one is.
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m2", sentAt = now + 2.minutes)))
+            assertEquals(1, chats.get(chatId)?.unreadCount)
+        }
+
+    @Test
     fun aChatDeletedHereStaysGoneUntilSomethingNewerComes() =
         runTest {
             seed()

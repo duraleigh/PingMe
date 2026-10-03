@@ -2758,6 +2758,11 @@ Built now:
   PingMe copied it over the read state. Each chat now remembers when it was last read on
   this phone (`readUpTo`, schema version 5), and a listing with nothing newer than that
   cannot make it unread again. Reading a chat and sending in it both set the mark.
+  The owner's cases were Google Messages and Telegram, not Instagram; both get read
+  marks only while "Send read receipts" is on for them, and the Google Messages bridge
+  also hands recent messages back after the app reopens, which the connector (its memory
+  gone with the restart) reported as new. The applier now treats a message the store
+  already has, or one no newer than the chat's read mark, as an update: no unread bump.
 - **Deleted chats stay deleted** (added note): deleting a chat removed its row, and the
   network's next listing simply made it again, unread. Deleting now also leaves a
   marker with the time (`chat_tombstones`, schema version 5); a listing, a history page,

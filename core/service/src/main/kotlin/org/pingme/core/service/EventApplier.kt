@@ -157,14 +157,19 @@ class EventApplier
 
         private suspend fun applyNewMessage(snapshot: MessageSnapshot) {
             if (hiddenHere(snapshot.message.chatId, snapshot.message.sentAt)) return
+            // A message the store already has (a bridge handing old messages back after the
+            // app reopened) is an update, not news: it must not count as unread again.
+            val known = messages.get(snapshot.message.id) != null
             saveMessage(snapshot)
             val message = snapshot.message
             if (message.isOutgoing) retireStandIns(message)
             snapshot.sender?.let { typing.set(message.chatId, it.id, typing = false) }
             chats.update(message.chatId) { chat ->
+                val readHere = chat.readUpTo?.let { message.sentAt <= it } ?: false
+                val news = !message.isOutgoing && !known && !readHere
                 chat.copy(
                     lastActivityAt = maxOf(chat.lastActivityAt, message.sentAt),
-                    unreadCount = if (message.isOutgoing) 0 else chat.unreadCount + 1,
+                    unreadCount = if (message.isOutgoing) 0 else chat.unreadCount + (if (news) 1 else 0),
                     readUpTo = if (message.isOutgoing) maxOf(chat.lastActivityAt, message.sentAt) else chat.readUpTo,
                     // New activity brings an archived chat back (UI_DESIGN.md 10.7).
                     isArchived = chat.isArchived && message.isOutgoing,
