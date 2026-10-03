@@ -266,12 +266,15 @@ class EventApplier
 
         private fun placeholderChat(snapshot: MessageSnapshot): Chat {
             val message = snapshot.message
+            // Your own message (sent from the network's app) says nothing about who the chat
+            // is with: no title until the chat's listing comes, never "You" (owner, Gate G7).
+            val other = snapshot.sender?.takeIf { !message.isOutgoing }
             return ChatSnapshot(
                 id = message.chatId,
                 accountId = message.chatId.accountId,
                 kind = ChatKind.DIRECT,
-                title = snapshot.sender?.displayName ?: "",
-                participants = listOfNotNull(snapshot.sender),
+                title = other?.displayName ?: "",
+                participants = listOfNotNull(other),
                 unreadCount = 0,
                 lastActivityAt = message.sentAt,
                 folder = null,

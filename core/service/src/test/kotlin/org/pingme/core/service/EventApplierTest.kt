@@ -153,6 +153,19 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun yourOwnMessageForAnUnknownChatNeverNamesTheChatYou() =
+        runTest {
+            accounts.upsert(account())
+            applier.apply(
+                ConnectorEvent.NewMessage(accountId, messageSnapshot("o", chatRemote = "fresh", outgoing = true)),
+            )
+            val chat = chats.get(accountId.chat("fresh"))!!
+            assertEquals("", chat.title)
+            assertEquals(0, chat.unreadCount)
+            assertEquals("hi", messages.get(accountId.message("o"))?.body)
+        }
+
+    @Test
     fun aMessageForAnUnknownChatStillLands() =
         runTest {
             accounts.upsert(account())
