@@ -132,6 +132,7 @@ private fun LazyListScope.pageItems(
                         it,
                         actions,
                         { a -> navigation.onLogin(a.network, a.id) },
+                        onRemove = navigation.onBack,
                     )
                 }
             }

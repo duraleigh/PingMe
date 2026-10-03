@@ -3,6 +3,7 @@ package org.pingme.app.settings
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,6 +21,7 @@ import org.pingme.app.inbox.InboxBarConfig
 import org.pingme.app.inbox.InboxBarItem
 import org.pingme.app.inbox.InboxBarRepository
 import org.pingme.core.connector.ConnectorRegistry
+import org.pingme.core.connector.CredentialStore
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.AppSettings
@@ -89,6 +91,9 @@ interface SettingsActions {
 
     fun setShowGeneral(show: Boolean)
 
+    /** Disconnects an account, forgets its sign-in, and deletes its chats and messages. */
+    fun removeAccount(id: AccountId)
+
     /** Renames an account, recolours its badge, or changes its notifications or inbox visibility. */
     fun updateAccount(
         id: AccountId,
@@ -117,8 +122,9 @@ class SettingsViewModel
         private val appearance: AppearanceRepository,
         private val bar: InboxBarRepository,
         private val backups: BackupStore,
+        private val credentials: CredentialStore,
         @param:ApplicationContext private val context: Context,
-        registry: ConnectorRegistry,
+        private val registry: ConnectorRegistry,
     ) : ViewModel(),
         SettingsActions,
         SpaceActions,
@@ -226,6 +232,17 @@ class SettingsViewModel
             change: (Account) -> Account,
         ) = launch { accounts.get(id)?.let { accounts.upsert(change(it)) } }
 
+        // The chats, messages, and people go with the account row (the database cascades).
+        override fun removeAccount(id: AccountId) =
+            launch {
+                val account = accounts.get(id) ?: return@launch
+                runCatching { registry[account.network]?.disconnect(id) }
+                    .onFailure { Log.w(TAG, "Disconnecting ${account.displayName} failed", it) }
+                runCatching { credentials.delete(account.credentialRef) }
+                    .onFailure { Log.w(TAG, "Forgetting the sign-in of ${account.displayName} failed", it) }
+                accounts.delete(id)
+            }
+
         override fun unobscure(chat: Chat) = launch { chats.update(chat.id) { it.copy(isObscured = false) } }
 
         override fun saveKeyword(
@@ -256,3 +273,5 @@ class SettingsViewModel
             const val STOP_AFTER = 5_000L
         }
     }
+
+private const val TAG = "PingMeSettings"

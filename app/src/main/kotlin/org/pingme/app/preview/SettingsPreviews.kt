@@ -51,6 +51,8 @@ private object NoActions : SettingsActions, SpaceActions, BackupActions {
 
     override fun setShowGeneral(show: Boolean) = Unit
 
+    override fun removeAccount(id: AccountId) = Unit
+
     override fun updateAccount(
         id: AccountId,
         change: (Account) -> Account,
@@ -99,7 +101,7 @@ internal fun SettingsHomePreview() = Page { SettingsHome(SettingsNavigation({}, 
 internal fun AccountsPreview() =
     Page {
         AccountList(state, listOf(PreviewData.account.network), {}, {})
-        AccountPage(state, PreviewData.account.id, NoActions, {})
+        AccountPage(state, PreviewData.account.id, NoActions, {}, {})
     }
 
 @Preview(name = "Settings: notifications and privacy", widthDp = 411, heightDp = 1600)

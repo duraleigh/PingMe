@@ -237,6 +237,10 @@ internal class TelegramSession(
     /** Pulls the whole main chat list into TDLib's cache, then sends every listed chat. */
     private suspend fun ProducerScope<ConnectorEvent>.loadChats() {
         syncChats().forEach { send(ConnectorEvent.ChatUpdated(accountId, it)) }
+        // Chats an earlier build listed for a "joined Telegram" note alone go away.
+        go.allChats().filter { go.inMainList(it) && go.noticeOnly(it) }.forEach {
+            send(ConnectorEvent.ChatRemoved(accountId, go.chatId(go.chatKeyOf(it.id, null))))
+        }
         spaces().forEach { send(ConnectorEvent.SpaceUpdated(accountId, it)) }
         loaded.set(true)
     }
@@ -267,7 +271,12 @@ internal class TelegramSession(
     ) {
         val chat = go.chat(chatId) ?: return
         chat.change()
-        if (loaded.get() && go.listed(chat)) send(ConnectorEvent.ChatUpdated(accountId, go.snapshot(chat)))
+        if (!loaded.get()) return
+        if (go.listed(chat)) {
+            send(ConnectorEvent.ChatUpdated(accountId, go.snapshot(chat)))
+        } else if (go.noticeOnly(chat) && go.knows(chatId)) {
+            send(ConnectorEvent.ChatRemoved(accountId, go.chatId(go.chatKeyOf(chatId, null))))
+        }
     }
 
     private fun mergedPositions(
@@ -284,7 +293,9 @@ internal class TelegramSession(
         val chat =
             go.chat(msg.chatId)
                 ?: runCatching { client.send(TdApi.GetChat(msg.chatId)) }.getOrNull()?.also { go.remember(it) }
-        if (chat != null && !go.listed(chat)) return
+        if (chat != null && !go.inMainList(chat)) return
+        // "X joined Telegram" alone makes no chat; the chat appears when someone writes.
+        if (chat != null && go.noticeOnly(chat) && msg.content is TdApi.MessageContactRegistered) return
         if (chat != null && !go.knows(msg.chatId)) send(ConnectorEvent.ChatUpdated(accountId, go.snapshot(chat)))
         send(ConnectorEvent.NewMessage(accountId, go.message(msg)))
     }

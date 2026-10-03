@@ -2722,3 +2722,38 @@ paths they follow.
    conversations, "checked … ago" on the account row, a reply to someone who wrote
    within the last day; a refusal with the reason for someone older than a day.
 6. Instagram: the sign-in page draws (fixed tonight); sign in and check the inbox.
+
+## Gate G7 fixes, round 1: the owner's notes on 0.7.0 (2026-10-03, afternoon)
+
+**Branch `fixes-g7`.** The owner's run-through of 0.7.0 on the phone gave 21 notes. The
+ones that need no phone are built here; the rest wait for a log from the phone.
+
+Built now:
+- **Share screen search box** (note 4): the box fed its text through the model's flow and
+  back, so a fast keystroke landed while the box was being redrawn with an older value and
+  the cursor jumped. The box now keeps its own text and only passes it out.
+- **Starting a WhatsApp chat listed each person twice** (note 8): the bridge's contact list
+  now folds a contact WhatsApp also files under its hidden id into the phone-number entry
+  (the hidden id is looked up in whatsmeow's id map), so the hidden id never shows.
+- **Instagram shared posts show their picture** (note 11): the bridge already carried the
+  picture's address; the connector now fetches it (two at a time, in the background) and
+  reports the message again with the picture, so the link card draws it. Also for history
+  pages as they load.
+- **Instagram links open inside PingMe** (note 12): a link card from an Instagram (or
+  Messenger) chat whose link is on that network's site opens in a page inside PingMe,
+  signed in with the account's own cookies, with Back and an "Open in browser" action.
+  Everything else still goes to the phone's browser.
+- **Telegram's "X joined Telegram" chats** (note 16): a private chat whose only message is
+  that note is not a chat here (it appears once the person writes); such chats an earlier
+  build listed are removed on the next connect; Telegram's service notes read as words
+  ("Joined Telegram", "Pinned a message") instead of "not supported".
+- **Remove account** (note 18): the account page gets Remove account with a confirmation;
+  it disconnects, forgets the saved sign-in, and deletes the account row, which takes its
+  chats, messages, and people with it (the database cascades).
+
+Waiting for the phone's log (notes 2, 7, 10, 13, 14, 15, 19, 20): WhatsApp's inbound
+silence and names (the hidden-id mapping is the lead), Instagram read marks, Messenger's
+"reconnecting", Signal's contact list, notifications not clearing.
+
+Answered, no change: note 21 (RCS pictures): the blur before 0.6.0 was PingMe's own
+thumbnail; any remaining softening is Google Messages compressing outgoing RCS pictures.

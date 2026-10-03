@@ -209,17 +209,38 @@ func (s *Session) Contacts() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	people := make([]Participant, 0, len(all))
+	// One person per phone number: a contact WhatsApp also files under its hidden id is
+	// folded into the phone-number entry, so the hidden id never shows (owner, Gate G7).
+	byID := make(map[string]*Participant, len(all))
+	order := make([]string, 0, len(all))
 	for jid, info := range all {
 		name := contactName(info)
 		if name == "" {
 			continue
 		}
 		p := Participant{ID: jid.ToNonAD().String(), Name: name}
-		if jid.Server == types.DefaultUserServer {
+		switch jid.Server {
+		case types.DefaultUserServer:
 			p.Phone = jid.User
+		case types.HiddenUserServer:
+			if phone := s.phoneOf(jid); phone != "" {
+				p.ID = types.NewJID(phone, types.DefaultUserServer).String()
+				p.Phone = phone
+			}
 		}
-		people = append(people, p)
+		if known := byID[p.ID]; known != nil {
+			if known.Name == "" {
+				known.Name = p.Name
+			}
+			continue
+		}
+		copy := p
+		byID[p.ID] = &copy
+		order = append(order, p.ID)
+	}
+	people := make([]Participant, 0, len(order))
+	for _, id := range order {
+		people = append(people, *byID[id])
 	}
 	return marshal(people)
 }

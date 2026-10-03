@@ -91,11 +91,13 @@ fun AccountPage(
     id: AccountId,
     actions: SettingsActions,
     onLogInAgain: (Account) -> Unit,
+    onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val account = state.accounts.firstOrNull { it.id == id } ?: return
     var renaming by remember { mutableStateOf(false) }
     var colouring by remember { mutableStateOf(false) }
+    var removing by remember { mutableStateOf(false) }
     val change = { f: (Account) -> Account -> actions.updateAccount(id, f) }
     Column(modifier) {
         ListItem(
@@ -124,21 +126,63 @@ fun AccountPage(
         if (account.network == NetworkId.INSTAGRAM) {
             SwitchSetting(stringResource(R.string.account_show_general), state.showGeneral, actions::setShowGeneral)
         }
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.account_state)) },
-            supportingContent = { Text(stateLabel(account.state)) },
-        )
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.account_log_in_again)) },
-            supportingContent = { Text(stringResource(R.string.account_log_in_again_note)) },
-            modifier = Modifier.clickable { onLogInAgain(account) },
-        )
+        AccountStateRows(account, { onLogInAgain(account) }) { removing = true }
+    }
+    if (removing) {
+        RemoveAccount(account, {
+            removing = false
+            actions.removeAccount(id)
+            onRemove()
+        }) { removing = false }
     }
     if (renaming) RenameAccount(account, { name -> change { it.copy(displayName = name) } }) { renaming = false }
     if (colouring) {
         val pick = { colour: Int -> change { it.copy(colorArgb = colour) } }
         ColorPickerSheet(stringResource(R.string.account_colour), account.colorArgb, pick, { colouring = false })
     }
+}
+
+/** The connection state, Log in again, and Remove account (UI_DESIGN.md 6.6). */
+@Composable
+private fun AccountStateRows(
+    account: Account,
+    onLogInAgain: () -> Unit,
+    onRemove: () -> Unit,
+) = Column {
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.account_state)) },
+        supportingContent = { Text(stateLabel(account.state)) },
+    )
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.account_log_in_again)) },
+        supportingContent = { Text(stringResource(R.string.account_log_in_again_note)) },
+        modifier = Modifier.clickable(onClick = onLogInAgain),
+    )
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.account_remove), color = MaterialTheme.colorScheme.error) },
+        supportingContent = { Text(stringResource(R.string.account_remove_note)) },
+        modifier = Modifier.clickable(onClick = onRemove),
+    )
+}
+
+/** "Remove Messenger?" with what goes with it; Remove is the destructive choice (UI_DESIGN.md 6.6). */
+@Composable
+private fun RemoveAccount(
+    account: Account,
+    onRemove: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.account_remove_title, account.displayName)) },
+        text = { Text(stringResource(R.string.account_remove_body)) },
+        confirmButton = {
+            TextButton(
+                onRemove,
+            ) { Text(stringResource(R.string.account_remove), color = MaterialTheme.colorScheme.error) }
+        },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(android.R.string.cancel)) } },
+    )
 }
 
 @Composable

@@ -22,8 +22,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -122,9 +125,15 @@ private fun ShareHeader(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // The box keeps its own text: fed from the model's flow, it was redrawn with an older
+        // value between fast keystrokes and the cursor jumped back (owner, Gate G7).
+        var typed by rememberSaveable { mutableStateOf(state.query) }
         OutlinedTextField(
-            state.query,
-            onSearch,
+            typed,
+            { text ->
+                typed = text
+                onSearch(text)
+            },
             Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             label = { Text(stringResource(R.string.share_search)) },
             singleLine = true,
