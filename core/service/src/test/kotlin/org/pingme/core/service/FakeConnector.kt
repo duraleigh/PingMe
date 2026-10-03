@@ -76,7 +76,6 @@ class FakeConnector : Connector {
         return flow { session(account) }
     }
 
-    /** Fires when disconnect is called, for a session that waits to be closed. */
     /**
      * Fires on every disconnect. Kept (replay = 1) so a session that looks only after the
      * supervisor already closed it still sees the close: on a slow machine the two race.
