@@ -172,6 +172,10 @@ internal class WhatsappSession(
             val contacts = go.participants(request { session.contacts() })
             go.learnNames(contacts)
             send(ConnectorEvent.PeopleUpdated(accountId, go.people(contacts)))
+            // Chats an earlier build filed under a hidden id fold into the number's chat.
+            go.idPairs(request { session.hiddenIdMap() }).forEach { pair ->
+                send(ConnectorEvent.ChatMerged(accountId, go.chatId(pair.lid), go.chatId(pair.phone)))
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (

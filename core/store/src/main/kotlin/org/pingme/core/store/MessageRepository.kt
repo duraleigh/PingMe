@@ -146,6 +146,12 @@ class MessageRepository
 
         suspend fun delete(id: MessageId) = dao.delete(id.value)
 
+        /** Moves every message of [from] into [into]. */
+        suspend fun moveToChat(
+            from: ChatId,
+            into: ChatId,
+        ) = dao.moveToChat(from.value, into.value)
+
         /**
          * Removes what should never have stayed: stand-in copies of sent messages (remote ids
          * starting with [standInPrefix]) older than [before], and empty text bubbles. Returns

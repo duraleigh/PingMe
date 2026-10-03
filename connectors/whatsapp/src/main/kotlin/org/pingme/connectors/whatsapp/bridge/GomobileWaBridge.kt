@@ -121,6 +121,8 @@ private class GomobileSession(
 
     override fun checkNumber(phone: String): String = session.checkNumber(phone)
 
+    override fun hiddenIdMap(): String = session.hiddenIDMap()
+
     override fun createGroup(
         name: String,
         participantsJson: String,

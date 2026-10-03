@@ -2833,6 +2833,18 @@ Built now:
   whenever a message comes for an unlisted thread or from an unseen sender, so the chat
   lands with its name, its people, and its folder; a General thread stays out of All.
 
+- **A chat titled "You"** (owner): a message you sent from Instagram's own app, for a
+  thread not listed yet, made a placeholder chat named after its sender, you. The
+  placeholder for an outgoing message now has no title (and the thread-first fetch above
+  names it properly in the normal case).
+- **Share sheet** (owner): a message box under the search field. What is shared goes
+  first, as its own message, and the note follows once the item is away, so the other
+  side never reads the words and then waits for the picture.
+- **A sent picture went blank until fetched back** (owner): the network's copy of a sent
+  message names the network's file, not the phone's, and replaced the stand-in, so the
+  bubble was an empty frame until the file came back down. The copy now takes over the
+  stand-in's files by position; the upload's progress ring is unchanged.
+
 Waiting for the phone's log (notes 2 and 20, WhatsApp): WhatsApp's inbound
 silence and names (the hidden-id mapping is the lead), Instagram read marks, Messenger's
 "reconnecting", Signal's contact list, notifications not clearing.

@@ -6,6 +6,7 @@ import org.pingme.connectors.whatsapp.bridge.WaBridge
 import org.pingme.connectors.whatsapp.bridge.WaChat
 import org.pingme.connectors.whatsapp.bridge.WaEvent
 import org.pingme.connectors.whatsapp.bridge.WaEventSink
+import org.pingme.connectors.whatsapp.bridge.WaIdPair
 import org.pingme.connectors.whatsapp.bridge.WaMedia
 import org.pingme.connectors.whatsapp.bridge.WaMessage
 import org.pingme.connectors.whatsapp.bridge.WaParticipant
@@ -161,6 +162,13 @@ class FakeWaSession(
         )
 
     override fun contactName(jid: String): String = if (jid == FakeWhatsapp.SAM) "Sam Ortiz" else ""
+
+    /** Sam also goes by one hidden id on the pretend network. */
+    override fun hiddenIdMap(): String =
+        waJson.encodeToString(
+            ListSerializer(WaIdPair.serializer()),
+            listOf(WaIdPair("555000111@lid", FakeWhatsapp.SAM)),
+        )
 
     override fun phoneOf(jid: String): String = ""
 

@@ -210,6 +210,44 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun twoChatsThatWereOneFoldTogether() =
+        runTest {
+            accounts.upsert(account())
+            applier.apply(
+                ConnectorEvent.NewMessage(
+                    accountId,
+                    messageSnapshot("h1", chatRemote = "555@lid", body = "under the hidden id"),
+                ),
+            )
+            applier.apply(
+                ConnectorEvent.NewMessage(
+                    accountId,
+                    messageSnapshot("p1", chatRemote = "15555550123@s.whatsapp.net", body = "under the number"),
+                ),
+            )
+            val hidden = accountId.chat("555@lid")
+            val number = accountId.chat("15555550123@s.whatsapp.net")
+            applier.apply(ConnectorEvent.ChatMerged(accountId, hidden, number))
+            assertNull(chats.get(hidden))
+            assertEquals(number, messages.get(accountId.message("h1"))?.chatId)
+            assertEquals(number, messages.get(accountId.message("p1"))?.chatId)
+            assertEquals(2, chats.get(number)?.unreadCount)
+            // A merge into a chat not stored yet makes it from the old one.
+            applier.apply(
+                ConnectorEvent.NewMessage(accountId, messageSnapshot("h2", chatRemote = "777@lid", body = "x")),
+            )
+            applier.apply(
+                ConnectorEvent.ChatMerged(
+                    accountId,
+                    accountId.chat("777@lid"),
+                    accountId.chat("17770000000@s.whatsapp.net"),
+                ),
+            )
+            assertEquals(accountId.chat("17770000000@s.whatsapp.net"), messages.get(accountId.message("h2"))?.chatId)
+            assertNull(chats.get(accountId.chat("777@lid")))
+        }
+
+    @Test
     fun aMessageForAnUnknownChatStillLands() =
         runTest {
             accounts.upsert(account())

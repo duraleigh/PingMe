@@ -288,6 +288,47 @@ const (
 	hiddenIDRetry = 5 * time.Minute
 )
 
+// IDPair is a hidden id and the phone-number id it belongs to.
+type IDPair struct {
+	LID   string `json:"lid"`
+	Phone string `json:"phone"`
+}
+
+// HiddenIDMap returns every hidden id the library can pair with a phone-number id, as a
+// JSON array of IDPair, so chats an earlier build filed under a hidden id can be folded
+// into the number's chat (owner, Gate G7).
+func (s *Session) HiddenIDMap() (string, error) {
+	ctx, cancel := s.ctx()
+	defer cancel()
+	all, err := s.client.Store.Contacts.GetAllContacts(ctx)
+	if err != nil {
+		return "", err
+	}
+	s.learnHiddenIDs(ctx, all)
+	seen := map[string]bool{}
+	pairs := []IDPair{}
+	add := func(lid, pn types.JID) {
+		if lid.IsEmpty() || pn.IsEmpty() || seen[lid.String()] {
+			return
+		}
+		seen[lid.String()] = true
+		pairs = append(pairs, IDPair{LID: lid.ToNonAD().String(), Phone: pn.ToNonAD().String()})
+	}
+	for jid := range all {
+		switch jid.Server {
+		case types.HiddenUserServer:
+			if pn, err := s.client.Store.LIDs.GetPNForLID(ctx, jid.ToNonAD()); err == nil {
+				add(jid, pn)
+			}
+		case types.DefaultUserServer:
+			if lid, err := s.client.Store.LIDs.GetLIDForPN(ctx, jid.ToNonAD()); err == nil {
+				add(lid, jid)
+			}
+		}
+	}
+	return marshal(pairs)
+}
+
 // ContactName is the name the phone's WhatsApp has for a user, or "".
 func (s *Session) ContactName(jid string) string {
 	user, err := parseJID(jid)

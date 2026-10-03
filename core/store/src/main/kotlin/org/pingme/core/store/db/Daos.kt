@@ -501,6 +501,13 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE id = :id")
     suspend fun delete(id: String)
 
+    /** Moves every message of one chat into another (two ids that were one chat). */
+    @Query("UPDATE messages SET chatId = :into WHERE chatId = :from")
+    suspend fun moveToChat(
+        from: String,
+        into: String,
+    )
+
     /** Full-text search. Build the query with [searchQuery]; results are message IDs, best first. */
     @RawQuery(observedEntities = [MessageEntity::class, AttachmentEntity::class, PersonEntity::class])
     fun observeSearchIds(query: RoomRawQuery): Flow<List<String>>

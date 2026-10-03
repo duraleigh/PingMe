@@ -56,13 +56,40 @@ class EventApplier
         // Chats, typing, spaces, and the account's state: everything that is not a message.
         private suspend fun applyChatEvent(event: ConnectorEvent) {
             when (event) {
-                is ConnectorEvent.Typing -> typing.set(event.chatId, event.personId, event.typing)
-                is ConnectorEvent.ChatUpdated -> applyChat(event.chat)
-                is ConnectorEvent.ChatRemoved -> chats.delete(event.chatId)
-                is ConnectorEvent.State -> accounts.updateState(event.accountId, event.state)
-                is ConnectorEvent.SpaceUpdated -> applySpace(event.space)
-                is ConnectorEvent.PeopleUpdated -> applyPeople(event)
-                else -> Unit
+                is ConnectorEvent.Typing -> {
+                    typing.set(event.chatId, event.personId, event.typing)
+                }
+
+                is ConnectorEvent.ChatUpdated -> {
+                    applyChat(event.chat)
+                }
+
+                is ConnectorEvent.ChatRemoved -> {
+                    chats.delete(event.chatId)
+                }
+
+                is ConnectorEvent.ChatMerged -> {
+                    mergeChats(event.from, event.into)
+                }
+
+                is ConnectorEvent.State -> {
+                    accounts.updateState(event.accountId, event.state)
+                }
+
+                is ConnectorEvent.SpaceUpdated -> {
+                    applySpace(event.space)
+                }
+
+                is ConnectorEvent.PeopleUpdated -> {
+                    // Hidden-id rows an earlier build stored go once nothing lists them (owner, Gate G7).
+                    event.people.forEach { contacts.upsert(it) }
+                    contacts.deleteStray(event.accountId, HIDDEN_ID_SUFFIX)
+                    PLACEHOLDER_HANDLES.forEach { contacts.deleteStrayHandle(event.accountId, it) }
+                }
+
+                else -> {
+                    Unit
+                }
             }
         }
 
@@ -173,14 +200,29 @@ class EventApplier
         }
 
         /**
-         * The account's people, as the network lists them now. Hidden-id entries an earlier
-         * build stored (WhatsApp's "@lid" rows) go if nothing lists them any more, so a person
-         * never shows twice (owner, Gate G7).
+         * Two stored chats were one conversation (WhatsApp filed some of it under a hidden
+         * id before the number was known): the messages move into the number's chat, which
+         * is made from the old one when it does not exist yet, and the old chat goes
+         * (owner, Gate G7: split WhatsApp threads).
          */
-        private suspend fun applyPeople(event: ConnectorEvent.PeopleUpdated) {
-            event.people.forEach { contacts.upsert(it) }
-            contacts.deleteStray(event.accountId, HIDDEN_ID_SUFFIX)
-            PLACEHOLDER_HANDLES.forEach { contacts.deleteStrayHandle(event.accountId, it) }
+        private suspend fun mergeChats(
+            from: ChatId,
+            into: ChatId,
+        ) {
+            if (from == into) return
+            val old = chats.get(from) ?: return
+            val target =
+                chats.get(into) ?: old.copy(id = into, networkRemoteId = into.remoteId, participants = emptyList())
+            chats.upsert(
+                target.copy(
+                    lastActivityAt = maxOf(target.lastActivityAt, old.lastActivityAt),
+                    unreadCount = target.unreadCount + old.unreadCount,
+                    isPinned = target.isPinned || old.isPinned,
+                    nameOverride = target.nameOverride ?: old.nameOverride,
+                ),
+            )
+            messages.moveToChat(from, into)
+            chats.delete(from)
         }
 
         /** Your own reactions, echoed back by the network, do not flip the row. */

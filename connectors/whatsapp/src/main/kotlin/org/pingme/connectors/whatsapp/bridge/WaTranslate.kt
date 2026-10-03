@@ -80,6 +80,9 @@ class WaTranslate(
 
     fun messageJson(json: String): WaMessage = waJson.decodeFromString(WaMessage.serializer(), json)
 
+    fun idPairs(json: String): List<WaIdPair> =
+        waJson.decodeFromString(kotlinx.serialization.builtins.ListSerializer(WaIdPair.serializer()), json)
+
     fun participants(json: String): List<WaParticipant> =
         waJson.decodeFromString(kotlinx.serialization.builtins.ListSerializer(WaParticipant.serializer()), json)
 
