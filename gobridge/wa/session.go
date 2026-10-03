@@ -55,8 +55,8 @@ type Session struct {
 	retries map[string]chan *events.MediaRetry
 	// The phone's own key for a chat PingMe knows by its canonical id, for history requests.
 	historyKeys map[string]string
-	// Whether the hidden ids of the phone-number contacts were asked for this session.
-	hiddenIDsLearned bool
+	// When the hidden ids of the phone-number contacts were last asked for.
+	hiddenIDsAskedAt time.Time
 	// Coalesces a burst of contact changes into one "contacts" event.
 	contactsTimer *time.Timer
 }
@@ -253,11 +253,15 @@ func (s *Session) Contacts() (string, error) {
 // filed by it (owner, Gate G7: a contact listed twice, replies under the hidden id). The
 // library stores what the lookup returns; the lookups run in batches.
 func (s *Session) learnHiddenIDs(ctx context.Context, all map[types.JID]types.ContactInfo) {
+	// Any contact still unmapped is asked about again, but not more than every few minutes:
+	// a contact who joins WhatsApp mid-session gets mapped on the next contacts refresh.
 	s.mu.Lock()
-	done := s.hiddenIDsLearned
-	s.hiddenIDsLearned = true
+	recent := time.Since(s.hiddenIDsAskedAt) < hiddenIDRetry
+	if !recent {
+		s.hiddenIDsAskedAt = time.Now()
+	}
 	s.mu.Unlock()
-	if done || !s.client.IsConnected() {
+	if recent || !s.client.IsConnected() {
 		return
 	}
 	numbers := make([]types.JID, 0, len(all))
@@ -279,7 +283,10 @@ func (s *Session) learnHiddenIDs(ctx context.Context, all map[types.JID]types.Co
 	s.log.Info().Int("contacts", len(numbers)).Msg("Learned hidden ids for contacts")
 }
 
-const hiddenIDBatch = 50
+const (
+	hiddenIDBatch = 50
+	hiddenIDRetry = 5 * time.Minute
+)
 
 // ContactName is the name the phone's WhatsApp has for a user, or "".
 func (s *Session) ContactName(jid string) string {

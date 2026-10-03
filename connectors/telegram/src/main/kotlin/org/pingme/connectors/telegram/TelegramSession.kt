@@ -294,8 +294,12 @@ internal class TelegramSession(
             go.chat(msg.chatId)
                 ?: runCatching { client.send(TdApi.GetChat(msg.chatId)) }.getOrNull()?.also { go.remember(it) }
         if (chat != null && !go.inMainList(chat)) return
-        // "X joined Telegram" alone makes no chat; the chat appears when someone writes.
-        if (chat != null && go.noticeOnly(chat) && msg.content is TdApi.MessageContactRegistered) return
+        // "X joined Telegram" alone makes no chat; the chat appears when someone writes. It
+        // does mean a new person for the new-chat list, so the contacts are read again.
+        if (msg.content is TdApi.MessageContactRegistered) {
+            contacts()
+            if (chat != null && go.noticeOnly(chat)) return
+        }
         if (chat != null && !go.knows(msg.chatId)) send(ConnectorEvent.ChatUpdated(accountId, go.snapshot(chat)))
         send(ConnectorEvent.NewMessage(accountId, go.message(msg)))
     }
