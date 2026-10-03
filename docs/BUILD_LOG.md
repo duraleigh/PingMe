@@ -2607,3 +2607,118 @@ the Instagram one.
   now. If Google starts refusing unstamped sends, the same script can run in a hidden
   WebView on the phone; the hook for it is the `TrackingData` field of the send request.
 - **Tests**: Go `gv` conversion tests; `GvoiceContractTest` against `FakeGvBridge`.
+
+## Phase 6, network 6: Messenger (2026-10-02, late evening)
+
+**Built on branch `signal`.** A personal Messenger account through `messagix` from
+mautrix-meta (v0.2609.0, the same module Instagram uses), bound by gomobile as
+`gobridge/fb`; Kotlin connector `connectors/messenger` in the shape of the Instagram one.
+
+- **Sign-in**: the facebook.com sign-in page in the in-app browser; the cookies `xs`,
+  `c_user`, and `datr` are the credential (plus `sb`, `fr`, `wd`, `presence`, `oo`, `dpr`
+  when present), checked by opening a session, saved under `messenger/<user id>`. The
+  same paste box as Instagram when the page does not finish. Refreshed cookies are saved.
+- **Chats**: the inbox page's own table of threads (the newest conversations with their
+  newest messages, members, and names), then up to four pages of older threads through
+  the library's thread fetch. Meta sends the data as "Lightspeed" tables of rows, so the
+  Go side folds every table it sees (the first page and every live update) into what it
+  knows and reports threads, messages, reactions, edits, unsends, read marks, and typing
+  from there. A one-to-one thread's key is the other person's id, and its name and
+  picture are theirs; groups carry their members and admins. Message requests
+  ("pending", "other", "spam") show in Requests (UI_DESIGN.md 6.4); replying from there
+  accepts the request, as the website does, and Accept and Decline exist as well.
+- **Messages**: text, pictures, videos, GIFs, voice clips, files, stickers, and shared
+  cards (as a link card, UI_DESIGN.md 10.12); replies with the quoted text; edits;
+  unsends; reactions (any emoji; a removal names the emoji it had, which Meta's row does
+  not); the other side's read marks and typing. Older history by Meta's fetch-messages
+  task from a message's time.
+- **Sends**: text, one file per message with the text on the first, replies, reactions,
+  edits (Meta allows 15 minutes), unsend, read marks, typing, a new chat by user id or
+  by name search.
+- **Media**: fetched from Facebook's CDN with the browser headers the reference bridge
+  uses. Not verified against a live account yet: Facebook sometimes redirects a video to
+  a CDN host that wants ranged requests; PingMe follows the redirect and takes 200 or 206.
+- **Tests**: Go `fb` tests (tables of rows become threads, members, history, live
+  messages, reactions, edits, unsends, receipts, typing, gone threads; conversion of
+  shares, stickers, voice, unsent, system rows); `MessengerContractTest` against
+  `FakeFbBridge`; `FbTranslateTest`.
+- **Verified on the emulator**: see the Messenger line under Gate G7 below.
+
+## Phase 6, network 7: Facebook Page (2026-10-02, late evening)
+
+**Built on branch `signal`.** `connectors/fbpage`, Kotlin only, over Meta's official
+Messenger Platform (Graph API v25.0) with a Page access token: the one Meta connector
+with no account risk (DESIGN.md 5.2).
+
+- **Connecting**: a paste box for the Page access token (from the owner's Meta developer
+  app: Messenger settings > Access tokens > Generate token for the Page). The token is
+  checked with `GET /me?fields=id,name`; a refused token puts the error on the box and
+  asks again. Saved under `fbpage/<page id>` with the Page's id and name; the account is
+  named "Page: <name>".
+- **Polling**: PingMe has no server for Meta's webhooks, so the Page's conversations
+  (`GET /{page}/conversations?platform=messenger`, with each one's ten newest messages)
+  are read every 20 seconds while the connection service runs, and right after a send.
+  Every poll ends with the "checked … ago" state (UI_DESIGN.md 6.6). A dead token
+  (Graph error 190 or 200) ends the connection with "paste a new one".
+- **Messages**: text, pictures, videos, animated GIFs, files, stickers, and shares (as
+  link cards). Older history by Meta's cursor paging of `/{conversation}/messages`.
+- **Sends**: text through the Send API as `RESPONSE`; files uploaded first to
+  `/{page}/message_attachments` (the phone has no public address) and sent by attachment
+  id; reactions as the emoji in a text (Meta's Page API has none); `mark_seen` when a chat
+  is read. Meta's 24-hour window is checked before every send (the person's last message
+  time) and the send is refused with a plain reason, as well as when Meta refuses it.
+- **Deviations, for the owner**:
+  - The plan names a WorkManager periodic job for the polling. The connection service
+    already runs whenever any account wants a connection, so the poll runs inside the
+    connector's event flow instead, with a 20-second interval while the service is up.
+    A separate background job would also need a way to feed events into the store from
+    outside the service, which does not exist yet. Say if the job is wanted anyway.
+  - UI_DESIGN.md 6.6 asks the composer to show a notice and disable Send when the
+    24-hour window has closed. The connector refuses the send with that reason today;
+    the composer notice is not built (the composer has no per-chat "cannot reply"
+    signal yet). Noted for the next UI pass.
+  - The polling interval is fixed at 20 seconds; the "user-chosen interval" setting is
+    not built yet (no account-level settings page carries it).
+- **Not verified against a live Page**: the owner will get the token later. Every call
+  is shaped from Meta's reference pages (conversations, message, Send API, attachment
+  upload) read tonight; the pretend Page in the tests answers in those shapes.
+- **Tests**: `FbPageContractTest` against `FakePageApi`; `FbPageTranslateTest` (Meta's
+  times, chats, fresh-only polling, kinds of files, shares, the Page's own messages, the
+  token check, the 24-hour refusal, the polled states).
+
+## Gate G7 to G10: every Phase 6 network in one build (2026-10-02, 11:45 PM)
+
+**Version 0.7.0** carries all of Phase 6: WhatsApp, Telegram, Signal, Google Voice,
+Instagram, Messenger, and the Facebook Page inbox. Full `./gradlew check` green on the
+`signal` branch before the pull request.
+
+**Verified on the emulator tonight** (demo build, Add account):
+- Messenger: the row shows with its risk note; the facebook.com sign-in page draws in
+  the in-app browser with the "I have signed in" button under it.
+- Facebook Page: the row shows with its 24-hour note; the token box draws; a made-up
+  token goes to Meta and comes back refused ("Invalid OAuth access token - Cannot parse
+  access token") on the box, with Continue ready for another try. That exercises the
+  HTTP layer and Meta's error shape end to end.
+- Signal, Telegram, Google Voice: sign-in screens verified earlier tonight (their entries
+  above).
+
+**Not verified, and why**: nothing past the sign-in screens, because the emulator has no
+accounts on these networks. Live traffic (history, sends, media, reactions) is covered by
+each connector's tests against its pretend network, and by the reference bridges' code
+paths they follow.
+
+**Owner's test checklist, phone, version 0.7.0** (one network at a time; say what you see):
+1. Signal: Add account > Signal. Share the QR picture to your other screen, scan it from
+   your phone's Signal (Linked devices). Expect: the account appears, chats fill from the
+   phone's transfer, a new message arrives live, a reply goes out.
+2. Telegram: phone number, then the code Telegram sends. Expect: chats and topics
+   (forums as spaces), live messages, a reaction from the allowed set.
+3. Google Voice: sign in to Google in the page. Expect: threads with names, a text sent
+   and received, a picture received.
+4. Messenger: sign in to Facebook in the page, then "I have signed in". Expect: chats
+   with names and pictures, Requests folder if you have any, a text each way, a reaction,
+   a reply with quote, a picture each way.
+5. Facebook Page: paste the Page token when you have it. Expect: the Page's
+   conversations, "checked … ago" on the account row, a reply to someone who wrote
+   within the last day; a refusal with the reason for someone older than a day.
+6. Instagram: the sign-in page draws (fixed tonight); sign in and check the inbox.
