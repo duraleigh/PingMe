@@ -30,6 +30,8 @@ val buildGoBridge =
         inputs.dir(layout.projectDirectory.dir("gm"))
         inputs.dir(layout.projectDirectory.dir("wa"))
         inputs.dir(layout.projectDirectory.dir("ig"))
+        inputs.dir(layout.projectDirectory.dir("sig"))
+        inputs.file(layout.projectDirectory.file("libsignal/VERSION"))
         inputs.files("go.mod", "go.sum", "build.sh")
         outputs.file(goBridgeAar)
     }

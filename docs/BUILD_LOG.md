@@ -2496,3 +2496,48 @@ it, the rest in tests.
 
 Also: `PeopleUpdated` connector event; the attachment upsert rule in `MessageDao`;
 `SaveToGallery.saveToDownloads`.
+
+## Phase 6, network 3: Signal (2026-10-02, late evening)
+
+**Built on branch `signal`.** Signal through mautrix-signal's `signalmeow` (v0.2609.0) over
+Signal's own `libsignal` (v0.102.2, Rust), bound by gomobile as `gobridge/sig`.
+
+- **The native library.** `libsignal_ffi.a` must be built from Rust for each phone chip.
+  This machine has no C toolchain, so a GitHub workflow (`.github/workflows/libsignal.yml`)
+  builds it once per version for arm64-v8a, x86_64, armeabi-v7a, and Linux amd64 (for the
+  bridge's host tests) and attaches them to the release `libsignal-v0.102.2`;
+  `gobridge/build.sh` downloads them when missing (`gh release download`, so CI passes
+  `GH_TOKEN`). The three Android ones are built and attached. The Linux one is not yet:
+  GitHub stopped running jobs ("spending limit", see below) before it could.
+- **Host builds of the bridge** need a C compiler for the Signal bindings. This machine
+  has none, so: zig (`~/.local/opt/zig`) as `CC="zig cc"`, a local `go.work` (ignored)
+  pointing at a copy of mautrix-signal with one extra build tag (`hostclang`) on its two
+  compiler-shim files, and zlib built with zig. `GOBRIDGE_HOST_TAGS=hostclang` and
+  `GOBRIDGE_SKIP_HOST_CHECKS=1` in `build.sh` exist for that; CI never sets them.
+- **Linking** (`SignalLogin`): Signal links a new device only by the phone's Signal app
+  scanning a QR code. The QR step's Share button now sends the code as a picture (PNG via
+  the file provider) with the link as text, for another screen (owner: will have one). A
+  fresh code every 45 seconds, up to six. The phone is asked to transfer its message
+  history (the archive signalmeow calls a transfer); after linking the store is renamed
+  from `signal/link-<time>.db` to `signal/<account id>.db`.
+- **Chats and history** come from that archive (`BackupStore`): the chat list with names,
+  unread, archived, pinned, mute; pages of older messages on demand (`Messages`). Signal
+  keeps nothing on its servers, so without the transfer only live messages show.
+- **Live**: messages (text, pictures, video, voice notes, files, stickers, contacts),
+  quotes, reactions (your own remembered so taking one away can name it), edits,
+  deletes for everyone, typing, delivery and read receipts (matched by timestamp), reads
+  on your other devices, group changes (the group is fetched again), contacts (as people
+  for the new-chat search). Sends: text, one file per message with the text as caption,
+  reactions, edit, delete, read receipts, typing, new chat by phone number (CDSI lookup).
+- **Ids**: chat = account id (UUID) or group identifier (44 chars); message =
+  "<chat>/<sender>:<timestamp>"; person = account id.
+- **Tests**: Go `sig` conversion tests (run on the host with zig and the Linux library);
+  `SigTranslateTest`; `SignalContractTest` against `FakeSigBridge`.
+- Not built this round, shown disabled with the reason: making groups, blocking,
+  message requests (Signal itself).
+
+**GitHub Actions stopped (2026-10-02, 10:00 PM):** every job fails at once with "recent
+account payments have failed or your spending limit needs to be increased": the private
+repository's free minutes for the month are used up. Until the owner raises the limit,
+makes the repository public, or puts the sideload keystore on this machine, no release
+can be built as an installable update. The owner was told the three options.

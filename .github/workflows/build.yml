@@ -93,6 +93,9 @@ jobs:
 
       - name: Build Go bridge
         if: steps.changes.outputs.code == 'true' && hashFiles('gobridge/build.sh') != '' && steps.gobridge-cache.outputs.cache-hit != 'true'
+        env:
+          # build.sh downloads Signal's native library from this repository's releases.
+          GH_TOKEN: ${{ github.token }}
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.3.13750724" > /dev/null
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.3.13750724"
