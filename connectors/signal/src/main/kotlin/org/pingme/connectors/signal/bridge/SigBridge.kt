@@ -112,6 +112,9 @@ interface SigSession {
 
     /** The account id behind a phone number (+E.164), or "" when it has none. */
     fun checkNumber(phone: String): String
+
+    /** Which of the numbers (a JSON array of +E.164) are on Signal: a JSON array of [SigLookup]. */
+    fun lookupNumbers(phonesJson: String): String
 }
 
 /** The codes the bridge puts before the colon of an error message. */

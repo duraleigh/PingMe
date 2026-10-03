@@ -199,11 +199,24 @@ class ConnectorSupervisor
                         val chats = connector.syncChats(account.id)
                         applier.applyChats(chats)
                         history.chatsArrived(chats)
+                        runCatching { connector.refreshPeople(account.id) }
+                            .onFailure { Log.w(TAG, "${account.network}: could not refresh its people", it) }
                     }
                 }
                 // Fresh is decided before the store has the message; the notification goes after.
                 val fresh = router.isFresh(event)
-                applier.apply(event)
+                try {
+                    applier.apply(event)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
+                    // One event the store refuses must not end the connection: it would come
+                    // again on every retry and the account would never connect (owner, Gate G7).
+                    Log.w(TAG, "${account.network}: could not apply ${event::class.simpleName}; skipped", e)
+                    return@collect
+                }
                 router.onEvent(event, fresh)
                 // Media downloads when the message comes and again when an update brings the
                 // file the phone has now finished fetching itself (owner, Gate G3).

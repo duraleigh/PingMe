@@ -128,6 +128,9 @@ interface WaSession {
     /** The user id for an international number on WhatsApp, or "". */
     fun checkNumber(phone: String): String
 
+    /** Every hidden id the phone can pair with a number: a JSON array of [WaIdPair]. */
+    fun hiddenIdMap(): String
+
     fun createGroup(
         name: String,
         participantsJson: String,

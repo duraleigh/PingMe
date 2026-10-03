@@ -39,6 +39,7 @@ internal fun Chat.toEntity() =
         nameOverride = nameOverride,
         defaultSendAccount = defaultSendAccount?.value,
         networkRemoteId = networkRemoteId,
+        readUpTo = readUpTo,
     )
 
 internal fun Chat.participantEntities() =
@@ -67,6 +68,7 @@ internal fun ChatWithParticipants.toModel() =
         nameOverride = chat.nameOverride,
         defaultSendAccount = chat.defaultSendAccount?.let(::AccountId),
         networkRemoteId = chat.networkRemoteId,
+        readUpTo = chat.readUpTo,
     )
 
 internal fun Space.toEntity() = SpaceEntity(id.value, accountId?.value, title, kind, icon, showInAll)

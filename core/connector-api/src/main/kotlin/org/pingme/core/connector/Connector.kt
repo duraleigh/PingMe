@@ -44,6 +44,13 @@ interface Connector {
 
     suspend fun disconnect(accountId: AccountId)
 
+    /**
+     * Looks up the account's people again (the phone's contacts on Signal, say) and reports
+     * them as [ConnectorEvent.PeopleUpdated] through the live connection. Nothing for
+     * networks that hand their people over on their own.
+     */
+    suspend fun refreshPeople(accountId: AccountId) = Unit
+
     suspend fun syncChats(accountId: AccountId): List<ChatSnapshot>
 
     /** Up to [limit] messages older than [before] (newest when null), newest first. */

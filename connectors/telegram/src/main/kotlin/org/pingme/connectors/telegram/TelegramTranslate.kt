@@ -142,7 +142,16 @@ class TelegramTranslate(
     fun topicsOf(chatId: Long): List<TdApi.ForumTopicInfo> = topics[chatId]?.values?.toList().orEmpty()
 
     /** Whether a chat sits in the main list (archived and unlisted chats stay out). */
-    fun listed(chat: TdApi.Chat): Boolean = chat.positions.any { it.list is TdApi.ChatListMain && it.order != 0L }
+    fun listed(chat: TdApi.Chat): Boolean = inMainList(chat) && !noticeOnly(chat)
+
+    fun inMainList(chat: TdApi.Chat): Boolean = chat.positions.any { it.list is TdApi.ChatListMain && it.order != 0L }
+
+    /**
+     * A private chat Telegram made only to say "X joined Telegram": not a conversation, so
+     * not a chat here until the person actually writes (owner, Gate G7).
+     */
+    fun noticeOnly(chat: TdApi.Chat): Boolean =
+        chat.type is TdApi.ChatTypePrivate && chat.lastMessage?.content is TdApi.MessageContactRegistered
 
     /** The people the contact list knows, for the new-chat search. */
     @Synchronized
@@ -554,6 +563,36 @@ class TelegramTranslate(
         }
     }
 
+    /** Telegram's own notes in a chat ("X joined", "pinned a message"): a line of words, never "unsupported". */
+    @Suppress("CyclomaticComplexMethod") // One line per kind of note Telegram has; a table, not logic.
+    fun noticeText(content: TdApi.MessageContent): String? =
+        when (content) {
+            is TdApi.MessageContactRegistered -> "Joined Telegram"
+            is TdApi.MessageChatAddMembers -> "Added members"
+            is TdApi.MessageChatJoinByLink, is TdApi.MessageChatJoinByRequest -> "Joined the group"
+            is TdApi.MessageChatDeleteMember -> "Left the group"
+            is TdApi.MessageChatChangeTitle -> "Changed the group name to ${content.title}"
+            is TdApi.MessageChatChangePhoto -> "Changed the group picture"
+            is TdApi.MessageChatDeletePhoto -> "Removed the group picture"
+            is TdApi.MessageBasicGroupChatCreate -> "Created the group ${content.title}"
+            is TdApi.MessageSupergroupChatCreate -> "Created the group ${content.title}"
+            is TdApi.MessagePinMessage -> "Pinned a message"
+            is TdApi.MessageScreenshotTaken -> "Took a screenshot"
+            is TdApi.MessageChatSetTheme, is TdApi.MessageChatSetBackground -> "Changed the chat's look"
+            is TdApi.MessageChatSetMessageAutoDeleteTime -> "Changed the auto-delete timer"
+            is TdApi.MessageChatUpgradeFrom, is TdApi.MessageChatUpgradeTo -> "Upgraded the group"
+            is TdApi.MessageForumTopicCreated -> "Created the topic ${content.name}"
+            is TdApi.MessageForumTopicEdited -> "Edited the topic"
+            is TdApi.MessageForumTopicIsClosedToggled, is TdApi.MessageForumTopicIsHiddenToggled -> "Changed the topic"
+            is TdApi.MessageVideoChatStarted -> "Started a video chat"
+            is TdApi.MessageVideoChatEnded -> "Ended the video chat"
+            is TdApi.MessageVideoChatScheduled -> "Scheduled a video chat"
+            is TdApi.MessageChatBoost -> "Boosted the chat"
+            is TdApi.MessageProximityAlertTriggered -> "Is nearby"
+            is TdApi.MessageCustomServiceAction -> content.text
+            else -> null
+        }
+
     /** The words of any content, for quotes and the chat list. */
     fun textOf(content: TdApi.MessageContent): String =
         when (content) {
@@ -568,7 +607,7 @@ class TelegramTranslate(
             is TdApi.MessageContact -> "Contact"
             is TdApi.MessageLocation -> "Location"
             is TdApi.MessagePoll -> "📊 " + content.poll.question.text
-            else -> ""
+            else -> noticeText(content).orEmpty()
         }
 
     private fun remember(

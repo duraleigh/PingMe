@@ -2,10 +2,12 @@
 package org.pingme.connectors.signal
 
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import org.pingme.connectors.signal.bridge.SigBridge
 import org.pingme.connectors.signal.bridge.SigChat
 import org.pingme.connectors.signal.bridge.SigEvent
 import org.pingme.connectors.signal.bridge.SigEventSink
+import org.pingme.connectors.signal.bridge.SigLookup
 import org.pingme.connectors.signal.bridge.SigMember
 import org.pingme.connectors.signal.bridge.SigMessage
 import org.pingme.connectors.signal.bridge.SigReaction
@@ -234,6 +236,25 @@ class FakeSigSession(
         destPath: String,
     ) {
         File(destPath).writeBytes(byteArrayOf(1, 2, 3))
+    }
+
+    /** Sam and anyone whose number ends in an even digit are on the pretend Signal; the odd ones are not. */
+    override fun lookupNumbers(phonesJson: String): String {
+        val phones = sigJson.decodeFromString(ListSerializer(String.serializer()), phonesJson)
+        val found =
+            phones.filter { it == "+15555550123" || it.last().digitToInt() % 2 == 0 }.map {
+                SigLookup(
+                    it,
+                    if (it ==
+                        "+15555550123"
+                    ) {
+                        FakeSignal.SAM
+                    } else {
+                        "PNI:" + java.util.UUID.nameUUIDFromBytes(it.toByteArray())
+                    },
+                )
+            }
+        return sigJson.encodeToString(ListSerializer(SigLookup.serializer()), found)
     }
 
     /** Every number is on the pretend Signal: Sam's is Sam, any other gets an id of its own. */

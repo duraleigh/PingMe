@@ -55,6 +55,8 @@ type Session struct {
 	retries map[string]chan *events.MediaRetry
 	// The phone's own key for a chat PingMe knows by its canonical id, for history requests.
 	historyKeys map[string]string
+	// When the hidden ids of the phone-number contacts were last asked for.
+	hiddenIDsAskedAt time.Time
 	// Coalesces a burst of contact changes into one "contacts" event.
 	contactsTimer *time.Timer
 }
@@ -209,19 +211,122 @@ func (s *Session) Contacts() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	people := make([]Participant, 0, len(all))
+	s.learnHiddenIDs(ctx, all)
+	// One person per phone number: a contact WhatsApp also files under its hidden id is
+	// folded into the phone-number entry, so the hidden id never shows (owner, Gate G7).
+	byID := make(map[string]*Participant, len(all))
+	order := make([]string, 0, len(all))
 	for jid, info := range all {
 		name := contactName(info)
 		if name == "" {
 			continue
 		}
 		p := Participant{ID: jid.ToNonAD().String(), Name: name}
-		if jid.Server == types.DefaultUserServer {
+		switch jid.Server {
+		case types.DefaultUserServer:
 			p.Phone = jid.User
+		case types.HiddenUserServer:
+			if phone := s.phoneOf(jid); phone != "" {
+				p.ID = types.NewJID(phone, types.DefaultUserServer).String()
+				p.Phone = phone
+			}
 		}
-		people = append(people, p)
+		if known := byID[p.ID]; known != nil {
+			if known.Name == "" {
+				known.Name = p.Name
+			}
+			continue
+		}
+		copy := p
+		byID[p.ID] = &copy
+		order = append(order, p.ID)
+	}
+	people := make([]Participant, 0, len(order))
+	for _, id := range order {
+		people = append(people, *byID[id])
 	}
 	return marshal(people)
+}
+
+// learnHiddenIDs asks WhatsApp, once per session, which hidden id each phone-number
+// contact goes by, so the library's map between the two is filled before anything is
+// filed by it (owner, Gate G7: a contact listed twice, replies under the hidden id). The
+// library stores what the lookup returns; the lookups run in batches.
+func (s *Session) learnHiddenIDs(ctx context.Context, all map[types.JID]types.ContactInfo) {
+	// Any contact still unmapped is asked about again, but not more than every few minutes:
+	// a contact who joins WhatsApp mid-session gets mapped on the next contacts refresh.
+	s.mu.Lock()
+	recent := time.Since(s.hiddenIDsAskedAt) < hiddenIDRetry
+	if !recent {
+		s.hiddenIDsAskedAt = time.Now()
+	}
+	s.mu.Unlock()
+	if recent || !s.client.IsConnected() {
+		return
+	}
+	numbers := make([]types.JID, 0, len(all))
+	for jid := range all {
+		if jid.Server == types.DefaultUserServer {
+			if _, err := s.client.Store.LIDs.GetLIDForPN(ctx, jid.ToNonAD()); err == nil {
+				continue // already known
+			}
+			numbers = append(numbers, jid.ToNonAD())
+		}
+	}
+	for start := 0; start < len(numbers); start += hiddenIDBatch {
+		end := min(start+hiddenIDBatch, len(numbers))
+		if _, err := s.client.GetUserInfo(ctx, numbers[start:end]); err != nil {
+			s.log.Warn().Err(err).Int("from", start).Msg("Could not learn hidden ids for contacts")
+			return
+		}
+	}
+	s.log.Info().Int("contacts", len(numbers)).Msg("Learned hidden ids for contacts")
+}
+
+const (
+	hiddenIDBatch = 50
+	hiddenIDRetry = 5 * time.Minute
+)
+
+// IDPair is a hidden id and the phone-number id it belongs to.
+type IDPair struct {
+	LID   string `json:"lid"`
+	Phone string `json:"phone"`
+}
+
+// HiddenIDMap returns every hidden id the library can pair with a phone-number id, as a
+// JSON array of IDPair, so chats an earlier build filed under a hidden id can be folded
+// into the number's chat (owner, Gate G7).
+func (s *Session) HiddenIDMap() (string, error) {
+	ctx, cancel := s.ctx()
+	defer cancel()
+	all, err := s.client.Store.Contacts.GetAllContacts(ctx)
+	if err != nil {
+		return "", err
+	}
+	s.learnHiddenIDs(ctx, all)
+	seen := map[string]bool{}
+	pairs := []IDPair{}
+	add := func(lid, pn types.JID) {
+		if lid.IsEmpty() || pn.IsEmpty() || seen[lid.String()] {
+			return
+		}
+		seen[lid.String()] = true
+		pairs = append(pairs, IDPair{LID: lid.ToNonAD().String(), Phone: pn.ToNonAD().String()})
+	}
+	for jid := range all {
+		switch jid.Server {
+		case types.HiddenUserServer:
+			if pn, err := s.client.Store.LIDs.GetPNForLID(ctx, jid.ToNonAD()); err == nil {
+				add(jid, pn)
+			}
+		case types.DefaultUserServer:
+			if lid, err := s.client.Store.LIDs.GetLIDForPN(ctx, jid.ToNonAD()); err == nil {
+				add(lid, jid)
+			}
+		}
+	}
+	return marshal(pairs)
 }
 
 // ContactName is the name the phone's WhatsApp has for a user, or "".
@@ -654,6 +759,10 @@ func (s *Session) handleEvent(raw any) {
 func (s *Session) onConnected() {
 	ctx, cancel := s.ctx()
 	defer cancel()
+	// The phone's contact list (names for numbers) comes as "app state" that the client
+	// must ask for; the library does not on its own. First time only per store: later
+	// changes are pushed (owner, Gate G7: chats named by number).
+	go s.fetchContactList()
 	// Presence must be sent once, or chat presence (typing) and read receipts stay queued.
 	if s.client.Store.PushName != "" {
 		if err := s.client.SendPresence(ctx, types.PresenceAvailable); err != nil {
@@ -661,6 +770,19 @@ func (s *Session) onConnected() {
 		}
 	}
 	s.emit(map[string]any{"type": "connected", "id": s.OwnID(), "phone": s.OwnPhone(), "lid": s.OwnLID(), "pushName": s.PushName()})
+}
+
+func (s *Session) fetchContactList() {
+	ctx, cancel := context.WithTimeout(s.log.WithContext(context.Background()), 2*time.Minute)
+	defer cancel()
+	for _, name := range []appstate.WAPatchName{
+		appstate.WAPatchCriticalUnblockLow, appstate.WAPatchCriticalBlock,
+		appstate.WAPatchRegularLow, appstate.WAPatchRegularHigh, appstate.WAPatchRegular,
+	} {
+		if err := s.client.FetchAppState(ctx, name, true, true); err != nil {
+			s.log.Warn().Err(err).Str("name", string(name)).Msg("Could not fetch the phone's app state")
+		}
+	}
 }
 
 func (s *Session) refreshGroup(jid types.JID) {

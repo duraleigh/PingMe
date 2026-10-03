@@ -8,11 +8,15 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.pingme.connectors.instagram.bridge.IgBridge
 import org.pingme.connectors.instagram.bridge.IgError
 import org.pingme.connectors.instagram.bridge.IgEvent
 import org.pingme.connectors.instagram.bridge.IgMedia
+import org.pingme.connectors.instagram.bridge.IgMessage
 import org.pingme.connectors.instagram.bridge.IgSession
 import org.pingme.connectors.instagram.bridge.IgTranslate
 import org.pingme.connectors.instagram.bridge.igJson
@@ -35,6 +39,7 @@ import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.MessageId
 import java.io.File
 import java.io.IOException
+import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -49,6 +54,7 @@ internal class InstagramSession(
     cookiesJson: String,
     private val credentialRef: String,
     private val credentials: CredentialStore,
+    private val previewDir: File,
 ) {
     private val events = Channel<Any>(Channel.UNLIMITED)
     val go = IgTranslate(accountId)
@@ -122,10 +128,73 @@ internal class InstagramSession(
             }
 
             else -> {
+                if (event is IgEvent.Message) placeThread(event.message)
                 go.translate(event).forEach { send(it) }
+                fetchPreviews(event)
             }
         }
     }
+
+    /**
+     * A message for a thread or from a sender PingMe has not been told about yet: ask
+     * Instagram for the thread first, so the chat lands with its name, its people, and its
+     * folder (General stays out of All) instead of a bare placeholder named by an id that
+     * only the next full sync would fix (owner, Gate G7).
+     */
+    private suspend fun ProducerScope<ConnectorEvent>.placeThread(msg: IgMessage) {
+        if (go.knows(msg.thread) && go.knowsPerson(msg.sender)) return
+        try {
+            val thread = go.threadJson(request { session.thread(msg.thread) })
+            send(ConnectorEvent.ChatUpdated(accountId, go.chat(thread)))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            Log.w(TAG, "Could not fetch the thread ${msg.thread} a message came for", e)
+        }
+    }
+
+    private fun ProducerScope<ConnectorEvent>.fetchPreviews(event: IgEvent) {
+        when (event) {
+            is IgEvent.Message -> fetchPreview(event.message)
+            is IgEvent.Thread -> event.thread.messages.forEach { fetchPreview(it) }
+            else -> Unit
+        }
+    }
+
+    /**
+     * A shared post or reel comes with the address of its picture; the card shows it once
+     * the picture is on the phone (owner, Gate G7). Fetched in the background, a few at a
+     * time, then the message is reported again with the picture.
+     */
+    private fun ProducerScope<ConnectorEvent>.fetchPreview(msg: IgMessage) {
+        val url = go.previewToFetch(msg) ?: return
+        launch(Dispatchers.IO) {
+            previews.withPermit {
+                val target = File(previewDir, sha("${msg.thread}/${msg.id}") + ".jpg")
+                try {
+                    if (!target.exists()) {
+                        target.parentFile?.mkdirs()
+                        session.download(url, target.absolutePath)
+                    }
+                    go.rememberPreview(msg.thread, msg.id, target.absolutePath)
+                    send(ConnectorEvent.MessageUpdated(accountId, go.message(msg)))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
+                    Log.i(TAG, "No picture for a shared post: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private val previews = Semaphore(PREVIEW_FETCHES)
+
+    private fun sha(text: String) =
+        MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
 
     /** The request queue: threads waiting for a yes or no (UI_DESIGN.md 6.4). */
     private suspend fun requests(): List<ChatSnapshot> =
@@ -175,10 +244,13 @@ internal class InstagramSession(
         val thread = chatId.remoteId
         val anchor = before?.remoteId?.substringAfterLast('/').orEmpty()
         val page = go.messagesJson(request { session.messages(thread, anchor, limit) })
-        return page
-            .filter { it.kind != "system" && it.id != anchor }
-            .sortedByDescending { it.timestamp }
-            .map { go.message(it.copy(thread = it.thread.ifEmpty { thread })) }
+        val messages =
+            page
+                .filter {
+                    it.kind != "system" && it.id != anchor
+                }.map { it.copy(thread = it.thread.ifEmpty { thread }) }
+        messages.forEach { msg -> go.previewToFetch(msg)?.let { events.trySend(IgEvent.Message(msg)) } }
+        return messages.sortedByDescending { it.timestamp }.map { go.message(it) }
     }
 
     suspend fun send(
@@ -364,5 +436,6 @@ internal class InstagramSession(
         const val PENDING = "PENDING"
         const val MAX_PAGES = 4
         const val INSTAGRAM_PACKAGE = "package:com.instagram.android"
+        const val PREVIEW_FETCHES = 2
     }
 }

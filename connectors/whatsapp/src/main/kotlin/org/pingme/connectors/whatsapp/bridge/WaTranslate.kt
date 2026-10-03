@@ -80,6 +80,9 @@ class WaTranslate(
 
     fun messageJson(json: String): WaMessage = waJson.decodeFromString(WaMessage.serializer(), json)
 
+    fun idPairs(json: String): List<WaIdPair> =
+        waJson.decodeFromString(kotlinx.serialization.builtins.ListSerializer(WaIdPair.serializer()), json)
+
     fun participants(json: String): List<WaParticipant> =
         waJson.decodeFromString(kotlinx.serialization.builtins.ListSerializer(WaParticipant.serializer()), json)
 
@@ -92,7 +95,11 @@ class WaTranslate(
     /** The phone's WhatsApp contacts as people of this account, for the new-chat search. */
     @Synchronized
     fun people(contacts: List<WaParticipant>): List<Person> =
-        contacts.filter { it.name.isNotBlank() && !isMe(it.id) }.map { person(it.id, it.name, it.phone) }
+        contacts
+            .filter { it.name.isNotBlank() && !isMe(it.id) && !isPlaceholder(it.id) }
+            // A contact known only by a hidden id is never listed by it (owner, Gate G7).
+            .filter { it.phone.isNotBlank() || !it.id.endsWith(HIDDEN_ID_SUFFIX) }
+            .map { person(it.id, it.name, it.phone) }
 
     /** Every chat known so far, as it reads now: sent again when names arrive. */
     @Synchronized
@@ -141,6 +148,9 @@ class WaTranslate(
 
     /** Whether a user id is this account, by phone id or hidden id. */
     fun isMe(jid: String): Boolean = jid.isNotEmpty() && (jid == ownId || jid == ownLid)
+
+    /** WhatsApp's "0" user stands for nobody (system notices); never a person. */
+    fun isPlaceholder(jid: String): Boolean = jid.substringBefore('@') == "0"
 
     /** Data events become connector events; control events return nothing. */
     @Synchronized
@@ -196,7 +206,7 @@ class WaTranslate(
         val people =
             buildList {
                 add(me())
-                others.forEach { add(person(it.id, it.name, it.phone)) }
+                others.filter { !isPlaceholder(it.id) }.forEach { add(person(it.id, it.name, it.phone)) }
             }
         val title =
             when {
@@ -243,7 +253,8 @@ class WaTranslate(
             accountId = accountId,
             displayName = displayName(jid, name, digits),
             phoneNumber = digits.takeIf { it.isNotEmpty() }?.let { "+$it" },
-            networkHandle = jid,
+            // The number is what a person goes by here; the raw id only when there is none.
+            networkHandle = digits.takeIf { it.isNotEmpty() }?.let { "+$it" } ?: jid,
             avatarPath = null,
             contactId = null,
         )
@@ -639,3 +650,6 @@ class WaTranslate(
         private fun rank(status: MessageStatus) = TICK_ORDER.indexOf(status).coerceAtLeast(0)
     }
 }
+
+/** WhatsApp's hidden user ids end this way. */
+private const val HIDDEN_ID_SUFFIX = "@lid"

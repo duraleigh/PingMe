@@ -8,6 +8,7 @@ import org.pingme.core.connector.accountId
 import org.pingme.core.connector.remoteId
 import org.pingme.core.model.AvatarSource
 import org.pingme.core.model.Chat
+import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Message
 import org.pingme.core.model.MessageKind
@@ -18,6 +19,7 @@ import org.pingme.core.store.ContactRepository
 import org.pingme.core.store.MessageRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Instant
 
 /**
  * Writes what connectors report into the store (BUILD_PLAN.md P1.4). Snapshots carry only
@@ -54,13 +56,40 @@ class EventApplier
         // Chats, typing, spaces, and the account's state: everything that is not a message.
         private suspend fun applyChatEvent(event: ConnectorEvent) {
             when (event) {
-                is ConnectorEvent.Typing -> typing.set(event.chatId, event.personId, event.typing)
-                is ConnectorEvent.ChatUpdated -> applyChat(event.chat)
-                is ConnectorEvent.ChatRemoved -> chats.delete(event.chatId)
-                is ConnectorEvent.State -> accounts.updateState(event.accountId, event.state)
-                is ConnectorEvent.SpaceUpdated -> applySpace(event.space)
-                is ConnectorEvent.PeopleUpdated -> event.people.forEach { contacts.upsert(it) }
-                else -> Unit
+                is ConnectorEvent.Typing -> {
+                    typing.set(event.chatId, event.personId, event.typing)
+                }
+
+                is ConnectorEvent.ChatUpdated -> {
+                    applyChat(event.chat)
+                }
+
+                is ConnectorEvent.ChatRemoved -> {
+                    chats.delete(event.chatId)
+                }
+
+                is ConnectorEvent.ChatMerged -> {
+                    mergeChats(event.from, event.into)
+                }
+
+                is ConnectorEvent.State -> {
+                    accounts.updateState(event.accountId, event.state)
+                }
+
+                is ConnectorEvent.SpaceUpdated -> {
+                    applySpace(event.space)
+                }
+
+                is ConnectorEvent.PeopleUpdated -> {
+                    // Hidden-id rows an earlier build stored go once nothing lists them (owner, Gate G7).
+                    event.people.forEach { contacts.upsert(it) }
+                    contacts.deleteStray(event.accountId, HIDDEN_ID_SUFFIX)
+                    PLACEHOLDER_HANDLES.forEach { contacts.deleteStrayHandle(event.accountId, it) }
+                }
+
+                else -> {
+                    Unit
+                }
             }
         }
 
@@ -76,6 +105,10 @@ class EventApplier
                 }
 
                 else -> {
+                    // A reaction to a message the store never got (older than the history kept, or
+                    // in a chat not listed) has nothing to sit on; the row would be refused anyway
+                    // (owner, Gate G7: Messenger stuck on "reconnecting" over one such reaction).
+                    if (messages.get(event.messageId) == null) return
                     messages.addReaction(event.messageId, event.reaction)
                     announceIfFromSomeoneElse(event)
                 }
@@ -125,9 +158,71 @@ class EventApplier
         suspend fun applyChats(snapshots: List<ChatSnapshot>) = snapshots.forEach { applyChat(it) }
 
         private suspend fun applyChat(snapshot: ChatSnapshot) {
+            if (hiddenHere(snapshot.id, snapshot.lastActivityAt)) return
             snapshot.participants.forEach { contacts.upsert(it) }
             val existing = chats.get(snapshot.id)
-            chats.upsert(existing?.withSnapshot(snapshot) ?: snapshot.toNewChat())
+            val merged = existing?.withSnapshot(snapshot) ?: snapshot.toNewChat()
+            chats.upsert(merged.copy(unreadCount = unreadFor(existing, snapshot)))
+        }
+
+        /**
+         * The unread count after a network listing. The network's own count is trusted only for
+         * a chat PingMe knows nothing about yet: once the chat has been read here, PingMe counts
+         * for itself from the messages it holds, and a chat whose newest message is ours is read.
+         * Networks whose read marks do not take (or are not sent) kept listing read chats as
+         * unread (owner, Gate G7: Google Messages, Telegram, Instagram).
+         */
+        private suspend fun unreadFor(
+            existing: Chat?,
+            snapshot: ChatSnapshot,
+        ): Int {
+            val readUpTo = existing?.readUpTo
+            return when {
+                existing == null -> snapshot.unreadCount
+                readUpTo != null -> messages.incomingSince(snapshot.id, readUpTo)
+                messages.newestIsOutgoing(snapshot.id) == true -> 0
+                else -> snapshot.unreadCount
+            }
+        }
+
+        /**
+         * A chat the user deleted here stays gone while the network has nothing newer than the
+         * deletion; something newer brings it back (owner, Gate G7: deleted chats came back unread).
+         */
+        private suspend fun hiddenHere(
+            chatId: ChatId,
+            at: Instant,
+        ): Boolean {
+            val hiddenAt = chats.hiddenAt(chatId) ?: return false
+            if (at <= hiddenAt) return true
+            chats.unhide(chatId)
+            return false
+        }
+
+        /**
+         * Two stored chats were one conversation (WhatsApp filed some of it under a hidden
+         * id before the number was known): the messages move into the number's chat, which
+         * is made from the old one when it does not exist yet, and the old chat goes
+         * (owner, Gate G7: split WhatsApp threads).
+         */
+        private suspend fun mergeChats(
+            from: ChatId,
+            into: ChatId,
+        ) {
+            if (from == into) return
+            val old = chats.get(from) ?: return
+            val target =
+                chats.get(into) ?: old.copy(id = into, networkRemoteId = into.remoteId, participants = emptyList())
+            chats.upsert(
+                target.copy(
+                    lastActivityAt = maxOf(target.lastActivityAt, old.lastActivityAt),
+                    unreadCount = target.unreadCount + old.unreadCount,
+                    isPinned = target.isPinned || old.isPinned,
+                    nameOverride = target.nameOverride ?: old.nameOverride,
+                ),
+            )
+            messages.moveToChat(from, into)
+            chats.delete(from)
         }
 
         /** Your own reactions, echoed back by the network, do not flip the row. */
@@ -139,18 +234,46 @@ class EventApplier
         }
 
         private suspend fun applyNewMessage(snapshot: MessageSnapshot) {
-            saveMessage(snapshot)
-            val message = snapshot.message
+            if (hiddenHere(snapshot.message.chatId, snapshot.message.sentAt)) return
+            // A message the store already has (a bridge handing old messages back after the
+            // app reopened) is an update, not news: it must not count as unread again.
+            val known = messages.get(snapshot.message.id) != null
+            val kept = if (snapshot.message.isOutgoing) withStandInFiles(snapshot) else snapshot
+            saveMessage(kept)
+            val message = kept.message
             if (message.isOutgoing) retireStandIns(message)
             snapshot.sender?.let { typing.set(message.chatId, it.id, typing = false) }
             chats.update(message.chatId) { chat ->
+                val readHere = chat.readUpTo?.let { message.sentAt <= it } ?: false
+                val news = !message.isOutgoing && !known && !readHere
                 chat.copy(
                     lastActivityAt = maxOf(chat.lastActivityAt, message.sentAt),
-                    unreadCount = if (message.isOutgoing) 0 else chat.unreadCount + 1,
+                    unreadCount = if (message.isOutgoing) 0 else chat.unreadCount + (if (news) 1 else 0),
+                    readUpTo = if (message.isOutgoing) maxOf(chat.lastActivityAt, message.sentAt) else chat.readUpTo,
                     // New activity brings an archived chat back (UI_DESIGN.md 10.7).
                     isArchived = chat.isArchived && message.isOutgoing,
                 )
             }
+        }
+
+        /**
+         * The network's copy of a sent picture names the network's file, not the one on the
+         * phone, so the bubble went blank until that file was fetched back (owner, Gate G7).
+         * The stand-in's files are already here: the copy takes them over, by position.
+         */
+        private suspend fun withStandInFiles(snapshot: MessageSnapshot): MessageSnapshot {
+            val message = snapshot.message
+            if (message.networkRemoteId.startsWith(STAND_IN_PREFIX) || message.attachments.isEmpty()) return snapshot
+            val standIn =
+                messages
+                    .standIns(message.chatId, STAND_IN_PREFIX)
+                    .firstOrNull { it.body == message.body && it.attachments.size == message.attachments.size }
+                    ?: return snapshot
+            val merged =
+                message.attachments.mapIndexed { i, a ->
+                    if (a.localPath != null) a else a.copy(localPath = standIn.attachments[i].localPath)
+                }
+            return snapshot.copy(message = message.copy(attachments = merged))
         }
 
         /**
@@ -159,6 +282,7 @@ class EventApplier
          * itself has forgotten the send, as after a restart (owner, Gate G3: a scheduled SMS
          * showed twice).
          */
+
         private suspend fun retireStandIns(message: Message) {
             if (message.networkRemoteId.startsWith(STAND_IN_PREFIX)) return
             messages
@@ -169,6 +293,7 @@ class EventApplier
 
         private suspend fun saveMessage(snapshot: MessageSnapshot) {
             val message = withQuote(snapshot.message)
+            if (chats.get(message.chatId) == null && hiddenHere(message.chatId, message.sentAt)) return
             snapshot.sender?.let { contacts.upsert(it) }
             if (chats.get(message.chatId) == null) {
                 // A connector should announce a chat before its messages. If one arrives
@@ -205,12 +330,15 @@ class EventApplier
 
         private fun placeholderChat(snapshot: MessageSnapshot): Chat {
             val message = snapshot.message
+            // Your own message (sent from the network's app) says nothing about who the chat
+            // is with: no title until the chat's listing comes, never "You" (owner, Gate G7).
+            val other = snapshot.sender?.takeIf { !message.isOutgoing }
             return ChatSnapshot(
                 id = message.chatId,
                 accountId = message.chatId.accountId,
                 kind = ChatKind.DIRECT,
-                title = snapshot.sender?.displayName ?: "",
-                participants = listOfNotNull(snapshot.sender),
+                title = other?.displayName ?: "",
+                participants = listOfNotNull(other),
                 unreadCount = 0,
                 lastActivityAt = message.sentAt,
                 folder = null,
@@ -219,6 +347,12 @@ class EventApplier
             ).toNewChat()
         }
     }
+
+/** WhatsApp's hidden user ids end this way; a person is never shown by one. */
+const val HIDDEN_ID_SUFFIX = "@lid"
+
+/** Handles that stand for nobody (WhatsApp's "0" user) and must never be a person. */
+val PLACEHOLDER_HANDLES = listOf("0@s.whatsapp.net", "+0")
 
 /** How connectors mark the remote id of a stand-in they show while the network's copy is slow. */
 const val YOU = "You"

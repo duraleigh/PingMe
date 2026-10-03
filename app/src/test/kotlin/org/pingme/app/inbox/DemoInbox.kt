@@ -264,6 +264,7 @@ class DemoInbox(
                 InboxBarRepository(settings),
                 org.pingme.core.store
                     .BackupStore(context, db),
+                MemoryCredentials(),
                 context,
                 registry,
             ).tracked()

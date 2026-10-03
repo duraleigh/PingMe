@@ -2722,3 +2722,137 @@ paths they follow.
    conversations, "checked … ago" on the account row, a reply to someone who wrote
    within the last day; a refusal with the reason for someone older than a day.
 6. Instagram: the sign-in page draws (fixed tonight); sign in and check the inbox.
+
+## Gate G7 fixes, round 1: the owner's notes on 0.7.0 (2026-10-03, afternoon)
+
+**Branch `fixes-g7`.** The owner's run-through of 0.7.0 on the phone gave 21 notes. The
+ones that need no phone are built here; the rest wait for a log from the phone.
+
+Built now:
+- **Share screen search box** (note 4): the box fed its text through the model's flow and
+  back, so a fast keystroke landed while the box was being redrawn with an older value and
+  the cursor jumped. The box now keeps its own text and only passes it out.
+- **Starting a WhatsApp chat listed each person twice** (note 8): the bridge's contact list
+  now folds a contact WhatsApp also files under its hidden id into the phone-number entry
+  (the hidden id is looked up in whatsmeow's id map), so the hidden id never shows.
+- **Instagram shared posts show their picture** (note 11): the bridge already carried the
+  picture's address; the connector now fetches it (two at a time, in the background) and
+  reports the message again with the picture, so the link card draws it. Also for history
+  pages as they load.
+- **Instagram links open inside PingMe** (note 12): a link card from an Instagram (or
+  Messenger) chat whose link is on that network's site opens in a page inside PingMe,
+  signed in with the account's own cookies, with Back and an "Open in browser" action.
+  Everything else still goes to the phone's browser.
+- **Telegram's "X joined Telegram" chats** (note 16): a private chat whose only message is
+  that note is not a chat here (it appears once the person writes); such chats an earlier
+  build listed are removed on the next connect; Telegram's service notes read as words
+  ("Joined Telegram", "Pinned a message") instead of "not supported".
+- **Remove account** (note 18): the account page gets Remove account with a confirmation;
+  it disconnects, forgets the saved sign-in, and deletes the account row, which takes its
+  chats, messages, and people with it (the database cascades).
+
+- **The inbox opens at the top** (added note): coming back to the inbox landed wherever
+  the list was last left; it now scrolls to the top every time the inbox is shown.
+- **Chats read here stay read** (added note): a network's listing after a reconnect
+  carried its own unread count (its read mark had not taken, or had not been sent), and
+  PingMe copied it over the read state. Each chat now remembers when it was last read on
+  this phone (`readUpTo`, schema version 5), and a listing with nothing newer than that
+  cannot make it unread again. Reading a chat and sending in it both set the mark.
+  The owner's cases were Google Messages and Telegram, not Instagram; both get read
+  marks only while "Send read receipts" is on for them, and the Google Messages bridge
+  also hands recent messages back after the app reopens, which the connector (its memory
+  gone with the restart) reported as new. The applier now treats a message the store
+  already has, or one no newer than the chat's read mark, as an update: no unread bump.
+- **Deleted chats stay deleted** (added note): deleting a chat removed its row, and the
+  network's next listing simply made it again, unread. Deleting now also leaves a
+  marker with the time (`chat_tombstones`, schema version 5); a listing, a history page,
+  or a message no newer than the marker is ignored, and anything newer lifts the marker
+  and brings the chat back as a new one.
+
+- **Messenger stuck on "Reconnecting"** (note 13, from the phone's log): Facebook was
+  fine. A reaction arrived for a message PingMe had not stored (older than the history
+  kept), the database refused the reaction row (foreign key), the exception ended the
+  session, and every retry met the same reaction. Two fixes: the applier ignores a
+  reaction to a message it does not have; and the supervisor skips, with a warning, any
+  one event the store refuses instead of ending the connection.
+- **The Go bridge's log now reaches logcat** (`gobridge/alog`, tag `GoLog`): on Android a
+  process's standard error goes nowhere, so the bridge's log had been invisible on the
+  phone; the Kotlin side only logs failures. Needed to diagnose the rest.
+
+- **Signal's new-chat list** (note 14, from the phone's log): the phone's Signal sent 226
+  contacts at link time, but the library keeps only those that came with an account id
+  (one did) and skips the rest. Signal's own app lists "contacts on Signal" by asking the
+  directory about every address-book number. PingMe now does the same: an `AddressBook`
+  (the phone's contacts, read only when allowed; the new-chat screen asks once) feeds the
+  numbers to the bridge's `LookupNumbers`, in batches of 100, and everyone found becomes
+  a person named from the address book (`refreshPeople` on the connector, run after each
+  connect and when the new-chat screen opens). The directory answers with two kinds of id;
+  people who hide their account id come back with only their number id, which PingMe
+  wrongly read as "not on Signal" (Nida Allam). Both count now: such a chat's id is
+  "PNI:<uuid>" and sends go to that service id.
+- **Messenger's first listing** ran before its socket was up ("could not list older
+  chats"); the bridge now waits up to 15 seconds for the socket before listing more.
+- **Notifications not clearing** (note 15): tried twice on the phone with the log open,
+  reacting and not reacting; both cleared. Not reproduced; the owner will report the next
+  case with the chat and the time.
+- **Instagram read marks** (note 10): PingMe's own "Send read receipts" was off for
+  Instagram, so Instagram was never told. Explained the two switches (PingMe's decides
+  whether the network hears a read at all; the network's own decides whether the other
+  person sees "Seen"); the owner set them as wanted.
+
+- **WhatsApp's hidden ids** (notes 8 and 19, from a screenshot on the 5:37 PM build): a
+  contact still showed twice, by hidden id and by number, because the library had no
+  number on file for that hidden id, so the bridge's fold had nothing to fold with. The
+  library fills its hidden-id map from several sources but never asks outright; the bridge
+  now asks WhatsApp once per connection for the hidden id of every phone-number contact
+  (the library's user lookup, batches of 50) and the library stores the answers. People
+  rows an earlier build stored by hidden id are dropped when the next people list comes,
+  unless a chat still lists them. A person's handle is now their number, never a raw id,
+  and a contact known only by a hidden id is never listed by it. The same map is what
+  files replies, reactions, and receipts that WhatsApp addresses by hidden id; whether
+  that is the whole of note 20 still waits for the phone's log.
+
+- **WhatsApp names** (note 7, from a screenshot of the new-chat list): the phone's contact
+  list (names for numbers) reaches a linked device as "app state", and only when the
+  client asks for it; the library does not ask on its own, and the bridge never did, so
+  the names had no way to arrive. The bridge now fetches every app-state set once per
+  store after connecting (the contact list first); later changes are pushed. WhatsApp's
+  "0" user (its placeholder for nobody) is never a person, and the one an earlier build
+  stored ("+0") is dropped with the next people list.
+- **New-chat chips** (owner): the account chips read the network's name ("WhatsApp"),
+  with the account's own name added only when two accounts share a network.
+- **Late joiners**: WhatsApp maps a contact who joins mid-session on the next contacts
+  refresh (unmapped contacts are asked about again, at most every five minutes);
+  Telegram reads its contact list again when a "joined Telegram" note arrives; Signal
+  looks up the address book on every connect and every opening of its new-chat screen.
+
+- **Instagram messages named by a long number, and General chats in All** (owner, from
+  the inbox): a message for a thread PingMe had not been told about made a bare
+  placeholder chat, titled by the sender's user id and with no folder, which the next
+  full sync replaced much later. The session now asks Instagram for the thread first,
+  whenever a message comes for an unlisted thread or from an unseen sender, so the chat
+  lands with its name, its people, and its folder; a General thread stays out of All.
+
+- **A chat titled "You"** (owner): a message you sent from Instagram's own app, for a
+  thread not listed yet, made a placeholder chat named after its sender, you. The
+  placeholder for an outgoing message now has no title (and the thread-first fetch above
+  names it properly in the normal case).
+- **Share sheet** (owner): a message box under the search field. What is shared goes
+  first, as its own message, and the note follows once the item is away, so the other
+  side never reads the words and then waits for the picture.
+- **A sent picture went blank until fetched back** (owner): the network's copy of a sent
+  message names the network's file, not the phone's, and replaced the stand-in, so the
+  bubble was an empty frame until the file came back down. The copy now takes over the
+  stand-in's files by position; the upload's progress ring is unchanged.
+
+**Version 0.7.1** carries every fix above. The owner chose to release without the live
+WhatsApp watch (the phone stayed off Wi-Fi debugging), on the assumption that the
+hidden-id mapping and the contact-list request resolve WhatsApp's inbound silence; that
+assumption is the owner's and is checked on the phone after the install.
+
+Not yet checked live (notes 2 and 20, WhatsApp): WhatsApp's inbound
+silence and names (the hidden-id mapping is the lead), Instagram read marks, Messenger's
+"reconnecting", Signal's contact list, notifications not clearing.
+
+Answered, no change: note 21 (RCS pictures): the blur before 0.6.0 was PingMe's own
+thumbnail; any remaining softening is Google Messages compressing outgoing RCS pictures.

@@ -74,6 +74,15 @@ class MessageRepository
 
         suspend fun newest(chatId: ChatId): MessageId? = dao.newestId(chatId.value)?.let(::MessageId)
 
+        /** How many messages from other people came after [since]. */
+        suspend fun incomingSince(
+            chatId: ChatId,
+            since: Instant,
+        ): Int = dao.countIncomingNewer(chatId.value, since)
+
+        /** True when the chat's newest stored message is ours; null when nothing is stored. */
+        suspend fun newestIsOutgoing(chatId: ChatId): Boolean? = dao.newestIsOutgoing(chatId.value)
+
         /** The newest [limit] messages sent at or before [before], newest first. */
         suspend fun before(
             chatId: ChatId,
@@ -136,6 +145,12 @@ class MessageRepository
         ) = dao.deleteReactionsBy(messageId.value, senderId.value)
 
         suspend fun delete(id: MessageId) = dao.delete(id.value)
+
+        /** Moves every message of [from] into [into]. */
+        suspend fun moveToChat(
+            from: ChatId,
+            into: ChatId,
+        ) = dao.moveToChat(from.value, into.value)
 
         /**
          * Removes what should never have stayed: stand-in copies of sent messages (remote ids

@@ -68,7 +68,15 @@ class InstagramConnector(
         creds: Credentials,
     ): Flow<ConnectorEvent> {
         sessions.remove(account.id)?.close()
-        val session = InstagramSession(account.id, bridge, creds.secret.decodeToString(), creds.ref, credentials)
+        val session =
+            InstagramSession(
+                account.id,
+                bridge,
+                creds.secret.decodeToString(),
+                creds.ref,
+                credentials,
+                File(mediaDir, "previews"),
+            )
         sessions[account.id] = session
         return session.flow().onCompletion { sessions.remove(account.id, session) }
     }

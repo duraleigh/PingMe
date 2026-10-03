@@ -34,6 +34,13 @@ data class SigChat(
     val count: Int = 0,
 )
 
+/** One number Signal's directory knows: the chat id to use for it. */
+@Serializable
+data class SigLookup(
+    val phone: String,
+    val id: String,
+)
+
 @Serializable
 data class SigMember(
     val id: String,

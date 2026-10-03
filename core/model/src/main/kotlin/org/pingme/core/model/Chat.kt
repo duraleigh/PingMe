@@ -31,6 +31,11 @@ data class Chat(
     /** Merged chats: the service the composer starts on. */
     val defaultSendAccount: AccountId?,
     val networkRemoteId: String,
+    /**
+     * When the chat was last read on this phone: a network sync showing it unread again,
+     * with nothing newer, is ignored (owner, Gate G7).
+     */
+    val readUpTo: Instant? = null,
 )
 
 @Serializable

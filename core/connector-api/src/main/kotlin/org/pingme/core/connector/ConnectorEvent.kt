@@ -70,6 +70,16 @@ sealed interface ConnectorEvent {
     ) : ConnectorEvent
 
     /**
+     * Two ids turned out to be one chat (WhatsApp's hidden id and the number): everything
+     * stored under [from] moves into [into], and [from] goes.
+     */
+    data class ChatMerged(
+        override val accountId: AccountId,
+        val from: ChatId,
+        val into: ChatId,
+    ) : ConnectorEvent
+
+    /**
      * People the network knows beyond the chats shown, such as the phone's WhatsApp
      * contacts: they fill the people search when starting a chat (owner, Gate G3).
      */

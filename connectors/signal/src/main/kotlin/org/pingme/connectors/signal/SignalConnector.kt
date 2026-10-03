@@ -6,6 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.onCompletion
 import org.pingme.connectors.signal.bridge.SigBridge
+import org.pingme.core.connector.AddressBook
 import org.pingme.core.connector.ChatSnapshot
 import org.pingme.core.connector.Connector
 import org.pingme.core.connector.ConnectorEvent
@@ -48,13 +49,21 @@ class SignalConnector(
     private val bridge: SigBridge,
     private val credentials: CredentialStore,
     private val dir: File,
+    private val addressBook: AddressBook = AddressBook.None,
 ) : Connector {
     @Inject
     constructor(
         bridge: SigBridge,
         credentials: CredentialStore,
+        addressBook: AddressBook,
         @ApplicationContext context: Context,
-    ) : this(bridge, credentials, File(context.filesDir, "signal"))
+    ) : this(bridge, credentials, File(context.filesDir, "signal"), addressBook)
+
+    /** The phone's contacts who are on Signal, found through Signal's directory (owner, Gate G7). */
+    override suspend fun refreshPeople(accountId: AccountId) {
+        val session = sessions[accountId] ?: return
+        session.refreshPeople(addressBook.entries())
+    }
 
     override val network = NetworkId.SIGNAL
     override val capabilities = CAPABILITIES

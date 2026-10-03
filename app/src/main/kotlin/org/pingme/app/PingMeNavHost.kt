@@ -49,6 +49,8 @@ import org.pingme.app.settings.SettingsPage
 import org.pingme.app.settings.SettingsRoute
 import org.pingme.app.setup.SetupNavigation
 import org.pingme.app.setup.SetupRoute
+import org.pingme.app.web.WebPageDest
+import org.pingme.app.web.WebPageRoute
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
@@ -103,6 +105,26 @@ data class ChatDetails(
 @Serializable
 object ShareDest
 
+// One chat, and a network's own page opened inside PingMe from a link card (owner, Gate G7).
+private fun NavGraphBuilder.chatAndPages(nav: NavController) {
+    composable<OpenChat> { entry ->
+        val id = ChatId(entry.arguments?.getString("chatId").orEmpty())
+        ChatRoute(
+            id,
+            onBack = { nav.popBackStack() },
+            onDetails = { nav.navigate(ChatDetails(id.value)) },
+            onOpenPage = { url, account -> nav.navigate(WebPageDest(url, account.value)) },
+        )
+    }
+    composable<WebPageDest> { entry ->
+        WebPageRoute(
+            entry.arguments?.getString("url").orEmpty(),
+            entry.arguments?.getString("accountId").orEmpty(),
+            onBack = { nav.popBackStack() },
+        )
+    }
+}
+
 // First-run setup and every network login (BUILD_PLAN.md P2.7).
 private fun NavGraphBuilder.setupAndLogin(nav: NavController) {
     composable<Setup> {
@@ -139,10 +161,7 @@ fun PingMeNavHost(
     MotionNavHost(nav, startDestination = if (startAtSetup) Setup else Home, modifier = modifier) {
         composable<Home> { InboxHome(nav) }
         setupAndLogin(nav)
-        composable<OpenChat> { entry ->
-            val id = ChatId(entry.arguments?.getString("chatId").orEmpty())
-            ChatRoute(id, onBack = { nav.popBackStack() }, onDetails = { nav.navigate(ChatDetails(id.value)) })
-        }
+        chatAndPages(nav)
         composable<ChatDetails> { entry ->
             val id = ChatId(entry.arguments?.getString("chatId").orEmpty())
             ChatDetailsRoute(
@@ -283,6 +302,7 @@ private fun InboxHome(nav: NavController) {
                                 null
                             },
                         onDetails = { nav.navigate(ChatDetails(id)) },
+                        onOpenPage = { url, account -> nav.navigate(WebPageDest(url, account.value)) },
                     )
                 }
             }

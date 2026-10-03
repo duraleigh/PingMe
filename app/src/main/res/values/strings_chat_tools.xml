@@ -35,4 +35,6 @@
     <string name="later_send_now">Send now</string>
     <string name="later_reschedule">Reschedule</string>
     <string name="later_unschedule">Unschedule</string>
+    <string name="web_back">Back</string>
+    <string name="web_open_in_browser">Open in browser</string>
 </resources>

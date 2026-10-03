@@ -40,6 +40,17 @@ class ContactRepository
 
         suspend fun delete(id: PersonId) = personDao.delete(id.value)
 
+        /** Forgets an account's people whose handle ends with [suffix] and whom no chat lists. */
+        suspend fun deleteStray(
+            accountId: AccountId,
+            suffix: String,
+        ) = personDao.deleteStray(accountId.value, suffix)
+
+        suspend fun deleteStrayHandle(
+            accountId: AccountId,
+            handle: String,
+        ) = personDao.deleteStrayHandle(accountId.value, handle)
+
         fun mergeLinks(): Flow<List<MergeLink>> = mergeLinkDao.observeAll().map { rows -> rows.map { it.toModel() } }
 
         suspend fun linksForContact(contactId: ContactId): List<MergeLink> =

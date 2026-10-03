@@ -3,15 +3,16 @@
 package fb
 
 import (
-	"os"
 	"strings"
 	"sync"
 
 	"github.com/rs/zerolog"
+
+	"pingme.org/gobridge/alog"
 )
 
-// messagix logs through zerolog; the console writer on stderr lands in logcat under
-// "GoLog". Nothing leaves the phone (DESIGN.md 6.5).
+// messagix logs through zerolog; the console writer lands in logcat under
+// "GoLog" (alog). Nothing leaves the phone (DESIGN.md 6.5).
 var (
 	logLevel = zerolog.InfoLevel
 	logLock  sync.RWMutex
@@ -32,6 +33,6 @@ func newLogger(component string) zerolog.Logger {
 	logLock.RLock()
 	level := logLevel
 	logLock.RUnlock()
-	writer := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: true, TimeFormat: "15:04:05"}
+	writer := zerolog.ConsoleWriter{Out: alog.Writer(), NoColor: true, TimeFormat: "15:04:05"}
 	return zerolog.New(writer).Level(level).With().Timestamp().Str("component", component).Logger()
 }

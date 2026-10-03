@@ -44,6 +44,7 @@ class IgTranslate(
     private val threads = HashMap<String, IgThread>()
     private val seen = LinkedHashMap<String, Seen>()
     private val names = HashMap<String, IgUser>()
+    private val previewImages = HashMap<String, String>()
 
     class Seen(
         val thread: String,
@@ -80,6 +81,25 @@ class IgTranslate(
 
     @Synchronized
     fun knows(thread: String) = thread in threads
+
+    /** Whether a sender has been seen in a thread listing, so they have a name. */
+    @Synchronized
+    fun knowsPerson(user: String) = user == ownId || user in names
+
+    /** The picture of a shared post or reel, once fetched to the phone; the card shows it. */
+    @Synchronized
+    fun rememberPreview(
+        thread: String,
+        id: String,
+        path: String,
+    ) {
+        previewImages["$thread/$id"] = path
+    }
+
+    /** Whether a message carries a share whose picture is still to fetch. */
+    @Synchronized
+    fun previewToFetch(msg: IgMessage): String? =
+        msg.share?.previewUrl?.takeIf { it.isNotEmpty() && "${msg.thread}/${msg.id}" !in previewImages }
 
     /** The folder a thread sits in (UI_DESIGN.md 6.4). */
     fun folderOf(thread: IgThread): ChatFolder = folderOf(thread.systemFolder, thread.folder, thread.folderTag)
@@ -239,7 +259,7 @@ class IgTranslate(
                 null
             },
             share.subtitle.ifEmpty { null },
-            null,
+            previewImages["${msg.thread}/${msg.id}"],
             Instant.fromEpochMilliseconds(
                 msg.timestamp,
             ),

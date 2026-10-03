@@ -74,6 +74,8 @@ import org.pingme.app.chat.attach.composerHooks
 import org.pingme.app.chat.search.ChatSearchResults
 import org.pingme.app.chat.search.showing
 import org.pingme.app.chat.voice.rememberVoicePlayer
+import org.pingme.app.web.linkOpenerFor
+import org.pingme.core.model.AccountId
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
@@ -83,12 +85,14 @@ import org.pingme.core.ui.theme.with
 import org.pingme.core.ui.R as UiR
 
 /** The chat with its view model, one per chat. */
+
 @Composable
 fun ChatRoute(
     chatId: ChatId,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
     onDetails: (() -> Unit)? = null,
+    onOpenPage: ((String, AccountId) -> Unit)? = null,
     viewModel: ChatViewModel =
         hiltViewModel<ChatViewModel, ChatViewModel.Factory>(key = chatId.value) { it.create(chatId.value) },
 ) {
@@ -115,37 +119,41 @@ fun ChatRoute(
     val app = PingMeTheme.appearance
     val look = remember(overrides.lookJson) { ChatLook.fromJson(overrides.lookJson) }
     val network = state.account?.network
-    PingMeTheme(if (network == null || look.isEmpty) app else app.with(look, network)) {
-        ChatScreen(
-            state = state,
-            actions =
-                ChatScreenActions(
-                    header = headerActions(viewModel, state, onBack, context, notice).copyWithDetails(onDetails),
-                    onSend = { viewModel.send(it) },
-                    onReply = viewModel::reply,
-                    onRetry = viewModel::retry,
-                    onUnpin = viewModel::unpin,
-                    onLoadOlder = viewModel::loadOlder,
-                    onNeed = viewModel::need,
-                    onTyping = viewModel::typing,
-                    menu = viewModel.menu,
-                    onRememberEmoji = viewModel::rememberEmoji,
-                    incoming = viewModel.incomingReactions,
-                    forwardTargets = forwardTargets,
-                    uploads = uploads,
-                    player = player,
-                    settings = appSettings,
-                    transcripts = viewModel.transcripts.takeIf { appSettings.media.transcribeVoice },
-                    search = searchHooks(viewModel, searching, jump),
-                    composer = composerHooks(viewModel, state, notice),
-                    cleanLink = { if (appSettings.privacy.cleanLinksReceived) viewModel.links.clean(it) else it },
-                ),
-            modifier = modifier,
-            snackbar = snackbar,
-        )
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    val linkOpener = linkOpenerFor(state.account, onOpenPage) { runCatching { uriHandler.openUri(it) } }
+    androidx.compose.runtime.CompositionLocalProvider(LocalLinkOpener provides linkOpener) {
+        PingMeTheme(if (network == null || look.isEmpty) app else app.with(look, network)) {
+            ChatScreen(
+                state = state,
+                actions =
+                    ChatScreenActions(
+                        header = headerActions(viewModel, state, onBack, context, notice).copyWithDetails(onDetails),
+                        onSend = { viewModel.send(it) },
+                        onReply = viewModel::reply,
+                        onRetry = viewModel::retry,
+                        onUnpin = viewModel::unpin,
+                        onLoadOlder = viewModel::loadOlder,
+                        onNeed = viewModel::need,
+                        onTyping = viewModel::typing,
+                        menu = viewModel.menu,
+                        onRememberEmoji = viewModel::rememberEmoji,
+                        incoming = viewModel.incomingReactions,
+                        forwardTargets = forwardTargets,
+                        uploads = uploads,
+                        player = player,
+                        settings = appSettings,
+                        transcripts = viewModel.transcripts.takeIf { appSettings.media.transcribeVoice },
+                        search = searchHooks(viewModel, searching, jump),
+                        composer = composerHooks(viewModel, state, notice),
+                        cleanLink = { if (appSettings.privacy.cleanLinksReceived) viewModel.links.clean(it) else it },
+                    ),
+                modifier = modifier,
+                snackbar = snackbar,
+            )
+        }
+        org.pingme.app.chat.attach
+            .HeldBackDialog(held, viewModel::answerHeldBack, viewModel::shrinkHeldBack)
     }
-    org.pingme.app.chat.attach
-        .HeldBackDialog(held, viewModel::answerHeldBack, viewModel::shrinkHeldBack)
 }
 
 /**

@@ -13,4 +13,8 @@
     <string name="accounts_add">Add account</string>
     <string name="account_log_in_again">Log in again</string>
     <string name="account_log_in_again_note">Use this when the network has logged PingMe out.</string>
+    <string name="account_remove">Remove account</string>
+    <string name="account_remove_note">Disconnects it and deletes its chats and messages from this phone.</string>
+    <string name="account_remove_title">Remove %1$s?</string>
+    <string name="account_remove_body">PingMe disconnects, forgets the sign-in, and deletes every chat and message of this account from the phone. Nothing changes on the network itself.</string>
 </resources>

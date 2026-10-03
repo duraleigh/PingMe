@@ -182,6 +182,10 @@ func (s *Session) Disconnect() {
 // MoreThreads asks Messenger for the next page of older conversations (each arrives as a
 // "thread" event) and says whether another page may follow.
 func (s *Session) MoreThreads() (bool, error) {
+	// The first listing comes right after the page loads, before the socket is up.
+	for waited := 0; !s.isLive() && waited < liveWait; waited += liveStep {
+		time.Sleep(time.Duration(liveStep) * time.Millisecond)
+	}
 	if !s.isLive() {
 		return false, ErrNotConnected
 	}
@@ -989,6 +993,8 @@ func marshal(v any) (string, error) {
 }
 
 const (
+	liveWait           = 15000 // milliseconds to wait for the live socket before listing more
+	liveStep           = 250
 	rememberedMessages = 6000
 	folderInbox        = "inbox"
 	folderPending      = "pending"

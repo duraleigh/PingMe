@@ -118,13 +118,20 @@ internal fun QuoteBlock(
     }
 }
 
+/**
+ * How a chat opens a link: inside PingMe for a network's own pages (a shared Instagram post,
+ * owner Gate G7), the phone's browser otherwise. Null means the browser.
+ */
+val LocalLinkOpener = androidx.compose.runtime.compositionLocalOf<((String) -> Unit)?> { null }
+
 /** A link's title and description, from the network or fetched on the phone (UI_DESIGN.md 10.12). */
 @Composable
 internal fun LinkCard(preview: org.pingme.core.model.LinkPreview) {
-    // Opens the cleaned link (UI_DESIGN.md 10.11) in the phone's browser.
+    // Opens the cleaned link (UI_DESIGN.md 10.11) in the phone's browser, or inside PingMe.
     val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    val inApp = LocalLinkOpener.current
     Surface(
-        onClick = { runCatching { uri.openUri(preview.cleanedUrl) } },
+        onClick = { inApp?.invoke(preview.cleanedUrl) ?: runCatching { uri.openUri(preview.cleanedUrl) } },
         shape = RoundedCornerShape(10.dp),
         color = LocalContentColor.current.copy(alpha = QUOTE_TINT),
         contentColor = LocalContentColor.current,

@@ -34,6 +34,13 @@ data class WaChat(
     val participants: List<WaParticipant> = emptyList(),
 )
 
+/** A hidden id and the phone-number id it belongs to. */
+@Serializable
+data class WaIdPair(
+    val lid: String,
+    val phone: String,
+)
+
 @Serializable
 data class WaParticipant(
     val id: String,

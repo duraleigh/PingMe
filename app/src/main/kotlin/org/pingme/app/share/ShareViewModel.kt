@@ -58,6 +58,8 @@ data class ShareUiState(
     val text: String = "",
     val fileCount: Int = 0,
     val query: String = "",
+    /** Words the user adds to go with what is shared (owner, Gate G7). */
+    val note: String = "",
     val chats: List<ShareTarget.ToChat> = emptyList(),
     val people: List<ShareTarget.ToPerson> = emptyList(),
     val picked: Set<String> = emptySet(),
@@ -141,6 +143,8 @@ class ShareViewModel
 
         fun search(text: String) = form.update { it.copy(query = text) }
 
+        fun note(text: String) = form.update { it.copy(note = text) }
+
         fun toggle(target: ShareTarget) =
             form.update {
                 it.copy(
@@ -170,8 +174,15 @@ class ShareViewModel
                         val chatId = chatFor(target)
                         // Copied once per send: a network may keep or move the file it is given.
                         val attachments = share.uris.mapNotNull { files.copy(it) }
+                        // What is shared goes first (a picture can take a while to upload), and the
+                        // note follows as its own message once it is away, so the other side never
+                        // reads the words and then waits for the picture (owner, Gate G7).
                         if (share.text.isBlank() && attachments.isEmpty()) continue
                         messageActions.send(chatId, share.text, attachments = attachments)
+                        s.note
+                            .trim()
+                            .takeIf { it.isNotEmpty() }
+                            ?.let { messageActions.send(chatId, it) }
                         last = chatId
                         sent++
                     } catch (e: CancellationException) {

@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.inbox
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -29,13 +34,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -63,6 +71,7 @@ import org.pingme.core.connector.UnsupportedCapabilityException
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
+import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Person
 import org.pingme.core.service.ChatActions
 import org.pingme.core.store.AccountRepository
@@ -96,7 +105,7 @@ class NewChatViewModel
     constructor(
         accounts: AccountRepository,
         contacts: ContactRepository,
-        registry: ConnectorRegistry,
+        private val registry: ConnectorRegistry,
         private val actions: ChatActions,
         saved: SavedStateHandle,
     ) : ViewModel() {
@@ -146,6 +155,19 @@ class NewChatViewModel
             }
 
         fun pickAccount(id: AccountId) = form.update { it.copy(account = id) }
+
+        /** Asks the picked account's network for its people again (Signal: the contacts on Signal). */
+        fun refreshPeople() {
+            val picked = state.value.account ?: return
+            val network =
+                state.value.accounts
+                    .firstOrNull { it.id == picked }
+                    ?.network ?: return
+            viewModelScope.launch {
+                runCatching { registry[network]?.refreshPeople(picked) }
+                    .onFailure { Log.w(TAG, "Could not refresh $network's people", it) }
+            }
+        }
 
         /**
          * The two text boxes. Held in Compose state, which the text box reads at once:
@@ -242,6 +264,7 @@ fun NewChatRoute(
                 viewModel::choose,
                 viewModel::remove,
                 viewModel::createGroup,
+                viewModel::refreshPeople,
             ),
         modifier = modifier,
         snackbar = snackbar,
@@ -256,6 +279,7 @@ class NewChatActions(
     val onChoose: (String) -> Unit,
     val onRemove: (String) -> Unit,
     val onCreate: () -> Unit,
+    val onRefreshPeople: () -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -289,8 +313,10 @@ fun NewChatScreen(
             )
             return@Scaffold
         }
+        val pickedNetwork = state.accounts.firstOrNull { it.id == state.account }?.network
         LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
             item { NewChatForm(group, state, actions) }
+            if (pickedNetwork == NetworkId.SIGNAL) item { ContactsOnSignal(actions.onRefreshPeople) }
             val typed = state.text.trim()
             if (typed.isNotEmpty()) {
                 item {
@@ -318,6 +344,35 @@ fun NewChatScreen(
     }
 }
 
+/**
+ * Signal lists the phone's contacts who are on Signal, which needs the address book: a row
+ * to allow it, and a lookup each time the screen opens with it allowed (owner, Gate G7).
+ */
+@Composable
+private fun ContactsOnSignal(onRefreshPeople: () -> Unit) {
+    val context = LocalContext.current
+    var allowed by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
+                PackageManager.PERMISSION_GRANTED,
+        )
+    }
+    val refresh by rememberUpdatedState(onRefreshPeople)
+    val ask =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            allowed = granted
+            if (granted) refresh()
+        }
+    LaunchedEffect(allowed) { if (allowed) refresh() }
+    if (!allowed) {
+        ListItem(
+            onClick = { ask.launch(Manifest.permission.READ_CONTACTS) },
+            leadingContent = { Icon(painterResource(UiR.drawable.ic_person), null) },
+            supportingContent = { Text(stringResource(R.string.new_chat_allow_contacts_note)) },
+        ) { Text(stringResource(R.string.new_chat_allow_contacts)) }
+    }
+}
+
 @Composable
 private fun NewChatForm(
     group: Boolean,
@@ -329,10 +384,14 @@ private fun NewChatForm(
             Text(stringResource(R.string.new_chat_on), style = MaterialTheme.typography.labelLarge)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.accounts.forEach { account ->
+                    // The network's name, not the account's (a phone number says nothing about where
+                    // it goes); the account's own name only when two accounts share a network.
+                    val twins = state.accounts.count { it.network == account.network } > 1
+                    val label = account.network.displayName + if (twins) " · ${account.displayName}" else ""
                     FilterChip(
                         selected = account.id == state.account,
                         onClick = { actions.onAccount(account.id) },
-                        label = { Text(account.displayName) },
+                        label = { Text(label) },
                         leadingIcon = { NetworkDot(account.network) },
                     )
                 }
@@ -379,3 +438,5 @@ private fun NewChatForm(
         }
     }
 }
+
+private const val TAG = "PingMeNewChat"

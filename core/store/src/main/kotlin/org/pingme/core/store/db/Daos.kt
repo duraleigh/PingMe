@@ -4,6 +4,7 @@ package org.pingme.core.store.db
 import androidx.room.Dao
 import androidx.room.Embedded
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RawQuery
 import androidx.room.Relation
@@ -85,6 +86,16 @@ interface ChatDao {
     @Transaction
     @Query("SELECT * FROM chats ORDER BY lastActivityAt DESC")
     fun observeAll(): Flow<List<ChatWithParticipants>>
+
+    /** Remembers that the user deleted a chat here, so a network listing does not bring it back. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun tombstone(tombstone: ChatTombstoneEntity)
+
+    @Query("SELECT hiddenAt FROM chat_tombstones WHERE chatId = :chatId")
+    suspend fun hiddenAt(chatId: String): Instant?
+
+    @Query("DELETE FROM chat_tombstones WHERE chatId = :chatId")
+    suspend fun unhide(chatId: String)
 
     @Transaction
     @Query("SELECT * FROM chats WHERE id = :id")
@@ -311,6 +322,17 @@ interface MessageDao {
         sentAt: Instant,
     ): Int
 
+    /** How many messages from other people are newer than [sentAt]: the chat's unread count as PingMe sees it. */
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND isOutgoing = 0 AND sentAt > :sentAt")
+    suspend fun countIncomingNewer(
+        chatId: String,
+        sentAt: Instant,
+    ): Int
+
+    /** Whether the chat's newest message is one of ours. */
+    @Query("SELECT isOutgoing FROM messages WHERE chatId = :chatId ORDER BY sentAt DESC, rowId DESC LIMIT 1")
+    suspend fun newestIsOutgoing(chatId: String): Boolean?
+
     /** The first message on or after [from], for search in chat's date jump. */
     @Query("SELECT id FROM messages WHERE chatId = :chatId AND sentAt >= :from ORDER BY sentAt ASC, rowId ASC LIMIT 1")
     suspend fun firstFrom(
@@ -479,6 +501,13 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE id = :id")
     suspend fun delete(id: String)
 
+    /** Moves every message of one chat into another (two ids that were one chat). */
+    @Query("UPDATE messages SET chatId = :into WHERE chatId = :from")
+    suspend fun moveToChat(
+        from: String,
+        into: String,
+    )
+
     /** Full-text search. Build the query with [searchQuery]; results are message IDs, best first. */
     @RawQuery(observedEntities = [MessageEntity::class, AttachmentEntity::class, PersonEntity::class])
     fun observeSearchIds(query: RoomRawQuery): Flow<List<String>>
@@ -526,6 +555,26 @@ interface PersonDao {
 
     @Query("DELETE FROM persons WHERE id = :id")
     suspend fun delete(id: String)
+
+    /** Drops an account's people whose handle ends with [suffix] and whom no chat lists (stale hidden ids). */
+    @Query(
+        "DELETE FROM persons WHERE accountId = :accountId AND networkHandle LIKE '%' || :suffix " +
+            "AND id NOT IN (SELECT personId FROM chat_participants)",
+    )
+    suspend fun deleteStray(
+        accountId: String,
+        suffix: String,
+    )
+
+    /** Drops an account's person with exactly this handle, when no chat lists them. */
+    @Query(
+        "DELETE FROM persons WHERE accountId = :accountId AND networkHandle = :handle " +
+            "AND id NOT IN (SELECT personId FROM chat_participants)",
+    )
+    suspend fun deleteStrayHandle(
+        accountId: String,
+        handle: String,
+    )
 }
 
 data class SpaceWithChats(
