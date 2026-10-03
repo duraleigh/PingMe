@@ -6,9 +6,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.pingme.core.connector.ConnectorEvent
+import org.pingme.core.connector.attachment
 import org.pingme.core.connector.chat
 import org.pingme.core.connector.message
 import org.pingme.core.connector.person
+import org.pingme.core.model.Attachment
+import org.pingme.core.model.AttachmentKind
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.Reaction
@@ -163,6 +166,47 @@ class EventApplierTest : ServiceTest() {
             assertEquals("", chat.title)
             assertEquals(0, chat.unreadCount)
             assertEquals("hi", messages.get(accountId.message("o"))?.body)
+        }
+
+    @Test
+    fun theNetworksCopyOfASentPictureKeepsThePhonesFile() =
+        runTest {
+            seed()
+            val file =
+                Attachment(
+                    accountId.attachment("tmp/p-0"),
+                    AttachmentKind.IMAGE,
+                    "image/jpeg",
+                    "p.jpg",
+                    3,
+                    "/data/p.jpg",
+                    null,
+                    null,
+                    null,
+                    null,
+                    false,
+                    null,
+                )
+            val standIn =
+                messageSnapshot("tmp/p", body = "", outgoing = true).let {
+                    it.copy(message = it.message.copy(networkRemoteId = "tmp/p", attachments = listOf(file)))
+                }
+            applier.apply(ConnectorEvent.NewMessage(accountId, standIn))
+            val remote = file.copy(id = accountId.attachment("real/0"), localPath = null, remoteRef = "cdn/p")
+            val copy =
+                messageSnapshot("real", body = "", outgoing = true).let {
+                    it.copy(message = it.message.copy(attachments = listOf(remote)))
+                }
+            applier.apply(ConnectorEvent.NewMessage(accountId, copy))
+            assertNull(messages.get(accountId.message("tmp/p")))
+            assertEquals(
+                "/data/p.jpg",
+                messages
+                    .get(accountId.message("real"))
+                    ?.attachments
+                    ?.single()
+                    ?.localPath,
+            )
         }
 
     @Test

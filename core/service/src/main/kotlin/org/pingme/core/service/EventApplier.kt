@@ -196,8 +196,9 @@ class EventApplier
             // A message the store already has (a bridge handing old messages back after the
             // app reopened) is an update, not news: it must not count as unread again.
             val known = messages.get(snapshot.message.id) != null
-            saveMessage(snapshot)
-            val message = snapshot.message
+            val kept = if (snapshot.message.isOutgoing) withStandInFiles(snapshot) else snapshot
+            saveMessage(kept)
+            val message = kept.message
             if (message.isOutgoing) retireStandIns(message)
             snapshot.sender?.let { typing.set(message.chatId, it.id, typing = false) }
             chats.update(message.chatId) { chat ->
@@ -214,11 +215,32 @@ class EventApplier
         }
 
         /**
+         * The network's copy of a sent picture names the network's file, not the one on the
+         * phone, so the bubble went blank until that file was fetched back (owner, Gate G7).
+         * The stand-in's files are already here: the copy takes them over, by position.
+         */
+        private suspend fun withStandInFiles(snapshot: MessageSnapshot): MessageSnapshot {
+            val message = snapshot.message
+            if (message.networkRemoteId.startsWith(STAND_IN_PREFIX) || message.attachments.isEmpty()) return snapshot
+            val standIn =
+                messages
+                    .standIns(message.chatId, STAND_IN_PREFIX)
+                    .firstOrNull { it.body == message.body && it.attachments.size == message.attachments.size }
+                    ?: return snapshot
+            val merged =
+                message.attachments.mapIndexed { i, a ->
+                    if (a.localPath != null) a else a.copy(localPath = standIn.attachments[i].localPath)
+                }
+            return snapshot.copy(message = message.copy(attachments = merged))
+        }
+
+        /**
          * The network's own copy of a sent message has come: a stand-in the connector showed
          * for it (same chat, same text, same number of files) goes, even when the connector
          * itself has forgotten the send, as after a restart (owner, Gate G3: a scheduled SMS
          * showed twice).
          */
+
         private suspend fun retireStandIns(message: Message) {
             if (message.networkRemoteId.startsWith(STAND_IN_PREFIX)) return
             messages

@@ -174,14 +174,15 @@ class ShareViewModel
                         val chatId = chatFor(target)
                         // Copied once per send: a network may keep or move the file it is given.
                         val attachments = share.uris.mapNotNull { files.copy(it) }
-                        // The note first, then the shared text (a link, say) on its own line.
-                        val body =
-                            listOf(
-                                s.note.trim(),
-                                share.text.trim(),
-                            ).filter { it.isNotEmpty() }.joinToString("\n")
-                        if (body.isBlank() && attachments.isEmpty()) continue
-                        messageActions.send(chatId, body, attachments = attachments)
+                        // What is shared goes first (a picture can take a while to upload), and the
+                        // note follows as its own message once it is away, so the other side never
+                        // reads the words and then waits for the picture (owner, Gate G7).
+                        if (share.text.isBlank() && attachments.isEmpty()) continue
+                        messageActions.send(chatId, share.text, attachments = attachments)
+                        s.note
+                            .trim()
+                            .takeIf { it.isNotEmpty() }
+                            ?.let { messageActions.send(chatId, it) }
                         last = chatId
                         sent++
                     } catch (e: CancellationException) {
