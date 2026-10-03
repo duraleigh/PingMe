@@ -3,11 +3,12 @@
 package sig
 
 import (
-	"os"
 	"strings"
 	"sync"
 
 	"github.com/rs/zerolog"
+
+	"pingme.org/gobridge/alog"
 )
 
 var (
@@ -30,6 +31,6 @@ func newLogger(component string) zerolog.Logger {
 	logLock.RLock()
 	level := logLevel
 	logLock.RUnlock()
-	writer := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: true, TimeFormat: "15:04:05"}
+	writer := zerolog.ConsoleWriter{Out: alog.Writer(), NoColor: true, TimeFormat: "15:04:05"}
 	return zerolog.New(writer).Level(level).With().Timestamp().Str("component", component).Logger()
 }

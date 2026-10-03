@@ -78,6 +78,10 @@ class EventApplier
                 }
 
                 else -> {
+                    // A reaction to a message the store never got (older than the history kept, or
+                    // in a chat not listed) has nothing to sit on; the row would be refused anyway
+                    // (owner, Gate G7: Messenger stuck on "reconnecting" over one such reaction).
+                    if (messages.get(event.messageId) == null) return
                     messages.addReaction(event.messageId, event.reaction)
                     announceIfFromSomeoneElse(event)
                 }

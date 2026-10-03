@@ -118,6 +118,15 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun aReactionToAMessageTheStoreNeverGotIsIgnored() =
+        runTest {
+            seed()
+            val reaction = Reaction("❤️", sam().id, now)
+            applier.apply(ConnectorEvent.ReactionChanged(accountId, accountId.message("never-stored"), reaction, false))
+            assertNull(messages.get(accountId.message("never-stored")))
+        }
+
+    @Test
     fun aMessageForAnUnknownChatStillLands() =
         runTest {
             accounts.upsert(account())

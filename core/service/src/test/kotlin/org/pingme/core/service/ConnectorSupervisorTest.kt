@@ -14,8 +14,12 @@ import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.connector.chat
 import org.pingme.core.connector.message
+import org.pingme.core.model.AccountId
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.NetworkId
+import org.pingme.core.model.Space
+import org.pingme.core.model.SpaceId
+import org.pingme.core.model.SpaceKind
 import java.io.IOException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -65,6 +69,25 @@ class ConnectorSupervisorTest : ServiceTest() {
             eventually { messages.get(accountId.message("m1")) != null }
             assertEquals(ConnectionState.Connected, state())
             assertEquals("Sam Ortiz", chats.get(accountId.chat("c1"))?.title)
+        }
+
+    @Test
+    fun anEventTheStoreRefusesIsSkippedAndTheConnectionStays() =
+        runBlocking {
+            connector.chats = listOf(chatSnapshot())
+            // A space for an account that does not exist: the database refuses the row.
+            val stray = Space(SpaceId("s"), AccountId("ghost"), "Stray", SpaceKind.WHATSAPP_COMMUNITY, emptyList())
+            connector.sessions +=
+                {
+                    emit(ConnectorEvent.State(accountId, ConnectionState.Connected))
+                    emit(ConnectorEvent.SpaceUpdated(accountId, stray))
+                    emit(ConnectorEvent.NewMessage(accountId, messageSnapshot("after", body = "still here")))
+                    awaitCancellation()
+                }
+            accounts.upsert(account(ConnectionState.Reconnecting(0, now)))
+            supervisor.start()
+            eventually { messages.get(accountId.message("after")) != null }
+            assertEquals(ConnectionState.Connected, state())
         }
 
     @Test

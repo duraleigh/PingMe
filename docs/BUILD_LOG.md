@@ -2769,7 +2769,17 @@ Built now:
   or a message no newer than the marker is ignored, and anything newer lifts the marker
   and brings the chat back as a new one.
 
-Waiting for the phone's log (notes 2, 7, 10, 13, 14, 15, 19, 20): WhatsApp's inbound
+- **Messenger stuck on "Reconnecting"** (note 13, from the phone's log): Facebook was
+  fine. A reaction arrived for a message PingMe had not stored (older than the history
+  kept), the database refused the reaction row (foreign key), the exception ended the
+  session, and every retry met the same reaction. Two fixes: the applier ignores a
+  reaction to a message it does not have; and the supervisor skips, with a warning, any
+  one event the store refuses instead of ending the connection.
+- **The Go bridge's log now reaches logcat** (`gobridge/alog`, tag `GoLog`): on Android a
+  process's standard error goes nowhere, so the bridge's log had been invisible on the
+  phone; the Kotlin side only logs failures. Needed to diagnose the rest.
+
+Waiting for the phone's log (notes 2, 7, 10, 14, 15, 19, 20): WhatsApp's inbound
 silence and names (the hidden-id mapping is the lead), Instagram read marks, Messenger's
 "reconnecting", Signal's contact list, notifications not clearing.
 
