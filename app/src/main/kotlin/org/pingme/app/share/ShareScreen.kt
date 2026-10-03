@@ -64,7 +64,7 @@ fun ShareRoute(
         LaunchedEffect(Unit) { back() }
         return
     }
-    ShareScreen(state, snackbar, onBack, viewModel::search, viewModel::toggle, viewModel::send)
+    ShareScreen(state, snackbar, onBack, viewModel::search, viewModel::note, viewModel::toggle, viewModel::send)
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -74,6 +74,7 @@ private fun ShareScreen(
     snackbar: SnackbarHostState,
     onBack: () -> Unit,
     onSearch: (String) -> Unit,
+    onNote: (String) -> Unit,
     onToggle: (ShareTarget) -> Unit,
     onSend: () -> Unit,
 ) {
@@ -107,7 +108,7 @@ private fun ShareScreen(
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            ShareHeader(state, onSearch)
+            ShareHeader(state, onSearch, onNote)
             ShareTargets(state, onToggle)
         }
     }
@@ -117,6 +118,7 @@ private fun ShareScreen(
 private fun ShareHeader(
     state: ShareUiState,
     onSearch: (String) -> Unit,
+    onNote: (String) -> Unit,
 ) {
     Column {
         Text(
@@ -137,6 +139,19 @@ private fun ShareHeader(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             label = { Text(stringResource(R.string.share_search)) },
             singleLine = true,
+        )
+        // A message to go with what is shared, sent first, with the link or files after it.
+        var note by rememberSaveable { mutableStateOf(state.note) }
+        OutlinedTextField(
+            note,
+            { text ->
+                note = text
+                onNote(text)
+            },
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            label = { Text(stringResource(R.string.share_note)) },
+            minLines = 1,
+            maxLines = 4,
         )
     }
 }
