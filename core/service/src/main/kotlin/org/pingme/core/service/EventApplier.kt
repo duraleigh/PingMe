@@ -180,6 +180,7 @@ class EventApplier
         private suspend fun applyPeople(event: ConnectorEvent.PeopleUpdated) {
             event.people.forEach { contacts.upsert(it) }
             contacts.deleteStray(event.accountId, HIDDEN_ID_SUFFIX)
+            PLACEHOLDER_HANDLES.forEach { contacts.deleteStrayHandle(event.accountId, it) }
         }
 
         /** Your own reactions, echoed back by the network, do not flip the row. */
@@ -282,6 +283,9 @@ class EventApplier
 
 /** WhatsApp's hidden user ids end this way; a person is never shown by one. */
 const val HIDDEN_ID_SUFFIX = "@lid"
+
+/** Handles that stand for nobody (WhatsApp's "0" user) and must never be a person. */
+val PLACEHOLDER_HANDLES = listOf("0@s.whatsapp.net", "+0")
 
 /** How connectors mark the remote id of a stand-in they show while the network's copy is slow. */
 const val YOU = "You"

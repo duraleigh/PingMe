@@ -46,6 +46,11 @@ class ContactRepository
             suffix: String,
         ) = personDao.deleteStray(accountId.value, suffix)
 
+        suspend fun deleteStrayHandle(
+            accountId: AccountId,
+            handle: String,
+        ) = personDao.deleteStrayHandle(accountId.value, handle)
+
         fun mergeLinks(): Flow<List<MergeLink>> = mergeLinkDao.observeAll().map { rows -> rows.map { it.toModel() } }
 
         suspend fun linksForContact(contactId: ContactId): List<MergeLink> =

@@ -384,10 +384,14 @@ private fun NewChatForm(
             Text(stringResource(R.string.new_chat_on), style = MaterialTheme.typography.labelLarge)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.accounts.forEach { account ->
+                    // The network's name, not the account's (a phone number says nothing about where
+                    // it goes); the account's own name only when two accounts share a network.
+                    val twins = state.accounts.count { it.network == account.network } > 1
+                    val label = account.network.displayName + if (twins) " · ${account.displayName}" else ""
                     FilterChip(
                         selected = account.id == state.account,
                         onClick = { actions.onAccount(account.id) },
-                        label = { Text(account.displayName) },
+                        label = { Text(label) },
                         leadingIcon = { NetworkDot(account.network) },
                     )
                 }

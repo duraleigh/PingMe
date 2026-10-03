@@ -93,7 +93,7 @@ class WaTranslate(
     @Synchronized
     fun people(contacts: List<WaParticipant>): List<Person> =
         contacts
-            .filter { it.name.isNotBlank() && !isMe(it.id) }
+            .filter { it.name.isNotBlank() && !isMe(it.id) && !isPlaceholder(it.id) }
             // A contact known only by a hidden id is never listed by it (owner, Gate G7).
             .filter { it.phone.isNotBlank() || !it.id.endsWith(HIDDEN_ID_SUFFIX) }
             .map { person(it.id, it.name, it.phone) }
@@ -145,6 +145,9 @@ class WaTranslate(
 
     /** Whether a user id is this account, by phone id or hidden id. */
     fun isMe(jid: String): Boolean = jid.isNotEmpty() && (jid == ownId || jid == ownLid)
+
+    /** WhatsApp's "0" user stands for nobody (system notices); never a person. */
+    fun isPlaceholder(jid: String): Boolean = jid.substringBefore('@') == "0"
 
     /** Data events become connector events; control events return nothing. */
     @Synchronized
@@ -200,7 +203,7 @@ class WaTranslate(
         val people =
             buildList {
                 add(me())
-                others.forEach { add(person(it.id, it.name, it.phone)) }
+                others.filter { !isPlaceholder(it.id) }.forEach { add(person(it.id, it.name, it.phone)) }
             }
         val title =
             when {

@@ -718,6 +718,10 @@ func (s *Session) handleEvent(raw any) {
 func (s *Session) onConnected() {
 	ctx, cancel := s.ctx()
 	defer cancel()
+	// The phone's contact list (names for numbers) comes as "app state" that the client
+	// must ask for; the library does not on its own. First time only per store: later
+	// changes are pushed (owner, Gate G7: chats named by number).
+	go s.fetchContactList()
 	// Presence must be sent once, or chat presence (typing) and read receipts stay queued.
 	if s.client.Store.PushName != "" {
 		if err := s.client.SendPresence(ctx, types.PresenceAvailable); err != nil {
@@ -725,6 +729,19 @@ func (s *Session) onConnected() {
 		}
 	}
 	s.emit(map[string]any{"type": "connected", "id": s.OwnID(), "phone": s.OwnPhone(), "lid": s.OwnLID(), "pushName": s.PushName()})
+}
+
+func (s *Session) fetchContactList() {
+	ctx, cancel := context.WithTimeout(s.log.WithContext(context.Background()), 2*time.Minute)
+	defer cancel()
+	for _, name := range []appstate.WAPatchName{
+		appstate.WAPatchCriticalUnblockLow, appstate.WAPatchCriticalBlock,
+		appstate.WAPatchRegularLow, appstate.WAPatchRegularHigh, appstate.WAPatchRegular,
+	} {
+		if err := s.client.FetchAppState(ctx, name, true, true); err != nil {
+			s.log.Warn().Err(err).Str("name", string(name)).Msg("Could not fetch the phone's app state")
+		}
+	}
 }
 
 func (s *Session) refreshGroup(jid types.JID) {

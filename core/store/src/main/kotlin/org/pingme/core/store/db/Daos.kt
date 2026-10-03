@@ -558,6 +558,16 @@ interface PersonDao {
         accountId: String,
         suffix: String,
     )
+
+    /** Drops an account's person with exactly this handle, when no chat lists them. */
+    @Query(
+        "DELETE FROM persons WHERE accountId = :accountId AND networkHandle = :handle " +
+            "AND id NOT IN (SELECT personId FROM chat_participants)",
+    )
+    suspend fun deleteStrayHandle(
+        accountId: String,
+        handle: String,
+    )
 }
 
 data class SpaceWithChats(
