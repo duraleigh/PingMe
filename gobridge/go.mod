@@ -47,6 +47,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.27 // indirect
 	github.com/yuin/goldmark v1.8.6 // indirect
 	go.mau.fi/libsignal v0.2.2 // indirect
+	go.mau.fi/mautrix-gvoice v0.2605.0 // indirect
 	go.mau.fi/mautrix-signal v0.2609.0 // indirect
 	go.mau.fi/zeroconfig v0.2.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect

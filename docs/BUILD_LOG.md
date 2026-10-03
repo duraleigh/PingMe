@@ -2577,3 +2577,33 @@ build. Its Java classes come in the same package; no Go bridge is involved.
   (`TelegramConnector.FREE_REACTIONS`; Premium ones are not offered), per UI_DESIGN.md 5.4.
 - **Tests**: `TelegramContractTest` against `FakeTelegramBridge`, which answers TDLib's
   requests with TDLib's own classes (no native library in tests).
+
+## Phase 6, network 4: Google Voice (2026-10-02, late evening)
+
+**Built on branch `signal`.** Google Voice through `libgv` from mautrix-gvoice (v0.2605.0),
+bound by gomobile as `gobridge/gv`; Kotlin connector `connectors/gvoice` in the shape of
+the Instagram one.
+
+- **Sign-in**: the Google sign-in page in the in-app browser, finished by itself when
+  voice.google.com shows the inbox; the google.com cookies (SID, HSID, SSID, APISID,
+  SAPISID and the __Secure ones) are the credential, checked by asking Google Voice for
+  the account, and saved under `gvoice/<number>`. Refreshed cookies are saved as they come.
+- **Chats and history**: the thread list from Google Voice's own web API, with each
+  thread's newest messages; older pages by the token Google hands out (and from the top
+  of the thread after a restart). Names from the account's contacts, looked up by
+  number for unknown ones. Archived and spam threads are listed as chats too.
+- **Live**: Google's push channel nudges a re-read of the thread list (also every two
+  minutes); new items and read-state changes flow from there. Texts, picture messages
+  (any picture type; videos and files when Google carries them), calls, missed calls,
+  and voicemails (as their transcript) all show.
+- **Sends**: text and pictures (JPEG, PNG, GIF, WebP, BMP, TIFF; the reference bridge
+  sends nothing else), a quoted first line for replies (UI_DESIGN.md 5.2), reactions as
+  "Reacted … to …" texts (5.4), read marks, block, a new chat by number (Google Voice
+  makes the thread on the first send: id `t.<number>`). No typing, no edits, no
+  deleting for everyone: Google Voice has none.
+- **Not done, and why**: Google stamps each send with a token computed by an anti-abuse
+  script that the reference bridge runs in a hidden Electron browser. The reference
+  bridge sends without the stamp when that browser is absent, and so does PingMe for
+  now. If Google starts refusing unstamped sends, the same script can run in a hidden
+  WebView on the phone; the hook for it is the `TrackingData` field of the send request.
+- **Tests**: Go `gv` conversion tests; `GvoiceContractTest` against `FakeGvBridge`.
