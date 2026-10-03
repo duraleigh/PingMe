@@ -46,6 +46,8 @@ jobs:
             triple: x86_64-linux-android
           - abi: armeabi-v7a
             triple: armv7-linux-androideabi
+          - abi: host-linux-amd64
+            triple: x86_64-unknown-linux-gnu
     steps:
       - uses: actions/checkout@v5
         with:
@@ -66,7 +68,12 @@ jobs:
           cargo install cargo-ndk --locked > /dev/null
       - name: Build
         working-directory: libsignal
-        run: cargo ndk -t ${{ matrix.abi }} -P 29 build -p libsignal-ffi --release
+        run: |
+          if [ "${{ matrix.abi }}" = host-linux-amd64 ]; then
+            cargo build -p libsignal-ffi --release --target ${{ matrix.triple }}
+          else
+            cargo ndk -t ${{ matrix.abi }} -P 29 build -p libsignal-ffi --release
+          fi
       - name: Attach
         env:
           GH_TOKEN: ${{ github.token }}
