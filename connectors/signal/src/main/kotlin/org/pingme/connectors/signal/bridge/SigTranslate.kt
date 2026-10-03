@@ -110,6 +110,9 @@ class SigTranslate(
 
     /** The contacts as people of this account, for the new-chat search. */
     @Synchronized
+    fun lookupsJson(json: String): List<SigLookup> =
+        sigJson.decodeFromString(kotlinx.serialization.builtins.ListSerializer(SigLookup.serializer()), json)
+
     fun people(contacts: List<SigMember>): List<Person> =
         contacts.filter { !it.isMe && it.id != ownId && (it.name.isNotBlank() || it.phone.isNotBlank()) }.map(::person)
 

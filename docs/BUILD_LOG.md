@@ -2779,7 +2779,28 @@ Built now:
   process's standard error goes nowhere, so the bridge's log had been invisible on the
   phone; the Kotlin side only logs failures. Needed to diagnose the rest.
 
-Waiting for the phone's log (notes 2, 7, 10, 14, 15, 19, 20): WhatsApp's inbound
+- **Signal's new-chat list** (note 14, from the phone's log): the phone's Signal sent 226
+  contacts at link time, but the library keeps only those that came with an account id
+  (one did) and skips the rest. Signal's own app lists "contacts on Signal" by asking the
+  directory about every address-book number. PingMe now does the same: an `AddressBook`
+  (the phone's contacts, read only when allowed; the new-chat screen asks once) feeds the
+  numbers to the bridge's `LookupNumbers`, in batches of 100, and everyone found becomes
+  a person named from the address book (`refreshPeople` on the connector, run after each
+  connect and when the new-chat screen opens). The directory answers with two kinds of id;
+  people who hide their account id come back with only their number id, which PingMe
+  wrongly read as "not on Signal" (Nida Allam). Both count now: such a chat's id is
+  "PNI:<uuid>" and sends go to that service id.
+- **Messenger's first listing** ran before its socket was up ("could not list older
+  chats"); the bridge now waits up to 15 seconds for the socket before listing more.
+- **Notifications not clearing** (note 15): tried twice on the phone with the log open,
+  reacting and not reacting; both cleared. Not reproduced; the owner will report the next
+  case with the chat and the time.
+- **Instagram read marks** (note 10): PingMe's own "Send read receipts" was off for
+  Instagram, so Instagram was never told. Explained the two switches (PingMe's decides
+  whether the network hears a read at all; the network's own decides whether the other
+  person sees "Seen"); the owner set them as wanted.
+
+Waiting for the phone's log (notes 2, 7, 19, 20, all WhatsApp): WhatsApp's inbound
 silence and names (the hidden-id mapping is the lead), Instagram read marks, Messenger's
 "reconnecting", Signal's contact list, notifications not clearing.
 

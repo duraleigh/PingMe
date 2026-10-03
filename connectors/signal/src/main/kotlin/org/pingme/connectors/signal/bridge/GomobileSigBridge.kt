@@ -104,4 +104,6 @@ private class GomobileSession(
     ) = session.download(mediaJson, destPath)
 
     override fun checkNumber(phone: String): String = session.checkNumber(phone)
+
+    override fun lookupNumbers(phonesJson: String): String = session.lookupNumbers(phonesJson)
 }

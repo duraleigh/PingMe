@@ -15,11 +15,13 @@ import org.pingme.connectors.signal.bridge.SigBridge
 import org.pingme.connectors.signal.bridge.SigError
 import org.pingme.connectors.signal.bridge.SigEvent
 import org.pingme.connectors.signal.bridge.SigMedia
+import org.pingme.connectors.signal.bridge.SigMember
 import org.pingme.connectors.signal.bridge.SigQuote
 import org.pingme.connectors.signal.bridge.SigSession
 import org.pingme.connectors.signal.bridge.SigTranslate
 import org.pingme.connectors.signal.bridge.sigJson
 import org.pingme.core.connector.ActionNeededException
+import org.pingme.core.connector.AddressBookEntry
 import org.pingme.core.connector.ChatSnapshot
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.MessageSnapshot
@@ -284,6 +286,26 @@ internal class SignalSession(
         typing: Boolean,
     ) = request { session.setTyping(chatId.remoteId, typing) }
 
+    /**
+     * The phone's contacts who are on Signal, the way Signal's own app lists them: every
+     * number in the address book asked of Signal's directory, in batches (owner, Gate G7).
+     * The ones found become this account's people, named from the address book.
+     */
+    suspend fun refreshPeople(book: List<AddressBookEntry>) {
+        val byNumber = LinkedHashMap<String, String>()
+        book.forEach { entry ->
+            entry.phones.forEach { raw ->
+                normalizeNumber(raw, go.ownPhone)?.let { byNumber.putIfAbsent(it, entry.name) }
+            }
+        }
+        if (byNumber.isEmpty()) return
+        val json = sigJson.encodeToString(ListSerializer(String.serializer()), byNumber.keys.toList())
+        val found = go.lookupsJson(request { session.lookupNumbers(json) })
+        val members = found.map { SigMember(it.id, it.phone, byNumber[it.phone].orEmpty()) }
+        go.learnNames(members)
+        events.trySend(ConnectorEvent.PeopleUpdated(accountId, go.people(members)))
+    }
+
     /** The chat for a phone number, once Signal says the number has an account. */
     suspend fun startConversation(phone: String): ChatId {
         val id = request { session.checkNumber(phone) }
@@ -346,3 +368,28 @@ internal class SignalSession(
         val REFERRING = setOf("reaction", "revoke", "edit", "typing")
     }
 }
+
+/**
+ * A phone number as the address book holds it ("(919) 555-0123", "+1 919-555-0123") in the
+ * +E.164 form Signal's directory wants. A number without a country code takes the account's
+ * own; null for anything that is not a phone number.
+ */
+internal fun normalizeNumber(
+    raw: String,
+    ownPhone: String,
+): String? {
+    val digits = raw.filter { it.isDigit() }
+    if (digits.length < MIN_DIGITS || digits.length > MAX_DIGITS) return null
+    if (raw.trimStart().startsWith("+")) return "+$digits"
+    val ownDigits = ownPhone.filter { it.isDigit() }
+    val country = ownDigits.dropLast(NATIONAL_DIGITS).ifEmpty { "1" }
+    return when {
+        digits.length == NATIONAL_DIGITS -> "+$country$digits"
+        digits.startsWith(country) && digits.length == country.length + NATIONAL_DIGITS -> "+$digits"
+        else -> "+$digits"
+    }
+}
+
+private const val MIN_DIGITS = 7
+private const val MAX_DIGITS = 15
+private const val NATIONAL_DIGITS = 10

@@ -234,4 +234,6 @@
         <item quantity="one">%d minute</item>
         <item quantity="other">%d minutes</item>
     </plurals>
+    <string name="new_chat_allow_contacts">Show your contacts who are on Signal</string>
+    <string name="new_chat_allow_contacts_note">PingMe reads your address book and asks Signal which numbers are on it. Names and numbers stay on this phone.</string>
 </resources>

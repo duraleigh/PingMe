@@ -612,11 +612,15 @@ func (s *Session) ChatInfo(chat string) (string, error) {
 
 func (s *Session) chatInfo(ctx context.Context, chat string) (Chat, error) {
 	if !IsGroupID(chat) {
-		aci, err := uuid.Parse(chat)
+		id, err := serviceIDOf(chat)
 		if err != nil {
-			return Chat{}, fmt.Errorf("not a chat id: %q", chat)
+			return Chat{}, err
 		}
-		m := s.member(ctx, aci)
+		if id.Type == libsignalgo.ServiceIDTypePNI {
+			// A person known only by their number id: Kotlin names them from the address book.
+			return Chat{ID: chat, Name: "Signal user", Members: []Member{{ID: chat}}}, nil
+		}
+		m := s.member(ctx, id.UUID)
 		return Chat{ID: chat, Name: firstNonEmpty(m.Name, m.Phone, "Signal user"), Members: []Member{m}}, nil
 	}
 	group, err := s.group(ctx, chat)
@@ -663,11 +667,11 @@ func (s *Session) Messages(chat string, beforeTimestamp int64, count int) (strin
 	if IsGroupID(chat) {
 		bc, err = s.device.BackupStore.GetBackupChatByGroupID(ctx, types.GroupIdentifier(chat))
 	} else {
-		aci, perr := uuid.Parse(chat)
+		id, perr := serviceIDOf(chat)
 		if perr != nil {
-			return "", fmt.Errorf("not a chat id: %q", chat)
+			return "", perr
 		}
-		bc, err = s.device.BackupStore.GetBackupChatByUserID(ctx, libsignalgo.NewACIServiceID(aci))
+		bc, err = s.device.BackupStore.GetBackupChatByUserID(ctx, id)
 	}
 	if err != nil {
 		return "", err
@@ -735,16 +739,35 @@ func (s *Session) send(ctx context.Context, chat string, content *signalpb.Conte
 		}
 		return nil
 	}
-	aci, err := uuid.Parse(chat)
+	id, err := serviceIDOf(chat)
 	if err != nil {
-		return fmt.Errorf("not a chat id: %q", chat)
+		return err
 	}
-	result := client.SendMessage(ctx, libsignalgo.NewACIServiceID(aci), content)
+	result := client.SendMessage(ctx, id, content)
 	if !result.WasSuccessful {
 		return wrap(result.Error)
 	}
 	return nil
 }
+
+// serviceIDOf reads a one-to-one chat id: an account id (UUID), or "PNI:<uuid>" for a
+// person Signal's directory shows only by their number id (they hide their account id).
+func serviceIDOf(chat string) (libsignalgo.ServiceID, error) {
+	if rest, ok := strings.CutPrefix(chat, pniPrefix); ok {
+		pni, err := uuid.Parse(rest)
+		if err != nil {
+			return libsignalgo.ServiceID{}, fmt.Errorf("not a chat id: %q", chat)
+		}
+		return libsignalgo.NewPNIServiceID(pni), nil
+	}
+	aci, err := uuid.Parse(chat)
+	if err != nil {
+		return libsignalgo.ServiceID{}, fmt.Errorf("not a chat id: %q", chat)
+	}
+	return libsignalgo.NewACIServiceID(aci), nil
+}
+
+const pniPrefix = "PNI:"
 
 func (s *Session) newDataMessage(text string, quoteJSON string) (*signalpb.DataMessage, error) {
 	dm := &signalpb.DataMessage{Timestamp: proto.Uint64(uint64(time.Now().UnixMilli()))}
@@ -966,11 +989,68 @@ func (s *Session) CheckNumber(phone string) (string, error) {
 		return "", wrap(err)
 	}
 	entry, ok := found[e164]
-	if !ok || entry.ACI == uuid.Nil {
-		return "", nil
-	}
-	return entry.ACI.String(), nil
+	return idOf(entry, ok), nil
 }
+
+// idOf is the chat id for a directory answer: the account id, else "PNI:" and the number
+// id for people who hide their account id, else "" for a number not on Signal.
+func idOf(entry signalmeow.CDSResponseEntry, found bool) string {
+	switch {
+	case !found:
+		return ""
+	case entry.ACI != uuid.Nil:
+		return entry.ACI.String()
+	case entry.PNI != uuid.Nil:
+		return pniPrefix + entry.PNI.String()
+	}
+	return ""
+}
+
+// Lookup is one number's answer from Signal's directory.
+type Lookup struct {
+	Phone string `json:"phone"`
+	ID    string `json:"id"`
+}
+
+// LookupNumbers asks Signal's directory which of the numbers (a JSON array of +E.164
+// strings) are on Signal, in batches, and returns a JSON array of Lookup for those that
+// are. A rate limit ends the run early with what was found so far; the owner's new-chat
+// list fills in on the next try.
+func (s *Session) LookupNumbers(phonesJSON string) (string, error) {
+	client, err := s.live()
+	if err != nil {
+		return "", err
+	}
+	var phones []string
+	if err := json.Unmarshal([]byte(phonesJSON), &phones); err != nil {
+		return "", fmt.Errorf("numbers are not a JSON array: %w", err)
+	}
+	numbers := make([]uint64, 0, len(phones))
+	for _, phone := range phones {
+		if n, err := strconv.ParseUint(strings.TrimPrefix(phone, "+"), 10, 64); err == nil {
+			numbers = append(numbers, n)
+		}
+	}
+	found := []Lookup{}
+	for start := 0; start < len(numbers); start += lookupBatch {
+		end := min(start+lookupBatch, len(numbers))
+		ctx, cancel := context.WithTimeout(s.log.WithContext(context.Background()), 30*time.Second)
+		answer, err := client.LookupPhone(ctx, numbers[start:end]...)
+		cancel()
+		if err != nil {
+			s.log.Warn().Err(err).Int("looked_up", start).Msg("Signal's directory stopped answering")
+			break
+		}
+		for _, n := range numbers[start:end] {
+			if id := idOf(answer[n], answer[n] != signalmeow.CDSResponseEntry{}); id != "" {
+				found = append(found, Lookup{Phone: "+" + strconv.FormatUint(n, 10), ID: id})
+			}
+		}
+	}
+	return marshal(found)
+}
+
+const lookupBatch = 100
 
 func marshal(v any) (string, error) {
 	raw, err := json.Marshal(v)

@@ -199,6 +199,8 @@ class ConnectorSupervisor
                         val chats = connector.syncChats(account.id)
                         applier.applyChats(chats)
                         history.chatsArrived(chats)
+                        runCatching { connector.refreshPeople(account.id) }
+                            .onFailure { Log.w(TAG, "${account.network}: could not refresh its people", it) }
                     }
                 }
                 // Fresh is decided before the store has the message; the notification goes after.
