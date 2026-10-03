@@ -1,0 +1,68 @@
+# Builds Signal's native library (libsignal_ffi.a, Rust) for Android once per libsignal
+# version and attaches it to a release named libsignal-<version>, so the Go bridge build
+# (gobridge/build.sh) and CI only download it (BUILD_PLAN.md Phase 6, Signal).
+name: libsignal for Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: libsignal tag, as go.mau.fi/mautrix-signal pins it (pkg/libsignalgo/signalversion)
+        required: true
+        default: v0.102.2
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create the release if it is missing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="libsignal-${{ inputs.version }}"
+          gh release view "$tag" > /dev/null 2>&1 || gh release create "$tag" --title "libsignal ${{ inputs.version }} for Android" \
+            --notes "Signal's native library, built from signalapp/libsignal ${{ inputs.version }} for the three Android ABIs. Downloaded by gobridge/build.sh." --target "${{ github.sha }}"
+
+  build:
+    needs: release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - abi: arm64-v8a
+            triple: aarch64-linux-android
+          - abi: x86_64
+            triple: x86_64-linux-android
+          - abi: armeabi-v7a
+            triple: armv7-linux-androideabi
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: signalapp/libsignal
+          ref: ${{ inputs.version }}
+          path: libsignal
+      - name: Tools
+        run: sudo apt-get install -y protobuf-compiler clang libclang-dev cmake > /dev/null
+      - name: Android NDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.3.13750724" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
+      - name: Rust
+        working-directory: libsignal
+        run: |
+          rustup show > /dev/null
+          rustup target add ${{ matrix.triple }}
+          cargo install cargo-ndk --locked > /dev/null
+      - name: Build
+        working-directory: libsignal
+        run: cargo ndk -t ${{ matrix.abi }} -P 29 build -p libsignal-ffi --release
+      - name: Attach
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "libsignal/target/${{ matrix.triple }}/release/libsignal_ffi.a" "libsignal_ffi-${{ matrix.abi }}.a"
+          gh release upload "libsignal-${{ inputs.version }}" "libsignal_ffi-${{ matrix.abi }}.a" --clobber --repo "${{ github.repository }}"
