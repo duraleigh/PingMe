@@ -61,6 +61,46 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun aChatReadHereStaysReadWhenTheNetworkListsItUnreadAgain() =
+        runTest {
+            seed()
+            chats.update(chatId) { it.copy(unreadCount = 0, readUpTo = now) }
+            // The network's own read mark did not take: it still counts the old message as unread.
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot(unread = 1)))
+            assertEquals(0, chats.get(chatId)?.unreadCount)
+            // Something newer than the read mark is news again.
+            applier.apply(
+                ConnectorEvent.ChatUpdated(accountId, chatSnapshot(unread = 1).copy(lastActivityAt = now + 1.minutes)),
+            )
+            assertEquals(1, chats.get(chatId)?.unreadCount)
+        }
+
+    @Test
+    fun aChatDeletedHereStaysGoneUntilSomethingNewerComes() =
+        runTest {
+            seed()
+            chats.hide(chatId, now)
+            chats.delete(chatId)
+            applier.applyChats(listOf(chatSnapshot(unread = 1)))
+            val history =
+                ConnectorEvent.HistoryBatch(
+                    accountId,
+                    chatId,
+                    listOf(messageSnapshot("old")),
+                    complete = true,
+                )
+            applier.apply(history)
+            assertNull(chats.get(chatId))
+            assertNull(messages.get(accountId.message("old")))
+            // A message after the deletion brings the chat back, as new.
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("fresh", sentAt = now + 1.minutes)))
+            assertEquals(1, chats.get(chatId)?.unreadCount)
+            assertEquals("hi", messages.get(accountId.message("fresh"))?.body)
+            applier.applyChats(listOf(chatSnapshot(unread = 3).copy(lastActivityAt = now + 1.minutes)))
+            assertEquals(3, chats.get(chatId)?.unreadCount)
+        }
+
+    @Test
     fun aMessageForAnUnknownChatStillLands() =
         runTest {
             accounts.upsert(account())

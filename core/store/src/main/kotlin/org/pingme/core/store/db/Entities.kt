@@ -72,6 +72,17 @@ data class ChatEntity(
     val nameOverride: String?,
     val defaultSendAccount: String?,
     val networkRemoteId: String,
+    val readUpTo: Instant? = null,
+)
+
+/**
+ * A chat the user deleted on this phone: the network's next listing of it is ignored
+ * unless something newer than [hiddenAt] has happened in it (owner, Gate G7).
+ */
+@Entity(tableName = "chat_tombstones")
+data class ChatTombstoneEntity(
+    @PrimaryKey val chatId: String,
+    val hiddenAt: Instant,
 )
 
 @Entity(

@@ -8,6 +8,7 @@ import org.pingme.core.connector.accountId
 import org.pingme.core.connector.remoteId
 import org.pingme.core.model.AvatarSource
 import org.pingme.core.model.Chat
+import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Message
 import org.pingme.core.model.MessageKind
@@ -18,6 +19,7 @@ import org.pingme.core.store.ContactRepository
 import org.pingme.core.store.MessageRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Instant
 
 /**
  * Writes what connectors report into the store (BUILD_PLAN.md P1.4). Snapshots carry only
@@ -125,9 +127,24 @@ class EventApplier
         suspend fun applyChats(snapshots: List<ChatSnapshot>) = snapshots.forEach { applyChat(it) }
 
         private suspend fun applyChat(snapshot: ChatSnapshot) {
+            if (hiddenHere(snapshot.id, snapshot.lastActivityAt)) return
             snapshot.participants.forEach { contacts.upsert(it) }
             val existing = chats.get(snapshot.id)
             chats.upsert(existing?.withSnapshot(snapshot) ?: snapshot.toNewChat())
+        }
+
+        /**
+         * A chat the user deleted here stays gone while the network has nothing newer than the
+         * deletion; something newer brings it back (owner, Gate G7: deleted chats came back unread).
+         */
+        private suspend fun hiddenHere(
+            chatId: ChatId,
+            at: Instant,
+        ): Boolean {
+            val hiddenAt = chats.hiddenAt(chatId) ?: return false
+            if (at <= hiddenAt) return true
+            chats.unhide(chatId)
+            return false
         }
 
         /** Your own reactions, echoed back by the network, do not flip the row. */
@@ -139,6 +156,7 @@ class EventApplier
         }
 
         private suspend fun applyNewMessage(snapshot: MessageSnapshot) {
+            if (hiddenHere(snapshot.message.chatId, snapshot.message.sentAt)) return
             saveMessage(snapshot)
             val message = snapshot.message
             if (message.isOutgoing) retireStandIns(message)
@@ -147,6 +165,7 @@ class EventApplier
                 chat.copy(
                     lastActivityAt = maxOf(chat.lastActivityAt, message.sentAt),
                     unreadCount = if (message.isOutgoing) 0 else chat.unreadCount + 1,
+                    readUpTo = if (message.isOutgoing) maxOf(chat.lastActivityAt, message.sentAt) else chat.readUpTo,
                     // New activity brings an archived chat back (UI_DESIGN.md 10.7).
                     isArchived = chat.isArchived && message.isOutgoing,
                 )
@@ -169,6 +188,7 @@ class EventApplier
 
         private suspend fun saveMessage(snapshot: MessageSnapshot) {
             val message = withQuote(snapshot.message)
+            if (chats.get(message.chatId) == null && hiddenHere(message.chatId, message.sentAt)) return
             snapshot.sender?.let { contacts.upsert(it) }
             if (chats.get(message.chatId) == null) {
                 // A connector should announce a chat before its messages. If one arrives
@@ -229,7 +249,9 @@ private fun Chat.withSnapshot(s: ChatSnapshot) =
         kind = s.kind,
         title = s.title,
         participants = s.participants.map { it.id },
-        unreadCount = s.unreadCount,
+        // Read here since the last activity the network knows of: the network's unread count
+        // is stale (its own read mark did not take, or has not been sent), not news.
+        unreadCount = readUpTo.let { read -> if (read != null && s.lastActivityAt <= read) 0 else s.unreadCount },
         lastActivityAt = s.lastActivityAt,
         folder = s.folder,
         spaceId = s.spaceId,

@@ -2751,6 +2751,19 @@ Built now:
   it disconnects, forgets the saved sign-in, and deletes the account row, which takes its
   chats, messages, and people with it (the database cascades).
 
+- **The inbox opens at the top** (added note): coming back to the inbox landed wherever
+  the list was last left; it now scrolls to the top every time the inbox is shown.
+- **Chats read here stay read** (added note): a network's listing after a reconnect
+  carried its own unread count (its read mark had not taken, or had not been sent), and
+  PingMe copied it over the read state. Each chat now remembers when it was last read on
+  this phone (`readUpTo`, schema version 5), and a listing with nothing newer than that
+  cannot make it unread again. Reading a chat and sending in it both set the mark.
+- **Deleted chats stay deleted** (added note): deleting a chat removed its row, and the
+  network's next listing simply made it again, unread. Deleting now also leaves a
+  marker with the time (`chat_tombstones`, schema version 5); a listing, a history page,
+  or a message no newer than the marker is ignored, and anything newer lifts the marker
+  and brings the chat back as a new one.
+
 Waiting for the phone's log (notes 2, 7, 10, 13, 14, 15, 19, 20): WhatsApp's inbound
 silence and names (the hidden-id mapping is the lead), Instagram read marks, Messenger's
 "reconnecting", Signal's contact list, notifications not clearing.

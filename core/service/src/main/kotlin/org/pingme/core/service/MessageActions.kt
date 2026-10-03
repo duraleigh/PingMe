@@ -105,7 +105,10 @@ class MessageActions
                     )
                 }
             messages.upsert(pending)
-            chats.update(chatId) { it.copy(lastActivityAt = maxOf(it.lastActivityAt, pending.sentAt), unreadCount = 0) }
+            chats.update(chatId) {
+                val at = maxOf(it.lastActivityAt, pending.sentAt)
+                it.copy(lastActivityAt = at, unreadCount = 0, readUpTo = at)
+            }
             return deliver(pending, forceSms)
         }
 

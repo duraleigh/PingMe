@@ -4,6 +4,7 @@ package org.pingme.core.store.db
 import androidx.room.Dao
 import androidx.room.Embedded
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RawQuery
 import androidx.room.Relation
@@ -85,6 +86,16 @@ interface ChatDao {
     @Transaction
     @Query("SELECT * FROM chats ORDER BY lastActivityAt DESC")
     fun observeAll(): Flow<List<ChatWithParticipants>>
+
+    /** Remembers that the user deleted a chat here, so a network listing does not bring it back. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun tombstone(tombstone: ChatTombstoneEntity)
+
+    @Query("SELECT hiddenAt FROM chat_tombstones WHERE chatId = :chatId")
+    suspend fun hiddenAt(chatId: String): Instant?
+
+    @Query("DELETE FROM chat_tombstones WHERE chatId = :chatId")
+    suspend fun unhide(chatId: String)
 
     @Transaction
     @Query("SELECT * FROM chats WHERE id = :id")

@@ -28,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
         MediaSaveJobEntity::class,
         PinnedMessageEntity::class,
         ChatOverridesEntity::class,
+        ChatTombstoneEntity::class,
     ],
     version = PingMeDatabase.VERSION,
     exportSchema = true,
@@ -58,10 +59,11 @@ abstract class PingMeDatabase : RoomDatabase() {
         const val NAME = "pingme.db"
 
         /** The schema version. Bump it with a migration in [MIGRATIONS] and an exported schema. */
-        const val VERSION = 4
+        const val VERSION = 5
 
         /** Schema migrations, oldest first (BUILD_PLAN.md P1.6). MigrationTest checks every one. */
-        val MIGRATIONS: Array<Migration> = arrayOf(PinnedMessages, ChatOverridesTable, SpaceIconAndAll)
+        val MIGRATIONS: Array<Migration> =
+            arrayOf(PinnedMessages, ChatOverridesTable, SpaceIconAndAll, ReadUpToAndTombstones)
 
         /** Applies the settings every PingMe database needs, on-disk or in-memory. */
         fun configure(builder: Builder<PingMeDatabase>): PingMeDatabase =
@@ -106,9 +108,22 @@ private object ChatOverridesTable : Migration(2, VERSION_3) {
 }
 
 /** 3 to 4 (Gate G1): a space's icon, and whether its chats also show in All (UI_DESIGN.md 10.4). */
-private object SpaceIconAndAll : Migration(VERSION_3, PingMeDatabase.VERSION) {
+private object SpaceIconAndAll : Migration(VERSION_3, VERSION_4) {
     override fun migrate(connection: SQLiteConnection) {
         connection.execSQL("ALTER TABLE `spaces` ADD COLUMN `icon` TEXT NOT NULL DEFAULT 'SPACE'")
         connection.execSQL("ALTER TABLE `spaces` ADD COLUMN `showInAll` INTEGER NOT NULL DEFAULT 1")
+    }
+}
+
+/** 4 to 5 (Gate G7): when a chat was last read here, and chats deleted here (not undone by a sync). */
+private const val VERSION_4 = 4
+
+private object ReadUpToAndTombstones : Migration(VERSION_4, PingMeDatabase.VERSION) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `chats` ADD COLUMN `readUpTo` INTEGER")
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `chat_tombstones` (`chatId` TEXT NOT NULL, `hiddenAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`chatId`))",
+        )
     }
 }

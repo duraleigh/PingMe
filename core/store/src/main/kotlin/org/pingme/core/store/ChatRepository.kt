@@ -15,6 +15,7 @@ import org.pingme.core.model.ChatId
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Space
 import org.pingme.core.model.SpaceId
+import org.pingme.core.store.db.ChatTombstoneEntity
 import org.pingme.core.store.db.PingMeDatabase
 import org.pingme.core.store.db.chatEntities
 import org.pingme.core.store.db.participantEntities
@@ -23,6 +24,7 @@ import org.pingme.core.store.db.toModel
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /** Unread totals under the one counting rule. Every badge in the app reads from these. */
 data class UnreadTotals(
@@ -92,6 +94,16 @@ class ChatRepository
             }
 
         suspend fun delete(id: ChatId) = dao.delete(id.value)
+
+        /** The user deleted the chat here at [at]: the network's listing of it is ignored until something newer. */
+        suspend fun hide(
+            id: ChatId,
+            at: Instant,
+        ) = dao.tombstone(ChatTombstoneEntity(id.value, at))
+
+        suspend fun hiddenAt(id: ChatId): Instant? = dao.hiddenAt(id.value)
+
+        suspend fun unhide(id: ChatId) = dao.unhide(id.value)
 
         /**
          * The unread counting rule, implemented once (BUILD_PLAN.md P1.2): only chats that are

@@ -352,7 +352,12 @@ private fun ChatListBody(
     val style = PingMeTheme.appearance.pinnedStyle
     // "Top of list" shows pinned chats as ordinary rows above the rest (UI_DESIGN.md 4.3).
     val rows = if (style == PinnedStyle.TOP_OF_LIST) state.pinned + state.rows else state.rows
-    LazyColumn(Modifier.fillMaxSize().testTag(INBOX_LIST), contentPadding = contentPadding) {
+    // Coming to the inbox always lands at the top, never where the list was last left (owner, Gate G7).
+    val listState =
+        androidx.compose.foundation.lazy
+            .rememberLazyListState()
+    androidx.compose.runtime.LaunchedEffect(Unit) { listState.scrollToItem(0) }
+    LazyColumn(Modifier.fillMaxSize().testTag(INBOX_LIST), state = listState, contentPadding = contentPadding) {
         if (state.pinned.isNotEmpty() && style != PinnedStyle.TOP_OF_LIST) {
             item(key = "pinned") {
                 Column {

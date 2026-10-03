@@ -83,7 +83,7 @@ class ChatActions
             read: Boolean,
         ) {
             if (read) {
-                chats.update(id) { it.copy(unreadCount = 0) }
+                chats.update(id) { it.copy(unreadCount = 0, readUpTo = it.lastActivityAt) }
                 notifications.clear(id)
                 sendReadMarker(id)
             } else {
@@ -226,6 +226,12 @@ class ChatActions
         /** Deletes the chat and its messages from this phone. The network keeps its copy. */
         suspend fun delete(id: ChatId) {
             notifications.clear(id)
+            // Remembered, so the network's next listing does not bring the chat back (owner, Gate G7).
+            chats.hide(
+                id,
+                kotlin.time.Clock.System
+                    .now(),
+            )
             chats.delete(id)
         }
 
