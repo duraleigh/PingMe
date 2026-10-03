@@ -68,11 +68,25 @@ class EventApplierTest : ServiceTest() {
             // The network's own read mark did not take: it still counts the old message as unread.
             applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot(unread = 1)))
             assertEquals(0, chats.get(chatId)?.unreadCount)
-            // Something newer than the read mark is news again.
+            // A listing claiming newer activity still cannot: PingMe counts its own messages.
             applier.apply(
                 ConnectorEvent.ChatUpdated(accountId, chatSnapshot(unread = 1).copy(lastActivityAt = now + 1.minutes)),
             )
+            assertEquals(0, chats.get(chatId)?.unreadCount)
+            // The newer message itself is news, and stays counted through the next listing.
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m2", sentAt = now + 1.minutes)))
             assertEquals(1, chats.get(chatId)?.unreadCount)
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot(unread = 5)))
+            assertEquals(1, chats.get(chatId)?.unreadCount)
+        }
+
+    @Test
+    fun aChatWhoseNewestMessageIsOursIsReadWhateverTheNetworkSays() =
+        runTest {
+            seed()
+            messages.upsert(messageSnapshot("mine", outgoing = true, sentAt = now + 1.minutes).message)
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot(unread = 3)))
+            assertEquals(0, chats.get(chatId)?.unreadCount)
         }
 
     @Test

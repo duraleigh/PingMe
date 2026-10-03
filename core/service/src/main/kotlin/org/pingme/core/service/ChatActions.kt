@@ -197,12 +197,26 @@ class ChatActions
             accept: Boolean,
         ) {
             connectorFor(id.accountId).respondToRequest(id, accept)
-            if (accept) chats.update(id) { it.copy(folder = ChatFolder.PRIMARY) } else chats.delete(id)
+            if (accept) {
+                chats.update(id) { it.copy(folder = ChatFolder.PRIMARY) }
+            } else {
+                chats.hide(
+                    id,
+                    kotlin.time.Clock.System
+                        .now(),
+                )
+                chats.delete(id)
+            }
         }
 
         /** Blocks the other side on the network and removes the chat here (UI_DESIGN.md 6.4). */
         suspend fun block(id: ChatId) {
             connectorFor(id.accountId).block(id)
+            chats.hide(
+                id,
+                kotlin.time.Clock.System
+                    .now(),
+            )
             chats.delete(id)
         }
 

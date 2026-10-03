@@ -322,6 +322,17 @@ interface MessageDao {
         sentAt: Instant,
     ): Int
 
+    /** How many messages from other people are newer than [sentAt]: the chat's unread count as PingMe sees it. */
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND isOutgoing = 0 AND sentAt > :sentAt")
+    suspend fun countIncomingNewer(
+        chatId: String,
+        sentAt: Instant,
+    ): Int
+
+    /** Whether the chat's newest message is one of ours. */
+    @Query("SELECT isOutgoing FROM messages WHERE chatId = :chatId ORDER BY sentAt DESC, rowId DESC LIMIT 1")
+    suspend fun newestIsOutgoing(chatId: String): Boolean?
+
     /** The first message on or after [from], for search in chat's date jump. */
     @Query("SELECT id FROM messages WHERE chatId = :chatId AND sentAt >= :from ORDER BY sentAt ASC, rowId ASC LIMIT 1")
     suspend fun firstFrom(

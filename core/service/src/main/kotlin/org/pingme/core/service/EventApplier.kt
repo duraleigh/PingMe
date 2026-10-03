@@ -134,7 +134,28 @@ class EventApplier
             if (hiddenHere(snapshot.id, snapshot.lastActivityAt)) return
             snapshot.participants.forEach { contacts.upsert(it) }
             val existing = chats.get(snapshot.id)
-            chats.upsert(existing?.withSnapshot(snapshot) ?: snapshot.toNewChat())
+            val merged = existing?.withSnapshot(snapshot) ?: snapshot.toNewChat()
+            chats.upsert(merged.copy(unreadCount = unreadFor(existing, snapshot)))
+        }
+
+        /**
+         * The unread count after a network listing. The network's own count is trusted only for
+         * a chat PingMe knows nothing about yet: once the chat has been read here, PingMe counts
+         * for itself from the messages it holds, and a chat whose newest message is ours is read.
+         * Networks whose read marks do not take (or are not sent) kept listing read chats as
+         * unread (owner, Gate G7: Google Messages, Telegram, Instagram).
+         */
+        private suspend fun unreadFor(
+            existing: Chat?,
+            snapshot: ChatSnapshot,
+        ): Int {
+            val readUpTo = existing?.readUpTo
+            return when {
+                existing == null -> snapshot.unreadCount
+                readUpTo != null -> messages.incomingSince(snapshot.id, readUpTo)
+                messages.newestIsOutgoing(snapshot.id) == true -> 0
+                else -> snapshot.unreadCount
+            }
         }
 
         /**
@@ -258,9 +279,7 @@ private fun Chat.withSnapshot(s: ChatSnapshot) =
         kind = s.kind,
         title = s.title,
         participants = s.participants.map { it.id },
-        // Read here since the last activity the network knows of: the network's unread count
-        // is stale (its own read mark did not take, or has not been sent), not news.
-        unreadCount = readUpTo.let { read -> if (read != null && s.lastActivityAt <= read) 0 else s.unreadCount },
+        unreadCount = s.unreadCount,
         lastActivityAt = s.lastActivityAt,
         folder = s.folder,
         spaceId = s.spaceId,
