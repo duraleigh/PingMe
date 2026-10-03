@@ -89,6 +89,40 @@ class WaTranslate(
         people.forEach { if (it.name.isNotBlank()) names[it.id] = it.name }
     }
 
+    /** The phone's WhatsApp contacts as people of this account, for the new-chat search. */
+    @Synchronized
+    fun people(contacts: List<WaParticipant>): List<Person> =
+        contacts.filter { it.name.isNotBlank() && !isMe(it.id) }.map { person(it.id, it.name, it.phone) }
+
+    /** Every chat known so far, as it reads now: sent again when names arrive. */
+    @Synchronized
+    fun allChats(): List<ChatSnapshot> = chats.values.filter { !it.isCommunity }.map { snapshot(it) }
+
+    /**
+     * An attachment's media reference with the message it came in, which asking the phone
+     * for an expired file needs; older references name no message, so the id supplies it.
+     */
+    @Synchronized
+    fun mediaRef(
+        attachmentId: String,
+        ref: String,
+    ): String {
+        val media = waJson.decodeFromString(WaMedia.serializer(), ref)
+        if (media.messageId.isNotEmpty()) return ref
+        val chat = attachmentId.substringBeforeLast('/')
+        val id = attachmentId.substringAfterLast('/')
+        val known = seen["$chat/$id"]
+        val filled =
+            media.copy(
+                messageId = id,
+                chat = chat,
+                sender = known?.sender.orEmpty(),
+                fromMe =
+                    known?.fromMe ?: false,
+            )
+        return waJson.encodeToString(WaMedia.serializer(), filled)
+    }
+
     @Synchronized
     fun knows(chat: String) = chat in chats
 
@@ -274,7 +308,7 @@ class WaTranslate(
                     }.orEmpty()
             }
 
-            "system" -> {
+            "system", "skip" -> {
                 emptyList()
             }
 
@@ -526,7 +560,7 @@ class WaTranslate(
                 chat
             }
         chats[chat.id] = merged
-        val plain = event.messages.filter { it.kind !in REFERRING && it.kind != "system" }
+        val plain = event.messages.filter { it.kind !in REFERRING && it.kind !in SILENT }
         val referring = event.messages.filter { it.kind in REFERRING }
         val batch =
             ConnectorEvent.HistoryBatch(
@@ -563,7 +597,7 @@ class WaTranslate(
     fun historyPage(event: WaEvent.History): List<MessageSnapshot> {
         chats.putIfAbsent(event.chat.id, event.chat)
         return event.messages
-            .filter { it.kind !in REFERRING && it.kind != "system" }
+            .filter { it.kind !in REFERRING && it.kind !in SILENT }
             .sortedByDescending { it.timestamp }
             .map { snapshotOf(it) }
     }
@@ -575,6 +609,9 @@ class WaTranslate(
         private const val RECENT_PER_CHAT = 300
         private const val MILLIS = 1000L
         private val REFERRING = setOf("reaction", "revoke", "edit")
+
+        /** Kinds that are nothing to show: group notices and housekeeping between devices. */
+        private val SILENT = setOf("system", "skip")
         private val ATTACHMENT_KINDS =
             mapOf(
                 "image" to AttachmentKind.IMAGE,

@@ -2,6 +2,8 @@
 package org.pingme.app.login
 
 import android.content.Intent
+import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -39,6 +41,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import org.pingme.app.BuildConfig
 import org.pingme.app.R
 import org.pingme.core.connector.LoginResponse
 import org.pingme.core.connector.LoginStep
@@ -197,6 +200,12 @@ private fun WebSignIn(
         AndroidView(
             factory = { context ->
                 WebView(context).apply {
+                    // Compose gives an embedded view wrap-content layout params, and a WebView
+                    // whose params say wrap-content forces the page's layout height to zero
+                    // (Chromium's AwLayoutSizer): every vh unit and 100% height becomes 0, and
+                    // pages laid out that way, Instagram's sign-in for one, draw nothing.
+                    layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                    if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
                     webViewClient =
                         object : WebViewClient() {
                             override fun onPageFinished(

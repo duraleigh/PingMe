@@ -20,21 +20,46 @@ import java.io.IOException
 suspend fun saveToGallery(
     context: Context,
     attachment: Attachment,
+): Boolean {
+    val video = attachment.kind == AttachmentKind.VIDEO
+    val collection =
+        if (video) {
+            MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        } else {
+            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        }
+    return copyOut(context, attachment, collection, albumPath(video))
+}
+
+/**
+ * Copies a voice note, sound, or file into the phone's Downloads under a "PingMe" folder,
+ * through the media store, so no storage permission is needed (owner, Gate G3: the hold
+ * menu's "Save" on a voice note).
+ */
+suspend fun saveToDownloads(
+    context: Context,
+    attachment: Attachment,
+): Boolean =
+    copyOut(
+        context,
+        attachment,
+        MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+        Environment.DIRECTORY_DOWNLOADS + File.separator + ALBUM,
+    )
+
+private suspend fun copyOut(
+    context: Context,
+    attachment: Attachment,
+    collection: android.net.Uri,
+    relativePath: String,
 ): Boolean =
     withContext(Dispatchers.IO) {
         val source = attachment.localPath?.let(::File)?.takeIf { it.exists() } ?: return@withContext false
-        val video = attachment.kind == AttachmentKind.VIDEO
-        val collection =
-            if (video) {
-                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            } else {
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            }
         val values =
             ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, attachment.fileName ?: source.name)
+                put(MediaStore.MediaColumns.DISPLAY_NAME, attachment.fileName ?: savedName(attachment, source))
                 put(MediaStore.MediaColumns.MIME_TYPE, attachment.mimeType)
-                put(MediaStore.MediaColumns.RELATIVE_PATH, albumPath(video))
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
         val resolver = context.contentResolver
@@ -49,6 +74,32 @@ suspend fun saveToGallery(
             false
         }
     }
+
+/** A name for a file that came without one: "PingMe voice note 2026-10-02 21-15.m4a" and the like. */
+private fun savedName(
+    attachment: Attachment,
+    source: File,
+): String {
+    val what =
+        when (attachment.kind) {
+            AttachmentKind.VOICE -> "voice note"
+            AttachmentKind.AUDIO -> "sound"
+            else -> "file"
+        }
+    val stamp =
+        java.text
+            .SimpleDateFormat(
+                "yyyy-MM-dd HH-mm",
+                java.util.Locale.US,
+            ).format(java.util.Date(source.lastModified()))
+    val extension =
+        source.extension.takeIf { it.isNotEmpty() }
+            ?: android.webkit.MimeTypeMap
+                .getSingleton()
+                .getExtensionFromMimeType(attachment.mimeType)
+            ?: "bin"
+    return "PingMe $what $stamp.$extension"
+}
 
 /** "Pictures/PingMe" or "Movies/PingMe": the album Photos shows them under. */
 fun albumPath(video: Boolean): String =

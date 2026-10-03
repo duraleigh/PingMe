@@ -87,6 +87,11 @@ data class WaMedia(
     val voice: Boolean = false,
     val gif: Boolean = false,
     val animated: Boolean = false,
+    /** The message the file came in, so an expired file can be asked for again. */
+    val messageId: String = "",
+    val chat: String = "",
+    val sender: String = "",
+    val fromMe: Boolean = false,
 )
 
 @Serializable
@@ -166,6 +171,11 @@ sealed interface WaEvent {
     @Serializable
     @SerialName("disconnected")
     data object Disconnected : WaEvent
+
+    /** The phone's contact list has arrived or changed: names can replace numbers. */
+    @Serializable
+    @SerialName("contacts")
+    data object Contacts : WaEvent
 
     @Serializable
     @SerialName("pairSuccess")

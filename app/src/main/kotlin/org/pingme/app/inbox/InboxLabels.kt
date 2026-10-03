@@ -7,7 +7,6 @@ import androidx.compose.ui.res.stringResource
 import org.pingme.app.R
 import org.pingme.core.model.MessageKind
 import org.pingme.core.model.NetworkId
-import org.pingme.core.model.Transport
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -33,21 +32,13 @@ val NetworkId.displayName: String
             NetworkId.DEMO -> "Demo"
         }
 
-/**
- * The short badge on an inbox row. Google Messages is the network; its badge says how the
- * newest message went, RCS, SMS, or MMS (UI_DESIGN.md 10.1; owner, Gate G3).
- */
-fun badgeLabel(
-    network: NetworkId,
-    transport: Transport?,
-): String =
+/** The short badge on an inbox row and in the chat header (UI_DESIGN.md 10.1). */
+fun badgeLabel(network: NetworkId): String =
     when (network) {
+        // Rows and the chat header show no badge for Google Messages; where the network itself
+        // is named (the account picker, the bottom bar) it is "GM" (owner, Gate G3).
         NetworkId.GMESSAGES -> {
-            when (transport) {
-                Transport.SMS -> "SMS"
-                Transport.MMS -> "MMS"
-                else -> "RCS"
-            }
+            "GM"
         }
 
         NetworkId.SMS -> {

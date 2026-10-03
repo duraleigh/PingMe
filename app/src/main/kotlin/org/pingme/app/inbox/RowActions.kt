@@ -18,6 +18,9 @@ import org.pingme.core.ui.theme.SwipeAction
 /** Something a swipe or the action sheet does to a chat (UI_DESIGN.md 3.1). */
 enum class ChatAction { PIN, READ, MUTE, ARCHIVE, LOW_PRIORITY, OBSCURE, DELETE }
 
+/** What the selection bar does to every selected chat at once (owner, Gate G3). */
+enum class BulkAction { READ, UNREAD, MUTE, ARCHIVE, LOW_PRIORITY, DELETE }
+
 /** A snackbar to show, with what Undo does (if anything) and what happens when it goes away. */
 class InboxMessage(
     @param:StringRes val text: Int,
@@ -109,6 +112,43 @@ class RowActions(
             }
         }
     }
+
+    /**
+     * One action on every selected chat. Unlike a single row's action these do not toggle:
+     * "Mark read" reads them all, "Mute" mutes them all. Delete has no Undo, so the screen
+     * asks first.
+     */
+    fun bulk(
+        rows: List<ChatRow>,
+        action: BulkAction,
+    ) {
+        if (rows.isEmpty()) return
+        scope.launch {
+            rows.forEach { row ->
+                val id = row.chat.id
+                when (action) {
+                    BulkAction.READ -> actions.setRead(id, read = true)
+                    BulkAction.UNREAD -> actions.setRead(id, read = false)
+                    BulkAction.MUTE -> actions.setMuted(id, true)
+                    BulkAction.ARCHIVE -> actions.setArchived(id, true)
+                    BulkAction.LOW_PRIORITY -> actions.setLowPriority(id, true)
+                    BulkAction.DELETE -> actions.delete(id)
+                }
+            }
+            channel.send(InboxMessage(bulkDone(action), rows.size.toString()))
+        }
+    }
+
+    @StringRes
+    private fun bulkDone(action: BulkAction): Int =
+        when (action) {
+            BulkAction.READ -> R.string.inbox_bulk_read
+            BulkAction.UNREAD -> R.string.inbox_bulk_unread
+            BulkAction.MUTE -> R.string.inbox_bulk_muted
+            BulkAction.ARCHIVE -> R.string.inbox_bulk_archived
+            BulkAction.LOW_PRIORITY -> R.string.inbox_bulk_low_priority
+            BulkAction.DELETE -> R.string.inbox_bulk_deleted
+        }
 
     /** Tells the user something without an Undo, such as why a request failed. */
     fun tell(

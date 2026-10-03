@@ -19,8 +19,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.res.stringResource
+import kotlinx.coroutines.delay
 import org.pingme.app.R
 import org.pingme.app.inbox.displayName
+import org.pingme.core.model.Attachment
+import org.pingme.core.model.AttachmentKind
 import org.pingme.core.model.Message
 import org.pingme.core.model.TimeLimit
 import org.pingme.core.ui.theme.Haptics
@@ -40,6 +44,9 @@ class ChatUi {
 
     /** A scheduled message whose time is being changed (UI_DESIGN.md 10.13). */
     var rescheduling by mutableStateOf<Message?>(null)
+
+    /** A voice note, sound, or file on its way to Downloads (owner, Gate G3). */
+    var saving by mutableStateOf<Attachment?>(null)
 
     /**
      * The messages in the chat right now. A bubble that is fading out of the list (the
@@ -178,6 +185,9 @@ fun ChatUi.actionsFor(
             )
         }
         add(MessageAction(R.string.action_forward, UiR.drawable.ic_forward, { forwarding = listOf(message) }))
+        message.attachments.firstOrNull { it.kind in SAVEABLE }?.let { file ->
+            add(MessageAction(R.string.action_save, UiR.drawable.ic_download, { saving = file }))
+        }
         add(
             MessageAction(
                 if (pinned) R.string.action_unpin_message else R.string.action_pin_message,
@@ -292,6 +302,7 @@ fun ChatOverlays(
             onDismiss = { ui.holding = null },
         ) { lifted(held) }
     }
+    ui.saving?.let { wanted -> SaveToDownloads(ui, wanted, state, actions, context) }
     ui.pickerFor?.let { message ->
         val rule = state.capabilities?.reactions
         org.pingme.app.chat.emoji.EmojiPickerSheet(
@@ -348,3 +359,47 @@ private fun Sheets(
         )
     }
 }
+
+/**
+ * Copies [wanted] to Downloads once it is on the phone, fetching it first when it is not
+ * (the chat's newest copy of the attachment carries the path), and says how it went.
+ */
+@Composable
+private fun SaveToDownloads(
+    ui: ChatUi,
+    wanted: Attachment,
+    state: ChatUiState,
+    actions: ChatScreenActions,
+    context: Context,
+) {
+    val latest =
+        state.items
+            .asSequence()
+            .filterIsInstance<ChatItem.Bubble>()
+            .flatMap { it.message.attachments }
+            .firstOrNull { it.id == wanted.id } ?: wanted
+    val saved = stringResource(R.string.media_saved_downloads)
+    val failed = stringResource(R.string.media_save_failed)
+    LaunchedEffect(latest.id, latest.localPath) {
+        if (latest.localPath == null) {
+            actions.onNeed(latest)
+            delay(DOWNLOAD_WAIT_MS)
+            android.widget.Toast
+                .makeText(context, failed, android.widget.Toast.LENGTH_SHORT)
+                .show()
+            ui.saving = null
+            return@LaunchedEffect
+        }
+        val ok = saveToDownloads(context, latest)
+        android.widget.Toast
+            .makeText(context, if (ok) saved else failed, android.widget.Toast.LENGTH_SHORT)
+            .show()
+        ui.saving = null
+    }
+}
+
+/** What the hold menu offers to save to Downloads; pictures and videos save from the viewer instead. */
+private val SAVEABLE = setOf(AttachmentKind.VOICE, AttachmentKind.AUDIO, AttachmentKind.FILE)
+
+/** How long a fetch may take before "Save" gives up. */
+private const val DOWNLOAD_WAIT_MS = 60_000L

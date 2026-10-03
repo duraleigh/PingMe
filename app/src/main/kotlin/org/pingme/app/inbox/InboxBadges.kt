@@ -67,7 +67,6 @@ import kotlinx.coroutines.flow.drop
 import org.pingme.app.R
 import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.NetworkId
-import org.pingme.core.model.Transport
 import org.pingme.core.ui.components.Avatar
 import org.pingme.core.ui.theme.Haptics
 import org.pingme.core.ui.theme.InboxDensity
@@ -110,12 +109,11 @@ private val DOT_RIM = 2.dp
 @Composable
 fun NetworkBadge(
     network: NetworkId,
-    transport: Transport?,
     modifier: Modifier = Modifier,
 ) {
     val accent = PingMeTheme.networkColors.accent(network)
     Text(
-        badgeLabel(network, transport),
+        badgeLabel(network),
         modifier
             .background(accent.copy(alpha = BADGE_TINT), RoundedCornerShape(8.dp))
             .padding(horizontal = 7.dp, vertical = 2.dp),

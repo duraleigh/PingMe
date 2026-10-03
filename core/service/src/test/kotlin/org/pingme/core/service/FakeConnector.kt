@@ -71,11 +71,16 @@ class FakeConnector : Connector {
     ): Flow<ConnectorEvent> {
         val index = connects.getAndIncrement().coerceAtMost(sessions.lastIndex)
         val session = sessions[index]
+        // A disconnect belongs to the session that is open: an older one is forgotten.
+        closed.resetReplayCache()
         return flow { session(account) }
     }
 
-    /** Fires when disconnect is called, for a session that waits to be closed. */
-    val closed = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+    /**
+     * Fires on every disconnect. Kept (replay = 1) so a session that looks only after the
+     * supervisor already closed it still sees the close: on a slow machine the two race.
+     */
+    val closed = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(replay = 1, extraBufferCapacity = 8)
 
     override suspend fun disconnect(accountId: AccountId) {
         closed.emit(Unit)

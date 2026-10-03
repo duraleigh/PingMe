@@ -2425,3 +2425,74 @@ its report. The owner tests all three on the phone and gives notes; Signal start
 after that list is fixed. The owner has already said WhatsApp sends do not seem to go
 out; that is looked at together over wireless debugging, log tag `PingMeWhatsapp` and the
 bridge's `GoLog` lines, before anything is changed.
+
+## Gate G5 and G6 fixes: the owner's 13 notes (2026-10-02, from 8:51 PM)
+
+The owner tested v0.3.0, v0.4.0 and v0.5.0 on the phone and gave 13 notes. All built on
+branch `phase6-fixes`; every piece verified on the emulator where the emulator can show
+it, the rest in tests.
+
+1. **Reply quote vanished after sending.** The network's copy of a reply names only the
+   message it answers, and the bubble drew a quote only when the text came with it. The
+   store now fills the quote from the replied-to message when it saves any reply
+   (`EventApplier.withQuote`), so incoming replies show their quote too.
+2. **"Add to contacts" offered your own number.** The details screen took the first
+   person the network listed, which for WhatsApp was you. It now takes the first person
+   who is not you (who sent your messages, or who the network names "You").
+3. **No RCS/SMS/MMS badge on Google Messages** rows or in the chat header; the badge
+   label for Google Messages where the network itself is named (account picker, bottom
+   bar) is "GM". Every other network keeps its badge.
+4. **Save a voice note**: the hold menu on a voice note, sound, or file offers Save,
+   which copies it to Downloads/PingMe through the media store (no permission needed),
+   fetching it first when it is not on the phone yet.
+5. **PingMe in the share menu**: `MainActivity` takes SEND and SEND_MULTIPLE for text,
+   pictures, videos, sounds and files; `ShareRequests` carries the share to the picker
+   (`ShareRoute`), which lists chats, and people once a search is typed, and sends one
+   message per pick, one after the other, as Google Messages does.
+6. **Multi-select rows**: hold an avatar; a bar above the list offers mark read, mark
+   unread, mute, archive, low priority, delete (confirmed once) for all picked rows
+   (`BulkAction`, `RowActions.bulk`).
+7. **Blurry pictures over RCS**: on our side, and incoming only. Google Messages hands
+   a picture over as a thumbnail first and the full-size file a moment later; the store
+   kept the thumbnail's path when the full-size reference arrived, so the full picture
+   was never fetched. The store now drops the path when the network names a different
+   file for the same part, and the file is named by that reference, so the full picture
+   downloads beside the thumbnail. Outgoing: PingMe uploads the picked file untouched;
+   any shrinking on that side is Google Messages' or the carrier's, not PingMe's.
+8. **WhatsApp names**: the bridge no longer caches a missing name (the contact list
+   syncs after connect, and a miss was remembered for good); when the contact list
+   arrives or changes, the bridge sends a "contacts" event and every chat is sent again
+   with names. Contacts also flow to the store as people (`PeopleUpdated`), so the
+   new-chat search finds them.
+9. **WhatsApp's two addresses per person**: every message, receipt, typing notice,
+   history conversation and participant is reduced to one address, the phone-number
+   form, whenever the message names it or the device store knows the pairing
+   (`Session.canon`, `canonicalChat`, `canonicalSender`); history requests still use
+   the phone's own key for the chat. A number typed into New chat therefore lands in the
+   same thread as the hidden-address messages. Threads that were already split before
+   this fix stay as they are in the store until deleted.
+10. **Ticks like Google Messages** on every network: one hollow circle-check sent, two
+    delivered, two filled read, the ticks cut out in the bubble's colour
+    (`StatusMark`, new icons `ic_check_circle`, `ic_check_circle_outline`).
+11. **Instagram sign-in page blank.** Found with Chrome's inspector attached to the live
+    in-app browser (debug builds now allow it): every viewport-height unit resolved to
+    0, so Instagram's page, laid out with `100vh`, collapsed to nothing. Chromium's
+    `AwLayoutSizer` forces the page's layout height to zero whenever the WebView's
+    layout params say wrap-content, and Compose gives every embedded view wrap-content
+    params. Match-parent params fix it; the page draws and takes typing on the emulator.
+    The paste fallback exists and shows after "I have signed in" when no sign-in is
+    found; that is why it looked absent. The earlier note blaming the emulator's
+    graphics was wrong.
+12. **WhatsApp voice notes failed with 403**: the files had expired on WhatsApp's
+    servers (older messages from history). The bridge now does WhatsApp's own media
+    retry: it asks the phone to upload the file again and fetches the new path
+    (`Session.downloadAgain`), waiting up to 45 seconds for the phone's answer. The
+    message's chat and id travel with the media reference; older references get them
+    from the attachment id.
+13. **Housekeeping at link time** (key shares, sync notices, "peer" messages between
+    your own devices) is dropped in the bridge: nothing is shown and no chat is made.
+    Real messages of kinds PingMe cannot show still say so. The "You" chat the owner
+    already has stays until deleted.
+
+Also: `PeopleUpdated` connector event; the attachment upsert rule in `MessageDao`;
+`SaveToGallery.saveToDownloads`.

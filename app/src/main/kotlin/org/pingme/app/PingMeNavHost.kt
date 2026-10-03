@@ -99,6 +99,10 @@ data class ChatDetails(
     val chatId: String,
 )
 
+/** The share picker, for text or files another app handed PingMe (owner, Gate G3). */
+@Serializable
+object ShareDest
+
 // First-run setup and every network login (BUILD_PLAN.md P2.7).
 private fun NavGraphBuilder.setupAndLogin(nav: NavController) {
     composable<Setup> {
@@ -131,6 +135,7 @@ fun PingMeNavHost(
 ) {
     val nav = rememberNavController()
     OpenTappedChat(nav)
+    OpenShare(nav)
     MotionNavHost(nav, startDestination = if (startAtSetup) Setup else Home, modifier = modifier) {
         composable<Home> { InboxHome(nav) }
         setupAndLogin(nav)
@@ -182,11 +187,33 @@ fun PingMeNavHost(
                 onOpenChat = { nav.navigate(OpenChat(it.value)) },
             )
         }
-        composable<NewChatRoute> {
-            NewChatRoute(onBack = { nav.popBackStack() }, onOpenChat = {
-                nav.navigate(OpenChat(it.value)) { popUpTo(Home) }
-            })
-        }
+        pickers(nav)
+    }
+}
+
+// New chat, new group, and the share picker: screens that end by opening a chat.
+private fun NavGraphBuilder.pickers(nav: NavController) {
+    composable<NewChatRoute> {
+        NewChatRoute(onBack = { nav.popBackStack() }, onOpenChat = {
+            nav.navigate(OpenChat(it.value)) { popUpTo(Home) }
+        })
+    }
+    composable<ShareDest> {
+        org.pingme.app.share.ShareRoute(
+            onBack = { nav.popBackStack() },
+            onOpenChat = { nav.navigate(OpenChat(it.value)) { popUpTo(Home) } },
+            onDone = { nav.popBackStack(Home, inclusive = false) },
+        )
+    }
+}
+
+/** Something shared from another app opens the picker, over whatever was showing (owner, Gate G3). */
+@Composable
+private fun OpenShare(nav: NavController) {
+    val shares = hiltViewModel<org.pingme.app.share.ShareRequestViewModel>().shares
+    val requested by shares.requested.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(requested) {
+        if (requested != null) nav.navigate(ShareDest) { launchSingleTop = true }
     }
 }
 

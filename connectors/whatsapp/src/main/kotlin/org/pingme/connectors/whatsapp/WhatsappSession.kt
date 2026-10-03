@@ -101,13 +101,7 @@ internal class WhatsappSession(
         endOfSession(event)?.let { throw it }
         when (event) {
             is WaEvent.Connected -> {
-                go.ownId = event.id.ifEmpty { go.ownId }
-                go.ownLid = event.lid.ifEmpty { go.ownLid }
-                go.ownPhone = event.phone.ifEmpty { go.ownPhone }
-                learnNames()
-                listChats().forEach { send(ConnectorEvent.ChatUpdated(accountId, it)) }
-                spaces().forEach { send(ConnectorEvent.SpaceUpdated(accountId, it)) }
-                if (!connected.getAndSet(true)) send(ConnectorEvent.State(accountId, ConnectionState.Connected))
+                onConnected(event)
             }
 
             is WaEvent.History -> {
@@ -120,6 +114,12 @@ internal class WhatsappSession(
                 Log.i(TAG, "WhatsApp connection dropped; the bridge reconnects by itself")
             }
 
+            is WaEvent.Contacts -> {
+                // Names have arrived from the phone: every chat reads again with them.
+                learnNames()
+                go.allChats().forEach { send(ConnectorEvent.ChatUpdated(accountId, it)) }
+            }
+
             is WaEvent.KeepAliveTimeout, is WaEvent.ConnectFailure, is WaEvent.Undecryptable -> {
                 Log.w(TAG, "WhatsApp: $event")
             }
@@ -128,6 +128,16 @@ internal class WhatsappSession(
                 go.translate(event).forEach { send(it) }
             }
         }
+    }
+
+    private suspend fun ProducerScope<ConnectorEvent>.onConnected(event: WaEvent.Connected) {
+        go.ownId = event.id.ifEmpty { go.ownId }
+        go.ownLid = event.lid.ifEmpty { go.ownLid }
+        go.ownPhone = event.phone.ifEmpty { go.ownPhone }
+        learnNames()
+        listChats().forEach { send(ConnectorEvent.ChatUpdated(accountId, it)) }
+        spaces().forEach { send(ConnectorEvent.SpaceUpdated(accountId, it)) }
+        if (!connected.getAndSet(true)) send(ConnectorEvent.State(accountId, ConnectionState.Connected))
     }
 
     /** The events that end the session: unlinked needs the user; the rest get a reconnect. */
@@ -157,9 +167,11 @@ internal class WhatsappSession(
 
     private fun loggedOut(reason: String) = ActionNeededException(reason, WHATSAPP_PACKAGE)
 
-    private suspend fun learnNames() {
+    private suspend fun ProducerScope<ConnectorEvent>.learnNames() {
         try {
-            go.learnNames(go.participants(request { session.contacts() }))
+            val contacts = go.participants(request { session.contacts() })
+            go.learnNames(contacts)
+            send(ConnectorEvent.PeopleUpdated(accountId, go.people(contacts)))
         } catch (e: CancellationException) {
             throw e
         } catch (
@@ -409,7 +421,8 @@ internal class WhatsappSession(
             }
 
             else -> {
-                request { session.download(ref, target.absolutePath) }
+                val media = go.mediaRef(attachment.id.remoteId, ref)
+                request { session.download(media, target.absolutePath) }
             }
         }
         return target

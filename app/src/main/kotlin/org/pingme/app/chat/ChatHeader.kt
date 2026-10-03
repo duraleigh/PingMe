@@ -38,6 +38,7 @@ import org.pingme.app.inbox.NetworkBadge
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Message
+import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.components.Avatar
 import org.pingme.core.ui.R as UiR
 
@@ -103,7 +104,10 @@ private fun TitleBlock(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                state.account?.let { NetworkBadge(it.network, state.lastTransport()) }
+                // No badge for Google Messages, the phone's own texting (owner, Gate G3).
+                state.account
+                    ?.takeIf { it.network != NetworkId.GMESSAGES }
+                    ?.let { NetworkBadge(it.network) }
                 Text(
                     liveStatus(state),
                     style = MaterialTheme.typography.labelMedium,

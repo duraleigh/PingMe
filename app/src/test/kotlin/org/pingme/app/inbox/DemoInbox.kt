@@ -239,6 +239,7 @@ class DemoInbox(
                 chats,
                 accounts,
                 contacts,
+                messages,
                 pins,
                 chatSearch,
                 overrides,

@@ -228,7 +228,7 @@ fun NetworkDot(
     Box(modifier.size(24.dp).background(accent, CircleShape), contentAlignment = Alignment.Center) {
         Text(
             // Two letters: "GM" for Google Messages, the badge's start for the rest.
-            if (network == NetworkId.GMESSAGES) "GM" else badgeLabel(network, null).take(2),
+            badgeLabel(network).take(2),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.ExtraBold,
             color =

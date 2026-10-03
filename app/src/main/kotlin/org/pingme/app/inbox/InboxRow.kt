@@ -97,6 +97,9 @@ fun InboxRow(
     modifier: Modifier = Modifier,
     flipEmoji: String? = null,
     onFlipEnd: () -> Unit = {},
+    selecting: Boolean = false,
+    selected: Boolean = false,
+    onSelect: () -> Unit = {},
 ) {
     val appearance = PingMeTheme.appearance
     val right = appearance.swipeRight
@@ -140,11 +143,12 @@ fun InboxRow(
                     ).combinedClickable(
                         onClickLabel = null,
                         onLongClickLabel = hold,
-                        onLongClick = onHold,
-                        onClick = onOpen,
+                        // While selecting, every touch on a row picks or unpicks it.
+                        onLongClick = if (selecting) onSelect else onHold,
+                        onClick = if (selecting) onSelect else onOpen,
                     ),
         ) {
-            FlipCard(flipEmoji, onFlipEnd) { RowContent(row, now) }
+            FlipCard(flipEmoji, onFlipEnd) { RowContent(row, now, selected, onSelect) }
         }
     }
 }
@@ -203,7 +207,8 @@ private fun TitleLine(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        NetworkBadge(row.network, row.last?.transport)
+        // Google Messages is the phone's own texting: its rows carry no badge (owner, Gate G3).
+        if (row.network != NetworkId.GMESSAGES) NetworkBadge(row.network)
         if (row.chat.folder == ChatFolder.GENERAL) FolderTag(stringResource(R.string.inbox_folder_general))
         row.last?.let {
             Text(
@@ -244,6 +249,8 @@ private fun SwipeFeedback(
 private fun RowContent(
     row: ChatRow,
     now: Instant,
+    selected: Boolean = false,
+    onSelect: () -> Unit = {},
 ) {
     val appearance = PingMeTheme.appearance
     val vertical =
@@ -257,15 +264,17 @@ private fun RowContent(
     Row(
         Modifier
             // An unread row is tinted whole, on top of the bold text and the dot (owner, Gate G2).
-            .background(if (unread) colours.primary.copy(alpha = UNREAD_TINT) else Color.Transparent)
-            .padding(horizontal = 20.dp, vertical = vertical),
+            .background(
+                when {
+                    selected -> colours.secondaryContainer
+                    unread -> colours.primary.copy(alpha = UNREAD_TINT)
+                    else -> Color.Transparent
+                },
+            ).padding(horizontal = 20.dp, vertical = vertical),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box {
-            Avatar(row.title, size = appearance.avatarSize.dp)
-            if (row.typing) TypingDots(Modifier.align(Alignment.BottomEnd).offset(x = 8.dp, y = 4.dp))
-        }
+        RowAvatar(row, selected, onSelect)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             TitleLine(row, now)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -425,3 +434,33 @@ private const val QUARTER_TURN = 90f
 private const val CAMERA = 12f
 
 private const val UNREAD_TINT = 0.08f
+
+/** The avatar; hold it to start selecting rows (owner, Gate G3). A picked row shows a check instead. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun RowAvatar(
+    row: ChatRow,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    val colours = MaterialTheme.colorScheme
+    val size = PingMeTheme.appearance.avatarSize.dp
+    val pick = stringResource(R.string.inbox_select_row)
+    Box(
+        Modifier.combinedClickable(
+            onLongClickLabel = pick,
+            onLongClick = onSelect,
+            onClickLabel = pick,
+            onClick = onSelect,
+        ),
+    ) {
+        if (selected) {
+            Box(Modifier.size(size).background(colours.primary, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(painterResource(UiR.drawable.ic_check), null, tint = colours.onPrimary)
+            }
+        } else {
+            Avatar(row.title, size = size)
+        }
+        if (row.typing) TypingDots(Modifier.align(Alignment.BottomEnd).offset(x = 8.dp, y = 4.dp))
+    }
+}

@@ -14,14 +14,15 @@ import (
 
 	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/appstate"
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waMmsRetry"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
-
 )
 
 // EventSink receives every event as one JSON object. Kotlin implements it. Calls come
@@ -50,7 +51,16 @@ type Session struct {
 
 	mu    sync.Mutex
 	names map[string]string
+	// Downloads waiting for the phone to upload an expired file again, by message id.
+	retries map[string]chan *events.MediaRetry
+	// The phone's own key for a chat PingMe knows by its canonical id, for history requests.
+	historyKeys map[string]string
+	// Coalesces a burst of contact changes into one "contacts" event.
+	contactsTimer *time.Timer
 }
+
+// retryWait is how long a download waits for the phone to upload an expired file again.
+const retryWait = 45 * time.Second
 
 // NewSession opens (or creates) the device store at dbPath. A fresh store is not linked
 // yet: PairCode links it; IsLoggedIn says which.
@@ -66,11 +76,13 @@ func NewSession(dbPath string, sink EventSink) (*Session, error) {
 		return nil, fmt.Errorf("could not read the WhatsApp store: %w", err)
 	}
 	s := &Session{
-		container: container,
-		device:    device,
-		sink:      sink,
-		log:       newLogger("whatsmeow"),
-		names:     make(map[string]string),
+		container:   container,
+		device:      device,
+		sink:        sink,
+		log:         newLogger("whatsmeow"),
+		names:       make(map[string]string),
+		retries:     make(map[string]chan *events.MediaRetry),
+		historyKeys: make(map[string]string),
 	}
 	s.client = whatsmeow.NewClient(device, waLogger("client"))
 	s.client.EnableAutoReconnect = true
@@ -401,6 +413,9 @@ func (s *Session) Download(mediaJSON, destPath string) error {
 	ctx, cancel := context.WithTimeout(s.log.WithContext(context.Background()), 5*time.Minute)
 	defer cancel()
 	data, err := s.client.DownloadMediaWithPath(ctx, media.DirectPath, encSha, sha, key, whatsmeow.MediaType(media.Type), "", false)
+	if err != nil && expired(err) && media.MessageID != "" {
+		data, err = s.downloadAgain(ctx, media, key, sha, encSha, err)
+	}
 	if err != nil {
 		return wrap(err)
 	}
@@ -409,6 +424,57 @@ func (s *Session) Download(mediaJSON, destPath string) error {
 		return err
 	}
 	return os.Rename(temp, destPath)
+}
+
+// expired is the answer WhatsApp's media servers give for a file they no longer hold.
+func expired(err error) bool {
+	return errors.Is(err, whatsmeow.ErrMediaDownloadFailedWith403) ||
+		errors.Is(err, whatsmeow.ErrMediaDownloadFailedWith404) ||
+		errors.Is(err, whatsmeow.ErrMediaDownloadFailedWith410)
+}
+
+// downloadAgain is WhatsApp's own "media retry": the servers have dropped the file (older
+// voice notes and pictures from history, for one; owner, Gate G3), so the phone is asked to
+// upload it again and the new path is fetched. first is the error the plain download gave.
+func (s *Session) downloadAgain(ctx context.Context, media Media, key, sha, encSha []byte, first error) ([]byte, error) {
+	chat, err := parseJID(media.Chat)
+	if err != nil {
+		return nil, first
+	}
+	info := &types.MessageInfo{
+		MessageSource: types.MessageSource{Chat: chat, IsFromMe: media.FromMe, IsGroup: isGroup(chat)},
+		ID:            media.MessageID,
+	}
+	if sender, perr := parseJID(media.Sender); perr == nil {
+		info.Sender = sender
+	}
+	answer := make(chan *events.MediaRetry, 1)
+	s.mu.Lock()
+	s.retries[media.MessageID] = answer
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.retries, media.MessageID)
+		s.mu.Unlock()
+	}()
+	if err := s.client.SendMediaRetryReceipt(ctx, info, key); err != nil {
+		return nil, fmt.Errorf("%w (and the phone could not be asked for it again: %v)", first, err)
+	}
+	select {
+	case evt := <-answer:
+		note, err := whatsmeow.DecryptMediaRetryNotification(evt, key)
+		if err != nil {
+			return nil, fmt.Errorf("the phone's answer could not be read: %w", err)
+		}
+		if note.GetResult() != waMmsRetry.MediaRetryNotification_SUCCESS || note.GetDirectPath() == "" {
+			return nil, fmt.Errorf("GONE: the phone no longer has this file (%s)", note.GetResult())
+		}
+		return s.client.DownloadMediaWithPath(ctx, note.GetDirectPath(), encSha, sha, key, whatsmeow.MediaType(media.Type), "", false)
+	case <-time.After(retryWait):
+		return nil, fmt.Errorf("the phone did not answer the request for this file: %w", first)
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 // RequestHistory asks the phone for up to count messages older than the given one in
@@ -421,6 +487,13 @@ func (s *Session) RequestHistory(chat, lastID string, lastTimestamp int64, lastF
 	if s.client.Store.ID == nil {
 		return ErrNotLoggedIn
 	}
+	s.mu.Lock()
+	if key, ok := s.historyKeys[to.String()]; ok {
+		if parsed, perr := types.ParseJID(key); perr == nil {
+			to = parsed
+		}
+	}
+	s.mu.Unlock()
 	last := &types.MessageInfo{
 		MessageSource: types.MessageSource{Chat: to, IsFromMe: lastFromMe, IsGroup: isGroup(to)},
 		ID:            lastID,
@@ -526,14 +599,42 @@ func (s *Session) handleEvent(raw any) {
 	case *events.OfflineSyncCompleted:
 		s.emit(map[string]any{"type": "offlineSyncDone", "count": evt.Count})
 	case *events.Message:
-		s.emit(map[string]any{"type": "message", "message": convertMessage(evt, s.phoneOf)})
+		// Housekeeping between your own devices (history notices, key shares, sync answers)
+		// is not a message to anyone; it must not turn into a chat (owner, Gate G3).
+		if evt.Info.Category == "peer" {
+			return
+		}
+		msg := convertMessage(evt, s.phoneOf, s.canon)
+		if msg.Kind == "skip" {
+			return
+		}
+		s.emit(map[string]any{"type": "message", "message": msg})
+	case *events.MediaRetry:
+		s.mu.Lock()
+		waiting := s.retries[evt.MessageID]
+		s.mu.Unlock()
+		if waiting != nil {
+			select {
+			case waiting <- evt:
+			default:
+			}
+		}
+	case *events.AppStateSyncComplete:
+		// The phone's contact list has arrived (or changed): names can replace numbers.
+		if evt.Name == appstate.WAPatchCriticalUnblockLow {
+			s.forgetNames("")
+			s.emit(map[string]any{"type": "contacts"})
+		}
+	case *events.Contact:
+		s.forgetNames(evt.JID.ToNonAD().String())
+		s.contactsSoon()
 	case *events.UndecryptableMessage:
 		s.emit(map[string]any{"type": "undecryptable", "id": evt.Info.ID, "chat": evt.Info.Chat.String(),
 			"sender": evt.Info.Sender.ToNonAD().String(), "timestamp": millis(evt.Info.Timestamp), "fromMe": evt.Info.IsFromMe})
 	case *events.Receipt:
-		s.emit(map[string]any{"type": "receipt", "receipt": convertReceipt(evt)})
+		s.emit(map[string]any{"type": "receipt", "receipt": convertReceipt(evt, s.canon)})
 	case *events.ChatPresence:
-		s.emit(map[string]any{"type": "typing", "chat": evt.Chat.String(), "sender": evt.Sender.ToNonAD().String(),
+		s.emit(map[string]any{"type": "typing", "chat": s.canon(evt.Chat).String(), "sender": s.canon(evt.Sender).String(),
 			"typing": evt.State == types.ChatPresenceComposing})
 	case *events.HistorySync:
 		s.onHistory(evt)
@@ -542,7 +643,7 @@ func (s *Session) handleEvent(raw any) {
 	case *events.GroupInfo:
 		s.refreshGroup(evt.JID)
 	case *events.MarkChatAsRead:
-		s.emit(map[string]any{"type": "chatRead", "chat": evt.JID.String(), "read": evt.Action.GetRead()})
+		s.emit(map[string]any{"type": "chatRead", "chat": s.canon(evt.JID).String(), "read": evt.Action.GetRead()})
 	case *events.PushName:
 		s.emit(map[string]any{"type": "pushName", "id": evt.JID.ToNonAD().String(), "name": evt.NewPushName})
 	default:
@@ -582,8 +683,18 @@ func (s *Session) onHistory(evt *events.HistorySync) {
 		if err != nil {
 			continue
 		}
+		// One chat per person: the phone-number form, whichever address the phone keyed it by.
+		canonical := s.canon(chatJID)
+		if pn, perr := types.ParseJID(conv.GetPnJID()); perr == nil && !pn.IsEmpty() && chatJID.Server == types.HiddenUserServer {
+			canonical = pn.ToNonAD()
+		}
+		if canonical != chatJID {
+			s.mu.Lock()
+			s.historyKeys[canonical.String()] = chatJID.String()
+			s.mu.Unlock()
+		}
 		chat := Chat{
-			ID:       chatJID.String(),
+			ID:       canonical.String(),
 			Name:     conv.GetName(),
 			IsGroup:  isGroup(chatJID),
 			Unread:   int(conv.GetUnreadCount()),
@@ -605,7 +716,8 @@ func (s *Session) onHistory(evt *events.HistorySync) {
 			if err != nil {
 				continue
 			}
-			entry := Participant{ID: member.ToNonAD().String(), IsAdmin: p.GetRank() != 0, Name: s.nameOf(member), IsMe: sameUser(member, s.me())}
+			member = s.canon(member)
+			entry := Participant{ID: member.String(), IsAdmin: p.GetRank() != 0, Name: s.nameOf(member), IsMe: sameUser(member, s.me())}
 			if member.Server == types.DefaultUserServer {
 				entry.Phone = member.User
 			} else {
@@ -622,14 +734,18 @@ func (s *Session) onHistory(evt *events.HistorySync) {
 			if err != nil {
 				continue
 			}
-			messages = append(messages, convertMessage(parsed, s.phoneOf))
+			converted := convertMessage(parsed, s.phoneOf, s.canon)
+			if converted.Kind == "skip" || parsed.Info.Category == "peer" {
+				continue
+			}
+			messages = append(messages, converted)
 		}
 		s.emit(map[string]any{"type": "history", "syncType": syncType, "progress": data.GetProgress(), "chat": chat, "messages": messages})
 	}
 	s.emit(map[string]any{"type": "historyChunk", "syncType": syncType, "progress": data.GetProgress(), "chats": len(data.GetConversations())})
 }
 
-func convertReceipt(evt *events.Receipt) Receipt {
+func convertReceipt(evt *events.Receipt, canon func(types.JID) types.JID) Receipt {
 	kind := "delivered"
 	switch evt.Type {
 	case types.ReceiptTypeRead, types.ReceiptTypeReadSelf:
@@ -638,8 +754,8 @@ func convertReceipt(evt *events.Receipt) Receipt {
 		kind = "played"
 	}
 	return Receipt{
-		Chat:      evt.Chat.String(),
-		Sender:    evt.Sender.ToNonAD().String(),
+		Chat:      canon(evt.Chat).String(),
+		Sender:    canon(evt.Sender).String(),
 		IDs:       append([]string{}, evt.MessageIDs...),
 		Kind:      kind,
 		Timestamp: millis(evt.Timestamp),
@@ -723,10 +839,50 @@ func (s *Session) nameOf(jid types.JID) string {
 	if err == nil {
 		name = contactName(info)
 	}
-	s.mu.Lock()
-	s.names[key] = name
-	s.mu.Unlock()
+	if name != "" {
+		// A missing name is not remembered: the contact list may not have synced yet.
+		s.mu.Lock()
+		s.names[key] = name
+		s.mu.Unlock()
+	}
 	return name
+}
+
+// forgetNames drops one cached name, or all of them when key is "".
+func (s *Session) forgetNames(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if key == "" {
+		s.names = make(map[string]string)
+	} else {
+		delete(s.names, key)
+	}
+}
+
+// contactsSoon announces changed contacts once a burst of changes has settled.
+func (s *Session) contactsSoon() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.contactsTimer != nil {
+		s.contactsTimer.Stop()
+	}
+	s.contactsTimer = time.AfterFunc(2*time.Second, func() { s.emit(map[string]any{"type": "contacts"}) })
+}
+
+// canon is the one address PingMe uses for a user: the phone-number form whenever the
+// store knows it for a hidden id, so a person stays one chat whichever of their two
+// addresses a message, receipt, or typing notice used (owner, Gate G3).
+func (s *Session) canon(jid types.JID) types.JID {
+	if jid.Server != types.HiddenUserServer {
+		return jid.ToNonAD()
+	}
+	ctx, cancel := s.ctx()
+	defer cancel()
+	pn, err := s.client.Store.LIDs.GetPNForLID(ctx, jid.ToNonAD())
+	if err != nil || pn.IsEmpty() {
+		return jid.ToNonAD()
+	}
+	return pn.ToNonAD()
 }
 
 func (s *Session) phoneOf(jid types.JID) string {

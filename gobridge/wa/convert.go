@@ -56,21 +56,21 @@ type Message struct {
 	Timestamp   int64  `json:"timestamp"`
 	// "text", "image", "video", "gif", "voice", "audio", "document", "sticker",
 	// "location", "contact", "reaction", "revoke", "edit", "system", or "unsupported".
-	Kind       string     `json:"kind"`
-	Text       string     `json:"text,omitempty"`
-	Media      *Media     `json:"media,omitempty"`
-	Reaction   *Reaction  `json:"reaction,omitempty"`
-	Revoke     *Target    `json:"revoke,omitempty"`
-	Edit       *Edit      `json:"edit,omitempty"`
-	ReplyTo    *Quote     `json:"replyTo,omitempty"`
-	Location   *Location  `json:"location,omitempty"`
-	Contact    *Contact   `json:"contact,omitempty"`
-	Status     string     `json:"status,omitempty"` // "pending", "sent", "delivered", "read", "played", "error"
-	IsViewOnce bool       `json:"isViewOnce"`
-	Ephemeral  bool       `json:"isEphemeral"`
-	Edited     bool       `json:"edited"`
-	System     string     `json:"system,omitempty"` // the stub type's name for system lines
-	Mentions   []string   `json:"mentions,omitempty"`
+	Kind       string    `json:"kind"`
+	Text       string    `json:"text,omitempty"`
+	Media      *Media    `json:"media,omitempty"`
+	Reaction   *Reaction `json:"reaction,omitempty"`
+	Revoke     *Target   `json:"revoke,omitempty"`
+	Edit       *Edit     `json:"edit,omitempty"`
+	ReplyTo    *Quote    `json:"replyTo,omitempty"`
+	Location   *Location `json:"location,omitempty"`
+	Contact    *Contact  `json:"contact,omitempty"`
+	Status     string    `json:"status,omitempty"` // "pending", "sent", "delivered", "read", "played", "error"
+	IsViewOnce bool      `json:"isViewOnce"`
+	Ephemeral  bool      `json:"isEphemeral"`
+	Edited     bool      `json:"edited"`
+	System     string    `json:"system,omitempty"` // the stub type's name for system lines
+	Mentions   []string  `json:"mentions,omitempty"`
 }
 
 // Media is what Download needs, plus what the bubble shows before the file is there.
@@ -92,6 +92,11 @@ type Media struct {
 	Voice         bool   `json:"voice"` // a voice note (push to talk), not a music file
 	Gif           bool   `json:"gif"`   // a video WhatsApp plays as a GIF
 	Animated      bool   `json:"animated"`
+	// The message the file came in, for asking the phone to upload it again once expired.
+	MessageID string `json:"messageId,omitempty"`
+	Chat      string `json:"chat,omitempty"`
+	Sender    string `json:"sender,omitempty"`
+	FromMe    bool   `json:"fromMe,omitempty"`
 }
 
 // Reaction is an emoji on another message; an empty Emoji takes it away.
@@ -175,12 +180,12 @@ func b64(b []byte) string {
 
 // convertMessage flattens a live or historical message. phoneOf resolves a hidden
 // (LID) sender to a phone number when the store knows it.
-func convertMessage(evt *events.Message, phoneOf func(types.JID) string) Message {
+func convertMessage(evt *events.Message, phoneOf func(types.JID) string, canon func(types.JID) types.JID) Message {
 	info := evt.Info
 	out := Message{
 		ID:         info.ID,
-		Chat:       info.Chat.String(),
-		Sender:     info.Sender.ToNonAD().String(),
+		Chat:       canonicalChat(info, canon).String(),
+		Sender:     canonicalSender(info, canon).String(),
 		PushName:   info.PushName,
 		FromMe:     info.IsFromMe,
 		Timestamp:  millis(info.Timestamp),
@@ -205,7 +210,77 @@ func convertMessage(evt *events.Message, phoneOf func(types.JID) string) Message
 		}
 	}
 	fill(&out, evt.Message)
+	if out.Media != nil {
+		out.Media.MessageID = info.ID
+		out.Media.Chat = out.Chat
+		out.Media.Sender = out.Sender
+		out.Media.FromMe = info.IsFromMe
+	}
 	return out
+}
+
+// canonicalChat is the one id for the chat a message belongs to: a one-to-one chat under
+// a hidden address becomes the phone-number form when the message itself names it, or the
+// store knows it; groups and known numbers stay as they are.
+func canonicalChat(info types.MessageInfo, canon func(types.JID) types.JID) types.JID {
+	chat := info.Chat
+	if chat.Server != types.HiddenUserServer {
+		return chat
+	}
+	alt := info.RecipientAlt
+	if !info.IsFromMe {
+		alt = info.SenderAlt
+	}
+	if alt.Server == types.DefaultUserServer && !alt.IsEmpty() {
+		return alt.ToNonAD()
+	}
+	if canon != nil {
+		return canon(chat)
+	}
+	return chat
+}
+
+func canonicalSender(info types.MessageInfo, canon func(types.JID) types.JID) types.JID {
+	if info.Sender.Server == types.HiddenUserServer && info.SenderAlt.Server == types.DefaultUserServer && !info.SenderAlt.IsEmpty() {
+		return info.SenderAlt.ToNonAD()
+	}
+	if canon != nil {
+		return canon(info.Sender)
+	}
+	return info.Sender.ToNonAD()
+}
+
+// housekeeping is a message with nothing for a person to read: votes, pins, keep-in-chat
+// marks, encrypted reactions and comments, placeholders, and the key-share-only envelopes
+// WhatsApp sends between devices. Shown as nothing rather than "not supported".
+func housekeeping(msg *waE2E.Message) bool {
+	switch {
+	case msg.PollUpdateMessage != nil, msg.PinInChatMessage != nil, msg.KeepInChatMessage != nil,
+		msg.EncReactionMessage != nil, msg.EncCommentMessage != nil, msg.EncEventResponseMessage != nil,
+		msg.PlaceholderMessage != nil, msg.StickerSyncRmrMessage != nil, msg.StatusMentionMessage != nil:
+		return true
+	case msg.SenderKeyDistributionMessage != nil, msg.FastRatchetKeySenderKeyDistributionMessage != nil, msg.MessageContextInfo != nil:
+		// Only the envelope: no part a person could read.
+		return !readable(msg)
+	}
+	return false
+}
+
+// readable is whether a message carries any part a person could read or play.
+func readable(msg *waE2E.Message) bool {
+	return msg.Conversation != nil || msg.ExtendedTextMessage != nil || msg.ImageMessage != nil ||
+		msg.VideoMessage != nil || msg.AudioMessage != nil || msg.DocumentMessage != nil ||
+		msg.StickerMessage != nil || msg.LocationMessage != nil || msg.ContactMessage != nil ||
+		msg.ContactsArrayMessage != nil || msg.LiveLocationMessage != nil || msg.PtvMessage != nil ||
+		msg.GroupInviteMessage != nil || msg.ListMessage != nil || msg.ButtonsMessage != nil ||
+		msg.TemplateMessage != nil || msg.InteractiveMessage != nil || msg.OrderMessage != nil ||
+		msg.ProductMessage != nil || msg.EventMessage != nil || msg.AlbumMessage != nil ||
+		msg.DocumentWithCaptionMessage != nil || msg.ViewOnceMessage != nil || msg.ViewOnceMessageV2 != nil ||
+		msg.ViewOnceMessageV2Extension != nil || msg.EphemeralMessage != nil || msg.EditedMessage != nil ||
+		msg.CallLogMesssage != nil || msg.CommentMessage != nil || msg.LottieStickerMessage != nil ||
+		msg.PollCreationMessage != nil || msg.PollCreationMessageV2 != nil || msg.PollCreationMessageV3 != nil ||
+		msg.RequestPaymentMessage != nil || msg.SendPaymentMessage != nil || msg.InvoiceMessage != nil ||
+		msg.ReactionMessage != nil || msg.ProtocolMessage != nil
 }
 
 func webStatus(status waWeb.WebMessageInfo_Status, fromMe bool) string {
@@ -335,11 +410,14 @@ func fill(out *Message, msg *waE2E.Message) {
 			}
 			out.Edit = &Edit{TargetID: p.GetKey().GetID(), Text: text}
 		default:
-			out.Kind = "unsupported"
+			// Key shares, sync notices, and the like: housekeeping, not a message to show.
+			out.Kind = "skip"
 		}
 	case msg.PollCreationMessage != nil || msg.PollCreationMessageV2 != nil || msg.PollCreationMessageV3 != nil:
 		out.Kind = "text"
 		out.Text = "📊 " + pollName(msg)
+	case housekeeping(msg):
+		out.Kind = "skip"
 	default:
 		out.Kind = "unsupported"
 	}

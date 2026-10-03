@@ -30,6 +30,7 @@ import org.pingme.core.model.ChatOverrides
 import org.pingme.core.model.Message
 import org.pingme.core.model.MessageKind
 import org.pingme.core.model.Person
+import org.pingme.core.model.PersonId
 import org.pingme.core.model.VibrationPattern
 import org.pingme.core.service.ChatActions
 import org.pingme.core.service.MessageActions
@@ -38,6 +39,7 @@ import org.pingme.core.store.ChatOverridesRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ChatSearchRepository
 import org.pingme.core.store.ContactRepository
+import org.pingme.core.store.MessageRepository
 import org.pingme.core.store.PinnedMessageRepository
 import org.pingme.core.store.SettingsRepository
 import org.pingme.core.ui.theme.Appearance
@@ -58,15 +60,19 @@ data class ChatDetailsState(
     val overrides: ChatOverrides? = null,
     val appearance: Appearance = Appearance(),
     val appReactions: List<String> = emptyList(),
+    val self: PersonId? = null,
 ) {
     val look: ChatLook get() = ChatLook.fromJson(overrides?.lookJson)
 
-    /** The other person in a one-to-one chat. */
+    /**
+     * The other person in a one-to-one chat: never you, whether the network lists you first
+     * (owner, Gate G3: "Add to contacts" offered your own number) or not. You are whoever
+     * sent your messages here; before that, the person the network names "You".
+     */
     val person: Person? get() =
         chat
-            ?.takeIf {
-                it.kind == org.pingme.core.model.ChatKind.DIRECT
-            }?.let { people.firstOrNull() }
+            ?.takeIf { it.kind == org.pingme.core.model.ChatKind.DIRECT }
+            ?.let { people.firstOrNull { p -> p.id != self && p.displayName != YOU } ?: people.firstOrNull() }
 }
 
 /** Chat details for one chat (UI_DESIGN.md 3.4, BUILD_PLAN.md P2.5). */
@@ -79,6 +85,7 @@ class ChatDetailsViewModel
         private val chats: ChatRepository,
         accounts: AccountRepository,
         contacts: ContactRepository,
+        private val messages: MessageRepository,
         pins: PinnedMessageRepository,
         search: ChatSearchRepository,
         private val overridesRepo: ChatOverridesRepository,
@@ -144,6 +151,7 @@ class ChatDetailsViewModel
                     overrides = overrides,
                     appearance = look,
                     appReactions = reactions,
+                    self = messages.selfIn(chatId),
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), ChatDetailsState())
 
@@ -238,3 +246,6 @@ class ChatDetailsViewModel
             const val PREVIEW = 12
         }
     }
+
+/** What every connector names your own entry among a chat's people. */
+private const val YOU = "You"

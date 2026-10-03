@@ -10,6 +10,8 @@ import org.pingme.core.model.AvatarSource
 import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Message
+import org.pingme.core.model.MessageKind
+import org.pingme.core.model.Quote
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
@@ -57,6 +59,7 @@ class EventApplier
                 is ConnectorEvent.ChatRemoved -> chats.delete(event.chatId)
                 is ConnectorEvent.State -> accounts.updateState(event.accountId, event.state)
                 is ConnectorEvent.SpaceUpdated -> applySpace(event.space)
+                is ConnectorEvent.PeopleUpdated -> event.people.forEach { contacts.upsert(it) }
                 else -> Unit
             }
         }
@@ -165,7 +168,7 @@ class EventApplier
         }
 
         private suspend fun saveMessage(snapshot: MessageSnapshot) {
-            val message = snapshot.message
+            val message = withQuote(snapshot.message)
             snapshot.sender?.let { contacts.upsert(it) }
             if (chats.get(message.chatId) == null) {
                 // A connector should announce a chat before its messages. If one arrives
@@ -175,6 +178,30 @@ class EventApplier
             }
             messages.upsert(message)
         }
+
+        /**
+         * A reply from the network names only the message it answers, so the quote shown
+         * above it comes from the store (owner, Gate G3: the quote vanished once the network's
+         * copy replaced the stand-in). A reply to something not stored yet stays bare.
+         */
+        private suspend fun withQuote(message: Message): Message {
+            val target = message.replyTo?.takeIf { message.quote == null }?.let { messages.get(it) } ?: return message
+            val name = if (target.isOutgoing) YOU else contacts.person(target.senderId)?.displayName.orEmpty()
+            return message.copy(quote = Quote(name, target.body ?: quoteLabel(target.kind)))
+        }
+
+        private fun quoteLabel(kind: MessageKind): String =
+            when (kind) {
+                MessageKind.TEXT, MessageKind.DELETED -> ""
+                MessageKind.VOICE -> "Voice note"
+                MessageKind.GIF -> "GIF"
+                MessageKind.IMAGE -> "Photo"
+                MessageKind.VIDEO -> "Video"
+                MessageKind.FILE -> "File"
+                MessageKind.LOCATION -> "Location"
+                MessageKind.CONTACT -> "Contact"
+                MessageKind.STICKER -> "Sticker"
+            }
 
         private fun placeholderChat(snapshot: MessageSnapshot): Chat {
             val message = snapshot.message
@@ -194,6 +221,7 @@ class EventApplier
     }
 
 /** How connectors mark the remote id of a stand-in they show while the network's copy is slow. */
+const val YOU = "You"
 const val STAND_IN_PREFIX = "tmp/"
 
 private fun Chat.withSnapshot(s: ChatSnapshot) =
