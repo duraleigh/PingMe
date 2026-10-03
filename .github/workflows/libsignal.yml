@@ -1,4 +1,4 @@
-# Builds Signal's native library (libsignal_ffi.a, Rust) for Android once per libsignal
+# Builds Signal's native library (libsignal_ffi.a, Rust) for Android and Linux once per libsignal
 # version and attaches it to a release named libsignal-<version>, so the Go bridge build
 # (gobridge/build.sh) and CI only download it (BUILD_PLAN.md Phase 6, Signal).
 name: libsignal for Android
