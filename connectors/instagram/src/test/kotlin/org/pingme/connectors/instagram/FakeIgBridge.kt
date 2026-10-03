@@ -120,7 +120,22 @@ class FakeIgSession(
             IgThreadPage(if (folder == "PENDING") listOf(requestThread()) else listOf(samThread())),
         )
 
-    override fun thread(fbid: String): String = igJson.encodeToString(IgThread.serializer(), samThread())
+    /** Any thread asked for exists: Sam's for his id, a General thread with a named stranger for any other. */
+    override fun thread(fbid: String): String =
+        igJson.encodeToString(
+            IgThread.serializer(),
+            if (fbid == FakeInstagram.THREAD) {
+                samThread()
+            } else {
+                IgThread(
+                    fbid,
+                    longId = "${fbid}L",
+                    folder = "GENERAL",
+                    lastMessageAt = 1_759_200_000_000,
+                    users = listOf(IgUser("400", "6", "newperson", "New Person"), users()[1]),
+                )
+            },
+        )
 
     override fun messages(
         fbid: String,

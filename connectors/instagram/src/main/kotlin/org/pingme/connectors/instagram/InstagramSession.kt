@@ -128,9 +128,30 @@ internal class InstagramSession(
             }
 
             else -> {
+                if (event is IgEvent.Message) placeThread(event.message)
                 go.translate(event).forEach { send(it) }
                 fetchPreviews(event)
             }
+        }
+    }
+
+    /**
+     * A message for a thread or from a sender PingMe has not been told about yet: ask
+     * Instagram for the thread first, so the chat lands with its name, its people, and its
+     * folder (General stays out of All) instead of a bare placeholder named by an id that
+     * only the next full sync would fix (owner, Gate G7).
+     */
+    private suspend fun ProducerScope<ConnectorEvent>.placeThread(msg: IgMessage) {
+        if (go.knows(msg.thread) && go.knowsPerson(msg.sender)) return
+        try {
+            val thread = go.threadJson(request { session.thread(msg.thread) })
+            send(ConnectorEvent.ChatUpdated(accountId, go.chat(thread)))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            Log.w(TAG, "Could not fetch the thread ${msg.thread} a message came for", e)
         }
     }
 

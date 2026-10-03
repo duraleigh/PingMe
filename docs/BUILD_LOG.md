@@ -2812,7 +2812,28 @@ Built now:
   files replies, reactions, and receipts that WhatsApp addresses by hidden id; whether
   that is the whole of note 20 still waits for the phone's log.
 
-Waiting for the phone's log (notes 2, 7, 20, all WhatsApp): WhatsApp's inbound
+- **WhatsApp names** (note 7, from a screenshot of the new-chat list): the phone's contact
+  list (names for numbers) reaches a linked device as "app state", and only when the
+  client asks for it; the library does not ask on its own, and the bridge never did, so
+  the names had no way to arrive. The bridge now fetches every app-state set once per
+  store after connecting (the contact list first); later changes are pushed. WhatsApp's
+  "0" user (its placeholder for nobody) is never a person, and the one an earlier build
+  stored ("+0") is dropped with the next people list.
+- **New-chat chips** (owner): the account chips read the network's name ("WhatsApp"),
+  with the account's own name added only when two accounts share a network.
+- **Late joiners**: WhatsApp maps a contact who joins mid-session on the next contacts
+  refresh (unmapped contacts are asked about again, at most every five minutes);
+  Telegram reads its contact list again when a "joined Telegram" note arrives; Signal
+  looks up the address book on every connect and every opening of its new-chat screen.
+
+- **Instagram messages named by a long number, and General chats in All** (owner, from
+  the inbox): a message for a thread PingMe had not been told about made a bare
+  placeholder chat, titled by the sender's user id and with no folder, which the next
+  full sync replaced much later. The session now asks Instagram for the thread first,
+  whenever a message comes for an unlisted thread or from an unseen sender, so the chat
+  lands with its name, its people, and its folder; a General thread stays out of All.
+
+Waiting for the phone's log (notes 2 and 20, WhatsApp): WhatsApp's inbound
 silence and names (the hidden-id mapping is the lead), Instagram read marks, Messenger's
 "reconnecting", Signal's contact list, notifications not clearing.
 

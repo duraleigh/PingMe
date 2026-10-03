@@ -82,6 +82,10 @@ class IgTranslate(
     @Synchronized
     fun knows(thread: String) = thread in threads
 
+    /** Whether a sender has been seen in a thread listing, so they have a name. */
+    @Synchronized
+    fun knowsPerson(user: String) = user == ownId || user in names
+
     /** The picture of a shared post or reel, once fetched to the phone; the card shows it. */
     @Synchronized
     fun rememberPreview(
