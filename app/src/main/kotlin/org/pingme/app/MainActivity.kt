@@ -24,6 +24,8 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var taps: NotificationTaps
 
+    @Inject lateinit var shares: org.pingme.app.share.ShareRequests
+
     private val theme: ThemeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,6 +33,8 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { ConnectionService.startIfNeeded(this@MainActivity, accounts) }
         // A tapped notification names its chat; the navigation host opens it (owner, Gate G2).
         taps.fromIntent(intent)
+        // Text or files shared from another app open the picker (owner, Gate G3).
+        shares.fromIntent(intent)
         enableEdgeToEdge()
         setContent {
             val appearance by theme.appearance.collectAsStateWithLifecycle()
@@ -46,5 +50,6 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         taps.fromIntent(intent)
+        shares.fromIntent(intent)
     }
 }

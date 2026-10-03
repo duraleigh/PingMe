@@ -366,9 +366,18 @@ interface MessageDao {
         } else {
             updateMessage(merged.copy(rowId = existing.rowId))
         }
-        val kept = attachmentsOf(message.id).filter { it.localPath != null }.associate { it.id to it.localPath }
+        // A downloaded file stays known, unless the network now names a different file for
+        // the same part: the full-size picture after its thumbnail (owner, Gate G3: blurry
+        // pictures over RCS), which must be fetched again.
+        val kept = attachmentsOf(message.id).filter { it.localPath != null }.associateBy { it.id }
         deleteAttachments(message.id)
-        insertAttachments(attachments.map { if (it.localPath == null) it.copy(localPath = kept[it.id]) else it })
+        insertAttachments(
+            attachments.map { fresh ->
+                val before = kept[fresh.id]
+                val sameFile = before != null && (fresh.remoteRef == null || fresh.remoteRef == before.remoteRef)
+                if (fresh.localPath == null && sameFile) fresh.copy(localPath = before?.localPath) else fresh
+            },
+        )
         deleteReactions(message.id)
         insertReactions(reactions)
     }

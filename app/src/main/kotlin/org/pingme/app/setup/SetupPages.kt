@@ -77,7 +77,7 @@ fun NetworkChoices(
             ListItem(
                 headlineContent = { Text(network.displayName) },
                 supportingContent = { Text(stringResource(riskOf(network))) },
-                leadingContent = { NetworkBadge(network, null) },
+                leadingContent = { NetworkBadge(network) },
                 modifier = Modifier.selectable(false, role = Role.Button) { onPick(network) },
             )
         }

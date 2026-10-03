@@ -29,8 +29,8 @@ android {
 
     defaultConfig {
         applicationId = "org.pingme.app"
-        versionCode = 1
-        versionName = "0.0.1"
+        versionCode = 6
+        versionName = "0.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GIPHY_API_KEY", "\"$giphyKey\"")
     }

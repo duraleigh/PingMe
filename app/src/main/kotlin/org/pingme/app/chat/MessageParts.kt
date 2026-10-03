@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +32,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -154,50 +157,81 @@ internal fun LinkCard(preview: org.pingme.core.model.LinkPreview) {
 }
 
 /**
- * Sending, sent, delivered, read, failed, scheduled (UI_DESIGN.md 3.2). Read is the two ticks
- * inside a filled circle, so it never looks like delivered whatever the bubble colour
- * (owner, Gate G2: a colour change alone was invisible on the bubble).
+ * The mark after an outgoing message, drawn the way Google Messages draws its own on every
+ * network (owner, Gate G3): one hollow circle-check for sent, two for delivered, two filled
+ * for read, with the ticks cut out in the bubble's colour. A clock while sending, a red
+ * mark when it failed, a send-later mark while scheduled.
  */
 @Composable
 internal fun StatusMark(status: MessageStatus) {
-    val (icon, label) =
+    val label =
         when (status) {
-            MessageStatus.Sending -> UiR.drawable.ic_schedule to R.string.status_sending
-            MessageStatus.Sent -> UiR.drawable.ic_check to R.string.status_sent
-            MessageStatus.Delivered -> UiR.drawable.ic_done_all to R.string.status_delivered
-            MessageStatus.Read -> UiR.drawable.ic_done_all to R.string.status_read
-            is MessageStatus.Failed -> UiR.drawable.ic_error to R.string.status_failed
-            is MessageStatus.Scheduled -> UiR.drawable.ic_schedule_send to R.string.status_scheduled
+            MessageStatus.Sending -> R.string.status_sending
+            MessageStatus.Sent -> R.string.status_sent
+            MessageStatus.Delivered -> R.string.status_delivered
+            MessageStatus.Read -> R.string.status_read
+            is MessageStatus.Failed -> R.string.status_failed
+            is MessageStatus.Scheduled -> R.string.status_scheduled
         }
     val description = stringResource(label)
     val described = Modifier.semantics { contentDescription = description }
+    val ink = LocalContentColor.current
     when (status) {
+        MessageStatus.Sent -> {
+            CircleChecks(count = 1, filled = false, ink = ink, modifier = described)
+        }
+
+        MessageStatus.Delivered -> {
+            CircleChecks(count = 2, filled = false, ink = ink, modifier = described)
+        }
+
         MessageStatus.Read -> {
-            // Filled circle in the text colour, ticks cut out of it in the bubble's colour.
-            val ink = LocalContentColor.current
-            Box(described.size(MARK_BADGE).background(ink, CircleShape), contentAlignment = Alignment.Center) {
-                Icon(painterResource(icon), null, Modifier.size(MARK_INNER), tint = contentColorFor(ink))
-            }
+            CircleChecks(count = 2, filled = true, ink = ink, modifier = described)
         }
 
         is MessageStatus.Failed -> {
-            Icon(painterResource(icon), null, described.size(MARK), tint = MaterialTheme.colorScheme.error)
+            Icon(
+                painterResource(UiR.drawable.ic_error),
+                null,
+                described.size(MARK),
+                tint = MaterialTheme.colorScheme.error,
+            )
         }
 
         else -> {
+            val scheduled = status is MessageStatus.Scheduled
+            val icon = if (scheduled) UiR.drawable.ic_schedule_send else UiR.drawable.ic_schedule
+            Icon(painterResource(icon), null, described.size(MARK), tint = ink.copy(alpha = FADED))
+        }
+    }
+}
+
+/** One or two circle-checks, the second overlapping the first a little, as Google Messages draws them. */
+@Composable
+private fun CircleChecks(
+    count: Int,
+    filled: Boolean,
+    ink: Color,
+    modifier: Modifier = Modifier,
+) {
+    val icon = if (filled) UiR.drawable.ic_check_circle else UiR.drawable.ic_check_circle_outline
+    val tint = if (filled) ink else ink.copy(alpha = FADED)
+    Box(modifier.width(if (count == 2) MARK + MARK_OVERLAP else MARK).height(MARK)) {
+        repeat(count) { i ->
             Icon(
                 painterResource(icon),
                 null,
-                described.size(MARK),
-                tint = LocalContentColor.current.copy(alpha = FADED),
+                Modifier.size(MARK).offset(x = if (i == 1) MARK_OVERLAP else 0.dp),
+                tint = tint,
             )
         }
     }
 }
 
 private val MARK = 14.dp
-private val MARK_BADGE = 16.dp
-private val MARK_INNER = 11.dp
+
+/** How far the second circle sits past the first: the circles overlap, as Google Messages' do. */
+private val MARK_OVERLAP = 8.dp
 
 /** Reaction chips under the bubble: each emoji once, with how many (UI_DESIGN.md 3.2). */
 @Composable

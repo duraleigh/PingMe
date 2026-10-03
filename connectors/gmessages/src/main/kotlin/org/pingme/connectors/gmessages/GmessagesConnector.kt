@@ -136,7 +136,9 @@ class GmessagesConnector(
     override suspend fun downloadAttachment(attachment: Attachment): File {
         attachment.localPath?.let { return File(it) }
         val ref = GoBridge.MediaRef.decode(requireNotNull(attachment.remoteRef) { "the phone has not uploaded it yet" })
-        val name = sha(attachment.id.value) + extensionOf(attachment)
+        // Named by the file the phone points at, so the full-size picture that follows a
+        // thumbnail lands in its own file instead of being skipped as already fetched.
+        val name = sha(attachment.id.value + "/" + attachment.remoteRef) + extensionOf(attachment)
         return session(attachment.id.accountId).download(ref, File(mediaDir, name))
     }
 

@@ -6,6 +6,7 @@ import org.pingme.core.model.ChatId
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.MessageId
 import org.pingme.core.model.MessageStatus
+import org.pingme.core.model.Person
 import org.pingme.core.model.PersonId
 import org.pingme.core.model.Reaction
 import org.pingme.core.model.Space
@@ -66,6 +67,15 @@ sealed interface ConnectorEvent {
     data class ChatRemoved(
         override val accountId: AccountId,
         val chatId: ChatId,
+    ) : ConnectorEvent
+
+    /**
+     * People the network knows beyond the chats shown, such as the phone's WhatsApp
+     * contacts: they fill the people search when starting a chat (owner, Gate G3).
+     */
+    data class PeopleUpdated(
+        override val accountId: AccountId,
+        val people: List<Person>,
     ) : ConnectorEvent
 
     data class State(

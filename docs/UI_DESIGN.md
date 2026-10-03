@@ -101,10 +101,18 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   and preview in bold at full contrast, the time in the primary colour, and a faint
   primary tint across the whole row,
   mute icon. Sender name shown in previews for groups. When the last message is yours,
-  its status mark (sending, sent, delivered, read, failed; the same marks as in the chat:
-  one tick sent, two ticks delivered, two ticks inside a filled circle read, so read never
-  looks like delivered on any bubble colour; owner, Gate G2, 2026-10-01)
-  shows before the preview, as Google Messages does (owner, Gate G1).
+  its status mark (sending, sent, delivered, read, failed; the same marks as in the chat,
+  drawn the way Google Messages draws its own on every network: one hollow circle-check
+  sent, two hollow circle-checks delivered, two filled circle-checks read, the ticks cut
+  out in the bubble's colour, so read never looks like delivered on any bubble colour;
+  owner, Gate G2 and Gate G3) shows before the preview, as Google Messages does (owner,
+  Gate G1). Google Messages rows carry no network badge at all: it is the phone's own
+  texting, and the RCS, SMS, or MMS distinction lives on the bubbles (section 10.1).
+  Every other network keeps its badge (owner, Gate G3).
+- **Selecting rows**: press and hold an avatar to start selecting; a check replaces the
+  avatar and a tap on any row adds or removes it. A bar above the list says how many
+  and offers mark read, mark unread, mute, archive, low priority, and delete (with one
+  confirmation) for all of them at once (owner, Gate G3).
 - **Bottom bar**: its items are spaced evenly and centred across the full width.
 - **Swipe actions**: left and right swipes are user-assignable from Pin or unpin, Archive,
   Mute or unmute, Mark read or unread, Low priority, Delete. Each direction can be
@@ -156,7 +164,11 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   section 10.1 for the palette and the RCS versus SMS distinction. Consecutive messages from the same sender are
   grouped with tighter spacing and only the last bubble carries the tail.
 - **Status**: sending, sent, delivered, read, failed. Failed messages show a retry
-  button; no "send as SMS" (Google Messages gives paired devices no such choice).
+  button; no "send as SMS" (Google Messages gives paired devices no such choice). The
+  marks are the same on every network (section 3.1): Google Messages' own look, so a
+  WhatsApp tick reads exactly like an RCS one (owner, Gate G3).
+- **Header badge**: the network badge sits beside the live status, except for Google
+  Messages, which carries none (owner, Gate G3).
 - **Day separators** and a "new messages" divider.
 - **Header**: avatar, name, network badge, live status (typing, online, last seen where
   the network provides it). Tap opens Chat details.
@@ -401,6 +413,13 @@ calls are not in scope, so the call icon in a Google Voice chat header deep-link
 the Google Voice app.
 
 ### 5.8 Attachments
+
+PingMe is in Android's share menu (owner, Gate G3): text, pictures, videos, sounds, and
+files shared from another app open a picker of chats, with people from the networks that
+can start a chat once a search is typed. Several can be picked; each gets its own
+message, one after the other, the way Google Messages does. One pick opens that chat;
+more go back to the inbox. A voice note, sound, or file in a chat also saves to the
+phone's Downloads (a PingMe folder) from the hold menu's Save.
 
 The "+" button opens a bottom sheet: Camera, Gallery, File, Location, Contact. Images
 support multi-select with captions. Everything reports send progress on the bubble.

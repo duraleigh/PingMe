@@ -184,6 +184,11 @@ class InboxViewModel
             action: ChatAction,
         ) = rowActions.perform(row, action)
 
+        fun bulk(
+            rows: List<ChatRow>,
+            action: BulkAction,
+        ) = rowActions.bulk(rows, action)
+
         /** The demo network's status pill cycles Connected, reconnecting, needs attention (BUILD_PLAN.md P2.3). */
         fun cycleDemoState() {
             viewModelScope.launch {

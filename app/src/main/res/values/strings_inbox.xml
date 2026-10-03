@@ -76,6 +76,19 @@
     <string name="action_obscure">Obscure messages</string>
     <string name="action_unobscure">Stop obscuring</string>
     <string name="action_delete">Delete chat</string>
+    <string name="inbox_select_row">Select this chat</string>
+    <string name="inbox_selection_close">Stop selecting</string>
+    <string name="inbox_bulk_read">Marked %1$s chats as read</string>
+    <string name="inbox_bulk_unread">Marked %1$s chats as unread</string>
+    <string name="inbox_bulk_muted">Muted %1$s chats</string>
+    <string name="inbox_bulk_archived">Archived %1$s chats</string>
+    <string name="inbox_bulk_low_priority">Moved %1$s chats to low priority</string>
+    <string name="inbox_bulk_deleted">Deleted %1$s chats</string>
+    <string name="inbox_bulk_delete_note">They leave PingMe. Messages on the network itself stay.</string>
+    <plurals name="inbox_bulk_delete_title">
+        <item quantity="one">Delete this chat?</item>
+        <item quantity="other">Delete %1$d chats?</item>
+    </plurals>
     <string name="undo">Undo</string>
     <string name="inbox_archived">%1$s archived</string>
     <string name="inbox_low_priority_done">%1$s moved to Low priority</string>
@@ -171,6 +184,7 @@
     <string name="action_reply">Reply</string>
     <string name="action_copy">Copy</string>
     <string name="action_forward">Forward</string>
+    <string name="action_save">Save</string>
     <string name="action_pin_message">Pin</string>
     <string name="action_unpin_message">Unpin</string>
     <string name="action_select">Select</string>
