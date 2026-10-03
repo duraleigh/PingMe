@@ -2541,3 +2541,39 @@ account payments have failed or your spending limit needs to be increased": the 
 repository's free minutes for the month are used up. Until the owner raises the limit,
 makes the repository public, or puts the sideload keystore on this machine, no release
 can be built as an installable update. The owner was told the three options.
+
+## Phase 6, network 2: Telegram (2026-10-02, late evening)
+
+**Built on branch `signal`** (one branch for the rest of Phase 6). Telegram through TDLib
+1.8.67, prebuilt for all four chips from Maven Central (`io.github.tdlib-android:core:0.1.1`,
+published 2026-09-13, Boost licence), as the plan allows instead of an hours-long native
+build. Its Java classes come in the same package; no Go bridge is involved.
+
+- **App credentials** (api_id, api_hash from my.telegram.org, which the owner created
+  tonight) are never committed: CI passes the `TELEGRAM_API_ID` and `TELEGRAM_API_HASH`
+  secrets, local builds read `telegram.apiId` and `telegram.apiHash` from
+  `local.properties`, and the connector module's `BuildConfig` carries them. Without
+  them the sign-in says so and stops.
+- **Sign-in** (`TelegramLogin`): phone number, the code Telegram sends, the two-step
+  password when the account has one; TDLib's own states drive the steps. TDLib's
+  database starts in `telegram/link-<time>` and moves to `telegram/<user id>`; the
+  credential ref `telegram/<user id>` names it.
+- **Chats**: TDLib keeps the chat list itself; on connect the main list is loaded until
+  TDLib says there is no more, then read back. Group members come from the group info
+  (basic groups) or the member list (supergroups, up to 200; channels have none). A
+  forum group becomes a space with one chat per topic (`<chat id>#<topic id>`,
+  `ChatFolder.TOPIC`, `SpaceKind.TELEGRAM_FORUM`) as UI_DESIGN.md 10.4 asks.
+- **Messages**: text, photos (largest size), videos, GIFs, voice notes, audio, files,
+  stickers, shared contacts (as a vCard), places (as GeoJSON), polls as text. Quotes,
+  edits, reactions (whoever reacted, you when it is yours), read marks from the chat's
+  outbox read mark, pending and failed sends. History pages come from TDLib, asked again
+  while it fills a page.
+- **Live**: new messages, send succeeded (the real id replaces the stand-in), send
+  failed, edits, deletes for everyone, reaction changes (the message is fetched again),
+  read marks both ways, unread counts, typing, titles, users, topics.
+- **Sends**: text, one file per message with the text as its caption, reactions (removal
+  names the chosen one), edit, delete for everyone, read receipts, typing, new chat by
+  phone number, new basic group, block. Reactions offered: Telegram's free set
+  (`TelegramConnector.FREE_REACTIONS`; Premium ones are not offered), per UI_DESIGN.md 5.4.
+- **Tests**: `TelegramContractTest` against `FakeTelegramBridge`, which answers TDLib's
+  requests with TDLib's own classes (no native library in tests).

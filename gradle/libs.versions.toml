@@ -23,6 +23,7 @@ work = "2.12.0"
 datastore = "1.2.1"
 coil = "3.6.3"
 zxing = "3.5.4"
+tdlib = "0.1.1"
 materialkolor = "5.0.1"
 media3 = "1.11.1"
 kotlinx-serialization = "1.11.0"
@@ -94,6 +95,8 @@ coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" 
 coil-gif = { module = "io.coil-kt.coil3:coil-gif", version.ref = "coil" }
 # Draws login QR codes (Apache-2.0).
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+# Prebuilt TDLib (Telegram) for Android, all four chips, with its Java classes (BUILD_PLAN.md Phase 6).
+tdlib-core = { module = "io.github.tdlib-android:core", version.ref = "tdlib" }
 androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 
 # Kotlin
