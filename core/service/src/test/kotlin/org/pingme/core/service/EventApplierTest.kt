@@ -8,6 +8,7 @@ import org.junit.Test
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.chat
 import org.pingme.core.connector.message
+import org.pingme.core.connector.person
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.Reaction
@@ -138,6 +139,17 @@ class EventApplierTest : ServiceTest() {
             val reaction = Reaction("❤️", sam().id, now)
             applier.apply(ConnectorEvent.ReactionChanged(accountId, accountId.message("never-stored"), reaction, false))
             assertNull(messages.get(accountId.message("never-stored")))
+        }
+
+    @Test
+    fun stalePeopleKnownOnlyByAHiddenIdGoWhenThePeopleListComes() =
+        runTest {
+            seed()
+            val hidden = sam().copy(id = accountId.person("128226349293594@lid"), networkHandle = "128226349293594@lid")
+            contacts.upsert(hidden)
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam())))
+            assertNull(contacts.person(hidden.id))
+            assertEquals("Sam Ortiz", contacts.person(sam().id)?.displayName)
         }
 
     @Test

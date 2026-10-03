@@ -61,7 +61,7 @@ class EventApplier
                 is ConnectorEvent.ChatRemoved -> chats.delete(event.chatId)
                 is ConnectorEvent.State -> accounts.updateState(event.accountId, event.state)
                 is ConnectorEvent.SpaceUpdated -> applySpace(event.space)
-                is ConnectorEvent.PeopleUpdated -> event.people.forEach { contacts.upsert(it) }
+                is ConnectorEvent.PeopleUpdated -> applyPeople(event)
                 else -> Unit
             }
         }
@@ -172,6 +172,16 @@ class EventApplier
             return false
         }
 
+        /**
+         * The account's people, as the network lists them now. Hidden-id entries an earlier
+         * build stored (WhatsApp's "@lid" rows) go if nothing lists them any more, so a person
+         * never shows twice (owner, Gate G7).
+         */
+        private suspend fun applyPeople(event: ConnectorEvent.PeopleUpdated) {
+            event.people.forEach { contacts.upsert(it) }
+            contacts.deleteStray(event.accountId, HIDDEN_ID_SUFFIX)
+        }
+
         /** Your own reactions, echoed back by the network, do not flip the row. */
         private suspend fun announceIfFromSomeoneElse(event: ConnectorEvent.ReactionChanged) {
             val chatId = messages.get(event.messageId)?.chatId ?: return
@@ -269,6 +279,9 @@ class EventApplier
             ).toNewChat()
         }
     }
+
+/** WhatsApp's hidden user ids end this way; a person is never shown by one. */
+const val HIDDEN_ID_SUFFIX = "@lid"
 
 /** How connectors mark the remote id of a stand-in they show while the network's copy is slow. */
 const val YOU = "You"

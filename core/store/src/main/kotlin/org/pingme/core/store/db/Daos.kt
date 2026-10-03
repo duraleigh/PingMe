@@ -548,6 +548,16 @@ interface PersonDao {
 
     @Query("DELETE FROM persons WHERE id = :id")
     suspend fun delete(id: String)
+
+    /** Drops an account's people whose handle ends with [suffix] and whom no chat lists (stale hidden ids). */
+    @Query(
+        "DELETE FROM persons WHERE accountId = :accountId AND networkHandle LIKE '%' || :suffix " +
+            "AND id NOT IN (SELECT personId FROM chat_participants)",
+    )
+    suspend fun deleteStray(
+        accountId: String,
+        suffix: String,
+    )
 }
 
 data class SpaceWithChats(

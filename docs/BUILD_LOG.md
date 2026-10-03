@@ -2800,7 +2800,19 @@ Built now:
   whether the network hears a read at all; the network's own decides whether the other
   person sees "Seen"); the owner set them as wanted.
 
-Waiting for the phone's log (notes 2, 7, 19, 20, all WhatsApp): WhatsApp's inbound
+- **WhatsApp's hidden ids** (notes 8 and 19, from a screenshot on the 5:37 PM build): a
+  contact still showed twice, by hidden id and by number, because the library had no
+  number on file for that hidden id, so the bridge's fold had nothing to fold with. The
+  library fills its hidden-id map from several sources but never asks outright; the bridge
+  now asks WhatsApp once per connection for the hidden id of every phone-number contact
+  (the library's user lookup, batches of 50) and the library stores the answers. People
+  rows an earlier build stored by hidden id are dropped when the next people list comes,
+  unless a chat still lists them. A person's handle is now their number, never a raw id,
+  and a contact known only by a hidden id is never listed by it. The same map is what
+  files replies, reactions, and receipts that WhatsApp addresses by hidden id; whether
+  that is the whole of note 20 still waits for the phone's log.
+
+Waiting for the phone's log (notes 2, 7, 20, all WhatsApp): WhatsApp's inbound
 silence and names (the hidden-id mapping is the lead), Instagram read marks, Messenger's
 "reconnecting", Signal's contact list, notifications not clearing.
 

@@ -92,7 +92,11 @@ class WaTranslate(
     /** The phone's WhatsApp contacts as people of this account, for the new-chat search. */
     @Synchronized
     fun people(contacts: List<WaParticipant>): List<Person> =
-        contacts.filter { it.name.isNotBlank() && !isMe(it.id) }.map { person(it.id, it.name, it.phone) }
+        contacts
+            .filter { it.name.isNotBlank() && !isMe(it.id) }
+            // A contact known only by a hidden id is never listed by it (owner, Gate G7).
+            .filter { it.phone.isNotBlank() || !it.id.endsWith(HIDDEN_ID_SUFFIX) }
+            .map { person(it.id, it.name, it.phone) }
 
     /** Every chat known so far, as it reads now: sent again when names arrive. */
     @Synchronized
@@ -243,7 +247,8 @@ class WaTranslate(
             accountId = accountId,
             displayName = displayName(jid, name, digits),
             phoneNumber = digits.takeIf { it.isNotEmpty() }?.let { "+$it" },
-            networkHandle = jid,
+            // The number is what a person goes by here; the raw id only when there is none.
+            networkHandle = digits.takeIf { it.isNotEmpty() }?.let { "+$it" } ?: jid,
             avatarPath = null,
             contactId = null,
         )
@@ -639,3 +644,6 @@ class WaTranslate(
         private fun rank(status: MessageStatus) = TICK_ORDER.indexOf(status).coerceAtLeast(0)
     }
 }
+
+/** WhatsApp's hidden user ids end this way. */
+private const val HIDDEN_ID_SUFFIX = "@lid"

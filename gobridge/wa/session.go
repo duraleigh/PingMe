@@ -55,6 +55,8 @@ type Session struct {
 	retries map[string]chan *events.MediaRetry
 	// The phone's own key for a chat PingMe knows by its canonical id, for history requests.
 	historyKeys map[string]string
+	// Whether the hidden ids of the phone-number contacts were asked for this session.
+	hiddenIDsLearned bool
 	// Coalesces a burst of contact changes into one "contacts" event.
 	contactsTimer *time.Timer
 }
@@ -209,6 +211,7 @@ func (s *Session) Contacts() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	s.learnHiddenIDs(ctx, all)
 	// One person per phone number: a contact WhatsApp also files under its hidden id is
 	// folded into the phone-number entry, so the hidden id never shows (owner, Gate G7).
 	byID := make(map[string]*Participant, len(all))
@@ -244,6 +247,39 @@ func (s *Session) Contacts() (string, error) {
 	}
 	return marshal(people)
 }
+
+// learnHiddenIDs asks WhatsApp, once per session, which hidden id each phone-number
+// contact goes by, so the library's map between the two is filled before anything is
+// filed by it (owner, Gate G7: a contact listed twice, replies under the hidden id). The
+// library stores what the lookup returns; the lookups run in batches.
+func (s *Session) learnHiddenIDs(ctx context.Context, all map[types.JID]types.ContactInfo) {
+	s.mu.Lock()
+	done := s.hiddenIDsLearned
+	s.hiddenIDsLearned = true
+	s.mu.Unlock()
+	if done || !s.client.IsConnected() {
+		return
+	}
+	numbers := make([]types.JID, 0, len(all))
+	for jid := range all {
+		if jid.Server == types.DefaultUserServer {
+			if _, err := s.client.Store.LIDs.GetLIDForPN(ctx, jid.ToNonAD()); err == nil {
+				continue // already known
+			}
+			numbers = append(numbers, jid.ToNonAD())
+		}
+	}
+	for start := 0; start < len(numbers); start += hiddenIDBatch {
+		end := min(start+hiddenIDBatch, len(numbers))
+		if _, err := s.client.GetUserInfo(ctx, numbers[start:end]); err != nil {
+			s.log.Warn().Err(err).Int("from", start).Msg("Could not learn hidden ids for contacts")
+			return
+		}
+	}
+	s.log.Info().Int("contacts", len(numbers)).Msg("Learned hidden ids for contacts")
+}
+
+const hiddenIDBatch = 50
 
 // ContactName is the name the phone's WhatsApp has for a user, or "".
 func (s *Session) ContactName(jid string) string {
