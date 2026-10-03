@@ -2845,7 +2845,12 @@ Built now:
   bubble was an empty frame until the file came back down. The copy now takes over the
   stand-in's files by position; the upload's progress ring is unchanged.
 
-Waiting for the phone's log (notes 2 and 20, WhatsApp): WhatsApp's inbound
+**Version 0.7.1** carries every fix above. The owner chose to release without the live
+WhatsApp watch (the phone stayed off Wi-Fi debugging), on the assumption that the
+hidden-id mapping and the contact-list request resolve WhatsApp's inbound silence; that
+assumption is the owner's and is checked on the phone after the install.
+
+Not yet checked live (notes 2 and 20, WhatsApp): WhatsApp's inbound
 silence and names (the hidden-id mapping is the lead), Instagram read marks, Messenger's
 "reconnecting", Signal's contact list, notifications not clearing.
 
