@@ -169,7 +169,7 @@ class ChatViewModel
         private val presence: org.pingme.core.service.notify.ChatPresence,
         /** The ClearURLs rules, for links shown cleaned (UI_DESIGN.md 10.11). */
         val links: org.pingme.core.service.links.CleanLinks,
-        mergeRepo: org.pingme.core.store.MergeRepository,
+        private val mergeRepo: org.pingme.core.store.MergeRepository,
     ) : ViewModel() {
         private val onScreen = MutableStateFlow(false)
 
@@ -182,7 +182,9 @@ class ChatViewModel
             onScreen.value = on
             if (on) {
                 presence.visible = chatId
-                // The view model outlives one visit: the opening rule runs on every showing.
+                // The view model outlives one visit: the opening rule runs on every showing,
+                // and nothing marks the chat read until it has decided.
+                decided.value = false
                 viewModelScope.launch { openOn() }
             } else if (presence.visible == chatId) {
                 presence.visible = null
@@ -195,13 +197,24 @@ class ChatViewModel
          * choice in the header menu (owner, 2026-10-03).
          */
         private suspend fun openOn() {
-            val list = members.first { it.isNotEmpty() || !isMergedId(chatId) }
-            if (list.isEmpty()) return
-            val unreadAccounts = list.filter { it.unreadCount > 0 }.map { it.accountId }.distinct()
-            val fallback = chats.get(chatId)?.defaultSendAccount ?: list.first().accountId
-            filter.value = unreadAccounts.singleOrNull() ?: fallback
-            chosenVia.value = null
+            try {
+                if (!isMergedId(chatId)) return
+                // Asked of the store directly: on a first visit the member flow has not
+                // loaded yet, and waiting for it let the read marking zero the counts first,
+                // so the chat opened on its default network (owner, 2026-10-04).
+                val list = mergeRepo.members(chatId)
+                if (list.isEmpty()) return
+                val unreadAccounts = list.filter { it.unreadCount > 0 }.map { it.accountId }.distinct()
+                val fallback = chats.get(chatId)?.defaultSendAccount ?: list.first().accountId
+                filter.value = unreadAccounts.singleOrNull() ?: fallback
+                chosenVia.value = null
+            } finally {
+                decided.value = true
+            }
         }
+
+        /** True once the opening rule has run for this showing; read marking waits for it. */
+        private val decided = MutableStateFlow(false)
 
         /** Voice-note transcripts, when Settings turns them on (UI_DESIGN.md 5.6). */
         val transcripts =
@@ -454,7 +467,10 @@ class ChatViewModel
                 combine(chat.filterNotNull(), onScreen, ::Pair).collect { (c, shown) ->
                     if (!shown) return@collect
                     chatActions.opened(chatId)
-                    if (c.unreadCount > 0) chatActions.setRead(chatId, read = true)
+                    if (c.unreadCount > 0) {
+                        decided.first { it }
+                        chatActions.setRead(chatId, read = true)
+                    }
                 }
             }
         }

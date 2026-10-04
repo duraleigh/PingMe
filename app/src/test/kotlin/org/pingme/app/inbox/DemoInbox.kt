@@ -226,9 +226,12 @@ class DemoInbox(
         org.pingme.core.store
             .ChatOverridesRepository(db)
 
-    fun chatViewModel(remote: String) =
+    fun chatViewModel(remote: String) = chatViewModelFor(account.id.chat(remote))
+
+    /** A chat screen's view model for any chat id, a merged chat's included. */
+    fun chatViewModelFor(id: org.pingme.core.model.ChatId) =
         ChatViewModel(
-            account.id.chat(remote).value,
+            id.value,
             chats,
             messages,
             pins,

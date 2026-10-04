@@ -3264,6 +3264,17 @@ not fixed, waiting on the owner:
    icon beside the call buttons, and the owner did not find it. Each member now has a
    labelled "Remove", and an "Unmerge all" button beside "Add a chat…" dissolves the
    whole merge and returns to the chat list.
+3. **A merged chat opened on Google Messages from the WhatsApp list though its unread
+   message was on WhatsApp** (2:40 PM; from All it opened right). Not the list's doing:
+   a race on the first visit to a chat since the app started. The screen marks the chat
+   read as soon as it shows, and that marking fans out to every member; the opening rule
+   waited for the member list flow to load before looking at the members' unread counts,
+   and on a first visit the marking won, so every count was zero and the rule fell back to
+   the default network. On a later visit the view model was still alive with the members
+   loaded, so the rule won, which is why All "worked". The rule now asks the store for the
+   members directly, and the read marking waits until the rule has decided. A test opens
+   a merged chat for the first time with one unread member and checks the network chosen
+   and that the members are marked read only afterwards.
 
 ### Gate G11: the owner's checklist
 
