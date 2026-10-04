@@ -3107,6 +3107,12 @@ the owner's word.
 - UI_DESIGN.md 10.15 should read "a badge inside the box" rather than "a chip left of the
   field"; updated.
 
+### Owner note on opening a merged chat (2026-10-03, 11 PM)
+
+- A merged chat opens, header, bubbles, and box alike, on the one network its unread
+  messages came from; with no unread, or unread from several networks, on its default
+  network. "All" is a choice in the header menu, never the opening state.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a

@@ -413,12 +413,15 @@ class ChatViewModel
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), ChatUiState())
 
         init {
-            // A merged chat opens on the network of its unread messages when they are all from
-            // one network, otherwise on all (owner, Phase 7).
+            // A merged chat opens, header, bubbles, and box alike, on the one network its
+            // unread messages came from; with none, or several, on its default network.
+            // "All" stays a choice in the header menu (owner, 2026-10-03).
             viewModelScope.launch {
                 val list = members.first { it.isNotEmpty() || !isMergedId(chatId) }
+                if (list.isEmpty()) return@launch
                 val unreadAccounts = list.filter { it.unreadCount > 0 }.map { it.accountId }.distinct()
-                if (unreadAccounts.size == 1) filter.value = unreadAccounts.single()
+                val fallback = chats.get(chatId)?.defaultSendAccount ?: list.first().accountId
+                filter.value = unreadAccounts.singleOrNull() ?: fallback
             }
             // Chat details can ask for search or a jump to a pinned message.
             viewModelScope.launch {

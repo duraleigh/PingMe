@@ -797,7 +797,8 @@ Chats with the same person on different networks can be merged into one thread.
   each member network. One network narrows the bubbles to it and sets the composer to
   it; "All" shows everything and sets the composer to the default service. A merged
   chat opens narrowed to the one network its unread messages came from; with unread
-  from more than one network, or none, it opens on "All" (owner, 2026-10-03).
+  from more than one network, or none, it opens on its default network, never on "All"
+  (owner, 2026-10-03).
 - The composer's text box carries a small network badge inside its left edge and a
   placeholder naming the network ("Send a WhatsApp message", "Send an Instagram DM").
   In a merged chat, tapping the badge opens the network menu to switch for the next
