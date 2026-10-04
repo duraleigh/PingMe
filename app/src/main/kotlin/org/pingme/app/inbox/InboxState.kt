@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.inbox
 
+import org.pingme.core.connector.accountId
 import org.pingme.core.model.Account
 import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatFolder
@@ -20,6 +21,8 @@ data class ChatRow(
     val typing: Boolean,
     /** The contact's or network's photo for the row's avatar; null for the initials tile. */
     val photo: String? = null,
+    /** A merged chat's networks, for its badges; one network otherwise (UI_DESIGN.md 10.15). */
+    val networks: List<NetworkId> = listOf(network),
 ) {
     val id: ChatId get() = chat.id
     val title: String get() = chat.nameOverride ?: chat.title
@@ -47,6 +50,8 @@ data class MenuCounts(
     /** Instagram is connected, so Requests and General have somewhere to come from. */
     val hasFolders: Boolean = false,
     val spaces: List<Pair<Space, Int>> = emptyList(),
+    /** Merge suggestions waiting for the user (owner, Phase 7). */
+    val suggestions: Int = 0,
 )
 
 data class InboxUiState(
@@ -78,6 +83,8 @@ data class InboxSource(
     val hidden: Set<ChatId> = emptySet(),
     /** Everyone some chat lists, for names and photos (UI_DESIGN.md 10.18). */
     val people: Map<org.pingme.core.model.PersonId, org.pingme.core.model.Person> = emptyMap(),
+    /** Each member chat and the merged chat it belongs to (UI_DESIGN.md 10.15). */
+    val memberships: Map<ChatId, ChatId> = emptyMap(),
 )
 
 /** Pinned chats and the list for one bar selection. Pinned chats never repeat in the list. */
@@ -100,8 +107,9 @@ fun InboxSource.select(
             }
 
             is InboxBarItem.Network -> {
+                // A merged chat shows under every network it has a member on.
                 inbox.filter {
-                    networkOf[it.accountId] == selected.network &&
+                    (networkOf[it.accountId] == selected.network || selected.network in networksOf(it.id, networkOf)) &&
                         it.matches(narrowings[selected.network])
                 }
             }
@@ -122,11 +130,39 @@ fun InboxSource.select(
         }.filter { it.id !in hidden }
     val rows =
         chats.map {
-            ChatRow(it, networkOf[it.accountId] ?: NetworkId.DEMO, last[it.id], it.id in typing, photoFor(it, people))
+            val network = networkOf[it.accountId] ?: NetworkId.DEMO
+            val members = memberships.filterValues { parent -> parent == it.id }.keys
+            ChatRow(
+                it,
+                network,
+                // A merged chat previews the newest message across its members.
+                if (members.isEmpty()) {
+                    last[it.id]
+                } else {
+                    members
+                        .mapNotNull { m ->
+                            last[m]
+                        }.maxByOrNull { l -> l.sentAt }
+                },
+                it.id in typing || members.any { m -> m in typing },
+                photoFor(it, people),
+                networksOf(it.id, networkOf).ifEmpty { listOf(network) },
+            )
         }
     val (pinned, rest) = rows.partition { it.chat.isPinned }
     return pinned.sortedBy { it.chat.pinOrder ?: Int.MAX_VALUE } to rest
 }
+
+/** The networks a merged chat's members are on, in member order; empty for an ordinary chat. */
+private fun InboxSource.networksOf(
+    parent: ChatId,
+    networkOf: Map<org.pingme.core.model.AccountId, NetworkId>,
+): List<NetworkId> =
+    memberships
+        .filterValues { it == parent }
+        .keys
+        .mapNotNull { networkOf[it.accountId] }
+        .distinct()
 
 /** Chats in a space that keeps them out of All. */
 fun InboxSource.onlyInSpaces(): Set<ChatId> {

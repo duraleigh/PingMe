@@ -70,6 +70,7 @@ class MenuActions(
     val onSettings: (() -> Unit)? = null,
     val onNotifications: (() -> Unit)? = null,
     val onAccounts: (() -> Unit)? = null,
+    val onMergeSuggestions: (() -> Unit)? = null,
 )
 
 /**
@@ -290,6 +291,9 @@ private fun ColumnScope.AccountMenuContent(
             { go { actions.onList(ChatList.General) } },
             counts.general,
         )
+    }
+    actions.onMergeSuggestions?.let { open ->
+        MenuEntry(R.string.menu_merge_suggestions, UiR.drawable.ic_call_merge, { go(open) }, counts.suggestions)
     }
     counts.spaces.forEach { (space, unread) ->
         DropdownMenuItem(

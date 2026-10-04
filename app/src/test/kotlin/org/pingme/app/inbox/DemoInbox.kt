@@ -111,6 +111,9 @@ class DemoInbox(
         org.pingme.core.store
             .MergeRepository(db)
     val actions = ChatActions(chats, messages, accounts, registry, applier, settings, router, merges)
+    val mergeService =
+        org.pingme.core.service.merge
+            .Merges(chats, merges, contacts)
     val pins = PinnedMessageRepository(db)
     val scheduledSends =
         org.pingme.core.store
@@ -175,6 +178,10 @@ class DemoInbox(
             org.pingme.app.appearance
                 .AppearanceRepository(context, settings),
             contacts,
+            mergeService,
+            merges,
+            org.pingme.core.service.merge
+                .MergeSuggestions(chats, contacts, settings),
         ).tracked()
 
     fun listViewModel(route: ChatListRoute) =
@@ -264,6 +271,8 @@ class DemoInbox(
                 messageActions,
                 Clock.System,
                 requests,
+                mergeService,
+                merges,
             ).tracked()
 
     fun settingsViewModel() =

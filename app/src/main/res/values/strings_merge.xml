@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="merge_suggestions_title">Same person, more than one network</string>
+    <string name="merge_suggestions_note">PingMe found chats that look like the same person. Nothing is merged until you say so. Take out any chat that does not belong, add any that do, then merge.</string>
+    <string name="merge_suggestions_empty">No suggestions right now. You can merge any chats yourself: hold an avatar in the inbox, pick the chats, and tap Merge.</string>
+    <plurals name="merge_suggestions_card">
+        <item quantity="one">%d person appears on more than one network</item>
+        <item quantity="other">%d people appear on more than one network</item>
+    </plurals>
+    <string name="merge_suggestions_review">Review</string>
+    <string name="merge_reason_contact">Same contact</string>
+    <string name="merge_reason_number">Same phone number</string>
+    <string name="merge_reason_name">Same name</string>
+    <string name="merge_remove">Leave this chat out</string>
+    <string name="merge_add_chat">Add a chat…</string>
+    <string name="merge_dismiss">Dismiss</string>
+    <string name="merge_confirm">Merge</string>
+    <string name="merge_done">Merged into one chat</string>
+    <string name="merge_pick_title">Pick chats to merge</string>
+    <string name="merge_pick_hint">Search chats</string>
+    <string name="merge_pick_add">Add</string>
+    <string name="merge_with">Merge with…</string>
+    <string name="merge_members">Networks in this chat</string>
+    <string name="merge_default">Send from here unless you pick another</string>
+    <string name="merge_split">Split off</string>
+    <string name="action_merge">Merge</string>
+    <string name="inbox_bulk_merged">Merged %1$s chats into one</string>
+    <string name="menu_merge_suggestions">Merge suggestions</string>
+</resources>

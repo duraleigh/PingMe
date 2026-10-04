@@ -66,6 +66,8 @@ class InboxNavigation(
     val onNewGroup: () -> Unit,
     val onFix: (Account) -> Unit,
     val menu: MenuActions,
+    /** The merge suggestions screen (owner, Phase 7). */
+    val onMergeSuggestions: () -> Unit = {},
 )
 
 /** The inbox with its view model. */
@@ -189,6 +191,7 @@ fun InboxScreen(
                 contentPadding = padding,
                 selected = selection.ids,
                 onSelect = selection::toggle,
+                onSuggestions = navigation.onMergeSuggestions,
             )
         }
     }
@@ -241,7 +244,7 @@ private fun isWide() =
     currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
 private fun MenuActions.withEditBar(onEdit: () -> Unit) =
-    MenuActions(onAppearance, onList, onEdit, onSettings, onNotifications, onAccounts)
+    MenuActions(onAppearance, onList, onEdit, onSettings, onNotifications, onAccounts, onMergeSuggestions)
 
 /** Callbacks shared by the bottom bar and the rail. */
 class BarActions(
@@ -321,6 +324,7 @@ private fun SelectionBar(
                 BulkButton(BulkAction.MUTE, UiR.drawable.ic_notifications_off, R.string.action_mute, onAct)
                 BulkButton(BulkAction.ARCHIVE, UiR.drawable.ic_archive, R.string.action_archive, onAct)
                 BulkButton(BulkAction.LOW_PRIORITY, UiR.drawable.ic_low_priority, R.string.action_low_priority, onAct)
+                BulkButton(BulkAction.MERGE, UiR.drawable.ic_call_merge, R.string.action_merge, onAct)
                 BulkButton(BulkAction.DELETE, UiR.drawable.ic_delete, R.string.action_delete, onAct)
             }
         }
@@ -348,6 +352,7 @@ private fun ChatListBody(
     contentPadding: PaddingValues,
     selected: Set<ChatId> = emptySet(),
     onSelect: (ChatRow) -> Unit = {},
+    onSuggestions: () -> Unit = {},
 ) {
     val style = PingMeTheme.appearance.pinnedStyle
     // "Top of list" shows pinned chats as ordinary rows above the rest (UI_DESIGN.md 4.3).
@@ -358,6 +363,10 @@ private fun ChatListBody(
             .rememberLazyListState()
     androidx.compose.runtime.LaunchedEffect(Unit) { listState.scrollToItem(0) }
     LazyColumn(Modifier.fillMaxSize().testTag(INBOX_LIST), state = listState, contentPadding = contentPadding) {
+        // People who look the same on more than one network: PingMe proposes, the user decides (10.15).
+        if (state.menu.suggestions > 0 && state.selected == null) {
+            item(key = "suggestions") { SuggestionsCard(state.menu.suggestions, onSuggestions) }
+        }
         if (state.pinned.isNotEmpty() && style != PinnedStyle.TOP_OF_LIST) {
             item(key = "pinned") {
                 Column {

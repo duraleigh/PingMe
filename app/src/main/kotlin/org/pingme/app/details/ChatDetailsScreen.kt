@@ -35,6 +35,8 @@ class DetailsNavigation(
     val onBackToChat: () -> Unit,
     /** The chat was blocked or deleted, so back past it. */
     val onLeft: () -> Unit,
+    /** This chat was merged into [ChatId]: open the merged chat instead (UI_DESIGN.md 10.15). */
+    val onMerged: (ChatId) -> Unit = {},
 )
 
 /** Chat details with its view model (UI_DESIGN.md 3.4). */
@@ -74,6 +76,13 @@ fun ChatDetailsRoute(
                 onReactions = viewModel::setReactions,
                 onUnpin = viewModel::unpin,
                 onPhoto = viewModel::setAvatar,
+                merge =
+                    MergeChoices(
+                        onMergeWith = { others -> viewModel.mergeWith(others, navigation.onMerged) },
+                        onAddMembers = viewModel::addMembers,
+                        onSplit = { member -> viewModel.split(member, navigation.onLeft) },
+                        onDefault = viewModel::setDefault,
+                    ),
                 chat =
                     ChatChoices(
                         onObscured = viewModel::setObscured,
@@ -101,6 +110,7 @@ class DetailsSections(
     val onUnpin: (org.pingme.core.model.Message) -> Unit,
     val onPhoto: (org.pingme.core.model.AvatarSource) -> Unit,
     val chat: ChatChoices,
+    val merge: MergeChoices,
 )
 
 /**
@@ -139,6 +149,7 @@ fun ChatDetailsScreen(
             item { DetailsLook(state, sections.look) }
             item { DetailsReactions(state, sections.onReactions) }
             item { DetailsMembers(state) }
+            item { DetailsMerge(state, sections.merge) }
             item { DetailsPinned(state, sections.onOpen, sections.onUnpin) }
             item { DetailsPhoto(state, sections.onPhoto) }
             item { DetailsPrivacy(state, sections.chat) }

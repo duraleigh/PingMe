@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.details
 
+import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatFolder
+import org.pingme.core.model.ChatId
 import org.pingme.core.model.VibrationPattern
 import org.pingme.core.ui.theme.ChatLook
 import kotlin.time.Duration
@@ -37,4 +39,12 @@ class ChatChoices(
 class NotificationChoices(
     val onMute: (Duration?) -> Unit,
     val onNotification: (sound: String?, vibration: VibrationPattern?) -> Unit,
+)
+
+/** What the merge section can do (UI_DESIGN.md 10.15; owner, Phase 7). */
+class MergeChoices(
+    val onMergeWith: (List<ChatId>) -> Unit,
+    val onAddMembers: (List<ChatId>) -> Unit,
+    val onSplit: (ChatId) -> Unit,
+    val onDefault: (AccountId) -> Unit,
 )

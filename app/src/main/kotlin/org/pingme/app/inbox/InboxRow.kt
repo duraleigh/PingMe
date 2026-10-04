@@ -208,7 +208,7 @@ private fun TitleLine(
             )
         }
         // Google Messages is the phone's own texting: its rows carry no badge (owner, Gate G3).
-        if (row.network != NetworkId.GMESSAGES) NetworkBadge(row.network)
+        row.networks.filter { it != NetworkId.GMESSAGES }.forEach { NetworkBadge(it) }
         if (row.chat.folder == ChatFolder.GENERAL) FolderTag(stringResource(R.string.inbox_folder_general))
         row.last?.let {
             Text(

@@ -2944,3 +2944,31 @@ the owner's word.
 - Deviation from the plan: the plan's `MergeLink` (person to contact) is not what holds a
   merge together; membership is on the chat (`mergedInto`), which is what every screen and
   the unread rule need. The person-to-contact link lives on the person (P7.1).
+
+### P7.3 Merge suggestions
+
+- Two or more one-to-one chats on different accounts are proposed as one person when
+  their people share a phone contact, a phone number (digits compared, the last ten for a
+  number written without its country), or a name or username that reads the same: case,
+  accents, punctuation, emoji, and tag lines after "|" or in brackets are dropped, and
+  dots, underscores, and dashes read as spaces, so "sam.ortiz", "SAM_ORTIZ", and "Sam
+  Ortiz 🌟" meet. Two chats on the same account never make a suggestion on their own.
+- Dismissing a suggestion hides exactly that set of chats; a new chat joining the set
+  brings it back. Nothing merges on its own.
+
+### P7.4 Merging on screen
+
+- **Suggestions**: a card at the top of the inbox ("2 people appear on more than one
+  network · Review") and an avatar-menu entry open the suggestions screen. Each card
+  names why (same contact, same number, same name), lists the proposed chats with their
+  network badges, lets you leave any chat out, add any other one-to-one chat from any
+  network (a picker with search), dismiss, or merge (owner, Phase 7).
+- **Bulk Merge**: hold an avatar in the inbox, pick any chats, tap Merge. A group among
+  them is refused with its name.
+- **Chat details**: an ordinary one-to-one chat offers "Merge with…"; a merged chat lists
+  its networks, with the one the composer starts on (tap to change), a split button per
+  member, and "Add a chat…". Splitting the last pair dissolves the merged chat and the
+  screen closes. The header names every network the chat spans.
+- **Inbox rows** for a merged chat carry a badge per network, preview the newest message
+  across the members, show typing from any member, and appear under every network
+  filter they have a member on.

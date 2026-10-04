@@ -55,8 +55,11 @@ class InboxViewModel
         private val settings: org.pingme.core.store.SettingsRepository,
         private val appearance: org.pingme.app.appearance.AppearanceRepository,
         contacts: org.pingme.core.store.ContactRepository,
+        merges: org.pingme.core.service.merge.Merges,
+        memberships: org.pingme.core.store.MergeRepository,
+        suggestions: org.pingme.core.service.merge.MergeSuggestions,
     ) : ViewModel() {
-        private val rowActions = RowActions(viewModelScope, actions)
+        private val rowActions = RowActions(viewModelScope, actions, merges)
 
         /** The one-time "turn off Google Messages' notifications" prompt is due (UI_DESIGN.md 6.3). */
         val gmessagesReminder: StateFlow<Boolean> =
@@ -76,7 +79,14 @@ class InboxViewModel
                 chats.lowPriority(),
                 messages.lastMessages(),
                 accounts.accounts(),
-                combine(typing.typing, chats.spaces(), rowActions.pendingDeletes, contacts.inChats(), ::Extras),
+                combine(
+                    typing.typing,
+                    chats.spaces(),
+                    rowActions.pendingDeletes,
+                    contacts.inChats(),
+                    memberships.memberships(),
+                    ::Extras,
+                ),
             ) { inbox, low, last, accountList, extras ->
                 InboxSource(
                     inbox,
@@ -87,6 +97,7 @@ class InboxViewModel
                     extras.spaces,
                     extras.hidden,
                     extras.people,
+                    extras.memberships,
                 )
             }
 
@@ -96,15 +107,16 @@ class InboxViewModel
                 chats.lowPriority(),
                 chats.folder(ChatFolder.REQUESTS),
                 chats.folder(ChatFolder.GENERAL),
-                combine(chats.spaces(), chats.unreadTotals(), accounts.accounts(), ::Triple),
-            ) { archived, low, requests, general, (spaces, totals, accountList) ->
+                combine(chats.spaces(), chats.unreadTotals(), accounts.accounts(), suggestions.suggestions, ::Quad),
+            ) { archived, low, requests, general, rest ->
                 MenuCounts(
                     archived = archived.size,
                     lowPriority = low.size,
                     requests = requests.size,
                     general = general.size,
-                    hasFolders = accountList.any { it.network == NetworkId.INSTAGRAM },
-                    spaces = spaces.map { it to (totals.bySpace[it.id] ?: 0) },
+                    hasFolders = rest.c.any { it.network == NetworkId.INSTAGRAM },
+                    spaces = rest.a.map { it to (rest.b.bySpace[it.id] ?: 0) },
+                    suggestions = rest.d.size,
                 )
             }
 
@@ -259,6 +271,14 @@ class InboxViewModel
             val spaces: List<org.pingme.core.model.Space>,
             val hidden: Set<ChatId>,
             val people: Map<org.pingme.core.model.PersonId, org.pingme.core.model.Person>,
+            val memberships: Map<ChatId, ChatId>,
+        )
+
+        private data class Quad<A, B, C, D>(
+            val a: A,
+            val b: B,
+            val c: C,
+            val d: D,
         )
 
         private companion object {

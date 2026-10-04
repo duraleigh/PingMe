@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+package org.pingme.app.details
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
+import org.pingme.app.R
+import org.pingme.app.inbox.NetworkBadge
+import org.pingme.app.merge.ChatPickerSheet
+import org.pingme.core.model.ChatId
+import org.pingme.core.model.ChatKind
+import org.pingme.core.ui.components.Avatar
+import org.pingme.core.ui.components.SettingsSectionHeader
+import org.pingme.core.ui.R as UiR
+
+/**
+ * A merged chat's networks: each member with the network it is on, which one the composer
+ * starts on, a way to split it off, and a way to add another chat. An ordinary one-to-one
+ * chat offers "Merge with…" instead (UI_DESIGN.md 10.15; owner, Phase 7).
+ */
+@Composable
+fun DetailsMerge(
+    state: ChatDetailsState,
+    choices: MergeChoices,
+    modifier: Modifier = Modifier,
+) {
+    val chat = state.chat ?: return
+    if (chat.kind != ChatKind.DIRECT) return
+    var picking by remember { mutableStateOf(false) }
+    Column(modifier) {
+        if (state.members.isEmpty()) {
+            OutlinedButton({ picking = true }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Icon(painterResource(UiR.drawable.ic_call_merge), null, Modifier.padding(end = 8.dp))
+                Text(stringResource(R.string.merge_with))
+            }
+        } else {
+            SettingsSectionHeader(stringResource(R.string.merge_members))
+            Text(
+                stringResource(R.string.merge_default),
+                Modifier.padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            state.members.forEach { member -> MemberLine(member, choices) }
+            TextButton({ picking = true }, Modifier.padding(horizontal = 8.dp)) {
+                Icon(painterResource(UiR.drawable.ic_add), null, Modifier.padding(end = 8.dp))
+                Text(stringResource(R.string.merge_add_chat))
+            }
+        }
+    }
+    if (picking) {
+        ChatPickerSheet(
+            state.candidates,
+            { picked -> if (state.members.isEmpty()) choices.onMergeWith(picked) else choices.onAddMembers(picked) },
+        ) { picking = false }
+    }
+}
+
+@Composable
+private fun MemberLine(
+    member: MemberRow,
+    choices: MergeChoices,
+) {
+    val name = member.chat.nameOverride ?: member.chat.title
+    ListItem(
+        headlineContent = { Text(name) },
+        supportingContent = { NetworkBadge(member.network) },
+        leadingContent = {
+            RadioButton(member.isDefault, onClick = null)
+        },
+        trailingContent = {
+            androidx.compose.foundation.layout.Row {
+                Avatar(name, size = 32.dp, photo = member.photo)
+                IconButton({ choices.onSplit(member.chat.id) }) {
+                    Icon(painterResource(UiR.drawable.ic_call_split), stringResource(R.string.merge_split))
+                }
+            }
+        },
+        modifier =
+            Modifier.selectable(member.isDefault, role = Role.RadioButton) {
+                choices.onDefault(member.chat.accountId)
+            },
+    )
+}
