@@ -81,6 +81,7 @@ fun ChatDetailsRoute(
                         onMergeWith = { others -> viewModel.mergeWith(others, navigation.onMerged) },
                         onAddMembers = viewModel::addMembers,
                         onSplit = { member -> viewModel.split(member, navigation.onLeft) },
+                        onUnmerge = { viewModel.unmerge(navigation.onLeft) },
                         onDefault = viewModel::setDefault,
                     ),
                 chat =

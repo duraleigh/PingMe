@@ -473,3 +473,5 @@ What this means in practice:
 | 2026-10-02 | Unread rows: big dot, bold text, tinted row | The small dot and slightly bolder text were invisible on the owner's phone |
 | 2026-10-03 | Bottom bar: four chosen buttons plus a fixed "More" | Spaces and filters keep multiplying; More lists whatever is not in the bar |
 | 2026-10-03 | Merged chats: a chat row of its own that members point at; bubbles keep only their network colour, the badge sits beside the time and ticks | What every screen and the unread rule need; the owner wants bubbles uncluttered |
+| 2026-10-04 | A picked network colour is used exactly, in dark mode too | Normalising the tone made picks invisible on the phone; the swatch must be the colour |
+| 2026-10-04 | A merged chat's details offer "Remove" per member and "Unmerge all" | The split icon was not found; undoing a merge must be plain |

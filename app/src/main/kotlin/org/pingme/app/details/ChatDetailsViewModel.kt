@@ -307,6 +307,15 @@ class ChatDetailsViewModel
             }
         }
 
+        /** Takes every member out so each chat stands alone again; [gone] leaves the screen. */
+        fun unmerge(gone: () -> Unit) {
+            viewModelScope.launch {
+                runCatching { merges.unmerge(chatId) }
+                    .onSuccess { gone() }
+                    .onFailure { problems.trySend(it.message ?: it.javaClass.simpleName) }
+            }
+        }
+
         fun setDefault(account: org.pingme.core.model.AccountId) = act { merges.setDefault(chatId, account) }
 
         // Runs a change; a network's refusal goes to the snackbar instead of crashing the screen.

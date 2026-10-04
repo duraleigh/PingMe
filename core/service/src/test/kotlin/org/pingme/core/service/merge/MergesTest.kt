@@ -140,6 +140,25 @@ class MergesTest : ServiceTest() {
         }
 
     @Test
+    fun unmergingReturnsEveryMemberToTheInbox() =
+        runTest {
+            seed()
+            val id = merges.merge(listOf(c1, w1))
+            merges.unmerge(id)
+            assertNull(chats.get(id))
+            assertNull(chats.get(c1)!!.mergedInto)
+            assertNull(chats.get(w1)!!.mergedInto)
+            assertEquals(
+                setOf(c1, w1),
+                chats
+                    .inbox()
+                    .first()
+                    .map { it.id }
+                    .toSet(),
+            )
+        }
+
+    @Test
     fun deletingAMemberLeavesTheOtherOnItsOwn() =
         runTest {
             seed()

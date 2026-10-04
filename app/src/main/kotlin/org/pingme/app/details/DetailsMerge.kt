@@ -58,9 +58,16 @@ fun DetailsMerge(
                 style = MaterialTheme.typography.bodySmall,
             )
             state.members.forEach { member -> MemberLine(member, choices) }
-            TextButton({ picking = true }, Modifier.padding(horizontal = 8.dp)) {
-                Icon(painterResource(UiR.drawable.ic_add), null, Modifier.padding(end = 8.dp))
-                Text(stringResource(R.string.merge_add_chat))
+            androidx.compose.foundation.layout.Row(Modifier.padding(horizontal = 8.dp)) {
+                TextButton({ picking = true }) {
+                    Icon(painterResource(UiR.drawable.ic_add), null, Modifier.padding(end = 8.dp))
+                    Text(stringResource(R.string.merge_add_chat))
+                }
+                // Owner, 2026-10-04: a plain way to undo a merge, next to the way to grow it.
+                TextButton(choices.onUnmerge) {
+                    Icon(painterResource(UiR.drawable.ic_call_split), null, Modifier.padding(end = 8.dp))
+                    Text(stringResource(R.string.merge_unmerge))
+                }
             }
         }
     }
@@ -125,9 +132,8 @@ private fun MemberLine(
         trailingContent = {
             androidx.compose.foundation.layout.Row {
                 MemberCalls(member)
-                IconButton({ choices.onSplit(member.chat.id) }) {
-                    Icon(painterResource(UiR.drawable.ic_call_split), stringResource(R.string.merge_split))
-                }
+                // Labelled, not an icon: the owner could not find the split button (2026-10-04).
+                TextButton({ choices.onSplit(member.chat.id) }) { Text(stringResource(R.string.merge_member_remove)) }
             }
         },
         modifier =

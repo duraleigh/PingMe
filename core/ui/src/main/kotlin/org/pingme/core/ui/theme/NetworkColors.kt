@@ -55,7 +55,10 @@ class NetworkPalette(
 
     /** The network's colour for badges and the chat header accent. */
     fun accent(network: NetworkId): Color {
-        val signature = accentOverrides[network]?.let(::Color) ?: signature(network)
+        // A colour the user picked is used exactly as picked, in dark mode too (owner,
+        // 2026-10-04: the swatch is the colour; shifting its tone made picks look ignored).
+        (accentOverrides[network] ?: overrides[network])?.let { return Color(it) }
+        val signature = signature(network)
         return if (dark) Hct.fromInt(signature.toArgb()).withTone(DARK_ACCENT_TONE).asColor() else signature
     }
 
@@ -65,6 +68,11 @@ class NetworkPalette(
         transport: Transport,
     ): BubbleColors =
         when {
+            // Picked exactly; the text is whichever of black and white reads better on it.
+            network in overrides -> {
+                exact(Color(overrides.getValue(network)))
+            }
+
             network == NetworkId.SMS && network !in overrides -> {
                 BubbleColors(scheme.surfaceContainerHighest, scheme.onSurface, null)
             }
@@ -112,6 +120,12 @@ class NetworkPalette(
             content = Hct.from(source.hue, min(chroma, CONTENT_CHROMA), contentTone).asColor(),
             outline = null,
         )
+    }
+
+    private fun exact(picked: Color): BubbleColors {
+        val whiteReads = contrastRatio(picked, Color.White) >= contrastRatio(picked, Color.Black)
+        val content = if (whiteReads) Color.White else Color.Black
+        return BubbleColors(container = picked, content = content, outline = null)
     }
 
     private fun Hct.asColor() = Color(toInt())

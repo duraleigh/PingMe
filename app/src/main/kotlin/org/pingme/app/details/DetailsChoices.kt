@@ -46,5 +46,6 @@ class MergeChoices(
     val onMergeWith: (List<ChatId>) -> Unit,
     val onAddMembers: (List<ChatId>) -> Unit,
     val onSplit: (ChatId) -> Unit,
+    val onUnmerge: () -> Unit,
     val onDefault: (AccountId) -> Unit,
 )

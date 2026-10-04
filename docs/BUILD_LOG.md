@@ -3247,6 +3247,24 @@ not fixed, waiting on the owner:
    yourself as "note to self"). "Clay Rhodes" from the morning no longer shows on the
    first screen; to be checked once names are right.
 
+### Owner notes at Gate G11 (2026-10-04, 2:10 PM): colours and unmerging
+
+1. **"Changing the per-network colours still does nothing."** Reproduced on the phone
+   with the screen under my control: picking the teal quick swatch for Instagram and
+   pressing Done did save, and the bubble swatch did change, but to a dark greyed teal
+   rather than the teal picked. The palette kept only the hue of a pick and replaced its
+   lightness and colourfulness with the theme's fixed tones (tone 30 for a dark-mode
+   bubble, tone 80 for a badge), so a pick near the network's own hue, or a change of
+   lightness alone, showed nothing at all. Now a pick is used exactly, in light and dark
+   mode alike, for the bubble and for the badge; the text on it is black or white,
+   whichever reads better. The test pick was reset afterwards. Seen while there and not
+   touched: the studio's contrast warning lists every network at about 1.4 to 1, which
+   cannot be right for the bubbles on screen; to look at next.
+2. **Unmerging.** Chat details already had a split button per member, but as a bare
+   icon beside the call buttons, and the owner did not find it. Each member now has a
+   labelled "Remove", and an "Unmerge all" button beside "Add a chat…" dissolves the
+   whole merge and returns to the chat list.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built

@@ -70,6 +70,12 @@ class Merges
         /** Takes one member out of its merged chat; a merged chat left with one member dissolves. */
         suspend fun split(member: ChatId) = merges.setMergedInto(member, null)
 
+        /** Dissolves a merged chat: every member stands alone again and the merged row goes (owner, 2026-10-04). */
+        suspend fun unmerge(merged: ChatId) {
+            merges.members(merged).forEach { merges.setMergedInto(it.id, null) }
+            merges.tidy(merged)
+        }
+
         /** The account the composer starts on in a merged chat (UI_DESIGN.md 10.15). */
         suspend fun setDefault(
             merged: ChatId,

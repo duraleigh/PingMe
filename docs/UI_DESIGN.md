@@ -634,7 +634,10 @@ Each network has a signature colour. Outgoing bubbles use a light tonal tint of 
 light mode with dark text, and a deeper tone in dark mode with light text, so the
 4.5:1 contrast rule holds. The greens and the blues are deliberately far apart in
 lightness and hue so they stay distinguishable side by side, and every colour also
-has a network badge next to it.
+has a network badge next to it. A colour the user picks for a network is used exactly
+as picked, in light and dark mode alike, with black or white text, whichever reads
+better on it (owner, 2026-10-04: keeping only the hue of a pick made picks look
+ignored); the studio's contrast warning still says when a pick reads badly.
 
 | Network | Signature | Light-mode bubble | Note |
 |---|---|---|---|
@@ -813,7 +816,8 @@ Chats with the same person on different networks can be merged into one thread.
   any other one-to-one chat added, or the suggestion dismissed (owner, 2026-10-03).
 - Any one-to-one chats on any networks can be merged by hand: Merge in the inbox's
   selection bar, or "Merge with…" in Chat details.
-- Merged chats can be split again from Chat details, one member at a time.
+- Merged chats can be split again from Chat details: "Remove" on one member, labelled
+  in words, or "Unmerge all" to dissolve the whole merge (owner, 2026-10-04).
 - Group chats are never merged.
 - Pins, low priority, mute, obscure, and notification settings apply to the merged
   chat as a whole.
