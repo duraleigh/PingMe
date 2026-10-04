@@ -127,7 +127,8 @@ class InboxScreenTest {
     fun theBottomBarsItemsAreSpreadEvenlyAcrossIt() {
         show()
         val bar = compose.onNode(hasTestTag(INBOX_BAR)).getBoundsInRoot()
-        val labels = listOf("All", "Unread", "Demo")
+        // More is always the last button (owner, 2026-10-03).
+        val labels = listOf("All", "Unread", "Demo", "More")
         labels.forEachIndexed { i, label ->
             val item = compose.onNode(hasText(label) and hasAnyAncestor(hasTestTag(INBOX_BAR))).getBoundsInRoot()
             val centre = (item.left + item.right) / 2

@@ -156,7 +156,7 @@ class InboxStateTest {
     }
 
     @Test
-    fun allCanBeRemovedButTheBarNeverEmptiesOrPassesFive() {
+    fun allCanBeRemovedButTheBarNeverEmptiesOrPassesFour() {
         val unread = InboxBarItem.Unread
         val rcsButton = InboxBarItem.Network(NetworkId.GMESSAGES)
         val base = InboxBarConfig(listOf(unread))
@@ -167,8 +167,9 @@ class InboxStateTest {
         assertEquals("nothing left brings All back", listOf(null), base.withButtons(emptyList()).buttons)
         val others = listOf(NetworkId.WHATSAPP, NetworkId.SIGNAL, NetworkId.TELEGRAM, NetworkId.SMS)
         val six = listOf(unread, rcsButton) + others.map { InboxBarItem.Network(it) }
-        assertEquals(5, base.withButtons(six).buttons.size)
-        assertEquals(5, base.withButtons(listOf(null) + six).buttons.size)
+        // Four chosen positions; the fifth button is always More (owner, 2026-10-03).
+        assertEquals(4, base.withButtons(six).buttons.size)
+        assertEquals(4, base.withButtons(listOf(null) + six).buttons.size)
     }
 
     @Test
@@ -208,7 +209,7 @@ class InboxStateTest {
     }
 
     @Test
-    fun theDefaultBarIsUnreadThenYourNetworksUpToFiveButtons() {
+    fun theDefaultBarIsUnreadThenYourNetworksUpToFourButtons() {
         val bar =
             InboxBarConfig.default(
                 listOf(
@@ -219,12 +220,12 @@ class InboxStateTest {
                     NetworkId.SIGNAL,
                 ),
             )
+        // All, Unread, and two networks: four chosen buttons; More holds the rest (owner, 2026-10-03).
         assertEquals(
             listOf(
                 InboxBarItem.Unread,
                 InboxBarItem.Network(NetworkId.GMESSAGES),
                 InboxBarItem.Network(NetworkId.WHATSAPP),
-                InboxBarItem.Network(NetworkId.TELEGRAM),
             ),
             bar.items,
         )

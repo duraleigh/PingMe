@@ -88,6 +88,8 @@ data class MemberRow(
     val photo: String?,
     /** The composer starts on this member (UI_DESIGN.md 10.15). */
     val isDefault: Boolean,
+    /** What the phone and video buttons do on this member's network (UI_DESIGN.md 10.17). */
+    val calls: org.pingme.core.model.CallRule? = null,
 )
 
 /** Chat details for one chat (UI_DESIGN.md 3.4, BUILD_PLAN.md P2.5). */
@@ -180,13 +182,15 @@ class ChatDetailsViewModel
                                     .mapNotNull {
                                         everyone[it]
                                     }.firstOrNull { it.displayName != YOU }
+                            val network = networkOf[m.accountId] ?: org.pingme.core.model.NetworkId.DEMO
                             MemberRow(
                                 m,
-                                networkOf[m.accountId] ?: org.pingme.core.model.NetworkId.DEMO,
+                                network,
                                 person,
                                 org.pingme.app.inbox
                                     .photoFor(m, everyone),
                                 isDefault = m.accountId == c?.defaultSendAccount,
+                                calls = registry[network]?.capabilities?.calls,
                             )
                         },
                     candidates =

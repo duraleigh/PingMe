@@ -165,7 +165,7 @@ fun InboxScreen(
     val wide = isWide()
     val menu = navigation.menu.withEditBar { editingBar = true }
     Row(modifier.fillMaxSize()) {
-        if (wide) InboxRail(state.bar, state.selected, state.accounts, callbacks.bar)
+        if (wide) InboxRail(state.bar, state.selected, state.accounts, callbacks.bar, more = state.more)
         Scaffold(
             topBar = {
                 InboxTop(state, callbacks, navigation, menu, selectedRows, selection::clear) { action ->
@@ -177,7 +177,9 @@ fun InboxScreen(
                     }
                 }
             },
-            bottomBar = { if (!wide) InboxBottomBar(state.bar, state.selected, state.accounts, callbacks.bar) },
+            bottomBar = {
+                if (!wide) InboxBottomBar(state.bar, state.selected, state.accounts, callbacks.bar, more = state.more)
+            },
             floatingActionButton = { NewMenu(fabOpen, { fabOpen = it }, navigation.onNewChat, navigation.onNewGroup) },
             snackbarHost = { SnackbarHost(snackbar) },
         ) { padding ->

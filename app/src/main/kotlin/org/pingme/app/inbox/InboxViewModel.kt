@@ -130,22 +130,29 @@ class InboxViewModel
             ) { src, saved, pick, totals, counts ->
                 val config = saved ?: defaultBar(src.accounts)
                 val now = clock.now()
+                // Everything the bar could hold; what it does not sits behind More (owner, 2026-10-03).
+                val options =
+                    listOf<InboxBarItem?>(null, InboxBarItem.Unread) +
+                        src.accounts
+                            .map { it.network }
+                            .distinct()
+                            .map { InboxBarItem.Network(it) } +
+                        src.spaces.map { InboxBarItem.Space(it.id) } +
+                        InboxBarItem.LowPriority
+                val rest = options.filter { it !in config.buttons }
                 // With All removed, the inbox opens on the first button (UI_DESIGN.md 10.4).
                 val first = config.items.firstOrNull()?.takeIf { !config.showAll }
-                val current = pick?.takeIf { it in config.items } ?: first
+                val current = pick?.takeIf { it in config.items || it in rest } ?: first
                 val (pinned, rows) = src.select(current, config.narrowings, now)
+                val entryOf = { item: InboxBarItem? ->
+                    if (item == null) BarEntry(null, src.allBadge(totals, now)) else entry(item, config, src, totals)
+                }
                 InboxUiState(
                     loading = false,
                     pinned = pinned,
                     rows = rows,
-                    bar =
-                        config.buttons.map { item ->
-                            if (item == null) {
-                                BarEntry(null, src.allBadge(totals, now))
-                            } else {
-                                entry(item, config, src, totals)
-                            }
-                        },
+                    bar = config.buttons.map(entryOf),
+                    more = rest.map(entryOf),
                     selected = current,
                     accounts = src.accounts,
                     menu = counts,

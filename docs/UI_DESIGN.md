@@ -113,7 +113,10 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   avatar and a tap on any row adds or removes it. A bar above the list says how many
   and offers mark read, mark unread, mute, archive, low priority, and delete (with one
   confirmation) for all of them at once (owner, Gate G3).
-- **Bottom bar**: its items are spaced evenly and centred across the full width.
+- **Bottom bar**: its items are spaced evenly and centred across the full width. It holds
+  five positions: four chosen as section 10.4 describes, and a fixed fifth, **More**, which
+  opens a list of every filter and space not in the bar, each with its unread dot (owner,
+  2026-10-03).
 - **Swipe actions**: left and right swipes are user-assignable from Pin or unpin, Archive,
   Mute or unmute, Mark read or unread, Low priority, Delete. Each direction can be
   set independently, and either can be turned off.
@@ -674,7 +677,9 @@ A **space** is a named group of chats that PingMe shows as one unit.
 
 Spaces appear in the avatar menu and can be promoted into the bottom bar, which
 becomes user-configurable: any mix of All, Unread, network filters, spaces, and Low
-priority, up to five items. All is the default first item but can be removed (owner,
+priority, up to four items; the fifth position is always "More", which surfaces every
+space and filter not chosen (owner, 2026-10-03, so the bar can keep growing without
+crowding). All is the default first item but can be removed (owner,
 Gate G1); with All removed, the first item in the bar is where the inbox opens. Decided. Inside a space the inbox shows only that space's chats, with the same
 pinned grid and list. Unread counts for a space follow the counting rule in section
 6.4.

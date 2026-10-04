@@ -471,3 +471,5 @@ What this means in practice:
 | 2026-10-01 | UI fixes found at a later gate ship with that gate's fixes | No separate Gate G1 round; the owner checks everything at the current gate |
 | 2026-10-02 | Pictures and videos open inside PingMe, full-screen | The owner does not want a video handed to another app |
 | 2026-10-02 | Unread rows: big dot, bold text, tinted row | The small dot and slightly bolder text were invisible on the owner's phone |
+| 2026-10-03 | Bottom bar: four chosen buttons plus a fixed "More" | Spaces and filters keep multiplying; More lists whatever is not in the bar |
+| 2026-10-03 | Merged chats: a chat row of its own that members point at; bubbles keep only their network colour, the badge sits beside the time and ticks | What every screen and the unread rule need; the owner wants bubbles uncluttered |

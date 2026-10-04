@@ -56,7 +56,10 @@ import org.pingme.core.model.SpaceIcon
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
 
-/** The bottom bar on phones (UI_DESIGN.md 3.1, 3.7): All, then the user's picks, with unread badges. */
+/**
+ * The bottom bar on phones (UI_DESIGN.md 3.1, 3.7): All, then the user's picks, with unread
+ * badges, and a fixed fifth button, More, that lists everything else (owner, 2026-10-03).
+ */
 @Composable
 fun InboxBottomBar(
     bar: List<BarEntry>,
@@ -64,6 +67,7 @@ fun InboxBottomBar(
     accounts: List<Account>,
     actions: BarActions,
     modifier: Modifier = Modifier,
+    more: List<BarEntry> = emptyList(),
 ) {
     ShortNavigationBar(modifier.testTag(INBOX_BAR)) {
         bar.forEach { entry ->
@@ -77,6 +81,14 @@ fun InboxBottomBar(
                 )
             }
         }
+        MoreButton(more, selected, accounts, actions) { open, inMore ->
+            ShortNavigationBarItem(
+                selected = inMore,
+                onClick = open,
+                icon = { MoreIcon(more) },
+                label = { Text(stringResource(R.string.bar_more), maxLines = 1) },
+            )
+        }
     }
 }
 
@@ -89,6 +101,7 @@ fun InboxRail(
     actions: BarActions,
     modifier: Modifier = Modifier,
     header: @Composable () -> Unit = {},
+    more: List<BarEntry> = emptyList(),
 ) {
     WideNavigationRail(modifier, header = header) {
         bar.forEach { entry ->
@@ -102,6 +115,15 @@ fun InboxRail(
                     modifier = narrowMenu,
                 )
             }
+        }
+        MoreButton(more, selected, accounts, actions) { open, inMore ->
+            WideNavigationRailItem(
+                selected = inMore,
+                onClick = open,
+                icon = { MoreIcon(more) },
+                label = { Text(stringResource(R.string.bar_more), maxLines = 1) },
+                railExpanded = false,
+            )
         }
     }
 }
@@ -206,7 +228,7 @@ private fun narrowingLabel(
 
 // Unread shows as a small dot, not a count (owner, Gate G3: the numbers were loud).
 @Composable
-private fun BarIcon(entry: BarEntry) {
+internal fun BarIcon(entry: BarEntry) {
     BadgedBox(badge = { if (entry.badge > 0) Badge(Modifier.size(UNREAD_DOT)) }) {
         when (val item = entry.item) {
             null -> Icon(painterResource(UiR.drawable.ic_forum), null)
@@ -267,8 +289,8 @@ fun barLabel(
     }
 
 /**
- * Picks the bar's items (UI_DESIGN.md 10.4): Unread, each network you have, each space, and
- * Low priority, up to four after All, in the order ticked.
+ * Picks the bar's four buttons (UI_DESIGN.md 10.4): All, Unread, each network you have, each
+ * space, and Low priority, in the order ticked. Everything left over sits behind More.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -378,7 +400,8 @@ fun NewMenu(
     }
 }
 
-private val UNREAD_DOT = 7.dp
 private const val HALF = 0.5f
 
 const val INBOX_BAR = "inbox-bar"
+
+private val UNREAD_DOT = 7.dp

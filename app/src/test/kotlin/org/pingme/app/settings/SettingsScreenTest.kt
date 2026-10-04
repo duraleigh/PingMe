@@ -322,7 +322,8 @@ class SettingsScreenTest {
 
     private companion object {
         const val BAR_HINT =
-            "Pick up to five. All comes first when it is on; without it, the inbox opens on the first one."
+            "Pick up to four. All comes first when it is on; without it, the inbox opens on the first one. " +
+                "Everything else sits behind More."
         const val TIMEOUT = 15_000L
         const val SQLITE = "SQLite format 3"
         val STEP: Duration = Duration.ofMillis(50)

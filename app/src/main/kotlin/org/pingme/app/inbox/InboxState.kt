@@ -59,6 +59,8 @@ data class InboxUiState(
     val pinned: List<ChatRow> = emptyList(),
     val rows: List<ChatRow> = emptyList(),
     val bar: List<BarEntry> = listOf(BarEntry(null, 0)),
+    /** Everything the bar does not hold, behind the fixed More button (owner, 2026-10-03). */
+    val more: List<BarEntry> = emptyList(),
     val selected: InboxBarItem? = null,
     val accounts: List<Account> = emptyList(),
     val menu: MenuCounts = MenuCounts(),

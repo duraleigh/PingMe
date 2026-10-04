@@ -2991,3 +2991,26 @@ the owner's word.
 - Search in chat and "jump to date" cover every member; older history is asked of every
   member's network.
 - Reading, pins, and typing come from all members. The chat's people span accounts.
+
+### P7.6 Calls
+
+- The chat header's phone and video buttons were built in Phase 2 (each does the most
+  direct thing its service allows: the dialer, Google Meet, or the call entry WhatsApp,
+  Signal, and Telegram register in the phone's contacts; otherwise the app opens). In a
+  merged chat they now call on the network the composer is set to, with that member's
+  number.
+- Chat details of a merged chat show a phone and a video button on each member that can
+  take one, so any of the person's networks can be called from one place.
+- What each button actually does on the owner's phone is recorded at Gate G11 (the plan
+  asks for it); it cannot be known from here.
+
+### P7.7 Spaces and the bottom bar
+
+- Spaces from the networks and spaces the user makes (Settings > Spaces, built at Gate G1)
+  already list and filter; this step changes the bar as the owner decided on 2026-10-03:
+  the bottom bar holds four chosen buttons, picked exactly as before through the same
+  editor, and a fixed fifth button, **More**, that lists every filter and space not in the
+  bar, each with its unread dot. Picking one opens the inbox on it and More reads as
+  selected while it shows. Anyone who had five picked keeps the first four; the fifth moves
+  into More. The rail on wide screens does the same.
+- UI_DESIGN.md 3.1 and 10.4 and the decisions log carry the change.

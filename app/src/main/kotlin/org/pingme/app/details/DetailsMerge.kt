@@ -27,7 +27,6 @@ import org.pingme.app.inbox.NetworkBadge
 import org.pingme.app.merge.ChatPickerSheet
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
-import org.pingme.core.ui.components.Avatar
 import org.pingme.core.ui.components.SettingsSectionHeader
 import org.pingme.core.ui.R as UiR
 
@@ -73,6 +72,29 @@ fun DetailsMerge(
     }
 }
 
+// A call button per network (UI_DESIGN.md 10.17; owner, Phase 7): each does the most direct thing its service allows.
+@Composable
+private fun MemberCalls(member: MemberRow) {
+    val calls = member.calls ?: return
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val phone = member.person?.phoneNumber
+    val dial =
+        org.pingme.app.chat
+            .Calls(context)
+    androidx.compose.foundation.layout.Row {
+        if (calls.audio != org.pingme.core.model.CallMethod.NONE) {
+            IconButton({ dial.start(member.network, calls.audio, false, phone) }) {
+                Icon(painterResource(UiR.drawable.ic_call), stringResource(R.string.chat_call))
+            }
+        }
+        if (calls.video != org.pingme.core.model.CallMethod.NONE) {
+            IconButton({ dial.start(member.network, calls.video, true, phone) }) {
+                Icon(painterResource(UiR.drawable.ic_videocam), stringResource(R.string.chat_video_call))
+            }
+        }
+    }
+}
+
 @Composable
 private fun MemberLine(
     member: MemberRow,
@@ -87,7 +109,7 @@ private fun MemberLine(
         },
         trailingContent = {
             androidx.compose.foundation.layout.Row {
-                Avatar(name, size = 32.dp, photo = member.photo)
+                MemberCalls(member)
                 IconButton({ choices.onSplit(member.chat.id) }) {
                     Icon(painterResource(UiR.drawable.ic_call_split), stringResource(R.string.merge_split))
                 }
