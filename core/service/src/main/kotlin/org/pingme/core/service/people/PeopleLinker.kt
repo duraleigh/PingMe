@@ -70,9 +70,13 @@ class PeopleLinker
             val name = person.name
             if (!Names.isReal(name)) return
             contacts
-                .chatsWith(person.id)
+                .chatsWith(person)
                 .filter { it.kind == ChatKind.DIRECT && Names.isBare(it.title) }
-                .forEach { chat -> chats.update(chat.id) { it.copy(title = name) } }
+                .forEach { chat ->
+                    chats.update(chat.id) {
+                        it.copy(title = name, participants = (it.participants + person.id).distinct())
+                    }
+                }
         }
 
         private suspend fun load() {

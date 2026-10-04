@@ -197,6 +197,14 @@ interface ChatDao {
     @Query("SELECT c.* FROM chats c JOIN chat_participants cp ON cp.chatId = c.id WHERE cp.personId = :personId")
     suspend fun withParticipant(personId: String): List<ChatWithParticipants>
 
+    /** An account's chats carrying one of these titles (a bare number, before a name was known). */
+    @Transaction
+    @Query("SELECT * FROM chats WHERE accountId = :accountId AND title IN (:titles)")
+    suspend fun titled(
+        accountId: String,
+        titles: List<String>,
+    ): List<ChatWithParticipants>
+
     /**
      * The unread counting rule (BUILD_PLAN.md P1.2, UI_DESIGN.md 6.4), grouped so every badge
      * can be summed from it: only chats that are not archived, not low priority, not muted

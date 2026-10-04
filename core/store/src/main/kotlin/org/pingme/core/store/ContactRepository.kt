@@ -79,9 +79,19 @@ class ContactRepository
             contactPhoto: String?,
         ) = personDao.link(id.value, contactId?.value, contactName, contactPhoto)
 
-        /** Every chat [personId] is in. */
-        suspend fun chatsWith(personId: PersonId): List<Chat> =
-            chatDao.withParticipant(personId.value).map { it.toModel() }
+        /**
+         * The one-to-one chats that are [person]'s: the ones listing them, the chat whose id is
+         * theirs (WhatsApp, Signal, and Telegram address a person's chat by the person), and
+         * the ones still titled by their number. A chat made from your own outgoing message
+         * lists nobody, so the id and the number are what find it (owner, Gate G7, round 3).
+         */
+        suspend fun chatsWith(person: Person): List<Chat> {
+            val listed = chatDao.withParticipant(person.id.value)
+            val own = chatDao.get(person.id.value)
+            val titles = person.phoneNumber?.let { listOf(it, it.removePrefix("+")) }.orEmpty()
+            val titled = if (titles.isEmpty()) emptyList() else chatDao.titled(person.accountId.value, titles)
+            return (listed + listOfNotNull(own) + titled).map { it.toModel() }.distinctBy { it.id }
+        }
 
         suspend fun delete(id: PersonId) = personDao.delete(id.value)
 

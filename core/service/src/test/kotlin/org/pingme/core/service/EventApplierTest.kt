@@ -169,6 +169,30 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun aChatMadeFromYourOwnMessageIsNamedByThePeopleListToo() =
+        runTest {
+            // Such a chat lists nobody; the person's address is the chat's (owner, Gate G7, round 3).
+            accounts.upsert(account())
+            applier.apply(
+                ConnectorEvent.NewMessage(accountId, messageSnapshot("o", chatRemote = "sam", outgoing = true)),
+            )
+            chats.update(accountId.chat("sam")) { it.copy(title = "+15555550123") }
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam().copy(phoneNumber = "+15555550123"))))
+            val chat = chats.get(accountId.chat("sam"))!!
+            assertEquals("Sam Ortiz", chat.title)
+            assertEquals(listOf(sam().id), chat.participants)
+            // A chat titled by the number alone, under some other id, is found by the number.
+            applier.apply(
+                ConnectorEvent.ChatUpdated(
+                    accountId,
+                    chatSnapshot("odd", title = "15555550123").copy(participants = emptyList()),
+                ),
+            )
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam().copy(phoneNumber = "+15555550123"))))
+            assertEquals("Sam Ortiz", chats.get(accountId.chat("odd"))?.title)
+        }
+
+    @Test
     fun aPeopleListWithoutANameLeavesTheNumberAlone() =
         runTest {
             seed()
