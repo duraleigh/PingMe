@@ -264,52 +264,7 @@ internal fun BottomBars(
             } else {
                 actions.onSend
             }
-        if (state.members.isNotEmpty() && editing == null) NetworkChips(state, actions.onSendVia)
         Composer(send, actions.onTyping, editing, actions.composer)
-    }
-}
-
-/**
- * A merged chat's composer chips, one per member network (UI_DESIGN.md 10.15): the filled
- * one is where the next message goes; a disconnected account's chip is outlined in the
- * error colour. Tap one to switch.
- */
-@Composable
-private fun NetworkChips(
-    state: ChatUiState,
-    onSendVia: (ChatId) -> Unit,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        val offline = stringResource(R.string.chat_network_disconnected)
-        state.members.forEach { member ->
-            val picked = member.chatId == state.sendVia
-            val colours = MaterialTheme.colorScheme
-            FilterChip(
-                selected = picked,
-                onClick = { onSendVia(member.chatId) },
-                label = { Text(member.label) },
-                leadingIcon = { NetworkBadge(member.network) },
-                border =
-                    FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = picked,
-                        borderColor = if (member.connected) colours.outline else colours.error,
-                        selectedBorderColor = if (member.connected) colours.outline else colours.error,
-                        selectedBorderWidth = if (member.connected) 0.dp else 1.dp,
-                    ),
-                colors =
-                    FilterChipDefaults.filterChipColors(
-                        labelColor = if (member.connected) colours.onSurface else colours.onSurfaceVariant,
-                    ),
-                modifier = Modifier.semantics { if (!member.connected) stateDescription = offline },
-            )
-        }
     }
 }
 

@@ -3093,6 +3093,20 @@ the owner's word.
   tiles ring the same way, outside the unread ring. Single-network rows keep their badge
   and have no ring.
 
+### Owner note on the merged composer (2026-10-03, 10:35 PM)
+
+- The row of network chips above the composer is gone (too much room, and a scroll to
+  find a network). The GIF button moved into the + menu, the text box widened into its
+  place, and a small colour-coded network badge sits inside the box on the left with a
+  placeholder that names the network: "Send a Google Message", "Send a WhatsApp message",
+  "Send an Instagram DM", "Send a Signal", "Send a Telegram", "Send a Facebook Message",
+  "Send with Google Voice". In a merged chat the badge opens the same network menu as the
+  header's. Every + menu option is now tappable on its label as well as its button.
+- Gone with the chips: the red-lined "not connected" mark on a member. The badge does not
+  show connection state yet; the connection chip under the inbox's app bar still does.
+- UI_DESIGN.md 10.15 should read "a badge inside the box" rather than "a chip left of the
+  field"; updated.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a

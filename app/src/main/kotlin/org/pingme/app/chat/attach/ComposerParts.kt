@@ -123,6 +123,10 @@ internal fun composerHooks(
         org.pingme.app.chat.gif
             .GifPicks(viewModel::sendGif, viewModel::sendFavourite),
     onSchedule = viewModel::schedule,
+    network = state.sendNetwork,
+    members = state.members,
+    sendVia = state.sendVia,
+    onSendVia = viewModel::sendVia,
     onProblem = { problem ->
         onNotice(
             when (problem) {

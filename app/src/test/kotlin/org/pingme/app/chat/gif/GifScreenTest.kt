@@ -82,7 +82,10 @@ class GifScreenTest {
         }
 
     private fun pickFromTrending() {
-        compose.onNode(hasContentDescription("GIF")).performClick()
+        // GIFs live in the + menu (owner, 2026-10-03).
+        compose.onNode(hasContentDescription("Attach")).performClick()
+        waitFor { hasText("GIF") }
+        compose.onNodeWithText("GIF").performClick()
         waitFor { hasText("No favourites yet. Hold a GIF to keep it here.") }
         compose.onNodeWithText("Trending").performClick()
         waitFor { compose.onAllNodes(hasTestTag(GIF_GRID)).fetchSemanticsNodes().isNotEmpty() }

@@ -86,6 +86,8 @@ data class ChatUiState(
     val filter: org.pingme.core.model.AccountId? = null,
     /** The member the composer sends through; null outside a merged chat. */
     val sendVia: ChatId? = null,
+    /** The network the next message goes out on: the chosen member's, or the chat's own. */
+    val sendNetwork: NetworkId? = null,
     /** Each member chat's network, for bubble colours and the badge beside the ticks. */
     val networkOf: Map<ChatId, NetworkId> = emptyMap(),
     val reactions: ReactionPrefs = ReactionPrefs(),
@@ -373,6 +375,7 @@ class ChatViewModel
                     members = m.chips,
                     filter = m.filter,
                     sendVia = m.sendVia,
+                    sendNetwork = sendNetwork,
                     networkOf = m.networkOf,
                     items =
                         chatItems(newestFirst, unread?.let { firstUnread(newestFirst, it) }) {

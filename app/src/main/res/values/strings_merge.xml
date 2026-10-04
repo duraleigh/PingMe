@@ -37,5 +37,14 @@
     <string name="settings_merge_none">None right now</string>
     <string name="chat_networks_all">All networks</string>
     <string name="chat_pick_network">Show one network</string>
-    <string name="chat_network_disconnected">Not connected</string>
+    <string name="chat_pick_send_network">Pick the network to send on</string>
+    <string name="send_hint_gmessages">Send a Google Message</string>
+    <string name="send_hint_sms">Send a text</string>
+    <string name="send_hint_whatsapp">Send a WhatsApp message</string>
+    <string name="send_hint_instagram">Send an Instagram DM</string>
+    <string name="send_hint_signal">Send a Signal</string>
+    <string name="send_hint_telegram">Send a Telegram</string>
+    <string name="send_hint_messenger">Send a Facebook Message</string>
+    <string name="send_hint_fbpage">Send as your Page</string>
+    <string name="send_hint_gvoice">Send with Google Voice</string>
 </resources>

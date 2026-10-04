@@ -13,6 +13,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -37,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -59,6 +61,8 @@ enum class AttachProblem { NO_LOCATION, NO_CAMERA }
 fun AttachSheet(
     pick: AttachLaunchers,
     onDismiss: () -> Unit,
+    /** Opens the GIF picker; null where the network cannot take GIFs (owner, 2026-10-03: GIFs live here). */
+    onGif: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         FlowRow(
@@ -75,6 +79,13 @@ fun AttachSheet(
             AttachOption(R.string.attach_file, UiR.drawable.ic_description) { choose(pick.file) }
             AttachOption(R.string.attach_location, UiR.drawable.ic_location_on) { choose(pick.location) }
             AttachOption(R.string.attach_contact, UiR.drawable.ic_contacts) { choose(pick.contact) }
+            // The GIF picker replaces this sheet: close first, then open it.
+            onGif?.let { open ->
+                AttachOption(R.string.gif, UiR.drawable.ic_gif_box) {
+                    onDismiss()
+                    open()
+                }
+            }
         }
     }
 }
@@ -85,7 +96,11 @@ private fun AttachOption(
     @DrawableRes icon: Int,
     onClick: () -> Unit,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(OPTION_WIDTH)) {
+    // The label is part of the target: the whole option takes the tap.
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(OPTION_WIDTH).clickable(role = Role.Button, onClick = onClick),
+    ) {
         FilledTonalIconButton(onClick, Modifier.size(OPTION_SIZE)) { Icon(painterResource(icon), null) }
         Text(
             stringResource(label),

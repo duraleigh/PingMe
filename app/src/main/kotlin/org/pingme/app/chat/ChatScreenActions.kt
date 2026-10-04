@@ -70,6 +70,12 @@ class ComposerHooks(
     val gifPicks: org.pingme.app.chat.gif.GifPicks? = null,
     /** Send later: the text and when (UI_DESIGN.md 10.13). */
     val onSchedule: ((String, kotlin.time.Instant) -> Unit)? = null,
+    /** The network the next message goes on, named in the box (owner, 2026-10-03). */
+    val network: NetworkId? = null,
+    /** A merged chat's members, offered by the badge in the box; one or none otherwise. */
+    val members: List<MemberChip> = emptyList(),
+    val sendVia: ChatId? = null,
+    val onSendVia: (ChatId) -> Unit = {},
 )
 
 /** What a message row needs besides the message. */

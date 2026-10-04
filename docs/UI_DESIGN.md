@@ -798,9 +798,10 @@ Chats with the same person on different networks can be merged into one thread.
   it; "All" shows everything and sets the composer to the default service. A merged
   chat opens narrowed to the one network its unread messages came from; with unread
   from more than one network, or none, it opens on "All" (owner, 2026-10-03).
-- The composer shows a chip per member network above the text field; the filled one is
-  where the next message goes. Tap another to switch for the next messages. A chip is
-  red-lined when that service is disconnected.
+- The composer's text box carries a small network badge inside its left edge and a
+  placeholder naming the network ("Send a WhatsApp message", "Send an Instagram DM").
+  In a merged chat, tapping the badge opens the network menu to switch for the next
+  messages (owner, 2026-10-03). The GIF picker lives in the + menu so the box is wide.
 - Each person has a default service, set in the merged chat's details, and the chip
   starts there.
 - PingMe suggests merges when people share a phone contact, a phone number, or a name
