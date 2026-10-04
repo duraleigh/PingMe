@@ -59,11 +59,18 @@ abstract class PingMeDatabase : RoomDatabase() {
         const val NAME = "pingme.db"
 
         /** The schema version. Bump it with a migration in [MIGRATIONS] and an exported schema. */
-        const val VERSION = 6
+        const val VERSION = 7
 
         /** Schema migrations, oldest first (BUILD_PLAN.md P1.6). MigrationTest checks every one. */
         val MIGRATIONS: Array<Migration> =
-            arrayOf(PinnedMessages, ChatOverridesTable, SpaceIconAndAll, ReadUpToAndTombstones, ReadBackfill)
+            arrayOf(
+                PinnedMessages,
+                ChatOverridesTable,
+                SpaceIconAndAll,
+                ReadUpToAndTombstones,
+                ReadBackfill,
+                ContactLinks,
+            )
 
         /** Applies the settings every PingMe database needs, on-disk or in-memory. */
         fun configure(builder: Builder<PingMeDatabase>): PingMeDatabase =
@@ -135,10 +142,20 @@ private object ReadUpToAndTombstones : Migration(VERSION_4, VERSION_5) {
  * stamped as read, so the first sync after the upgrade cannot bring it back unread
  * (owner: Google Messages chats read under 0.7.0 came back unread in 0.7.1).
  */
-private object ReadBackfill : Migration(VERSION_5, PingMeDatabase.VERSION) {
+private const val VERSION_6 = 6
+
+private object ReadBackfill : Migration(VERSION_5, VERSION_6) {
     override fun migrate(connection: SQLiteConnection) {
         connection.execSQL(
             "UPDATE `chats` SET `readUpTo` = `lastActivityAt` WHERE `unreadCount` = 0 AND `readUpTo` IS NULL",
         )
+    }
+}
+
+/** 6 to 7 (P7.1): the matched contact's name and photo on a person (UI_DESIGN.md 10.18). */
+private object ContactLinks : Migration(VERSION_6, PingMeDatabase.VERSION) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `persons` ADD COLUMN `contactName` TEXT")
+        connection.execSQL("ALTER TABLE `persons` ADD COLUMN `contactPhoto` TEXT")
     }
 }

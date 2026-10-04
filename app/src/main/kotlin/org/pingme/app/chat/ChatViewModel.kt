@@ -73,6 +73,8 @@ data class ChatUiState(
     val pinned: List<Message> = emptyList(),
     /** The other person's number in a one-to-one chat, for the call icons. */
     val phone: String? = null,
+    /** The contact's or network's photo for the header (UI_DESIGN.md 10.18). */
+    val photo: String? = null,
     val reactions: ReactionPrefs = ReactionPrefs(),
     /** Messages picked in multi-select; empty when not selecting. */
     val selection: Set<org.pingme.core.model.MessageId> = emptySet(),
@@ -281,7 +283,7 @@ class ChatViewModel
                 val me = all.firstOrNull { it.isOutgoing }?.senderId ?: c?.accountId?.let { SelfId.of(it) }
                 val (pins, reply, more) = extra
                 val unread = extra.d
-                val nameMap = everyone.associate { it.id to it.displayName }
+                val nameMap = everyone.associate { it.id to it.name }
                 ChatUiState(
                     loading = false,
                     chat = c,
@@ -301,6 +303,11 @@ class ChatViewModel
                             ?.firstNotNullOfOrNull { id ->
                                 everyone.find { it.id == id }?.phoneNumber
                             },
+                    photo =
+                        c?.let {
+                            org.pingme.app.inbox
+                                .photoFor(it, everyone.associateBy { p -> p.id })
+                        },
                     replyTo = reply,
                     moreHistory = more,
                     reactions = prefs,

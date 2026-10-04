@@ -15,7 +15,13 @@ interface AddressBook {
     }
 }
 
+/**
+ * One contact: [phones] in international form (+ and digits), [id] the phone's lookup key
+ * for the contact, [photo] a content address for its photo, when it has one.
+ */
 data class AddressBookEntry(
     val name: String,
     val phones: List<String>,
+    val id: String? = null,
+    val photo: String? = null,
 )

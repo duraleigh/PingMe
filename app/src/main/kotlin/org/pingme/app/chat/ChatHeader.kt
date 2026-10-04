@@ -93,7 +93,7 @@ private fun TitleBlock(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Avatar(state.title, size = 42.dp)
+        Avatar(state.title, size = 42.dp, photo = state.photo)
         val colours = MaterialTheme.colorScheme
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(

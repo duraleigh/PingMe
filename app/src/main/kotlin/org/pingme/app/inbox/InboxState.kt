@@ -18,6 +18,8 @@ data class ChatRow(
     val network: NetworkId,
     val last: LastMessage?,
     val typing: Boolean,
+    /** The contact's or network's photo for the row's avatar; null for the initials tile. */
+    val photo: String? = null,
 ) {
     val id: ChatId get() = chat.id
     val title: String get() = chat.nameOverride ?: chat.title
@@ -74,6 +76,8 @@ data class InboxSource(
     val typing: Set<ChatId>,
     val spaces: List<Space>,
     val hidden: Set<ChatId> = emptySet(),
+    /** Everyone some chat lists, for names and photos (UI_DESIGN.md 10.18). */
+    val people: Map<org.pingme.core.model.PersonId, org.pingme.core.model.Person> = emptyMap(),
 )
 
 /** Pinned chats and the list for one bar selection. Pinned chats never repeat in the list. */
@@ -116,7 +120,10 @@ fun InboxSource.select(
                 lowPriority
             }
         }.filter { it.id !in hidden }
-    val rows = chats.map { ChatRow(it, networkOf[it.accountId] ?: NetworkId.DEMO, last[it.id], it.id in typing) }
+    val rows =
+        chats.map {
+            ChatRow(it, networkOf[it.accountId] ?: NetworkId.DEMO, last[it.id], it.id in typing, photoFor(it, people))
+        }
     val (pinned, rest) = rows.partition { it.chat.isPinned }
     return pinned.sortedBy { it.chat.pinOrder ?: Int.MAX_VALUE } to rest
 }

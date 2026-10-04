@@ -19,6 +19,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.core.connector.AddressBook
 import org.pingme.core.connector.ChatSnapshot
 import org.pingme.core.connector.MessageSnapshot
 import org.pingme.core.connector.chat
@@ -35,6 +36,7 @@ import org.pingme.core.model.NetworkId
 import org.pingme.core.model.NotificationMode
 import org.pingme.core.model.Person
 import org.pingme.core.model.Transport
+import org.pingme.core.service.people.PeopleLinker
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
@@ -102,7 +104,13 @@ abstract class ServiceTest {
                 typing,
                 reactionFeed,
                 Tapbacks(messages),
-                PeopleApplier(chats, contacts),
+                PeopleApplier(
+                    chats,
+                    contacts,
+                    PeopleLinker(AddressBook.None, contacts, chats),
+                    org.pingme.core.service.people
+                        .ProfilePhotos(context, contacts, scope),
+                ),
             )
         presence =
             org.pingme.core.service.notify

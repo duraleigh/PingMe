@@ -2880,3 +2880,43 @@ The owner installed 0.7.1 at 8:04 PM and found two things at once.
 - The stale **"+0" chat** (WhatsApp's "nobody" placeholder, stored by an earlier build)
   is removed with the next people list and is not listed again. The **"You"** chat is
   WhatsApp's own message-yourself chat, which WhatsApp also labels "You"; it stays.
+
+## Phase 7: people, merging, calls, spaces
+
+Started 2026-10-03, 8:30 PM, on the owner's OK, with these owner requirements on top of the
+plan: merge suggestions by phone number and by similar name or username; manual merge of
+any chats across any networks (a bulk "Merge" in the inbox's multi-select, "Merge with…"
+in Chat details, split per member); every suggestion editable (remove a proposed member,
+add a chat that was not suggested, dismiss); a merged chat's bubbles keep only their
+network colour, with the network badge beside the time and ticks when a bubble is tapped;
+the merged chat's header badge opens a dropdown ("All" or one network) that filters the
+bubbles and sets the composer chip; a merged chat opens on the network of its unread
+messages when they are all from one network, otherwise on All; the bottom bar holds four
+chosen buttons and a fixed fifth "More" button listing everything else. Phase 8 waits for
+the owner's word.
+
+### P7.1 Contacts
+
+- People are matched to the phone's contacts by phone number: the address book is read
+  (name, numbers in international form, lookup key, photo address) when contacts are
+  allowed, and every person with a number that is in it carries the contact's lookup key,
+  name, and photo. The match uses the digits, and the last ten digits for a number written
+  without its country, so "(555) 555-0123" and "+15555550123" meet.
+- A one-to-one chat still titled by a bare number or raw id takes the contact's name; a
+  network's own title is kept otherwise (WhatsApp's names already are the phone's).
+- The phone's contacts are watched; a change matches everyone again after it settles.
+  Allowing contacts from the new-chat screen does the same at once.
+- Avatars show the contact's photo, then the network's profile photo, then the initials
+  tile, in the inbox, pinned tiles, the chat header, Chat details, the new-chat list, and
+  notifications (the sender's picture). Someone known only by a number gets a plain
+  person mark instead of digits (owner).
+- Instagram and Messenger profile pictures now reach PingMe (owner, 2026-10-03: "grab
+  profile pictures from IG"): the networks give short-lived links, which the service
+  fetches once into app storage (`files/avatars`) and keeps. WhatsApp, Telegram, and
+  Signal profile photos are not fetched yet: each needs a request per person or a
+  decrypt, and is listed for a later step.
+- Deviations from the plan: numbers are normalised with Android's own PhoneNumberUtils
+  (the phone's copy of libphonenumber) and the contacts provider's normalised column,
+  not a bundled libphonenumber; contact photos are shown from the contacts provider's
+  own address rather than copied into app storage, so a changed photo shows without a
+  copy going stale. Schema version 7 adds the contact name and photo to a person.

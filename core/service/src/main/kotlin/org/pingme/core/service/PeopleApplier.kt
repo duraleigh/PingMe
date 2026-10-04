@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.core.service
 
+import org.pingme.core.connector.ChatSnapshot
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.chat
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Person
+import org.pingme.core.service.people.PeopleLinker
+import org.pingme.core.service.people.ProfilePhotos
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
 import javax.inject.Inject
@@ -24,9 +27,37 @@ class PeopleApplier
     constructor(
         private val chats: ChatRepository,
         private val contacts: ContactRepository,
+        private val linker: PeopleLinker,
+        private val photos: ProfilePhotos,
     ) {
+        /**
+         * Stores a person as a network reports them, with the phone's contact link applied
+         * and the network's profile photo on its way into app storage.
+         */
+        suspend fun remember(person: Person) {
+            linker.ensureLoaded()
+            contacts.upsert(linker.linked(withLocalPhoto(person)))
+        }
+
+        private fun withLocalPhoto(person: Person): Person {
+            val url = person.avatarPath?.takeIf { photos.isRemote(it) } ?: return person
+            val local = photos.cached(url)
+            if (local == null) photos.fetchSoon(person.id, url)
+            return person.copy(avatarPath = local ?: url)
+        }
+
+        /** The title a one-to-one chat should carry: the contact's name over a bare number. */
+        suspend fun titleFor(snapshot: ChatSnapshot): String {
+            if (snapshot.kind != ChatKind.DIRECT || !Names.isBare(snapshot.title)) return snapshot.title
+            linker.ensureLoaded()
+            return snapshot.participants
+                .map { linker.linked(it) }
+                .firstOrNull { it.contactName != null && it.displayName != "You" }
+                ?.contactName ?: snapshot.title
+        }
+
         suspend fun apply(event: ConnectorEvent.PeopleUpdated) {
-            event.people.forEach { contacts.upsert(it) }
+            event.people.forEach { remember(it) }
             contacts.deleteStray(event.accountId, HIDDEN_ID_SUFFIX)
             PLACEHOLDER_HANDLES.forEach { handle ->
                 contacts.deleteStrayHandle(event.accountId, handle)
@@ -36,13 +67,6 @@ class PeopleApplier
                     chats.delete(placeholder)
                 }
             }
-            event.people.filter { Names.isReal(it.displayName) }.forEach { retitle(it) }
-        }
-
-        private suspend fun retitle(person: Person) {
-            contacts
-                .chatsWith(person.id)
-                .filter { it.kind == ChatKind.DIRECT && Names.isBare(it.title) }
-                .forEach { chat -> chats.update(chat.id) { it.copy(title = person.displayName) } }
+            event.people.forEach { linker.retitle(linker.linked(it)) }
         }
     }

@@ -157,10 +157,10 @@ class EventApplier
 
         private suspend fun applyChat(snapshot: ChatSnapshot) {
             if (hiddenHere(snapshot.id, snapshot.lastActivityAt)) return
-            snapshot.participants.forEach { contacts.upsert(it) }
+            snapshot.participants.forEach { people.remember(it) }
             val existing = chats.get(snapshot.id)
             val merged = existing?.withSnapshot(snapshot) ?: snapshot.toNewChat()
-            chats.upsert(merged.copy(unreadCount = unreadFor(existing, snapshot)))
+            chats.upsert(merged.copy(title = people.titleFor(snapshot), unreadCount = unreadFor(existing, snapshot)))
         }
 
         /**

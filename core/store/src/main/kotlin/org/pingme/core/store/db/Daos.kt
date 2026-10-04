@@ -555,6 +555,33 @@ interface PersonDao {
     @Query("SELECT * FROM persons WHERE contactId = :contactId")
     fun observeByContact(contactId: String): Flow<List<PersonEntity>>
 
+    /** Everyone with a phone number: who the address book can be matched against. */
+    @Query("SELECT * FROM persons WHERE phoneNumber IS NOT NULL")
+    suspend fun withPhones(): List<PersonEntity>
+
+    /** Everyone some chat lists, so the inbox can show their names and photos. */
+    @Query("SELECT DISTINCT p.* FROM persons p JOIN chat_participants cp ON cp.personId = p.id")
+    fun observeInChats(): Flow<List<PersonEntity>>
+
+    /** Where the network's profile photo was saved on this phone. */
+    @Query("UPDATE persons SET avatarPath = :path WHERE id = :id")
+    suspend fun setAvatar(
+        id: String,
+        path: String,
+    )
+
+    /** The phone's link for a person: the contact's lookup key, name, and photo, or none. */
+    @Query(
+        "UPDATE persons SET contactId = :contactId, contactName = :contactName, contactPhoto = :contactPhoto " +
+            "WHERE id = :id",
+    )
+    suspend fun link(
+        id: String,
+        contactId: String?,
+        contactName: String?,
+        contactPhoto: String?,
+    )
+
     @Upsert
     suspend fun upsert(person: PersonEntity)
 

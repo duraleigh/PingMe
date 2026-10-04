@@ -113,7 +113,7 @@ private fun PinnedTile(
     ) {
         Box(Modifier.size(TILE_AVATAR + (RING + RING_GAP) * 2), contentAlignment = Alignment.Center) {
             if (unread) Box(Modifier.matchParentSize().border(RING, accent, shape.toShape()))
-            Avatar(row.title, size = TILE_AVATAR, shape = shape)
+            Avatar(row.title, size = TILE_AVATAR, shape = shape, photo = row.photo)
             if (unread) {
                 UnreadBadge(
                     Modifier.align(Alignment.TopEnd),

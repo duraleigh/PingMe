@@ -34,6 +34,8 @@ class ConnectionService : Service() {
 
     @Inject lateinit var accounts: AccountRepository
 
+    @Inject lateinit var contactsWatcher: org.pingme.core.service.people.ContactsWatcher
+
     @Inject @ApplicationScope
     lateinit var scope: CoroutineScope
 
@@ -70,6 +72,7 @@ class ConnectionService : Service() {
             }
         ServiceCompat.startForeground(this, NOTIFICATION_ID, connectedNotification(), type)
         supervisor.start()
+        contactsWatcher.start()
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
         accountWatch =
             scope.launch {
@@ -89,6 +92,7 @@ class ConnectionService : Service() {
         accountWatch?.cancel()
         getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback)
         supervisor.stop()
+        contactsWatcher.stop()
         super.onDestroy()
     }
 

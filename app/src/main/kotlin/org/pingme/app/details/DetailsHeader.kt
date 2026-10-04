@@ -55,7 +55,13 @@ fun DetailsHeader(
     val name = chat.nameOverride ?: chat.title
     var renaming by remember { mutableStateOf(false) }
     Column(modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Avatar(name, size = AVATAR)
+        Avatar(
+            name,
+            size = AVATAR,
+            photo =
+                org.pingme.app.inbox
+                    .photoFor(chat, state.people.associateBy { it.id }),
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(name, style = MaterialTheme.typography.headlineSmallEmphasized, textAlign = TextAlign.Center)
             IconButton(

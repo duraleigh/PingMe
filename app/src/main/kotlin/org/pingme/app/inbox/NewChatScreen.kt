@@ -108,6 +108,7 @@ class NewChatViewModel
         private val registry: ConnectorRegistry,
         private val actions: ChatActions,
         saved: SavedStateHandle,
+        private val contactsWatcher: org.pingme.core.service.people.ContactsWatcher,
     ) : ViewModel() {
         val group = saved.toRoute<NewChatRoute>().group
         private val form = MutableStateFlow(NewChatUiState())
@@ -147,7 +148,7 @@ class NewChatViewModel
                     suggestions =
                         people
                             .filter { p ->
-                                q.isEmpty() || p.displayName.contains(q, true) ||
+                                q.isEmpty() || p.name.contains(q, true) ||
                                     p.networkHandle.contains(q, true)
                             }.filter { p -> p.networkHandle !in st.members }
                             .take(MAX_SUGGESTIONS),
@@ -158,6 +159,8 @@ class NewChatViewModel
 
         /** Asks the picked account's network for its people again (Signal: the contacts on Signal). */
         fun refreshPeople() {
+            // Contacts just allowed, or opened again: everyone matches against the address book too.
+            contactsWatcher.refreshSoon()
             val picked = state.value.account ?: return
             val network =
                 state.value.accounts
@@ -336,9 +339,9 @@ fun NewChatScreen(
                 ListItem(
                     onClick = { actions.onChoose(person.networkHandle) },
                     enabled = !state.working,
-                    leadingContent = { Avatar(person.displayName, size = 40.dp) },
+                    leadingContent = { Avatar(person.name, size = 40.dp, photo = person.photo) },
                     supportingContent = { Text(person.networkHandle) },
-                ) { Text(person.displayName) }
+                ) { Text(person.name) }
             }
         }
     }

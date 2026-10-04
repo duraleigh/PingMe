@@ -38,7 +38,46 @@ class ContactRepository
         fun byContact(contactId: ContactId): Flow<List<Person>> =
             personDao.observeByContact(contactId.value).map { rows -> rows.map { it.toModel() } }
 
-        suspend fun upsert(person: Person) = personDao.upsert(person.toEntity())
+        /**
+         * Writes a person as a network reports them. The phone's contact link is local, so
+         * a snapshot that carries none keeps the one already stored.
+         */
+        suspend fun upsert(person: Person) {
+            val kept =
+                if (person.contactId == null && person.contactName == null && person.contactPhoto == null) {
+                    personDao.get(person.id.value)?.let { old ->
+                        person.copy(
+                            contactId = old.contactId?.let(::ContactId),
+                            contactName = old.contactName,
+                            contactPhoto = old.contactPhoto,
+                        )
+                    } ?: person
+                } else {
+                    person
+                }
+            personDao.upsert(kept.toEntity())
+        }
+
+        /** Everyone with a phone number, for matching against the address book. */
+        suspend fun withPhones(): List<Person> = personDao.withPhones().map { it.toModel() }
+
+        /** Everyone some chat lists, keyed by id. */
+        fun inChats(): Flow<Map<PersonId, Person>> =
+            personDao.observeInChats().map { rows -> rows.associate { PersonId(it.id) to it.toModel() } }
+
+        /** Records where a network profile photo was saved on this phone. */
+        suspend fun setAvatar(
+            id: PersonId,
+            path: String,
+        ) = personDao.setAvatar(id.value, path)
+
+        /** Sets or clears the phone's contact link for one person (UI_DESIGN.md 10.18). */
+        suspend fun link(
+            id: PersonId,
+            contactId: ContactId?,
+            contactName: String?,
+            contactPhoto: String?,
+        ) = personDao.link(id.value, contactId?.value, contactName, contactPhoto)
 
         /** Every chat [personId] is in. */
         suspend fun chatsWith(personId: PersonId): List<Chat> =

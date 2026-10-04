@@ -459,7 +459,7 @@ private fun RowAvatar(
                 Icon(painterResource(UiR.drawable.ic_check), null, tint = colours.onPrimary)
             }
         } else {
-            Avatar(row.title, size = size)
+            Avatar(row.title, size = size, photo = row.photo)
         }
         if (row.typing) TypingDots(Modifier.align(Alignment.BottomEnd).offset(x = 8.dp, y = 4.dp))
     }

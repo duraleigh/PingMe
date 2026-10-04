@@ -44,7 +44,7 @@ fun ChatActionSheet(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Avatar(row.title, size = 40.dp)
+                Avatar(row.title, size = 40.dp, photo = row.photo)
                 Column {
                     Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                     Text(

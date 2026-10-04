@@ -54,6 +54,7 @@ class InboxViewModel
         private val saved: SavedStateHandle,
         private val settings: org.pingme.core.store.SettingsRepository,
         private val appearance: org.pingme.app.appearance.AppearanceRepository,
+        contacts: org.pingme.core.store.ContactRepository,
     ) : ViewModel() {
         private val rowActions = RowActions(viewModelScope, actions)
 
@@ -75,16 +76,17 @@ class InboxViewModel
                 chats.lowPriority(),
                 messages.lastMessages(),
                 accounts.accounts(),
-                combine(typing.typing, chats.spaces(), rowActions.pendingDeletes, ::Triple),
-            ) { inbox, low, last, accountList, (typingNow, spaces, hidden) ->
+                combine(typing.typing, chats.spaces(), rowActions.pendingDeletes, contacts.inChats(), ::Extras),
+            ) { inbox, low, last, accountList, extras ->
                 InboxSource(
                     inbox,
                     low,
                     last,
                     accountList,
-                    typingNow.filterValues { it.isNotEmpty() }.keys,
-                    spaces,
-                    hidden,
+                    extras.typing.filterValues { it.isNotEmpty() }.keys,
+                    extras.spaces,
+                    extras.hidden,
+                    extras.people,
                 )
             }
 
@@ -251,6 +253,13 @@ class InboxViewModel
             runCatching {
                 JSON.decodeFromString(InboxBarItem.serializer(), json)
             }.getOrNull()
+
+        private data class Extras(
+            val typing: Map<ChatId, Set<org.pingme.core.model.PersonId>>,
+            val spaces: List<org.pingme.core.model.Space>,
+            val hidden: Set<ChatId>,
+            val people: Map<org.pingme.core.model.PersonId, org.pingme.core.model.Person>,
+        )
 
         private companion object {
             const val SELECTED = "selected"

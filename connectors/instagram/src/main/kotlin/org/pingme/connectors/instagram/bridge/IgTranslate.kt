@@ -161,7 +161,8 @@ class IgTranslate(
             displayName = displayName(user),
             phoneNumber = null,
             networkHandle = user.username.ifEmpty { user.id },
-            avatarPath = null,
+            // Instagram's profile picture, fetched into app storage by the service (owner, Phase 7).
+            avatarPath = user.picture.ifEmpty { null },
             contactId = null,
         )
 

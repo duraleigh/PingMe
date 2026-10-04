@@ -75,7 +75,14 @@ class DemoInbox(
             org.pingme.core.service
                 .Tapbacks(messages),
             org.pingme.core.service
-                .PeopleApplier(chats, contacts),
+                .PeopleApplier(
+                    chats,
+                    contacts,
+                    org.pingme.core.service.people
+                        .PeopleLinker(org.pingme.core.connector.AddressBook.None, contacts, chats),
+                    org.pingme.core.service.people
+                        .ProfilePhotos(context, contacts, scope),
+                ),
         )
     val controls = DemoControls()
     val demo = DemoConnector(controls, MemoryCredentials(), dir.resolve("media"), Clock.System)
@@ -164,6 +171,7 @@ class DemoInbox(
             settings,
             org.pingme.app.appearance
                 .AppearanceRepository(context, settings),
+            contacts,
         ).tracked()
 
     fun listViewModel(route: ChatListRoute) =
@@ -304,6 +312,12 @@ class DemoInbox(
             ConnectorRegistry(mapOf(NetworkId.DEMO to demo)),
             actions,
             SavedStateHandle(mapOf("group" to group)),
+            org.pingme.core.service.people.ContactsWatcher(
+                context,
+                org.pingme.core.service.people
+                    .PeopleLinker(org.pingme.core.connector.AddressBook.None, contacts, chats),
+                scope,
+            ),
         ).tracked()
 
     private fun ChatListRoute.toSavedState() =
