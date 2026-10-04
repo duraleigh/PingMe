@@ -351,9 +351,11 @@ func (s *Session) Messages(threadID, olderThan string) (string, error) {
 		}
 		return marshal(known)
 	}
-	// An encrypted chat has no history on the server: what the channel delivered is all.
+	// An encrypted chat has no history on the channel; the web side is asked once, under
+	// both of the chat's ids, in case it still holds the messages from before the chat
+	// went encrypted (the reference bridge asks the same way).
 	if t := s.threadAt(key); t != nil && t.jid != 0 {
-		return marshal([]Message{})
+		return marshal(s.askWebOnce(t, key))
 	}
 	if !s.isLive() {
 		return "", ErrNotConnected
@@ -1184,4 +1186,52 @@ func marshalSent(sent Message, err error) (string, error) {
 		return "", err
 	}
 	return marshal(sent)
+}
+
+// askWebOnce fetches an encrypted chat's history from the web side under its web key and
+// its channel id, once, and returns what it knows afterwards (newest first).
+func (s *Session) askWebOnce(t *Thread, key int64) []Message {
+	s.mu.Lock()
+	asked := t.askedWeb
+	t.askedWeb = true
+	jid, fbKey, lastAt := t.jid, t.fbKey, t.LastAt
+	s.mu.Unlock()
+	if !asked && s.isLive() {
+		if lastAt == 0 {
+			lastAt = time.Now().UnixMilli()
+		}
+		for _, ask := range []int64{fbKey, jid} {
+			if ask == 0 {
+				continue
+			}
+			ctx, cancel := s.ctx()
+			resp, err := s.client.ExecuteTasks(ctx, &socket.FetchMessagesTask{
+				ThreadKey: ask, Direction: 0, ReferenceTimestampMs: lastAt + 1, SyncGroup: syncGroup, Cursor: s.client.GetCursor(syncGroup),
+			})
+			cancel()
+			if err != nil {
+				s.log.Warn().Err(err).Int64("asked", ask).Msg("Encrypted chat: web history refused")
+				continue
+			}
+			count := 0
+			if resp != nil {
+				upsert, _ := resp.WrapMessages()
+				s.mu.Lock()
+				for _, batch := range upsert {
+					for _, m := range batch.Messages {
+						c := convertMessage(m)
+						c.Thread = id(jid)
+						s.remember(c)
+						t.addMessages([]Message{c})
+						count++
+					}
+				}
+				s.mu.Unlock()
+			}
+			s.log.Info().Int64("asked", ask).Int("messages", count).Msg("Encrypted chat: web history answered")
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]Message{}, t.Messages...)
 }

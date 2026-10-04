@@ -3333,9 +3333,20 @@ before its listing and folded in, reactions, edits, unsends, and media wrapping.
 registration successful", device 833141165:76), the channel authenticated and connected
 within ten seconds of sign-in, and the Messenger list shows plain names (Brett Parker,
 Toni Botting, Don Aiken, ...) with no "Messenger user" and none of the old empty rows.
-Every chat says "No messages yet", as expected until something new arrives. Sending and
-receiving on the channel wait for the owner's test: a message in from someone, and one
-out from PingMe.
+Every chat says "No messages yet". Sending and receiving on the channel wait for the
+owner's test: a message in from someone, and one out from PingMe.
+
+**Owner, 7:03 PM: "You haven't put the Messenger messages into the chats"**, with the
+Messenger app showing unread messages in those same chats. Those messages were encrypted
+for the devices the account had when they were sent; PingMe's device did not exist until
+4:31 PM, so the server has nothing for it (the channel delivered zero waiting messages on
+connect, and the web tables carried no message rows for those threads). That is what
+end-to-end encryption means, and it covers the current unread ones too. One thing left
+to try, added here: when an encrypted chat is opened, the bridge asks the web side once
+for its history under both of its ids (web key and channel id), as the reference bridge
+does, and logs how many messages came back. If Facebook still serves the messages from
+before the chat went encrypted, they appear; if not, the only route left is Messenger's
+"secure storage" backup (PIN), which neither the library nor the reference bridge reads.
 
 - **The box's placeholder** ("Send a Google Message") wrapped to two lines and grew the
   box (owner, 3:38 PM). It is one line now and shrinks to fit, down to 11sp.

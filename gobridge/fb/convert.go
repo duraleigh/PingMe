@@ -42,6 +42,8 @@ type Thread struct {
 	jid   int64
 	// Messages from the channel not yet marked read there.
 	waUnread []waRef
+	// Whether the web side was asked once for history under both of the chat's ids.
+	askedWeb bool
 }
 
 // User is a person on Messenger.
