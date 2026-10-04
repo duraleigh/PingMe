@@ -31,7 +31,7 @@ type Thread struct {
 	Muted        bool   `json:"muted"`
 	Pinned       bool   `json:"pinned"`
 	// When the account itself last read the thread, from its read receipt; 0 when unknown.
-	ReadAt int64 `json:"readAt"`
+	ReadAt int64  `json:"readAt"`
 	Users  []User `json:"users"`
 	// Admins, by user id, for groups.
 	Admins []string `json:"admins,omitempty"`
@@ -56,15 +56,15 @@ type Message struct {
 	Sender    string `json:"sender"`
 	Timestamp int64  `json:"timestamp"`
 	// "text", "image", "video", "gif", "voice", "sticker", "share", "system", or "unsupported".
-	Kind      string      `json:"kind"`
-	Text      string      `json:"text,omitempty"`
-	Media     []Media     `json:"media,omitempty"`
-	Share     *Share      `json:"share,omitempty"`
-	Reactions []Reaction  `json:"reactions,omitempty"`
-	ReplyTo   string      `json:"replyTo,omitempty"`
-	ReplyText string      `json:"replyText,omitempty"`
-	Edited    bool        `json:"edited"`
-	ViewOnce  bool        `json:"viewOnce"`
+	Kind      string     `json:"kind"`
+	Text      string     `json:"text,omitempty"`
+	Media     []Media    `json:"media,omitempty"`
+	Share     *Share     `json:"share,omitempty"`
+	Reactions []Reaction `json:"reactions,omitempty"`
+	ReplyTo   string     `json:"replyTo,omitempty"`
+	ReplyText string     `json:"replyText,omitempty"`
+	Edited    bool       `json:"edited"`
+	ViewOnce  bool       `json:"viewOnce"`
 	// View-once media Instagram will not hand out again ("viewed", "replayed").
 	ViewOnceGone string `json:"viewOnceGone,omitempty"`
 	Unsent       bool   `json:"unsent"`
@@ -230,11 +230,9 @@ func fill(out *Message, msg *slidetypes.Message) {
 		}
 	case *slidetypes.MessageContentRavenImage:
 		out.Kind = "image"
-		out.ViewOnce = true
 		raven(out, content.Attachment, content.ViewMode, "image")
 	case *slidetypes.MessageContentRavenVideo:
 		out.Kind = "video"
-		out.ViewOnce = true
 		raven(out, content.Attachment, content.ViewMode, "video")
 	case *slidetypes.MessageContentAudio:
 		out.Kind = "voice"
@@ -290,15 +288,30 @@ func pictureOrVideo(a *slidetypes.Attachment, kind string) Media {
 		Width: a.PreviewWidth, Height: a.PreviewHeight, ID: a.AttachmentFBID}
 }
 
+// raven is a photo or video taken in the chat's camera. Instagram sends it in one of
+// three modes: view once, allow replay, or keep in chat. The first two are ephemeral and,
+// once viewed or replayed, come without an attachment: those are gone. Anything else is
+// an ordinary photo or video; its address may be missing from the live event and is
+// then fetched by id when the file is wanted (owner, 2026-10-04: a kept video was called
+// "view-once ... no longer shows").
 func raven(out *Message, a *slidetypes.Attachment, mode slidetypes.RavenViewMode, kind string) {
-	if a == nil || a.AttachmentCDNURL == "" {
-		out.ViewOnceGone = mode.ViewType()
-		if out.ViewOnceGone == "" {
+	out.ViewOnce = mode != slidetypes.RavenViewModeKeepInChat
+	if a == nil {
+		if mode.ViewType() != "" {
+			out.ViewOnceGone = mode.ViewType()
+		} else {
 			out.ViewOnceGone = "gone"
 		}
 		return
 	}
-	out.Media = append(out.Media, pictureOrVideo(a, kind))
+	media := pictureOrVideo(a, kind)
+	if media.URL == "" {
+		media.URL = a.AttachmentCDNFallbackURL
+	}
+	if media.URL == "" && kind == "image" {
+		media.URL = a.PreviewCDNURL
+	}
+	out.Media = append(out.Media, media)
 }
 
 func convertShare(x *slidetypes.XMAContent) *Share {

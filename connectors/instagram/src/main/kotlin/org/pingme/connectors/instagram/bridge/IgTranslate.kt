@@ -82,6 +82,12 @@ class IgTranslate(
     @Synchronized
     fun knows(thread: String) = thread in threads
 
+    /** Whether a thread's folder is known: a thread seen only through a message has none yet. */
+    @Synchronized
+    fun knowsFolder(thread: String): Boolean =
+        threads[thread]?.let { it.folder.isNotEmpty() || it.systemFolder.isNotEmpty() || it.folderTag.isNotEmpty() } ==
+            true
+
     /** Whether a sender has been seen in a thread listing, so they have a name. */
     @Synchronized
     fun knowsPerson(user: String) = user == ownId || user in names
@@ -269,7 +275,7 @@ class IgTranslate(
     }
 
     private fun attachmentsOf(msg: IgMessage): List<Attachment> =
-        msg.media.filter { it.url.isNotEmpty() }.mapIndexed { i, media ->
+        msg.media.filter { it.url.isNotEmpty() || it.id.isNotEmpty() }.mapIndexed { i, media ->
             val kind =
                 when (media.kind) {
                     "video" -> AttachmentKind.VIDEO
@@ -285,7 +291,7 @@ class IgTranslate(
                 fileName = null,
                 sizeBytes = 0,
                 localPath = null,
-                remoteRef = igJson.encodeToString(IgMedia.serializer(), media),
+                remoteRef = igJson.encodeToString(IgMedia.serializer(), media.copy(thread = msg.thread)),
                 durationMs = media.durationMs.takeIf { it > 0 }?.toLong(),
                 width = media.width.takeIf { it > 0 },
                 height = media.height.takeIf { it > 0 },

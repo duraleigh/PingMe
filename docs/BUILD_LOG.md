@@ -3141,6 +3141,35 @@ deleted, and the WhatsApp chats are named correctly.
   delivers them at all; the filter rule above also hides a merged chat whose WhatsApp
   member holds no stored message, which may be part of it.
 
+### Owner notes of 2026-10-04, morning (five)
+
+1. **Instagram General chats in the inbox** (Michael Robbins in All; Chris Rushton's
+   General message not seen). A message for a thread PingMe knew only from earlier
+   messages, never from a listing, carried no folder, so it counted as Primary. The
+   thread-first fetch now also runs for a known thread whose folder PingMe never learned,
+   and the folder Instagram reports is written to the phone's log. Chris Rushton's message
+   most likely did arrive and sits under General (hidden from All by the switch); to be
+   confirmed on the phone.
+2. **The box badge switched only where the message would go.** It now moves the whole
+   chat, header and bubbles included, exactly as the header's menu does.
+3. **"A view-once photo or video that Instagram no longer shows" on a kept video.**
+   Instagram sends a photo or video taken in the chat in one of three modes: view once,
+   allow replay, or keep in chat. PingMe treated all three as ephemeral and called any one
+   without an address "gone". Now only a viewed or replayed one is gone; a kept one is an
+   ordinary photo or video, not ephemeral, and when the live event carries no address the
+   file is fetched by its id from the thread's recent messages when wanted (the way the
+   reference bridge refreshes media). View-once media that does arrive with an address is
+   kept, as the design says.
+4. **Quiana's merged chat opened on Instagram with no unread, not her default.** The chat
+   screen's state outlives one visit (it is kept while the inbox is on the back stack), so
+   the opening rule ran only the first time. It now runs every time the chat is shown.
+5. **No notifications in the shade overnight.** Not swiped by me. The likely cause is my
+   own doing: I started PingMe on the phone at 12:43 AM for a log capture and it stayed in
+   the foreground all night (the phone's "stay awake while charging" keeps the screen on),
+   and by the Gate G3 rule a message arriving while PingMe is on screen makes its sound
+   and puts nothing in the shade. Not a code change; noted so the owner can decide whether
+   that rule should also require the screen to be in use.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a

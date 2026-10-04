@@ -182,9 +182,25 @@ class ChatViewModel
             onScreen.value = on
             if (on) {
                 presence.visible = chatId
+                // The view model outlives one visit: the opening rule runs on every showing.
+                viewModelScope.launch { openOn() }
             } else if (presence.visible == chatId) {
                 presence.visible = null
             }
+        }
+
+        /**
+         * A merged chat opens, header, bubbles, and box alike, on the one network its unread
+         * messages came from; with none, or several, on its default network. "All" stays a
+         * choice in the header menu (owner, 2026-10-03).
+         */
+        private suspend fun openOn() {
+            val list = members.first { it.isNotEmpty() || !isMergedId(chatId) }
+            if (list.isEmpty()) return
+            val unreadAccounts = list.filter { it.unreadCount > 0 }.map { it.accountId }.distinct()
+            val fallback = chats.get(chatId)?.defaultSendAccount ?: list.first().accountId
+            filter.value = unreadAccounts.singleOrNull() ?: fallback
+            chosenVia.value = null
         }
 
         /** Voice-note transcripts, when Settings turns them on (UI_DESIGN.md 5.6). */
@@ -413,16 +429,6 @@ class ChatViewModel
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), ChatUiState())
 
         init {
-            // A merged chat opens, header, bubbles, and box alike, on the one network its
-            // unread messages came from; with none, or several, on its default network.
-            // "All" stays a choice in the header menu (owner, 2026-10-03).
-            viewModelScope.launch {
-                val list = members.first { it.isNotEmpty() || !isMergedId(chatId) }
-                if (list.isEmpty()) return@launch
-                val unreadAccounts = list.filter { it.unreadCount > 0 }.map { it.accountId }.distinct()
-                val fallback = chats.get(chatId)?.defaultSendAccount ?: list.first().accountId
-                filter.value = unreadAccounts.singleOrNull() ?: fallback
-            }
             // Chat details can ask for search or a jump to a pinned message.
             viewModelScope.launch {
                 requests.requests.collect {
@@ -462,8 +468,13 @@ class ChatViewModel
             chosenVia.value = null
         }
 
-        /** The composer chip: send through this member from now on (UI_DESIGN.md 10.15). */
+        /** The box badge moves the whole chat to this member's network, as the header menu does (owner). */
         fun sendVia(member: ChatId) {
+            val account =
+                state.value.members
+                    .firstOrNull { it.chatId == member }
+                    ?.accountId
+            if (account != null) filter.value = account
             chosenVia.value = member
         }
 

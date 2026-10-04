@@ -59,6 +59,20 @@ func TestMediaAndSharesFlatten(t *testing.T) {
 	if got := convertMessage(gone, "T"); got.Kind != "image" || !got.ViewOnce || got.ViewOnceGone == "" {
 		t.Fatalf("view-once wrong: %+v", got)
 	}
+	// A video taken in the chat and kept (view mode 2) is an ordinary video, not ephemeral,
+	// even when the live event carries no address yet: the id fetches one later
+	// (owner, 2026-10-04: a kept video read as "view-once ... no longer shows").
+	kept := parseMessage(t, `{"message_id": "M6", "sender_fbid": "2", "timestamp_ms": "1", "content": {
+		"__typename": "SlideMessageRavenVideoContent", "view_mode": 2, "attachment": {"attachment_fbid": "A9", "attachment_cdn_url": "", "preview_cdn_url": "https://cdn/p9.jpg"}}}`)
+	if got := convertMessage(kept, "T"); got.Kind != "video" || got.ViewOnce || got.ViewOnceGone != "" ||
+		len(got.Media) != 1 || got.Media[0].ID != "A9" || got.Media[0].URL != "" || got.Media[0].PreviewURL != "https://cdn/p9.jpg" {
+		t.Fatalf("kept video wrong: %+v", got)
+	}
+	replayed := parseMessage(t, `{"message_id": "M7", "sender_fbid": "2", "timestamp_ms": "1", "content": {
+		"__typename": "SlideMessageRavenVideoContent", "view_mode": 1, "attachment": null}}`)
+	if got := convertMessage(replayed, "T"); !got.ViewOnce || got.ViewOnceGone != "replayed" {
+		t.Fatalf("replayed wrong: %+v", got)
+	}
 	share := parseMessage(t, `{"message_id": "M5", "sender_fbid": "2", "timestamp_ms": "1", "content": {
 		"__typename": "SlideMessageXMAContent", "xma_text_body": "look", "xma": {"__typename": "XMAReel", "title_text": "A reel", "target_url": "https://instagram.com/reel/1", "preview_image": {"url": "https://cdn/p.jpg"}}}}`)
 	if got := convertMessage(share, "T"); got.Kind != "share" || got.Share == nil || got.Share.URL != "https://instagram.com/reel/1" || got.Share.Preview != "https://cdn/p.jpg" {

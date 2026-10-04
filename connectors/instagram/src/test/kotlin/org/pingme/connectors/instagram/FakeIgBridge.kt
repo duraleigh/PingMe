@@ -121,6 +121,13 @@ class FakeIgSession(
         )
 
     /** Any thread asked for exists: Sam's for his id, a General thread with a named stranger for any other. */
+    var mediaUrls: Map<String, String> = emptyMap()
+
+    override fun mediaUrl(
+        fbid: String,
+        attachmentId: String,
+    ): String = mediaUrls[attachmentId] ?: throw IllegalStateException("no address for $attachmentId")
+
     override fun thread(fbid: String): String =
         igJson.encodeToString(
             IgThread.serializer(),

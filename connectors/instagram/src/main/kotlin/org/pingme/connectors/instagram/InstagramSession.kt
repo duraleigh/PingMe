@@ -142,9 +142,15 @@ internal class InstagramSession(
      * only the next full sync would fix (owner, Gate G7).
      */
     private suspend fun ProducerScope<ConnectorEvent>.placeThread(msg: IgMessage) {
-        if (go.knows(msg.thread) && go.knowsPerson(msg.sender)) return
+        if (go.knows(msg.thread) && go.knowsPerson(msg.sender) && go.knowsFolder(msg.thread)) return
         try {
             val thread = go.threadJson(request { session.thread(msg.thread) })
+            // Which folder Instagram puts the thread in, for the phone's log (owner, 2026-10-04: General leaked).
+            Log.i(
+                TAG,
+                "Instagram thread fetched: folder='${thread.folder}' system='${thread.systemFolder}' " +
+                    "tag='${thread.folderTag}'",
+            )
             send(ConnectorEvent.ChatUpdated(accountId, go.chat(thread)))
         } catch (e: CancellationException) {
             throw e
@@ -389,7 +395,9 @@ internal class InstagramSession(
                 IgMedia.serializer(),
                 requireNotNull(attachment.remoteRef) { "nothing to fetch" },
             )
-        request { session.download(media.url, target.absolutePath) }
+        // A kept photo or video can arrive without an address; Instagram gives one by id.
+        val url = media.url.ifEmpty { request { session.mediaUrl(media.thread, media.id) } }
+        request { session.download(url, target.absolutePath) }
         return target
     }
 

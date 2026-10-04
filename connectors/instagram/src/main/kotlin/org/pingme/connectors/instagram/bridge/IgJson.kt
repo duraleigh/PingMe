@@ -79,6 +79,8 @@ data class IgMedia(
     val height: Int = 0,
     val durationMs: Int = 0,
     val id: String = "",
+    /** The thread, kept with the reference so an address can be fetched by id later. */
+    val thread: String = "",
 )
 
 @Serializable
