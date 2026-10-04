@@ -105,7 +105,8 @@ class InboxBarRepository
     constructor(
         private val settings: SettingsRepository,
     ) {
-        val config: Flow<InboxBarConfig?> = settings.inboxBarJson.map { decode(it) }
+        /** A bar saved with five picks before the More button existed loads as four (owner, 2026-10-03). */
+        val config: Flow<InboxBarConfig?> = settings.inboxBarJson.map { decode(it)?.tidy() }
 
         /** [change] gets the current bar, or the default when none is saved yet. */
         suspend fun update(

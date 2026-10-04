@@ -193,7 +193,6 @@ fun InboxScreen(
                 contentPadding = padding,
                 selected = selection.ids,
                 onSelect = selection::toggle,
-                onSuggestions = navigation.onMergeSuggestions,
             )
         }
     }
@@ -354,7 +353,6 @@ private fun ChatListBody(
     contentPadding: PaddingValues,
     selected: Set<ChatId> = emptySet(),
     onSelect: (ChatRow) -> Unit = {},
-    onSuggestions: () -> Unit = {},
 ) {
     val style = PingMeTheme.appearance.pinnedStyle
     // "Top of list" shows pinned chats as ordinary rows above the rest (UI_DESIGN.md 4.3).
@@ -365,10 +363,6 @@ private fun ChatListBody(
             .rememberLazyListState()
     androidx.compose.runtime.LaunchedEffect(Unit) { listState.scrollToItem(0) }
     LazyColumn(Modifier.fillMaxSize().testTag(INBOX_LIST), state = listState, contentPadding = contentPadding) {
-        // People who look the same on more than one network: PingMe proposes, the user decides (10.15).
-        if (state.menu.suggestions > 0 && state.selected == null) {
-            item(key = "suggestions") { SuggestionsCard(state.menu.suggestions, onSuggestions) }
-        }
         if (state.pinned.isNotEmpty() && style != PinnedStyle.TOP_OF_LIST) {
             item(key = "pinned") {
                 Column {

@@ -205,6 +205,7 @@ fun PingMeNavHost(
                             .restartApp(context)
                     },
                     onLogin = { network, account -> nav.navigate(LoginDest(network.name, account?.value)) },
+                    onMergeSuggestions = { nav.navigate(MergeSuggestionsDest) },
                 ),
                 account = entry.arguments?.getString("account")?.let(::AccountId),
             )

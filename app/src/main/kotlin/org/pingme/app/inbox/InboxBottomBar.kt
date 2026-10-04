@@ -233,7 +233,7 @@ internal fun BarIcon(entry: BarEntry) {
         when (val item = entry.item) {
             null -> Icon(painterResource(UiR.drawable.ic_forum), null)
             InboxBarItem.Unread -> Icon(painterResource(UiR.drawable.ic_mark_chat_unread), null)
-            is InboxBarItem.Network -> NetworkDot(item.network)
+            is InboxBarItem.Network -> Icon(painterResource(item.network.lineIcon()), null)
             is InboxBarItem.Space -> Icon(painterResource((entry.spaceIcon ?: SpaceIcon.SPACE).drawable()), null)
             InboxBarItem.LowPriority -> Icon(painterResource(UiR.drawable.ic_low_priority), null)
         }

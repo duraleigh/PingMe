@@ -395,7 +395,7 @@ private fun NewChatForm(
                         selected = account.id == state.account,
                         onClick = { actions.onAccount(account.id) },
                         label = { Text(label) },
-                        leadingIcon = { NetworkDot(account.network) },
+                        leadingIcon = { Icon(painterResource(account.network.lineIcon()), null) },
                     )
                 }
             }

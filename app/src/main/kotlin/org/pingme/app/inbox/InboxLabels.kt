@@ -32,6 +32,25 @@ val NetworkId.displayName: String
             NetworkId.DEMO -> "Demo"
         }
 
+/**
+ * A plain line icon per network for the bottom bar and the account chips, in the same
+ * style as All, Low priority, and More (owner, 2026-10-03: the coloured circles were
+ * gaudy). Material Symbols that say what the network is for; no brand logos are bundled.
+ */
+@androidx.annotation.DrawableRes
+fun NetworkId.lineIcon(): Int =
+    when (this) {
+        NetworkId.GMESSAGES, NetworkId.SMS -> org.pingme.core.ui.R.drawable.ic_sms
+        NetworkId.WHATSAPP -> org.pingme.core.ui.R.drawable.ic_call
+        NetworkId.TELEGRAM -> org.pingme.core.ui.R.drawable.ic_send
+        NetworkId.SIGNAL -> org.pingme.core.ui.R.drawable.ic_lock
+        NetworkId.GVOICE -> org.pingme.core.ui.R.drawable.ic_keyboard_voice
+        NetworkId.INSTAGRAM -> org.pingme.core.ui.R.drawable.ic_photo_camera
+        NetworkId.MESSENGER -> org.pingme.core.ui.R.drawable.ic_chat
+        NetworkId.FBPAGE -> org.pingme.core.ui.R.drawable.ic_work
+        NetworkId.DEMO -> org.pingme.core.ui.R.drawable.ic_celebration
+    }
+
 /** The short badge on an inbox row and in the chat header (UI_DESIGN.md 10.1). */
 fun badgeLabel(network: NetworkId): String =
     when (network) {

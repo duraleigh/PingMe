@@ -3041,6 +3041,27 @@ the owner's word.
   into More. The rail on wide screens does the same.
 - UI_DESIGN.md 3.1 and 10.4 and the decisions log carry the change.
 
+### Owner notes on the first Phase 7 build (2026-10-03, 9:53 PM)
+
+- **The merge banner** in the inbox is gone. Merging lives under Settings > Merge chats:
+  "Merge chats you pick" (any one-to-one chats from any networks) and "Suggestions" (with
+  the count). The avatar menu keeps its "Merge suggestions" line.
+- **Six buttons in the bar** where five were agreed: the saved bar still held five picks
+  from before the More button, and the four-button limit was applied only on edit, not
+  on load. A saved bar now loads as four plus More.
+- **The coloured network circles** in the bar were gaudy next to the line icons. Each
+  network now has a plain line icon in the same style (Material Symbols that say what the
+  network is for: a text bubble for Google Messages and SMS, a handset for WhatsApp, a
+  paper plane for Telegram, a padlock for Signal, a voice mark for Google Voice, a camera
+  for Instagram, a chat bubble for Messenger, a briefcase for a Facebook Page). No brand
+  logos are bundled, as before. The same icons mark the account chips on the new-chat
+  screen.
+- **Group chat avatars** are made of the members' avatars, not counting you: two side by
+  side, three in a triangle, and so on round to nine in a nonagon; ten or more become a
+  multicoloured asterisk with one arm per member (owner, 2026-10-03).
+- **Profile photo fetches** now run four at a time; a first sync started hundreds at once
+  and many timed out, leaving photos missing at random.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a
