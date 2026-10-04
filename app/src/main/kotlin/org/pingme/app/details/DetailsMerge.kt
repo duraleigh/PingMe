@@ -103,7 +103,22 @@ private fun MemberLine(
     val name = member.chat.nameOverride ?: member.chat.title
     ListItem(
         headlineContent = { Text(name) },
-        supportingContent = { NetworkBadge(member.network) },
+        supportingContent = {
+            androidx.compose.foundation.layout.Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement =
+                    androidx.compose.foundation.layout.Arrangement
+                        .spacedBy(8.dp),
+            ) {
+                NetworkBadge(member.network)
+                val detail =
+                    member.person?.let {
+                        it.phoneNumber
+                            ?: it.networkHandle.takeIf { h -> '@' !in h && h != it.name }?.let { h -> "@$h" }
+                    }
+                detail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
         leadingContent = {
             RadioButton(member.isDefault, onClick = null)
         },

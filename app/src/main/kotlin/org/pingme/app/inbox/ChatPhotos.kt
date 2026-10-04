@@ -17,11 +17,23 @@ fun photoFor(
     people: Map<PersonId, Person>,
 ): String? {
     if (chat.kind != ChatKind.DIRECT) return null
-    val other = chat.participants.mapNotNull { people[it] }.firstOrNull { it.displayName != YOU } ?: return null
+    // A merged chat lists the person once per network; the source says whose picture counts.
+    val others = chat.participants.mapNotNull { people[it] }.filter { it.displayName != YOU }
+    val other = others.firstOrNull() ?: return null
     return when (val source = chat.avatarSource) {
-        AvatarSource.Contacts -> other.contactPhoto ?: other.avatarPath
-        is AvatarSource.Network -> other.avatarPath.takeIf { source.accountId == other.accountId } ?: other.contactPhoto
-        AvatarSource.Initials -> null
+        AvatarSource.Contacts -> {
+            others.firstNotNullOfOrNull { it.contactPhoto }
+                ?: others.firstNotNullOfOrNull { it.avatarPath }
+        }
+
+        is AvatarSource.Network -> {
+            val onNetwork = others.firstOrNull { it.accountId == source.accountId } ?: other
+            onNetwork.avatarPath ?: onNetwork.contactPhoto
+        }
+
+        AvatarSource.Initials -> {
+            null
+        }
     }
 }
 

@@ -41,6 +41,10 @@ class Merges
         suspend fun merge(
             ids: List<ChatId>,
             into: ChatId? = null,
+            /** The account the composer starts on; the first member's when null. */
+            default: AccountId? = null,
+            /** Which picture stands for the merged chat; the contact's when null. */
+            avatar: AvatarSource? = null,
         ): ChatId {
             val members = resolve(ids)
             if (members.size < 2) throw MergeRefusedException("Pick at least two chats to merge.")
@@ -52,7 +56,14 @@ class Merges
             members.forEach { merges.setMergedInto(it.id, parent.id) }
             shareContact(members)
             val everyone = members.flatMap { m -> m.participants }
-            chats.update(parent.id) { it.copy(participants = (it.participants + everyone).distinct()) }
+            chats.update(parent.id) {
+                it.copy(
+                    participants = (it.participants + everyone).distinct(),
+                    defaultSendAccount = default ?: it.defaultSendAccount,
+                    accountId = default ?: it.accountId,
+                    avatarSource = avatar ?: it.avatarSource,
+                )
+            }
             return parent.id
         }
 

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.merge
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -17,6 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -34,6 +39,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,7 +67,14 @@ fun MergeSuggestionsRoute(
     }
     MergeSuggestionsScreen(
         state,
-        SuggestionActions(viewModel::remove, viewModel::add, viewModel::dismiss, viewModel::merge),
+        SuggestionActions(
+            viewModel::remove,
+            viewModel::add,
+            viewModel::dismiss,
+            viewModel::merge,
+            viewModel::setDefault,
+            viewModel::setPhoto,
+        ),
         onBack,
         modifier,
         snackbar,
@@ -129,16 +142,21 @@ private fun SuggestionCardView(
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
-            card.members.forEach { member ->
+            Text(
+                stringResource(R.string.merge_card_hint),
+                Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            card.members.forEach { member -> MemberRow(card, member, actions) }
+            if (card.members.any { it.hasContactPhoto }) {
                 ListItem(
-                    headlineContent = { Text(member.title) },
-                    supportingContent = { NetworkBadge(member.network) },
-                    leadingContent = { Avatar(member.title, size = 40.dp, photo = member.photo) },
-                    trailingContent = {
-                        IconButton({ actions.onRemove(card.key, member.id) }) {
-                            Icon(painterResource(UiR.drawable.ic_close), stringResource(R.string.merge_remove))
-                        }
-                    },
+                    headlineContent = { Text(stringResource(R.string.merge_photo_contact)) },
+                    leadingContent = { RadioButton(card.photoOf == null, onClick = null) },
+                    modifier =
+                        Modifier.selectable(card.photoOf == null, role = Role.RadioButton) {
+                            actions.onPhoto(card.key, null)
+                        },
                 )
             }
             TextButton({ picking = true }, Modifier.padding(horizontal = 8.dp)) {
@@ -158,6 +176,60 @@ private fun SuggestionCardView(
         }
     }
     if (picking) ChatPickerSheet(card.candidates, { actions.onAdd(card.key, it) }) { picking = false }
+}
+
+/**
+ * One proposed member: the radio picks it as the merged chat's sender, tapping its picture
+ * picks that picture, the number or username says which account it is, and the cross
+ * leaves it out (owner, 2026-10-03).
+ */
+@Composable
+private fun MemberRow(
+    card: SuggestionCard,
+    member: PickableChat,
+    actions: SuggestionActions,
+) {
+    val chosenPhoto = card.photoOf == member.id
+    val ring = MaterialTheme.colorScheme.primary
+    ListItem(
+        headlineContent = { Text(member.title) },
+        supportingContent = {
+            Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                NetworkBadge(member.network)
+                member.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        leadingContent = {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                RadioButton(card.defaultId == member.id, onClick = null)
+                Avatar(
+                    member.title,
+                    Modifier
+                        .then(if (chosenPhoto) Modifier.border(3.dp, ring, CircleShape) else Modifier)
+                        .clickable(
+                            enabled = member.photo != null,
+                            onClickLabel = stringResource(R.string.merge_photo_pick),
+                        ) {
+                            actions.onPhoto(card.key, member.id)
+                        },
+                    size = 40.dp,
+                    photo = member.photo,
+                )
+            }
+        },
+        trailingContent = {
+            IconButton({ actions.onRemove(card.key, member.id) }) {
+                Icon(painterResource(UiR.drawable.ic_close), stringResource(R.string.merge_remove))
+            }
+        },
+        modifier =
+            Modifier.selectable(card.defaultId == member.id, role = Role.RadioButton) {
+                actions.onDefault(card.key, member.id)
+            },
+    )
 }
 
 private fun reasonLabel(reason: MergeReason) =

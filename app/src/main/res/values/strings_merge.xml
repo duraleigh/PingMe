@@ -8,6 +8,9 @@
     <string name="merge_reason_number">Same phone number</string>
     <string name="merge_reason_name">Same name</string>
     <string name="merge_remove">Leave this chat out</string>
+    <string name="merge_card_hint">The filled circle is where the merged chat sends from. Tap a picture to use it.</string>
+    <string name="merge_photo_contact">Use the contact photo</string>
+    <string name="merge_photo_pick">Use this picture</string>
     <string name="merge_add_chat">Add a chat…</string>
     <string name="merge_dismiss">Dismiss</string>
     <string name="merge_confirm">Merge</string>

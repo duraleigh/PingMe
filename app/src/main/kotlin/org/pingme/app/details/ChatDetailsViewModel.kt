@@ -198,13 +198,12 @@ class ChatDetailsViewModel
                             .filter { it.id != chatId && it.kind == ChatKind.DIRECT && it.mergedInto == null }
                             .filter { other -> allChats.none { it.mergedInto == other.id } }
                             .map { other ->
-                                org.pingme.app.merge.PickableChat(
-                                    other.id,
-                                    other.nameOverride ?: other.title,
-                                    networkOf[other.accountId] ?: org.pingme.core.model.NetworkId.DEMO,
-                                    org.pingme.app.inbox
-                                        .photoFor(other, everyone),
-                                )
+                                org.pingme.app.merge.PickableChat
+                                    .of(
+                                        other,
+                                        networkOf[other.accountId] ?: org.pingme.core.model.NetworkId.DEMO,
+                                        everyone,
+                                    )
                             },
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), ChatDetailsState())

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.merge
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -20,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -67,7 +70,15 @@ fun ChatPickerSheet(
                     ListItem(
                         onClick = { picked = if (on) picked - chat.id else picked + chat.id },
                         leadingContent = { Avatar(chat.title, size = 40.dp, photo = chat.photo) },
-                        supportingContent = { NetworkBadge(chat.network) },
+                        supportingContent = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                NetworkBadge(chat.network)
+                                chat.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                            }
+                        },
                         trailingContent = { Checkbox(checked = on, onCheckedChange = null) },
                     ) { Text(chat.title) }
                 }

@@ -3062,6 +3062,20 @@ the owner's word.
 - **Profile photo fetches** now run four at a time; a first sync started hundreds at once
   and many timed out, leaving photos missing at random.
 
+### Owner notes on the suggestions screen (2026-10-03, 9:52 PM)
+
+- Each suggestion card now lets you pick which member the merged chat **sends from** (a
+  radio per member) and which **picture** stands for it (tap a member's picture; "Use the
+  contact photo" when a contact has one), and every member and every picker row shows the
+  **number** it goes by, or the username on a network without numbers, so two chats with
+  one person on one network can be told apart. Chat details show the same under each
+  member of a merged chat.
+- Instagram chats were missing from the picker because PingMe only listed the newest
+  four pages of the Instagram inbox, about eighty chats. It now lists the inbox newest
+  first and stops once a page holds nothing from the last thirty days (owner: recent
+  Primary chats, not the whole inbox; General chats inside the thirty days come along and
+  stay out of All as before). The request queue stays one page.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a

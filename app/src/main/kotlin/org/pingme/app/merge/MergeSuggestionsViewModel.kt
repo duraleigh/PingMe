@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.pingme.app.inbox.photoFor
+import org.pingme.core.model.AvatarSource
 import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
@@ -38,6 +38,10 @@ data class SuggestionCard(
     val members: List<PickableChat>,
     /** Chats that could still be added: every other one-to-one chat not in a merged chat. */
     val candidates: List<PickableChat>,
+    /** The member the merged chat sends from unless another is picked (owner, 2026-10-03). */
+    val defaultId: ChatId,
+    /** The member whose picture stands for the merged chat; null for the contact's photo. */
+    val photoOf: ChatId?,
 )
 
 data class MergeSuggestionsUiState(
@@ -49,6 +53,10 @@ data class MergeSuggestionsUiState(
 private data class Edit(
     val removed: Set<ChatId> = emptySet(),
     val added: List<ChatId> = emptyList(),
+    val defaultId: ChatId? = null,
+    /** Set once the user tapped a picture: the member, or null for the contact's photo. */
+    val photoPicked: Boolean = false,
+    val photoOf: ChatId? = null,
 )
 
 /** Merge suggestions (UI_DESIGN.md 10.15; owner, Phase 7): PingMe proposes, the user edits and confirms. */
@@ -98,6 +106,18 @@ class MergeSuggestionsViewModel
             picked: List<ChatId>,
         ) = edit(key) { it.copy(added = (it.added + picked).distinct(), removed = it.removed - picked.toSet()) }
 
+        /** The member the merged chat sends from (owner, 2026-10-03). */
+        fun setDefault(
+            key: String,
+            chat: ChatId,
+        ) = edit(key) { it.copy(defaultId = chat) }
+
+        /** The member whose picture stands for the merged chat; null for the contact's photo. */
+        fun setPhoto(
+            key: String,
+            chat: ChatId?,
+        ) = edit(key) { it.copy(photoPicked = true, photoOf = chat) }
+
         fun dismiss(key: String) {
             viewModelScope.launch { settings.dismissMerge(key) }
         }
@@ -105,7 +125,14 @@ class MergeSuggestionsViewModel
         fun merge(card: SuggestionCard) {
             viewModelScope.launch {
                 try {
-                    merges.merge(card.members.map { it.id })
+                    val sender = card.members.firstOrNull { it.id == card.defaultId }?.accountId
+                    val picture =
+                        card.members
+                            .firstOrNull { it.id == card.photoOf }
+                            ?.accountId
+                            ?.let { AvatarSource.Network(it) }
+                            ?: AvatarSource.Contacts
+                    merges.merge(card.members.map { it.id }, default = sender, avatar = picture)
                     settings.dismissMerge(card.key)
                     notices.send(MERGED)
                 } catch (e: MergeRefusedException) {
@@ -133,18 +160,28 @@ class MergeSuggestionsViewModel
                     .distinct()
                     .mapNotNull { byId[it] ?: suggestion.chats.firstOrNull { c -> c.id == it } }
             val inCard = members.map { it.id }.toSet()
+            val shown = members.map { it.pickable(networkOf, people) }
+            // The contact's photo when any member has one, otherwise the first member's own picture.
+            val photoOf =
+                if (edit.photoPicked) {
+                    edit.photoOf
+                } else {
+                    shown.firstOrNull { it.hasContactPhoto }?.let { null } ?: shown.firstOrNull { it.photo != null }?.id
+                }
             return SuggestionCard(
                 key = suggestion.key,
                 reasons = suggestion.reasons,
-                members = members.map { it.pickable(networkOf, people) },
+                members = shown,
                 candidates = pickable.filter { it.id !in inCard }.map { it.pickable(networkOf, people) },
+                defaultId = edit.defaultId?.takeIf { it in inCard } ?: members.first().id,
+                photoOf = photoOf?.takeIf { it in inCard },
             )
         }
 
         private fun Chat.pickable(
             networkOf: Map<org.pingme.core.model.AccountId, NetworkId>,
             people: Map<PersonId, Person>,
-        ) = PickableChat(id, nameOverride ?: title, networkOf[accountId] ?: NetworkId.DEMO, photoFor(this, people))
+        ) = PickableChat.of(this, networkOf[accountId] ?: NetworkId.DEMO, people)
 
         private fun isParent(
             chat: Chat,

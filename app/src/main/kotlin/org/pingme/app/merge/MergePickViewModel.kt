@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import org.pingme.app.inbox.photoFor
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.NetworkId
@@ -56,14 +55,7 @@ class MergePickViewModel
                     candidates =
                         all
                             .filter { it.kind == ChatKind.DIRECT && it.mergedInto == null && it.id !in parents }
-                            .map {
-                                PickableChat(
-                                    it.id,
-                                    it.nameOverride ?: it.title,
-                                    networkOf[it.accountId] ?: NetworkId.DEMO,
-                                    photoFor(it, people),
-                                )
-                            },
+                            .map { PickableChat.of(it, networkOf[it.accountId] ?: NetworkId.DEMO, people) },
                     suggestions = suggested.size,
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), MergePickUiState())

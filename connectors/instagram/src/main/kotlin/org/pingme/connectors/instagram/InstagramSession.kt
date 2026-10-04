@@ -209,9 +209,14 @@ internal class InstagramSession(
             emptyList()
         }
 
-    /** The inbox and the request queue, every page. */
+    /**
+     * The inbox and the request queue. The inbox is listed newest first, and listing stops
+     * once a page holds nothing from the last thirty days: the owner wants recent Primary
+     * chats, not the whole inbox (owner, 2026-10-03). The request queue is one page.
+     */
     suspend fun syncChats(): List<ChatSnapshot> {
         val found = ArrayList<ChatSnapshot>()
+        val cutoff = System.currentTimeMillis() - RECENT_MS
         for (folder in listOf(INBOX, PENDING)) {
             var cursor = ""
             var pages = 0
@@ -230,7 +235,8 @@ internal class InstagramSession(
                 page.threads.mapTo(found) { go.chat(it) }
                 cursor = page.nextCursor
                 pages++
-            } while (cursor.isNotEmpty() && pages < MAX_PAGES)
+                val recent = folder == INBOX && page.threads.any { it.lastMessageAt >= cutoff }
+            } while (cursor.isNotEmpty() && pages < MAX_PAGES && recent)
         }
         return found
     }
@@ -434,7 +440,12 @@ internal class InstagramSession(
         const val TAG = "PingMeInstagram"
         const val INBOX = "INBOX"
         const val PENDING = "PENDING"
-        const val MAX_PAGES = 4
+
+        /** A safety cap on pages of about twenty threads; the thirty-day rule normally stops sooner. */
+        const val MAX_PAGES = 60
+
+        /** How far back the inbox listing reaches (owner, 2026-10-03: the last thirty days of Primary). */
+        const val RECENT_MS = 30L * 24 * 60 * 60 * 1000
         const val INSTAGRAM_PACKAGE = "package:com.instagram.android"
         const val PREVIEW_FETCHES = 2
     }
