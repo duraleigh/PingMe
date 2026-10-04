@@ -3327,8 +3327,15 @@ reference bridge does:
   connecting is seen, and the chat says it has nothing older. Not a choice: the protocol.
 
 Bridge tests cover the mapping, a channel message under the mapped thread, a chat made
-before its listing and folded in, reactions, edits, unsends, and media wrapping. Not yet
-tried on the phone when written: the registration itself, which needs the real account.
+before its listing and folded in, reactions, edits, unsends, and media wrapping.
+
+**On the phone (4:31 PM):** the registration went through on the first start ("ICDC
+registration successful", device 833141165:76), the channel authenticated and connected
+within ten seconds of sign-in, and the Messenger list shows plain names (Brett Parker,
+Toni Botting, Don Aiken, ...) with no "Messenger user" and none of the old empty rows.
+Every chat says "No messages yet", as expected until something new arrives. Sending and
+receiving on the channel wait for the owner's test: a message in from someone, and one
+out from PingMe.
 
 - **The box's placeholder** ("Send a Google Message") wrapped to two lines and grew the
   box (owner, 3:38 PM). It is one line now and shrinks to fit, down to 11sp.
