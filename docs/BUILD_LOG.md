@@ -3278,6 +3278,19 @@ not fixed, waiting on the owner:
    chat visible twice, itself and through the screen, so the rule ran again after the
    marking and failed on GitHub; the screen alone reports it now, three local runs green.)
 
+### Owner note at Gate G11 (2026-10-04, 3:15 PM): colour numbers "do not stick"
+
+The owner set every network's bubble to colourfulness 65 and lightness 30, and every
+gradient end to 50 and 60, and found the numbers different on reopening. Measured with
+the colour library rather than guessed: lightness holds everywhere; colourfulness 65 at
+lightness 30 is more colour than a phone screen can show for the green and blue hues, so
+the strongest displayable colour is kept and the slider reopens at it: WhatsApp 42,
+Google Voice 30, Signal 55, Telegram 35 (Messenger and Instagram reach 65). The gradient
+end holds at 50 for all but Google Voice (46). Nothing was lost in saving; the picker
+was silent about the limit. Now the colourfulness slider stops at what the screen can
+show for the current hue and lightness and says so ("42 of 42 the screen can show
+here"), so the number set is the number kept.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built

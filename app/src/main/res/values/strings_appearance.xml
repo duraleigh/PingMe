@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The Appearance studio (UI_DESIGN.md 3.5, 4). -->
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="appearance_title">Appearance</string>
     <string name="back">Back</string>
     <string name="reset">Reset</string>
@@ -128,6 +128,8 @@
 
     <string name="picker_hue">Hue</string>
     <string name="picker_colourfulness">Colourfulness</string>
+    <!-- Not a count: a value and the most the screen can show at this hue and lightness. -->
+    <string name="picker_colourfulness_of" tools:ignore="PluralsCandidate">%1$d of %2$d the screen can show here</string>
     <string name="picker_lightness">Lightness</string>
 
     <string name="preview_sam">Sam Ortiz</string>

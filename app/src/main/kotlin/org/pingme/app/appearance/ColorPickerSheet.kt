@@ -48,7 +48,13 @@ fun ColorPickerSheet(
     var hue by remember { mutableFloatStateOf(start.hue.toFloat()) }
     var chroma by remember { mutableFloatStateOf(start.chroma.toFloat().coerceIn(CHROMA)) }
     var tone by remember { mutableFloatStateOf(start.tone.toFloat().coerceIn(TONE)) }
-    val colour = Hct.from(hue.toDouble(), chroma.toDouble(), tone.toDouble()).toInt()
+    // A screen can show only so much colourfulness at a given hue and lightness; the
+    // slider stops there and says so, so the number set is the number kept (owner,
+    // 2026-10-04: picks of 65 reopened as 42, 35, 30 for the greens and blues).
+    val maxChroma = remember(hue, tone) { Hct.from(hue.toDouble(), GAMUT_PROBE, tone.toDouble()).chroma.toFloat() }
+    val shownChroma = chroma.coerceIn(0f, maxChroma.coerceAtLeast(1f))
+    val resources = androidx.compose.ui.platform.LocalResources.current
+    val colour = Hct.from(hue.toDouble(), shownChroma.toDouble(), tone.toDouble()).toInt()
     ModalBottomSheet(onDismissRequest = onDismiss) {
         // Scrolls, so Done is reachable on a short screen (owner, 2026-10-04).
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
@@ -72,10 +78,13 @@ fun ColorPickerSheet(
                 }
             }
             SliderSetting(stringResource(R.string.picker_hue), hue, 0f..HUE_MAX, { "${it.toInt()}°" }, { hue = it })
-            SliderSetting(stringResource(R.string.picker_colourfulness), chroma, CHROMA, { "${it.toInt()}" }, {
-                chroma =
-                    it
-            })
+            SliderSetting(
+                stringResource(R.string.picker_colourfulness),
+                shownChroma,
+                0f..maxChroma.coerceAtLeast(1f),
+                { resources.getString(R.string.picker_colourfulness_of, it.toInt(), maxChroma.toInt()) },
+                { chroma = it },
+            )
             SliderSetting(stringResource(R.string.picker_lightness), tone, TONE, { "${it.toInt()}" }, { tone = it })
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
                 if (onReset != null) {
@@ -94,6 +103,9 @@ fun ColorPickerSheet(
 }
 
 private const val HUE_MAX = 359f
+
+/** A colourfulness no screen reaches; the HCT solver hands back the most it can show. */
+private const val GAMUT_PROBE = 200.0
 private val CHROMA = 0f..90f
 private val TONE = 10f..95f
 private val QUICK_HUES = listOf(0.0, 25.0, 50.0, 80.0, 110.0, 145.0, 180.0, 210.0, 240.0, 270.0, 300.0, 330.0)
