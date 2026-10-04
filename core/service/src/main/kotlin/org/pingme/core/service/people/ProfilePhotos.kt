@@ -7,6 +7,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.pingme.core.model.PersonId
 import org.pingme.core.service.ApplicationScope
@@ -36,6 +37,10 @@ class ProfilePhotos
         private val dir by lazy { File(context.filesDir, "avatars").apply { mkdirs() } }
         private val fetching = ConcurrentHashMap.newKeySet<String>()
 
+        // A few at a time: a first sync lists hundreds of people at once, and hundreds of
+        // fetches in one go time out and leave photos missing at random (owner, Phase 7).
+        private val lane = kotlinx.coroutines.sync.Semaphore(AT_ONCE)
+
         /** True for a link a network gave, as opposed to a file already on the phone. */
         fun isRemote(path: String?): Boolean =
             path != null && (path.startsWith("https://") || path.startsWith("http://"))
@@ -52,10 +57,10 @@ class ProfilePhotos
             if (file.length() > 0 || !fetching.add(file.name)) return
             scope.launch {
                 try {
-                    download(url, file)
+                    lane.withPermit { download(url, file) }
                     contacts.setAvatar(person, file.absolutePath)
                 } catch (e: java.io.IOException) {
-                    Log.i(TAG, "Could not fetch a profile photo", e)
+                    Log.w(TAG, "Could not fetch a profile photo for ${person.value}: ${e.message}")
                 } finally {
                     fetching.remove(file.name)
                 }
@@ -90,6 +95,7 @@ class ProfilePhotos
 
         private companion object {
             const val TAG = "PingMePhotos"
-            const val TIMEOUT_MS = 15_000
+            const val TIMEOUT_MS = 20_000
+            const val AT_ONCE = 4
         }
     }
