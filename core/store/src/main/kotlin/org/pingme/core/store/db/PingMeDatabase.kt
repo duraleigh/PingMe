@@ -59,11 +59,11 @@ abstract class PingMeDatabase : RoomDatabase() {
         const val NAME = "pingme.db"
 
         /** The schema version. Bump it with a migration in [MIGRATIONS] and an exported schema. */
-        const val VERSION = 5
+        const val VERSION = 6
 
         /** Schema migrations, oldest first (BUILD_PLAN.md P1.6). MigrationTest checks every one. */
         val MIGRATIONS: Array<Migration> =
-            arrayOf(PinnedMessages, ChatOverridesTable, SpaceIconAndAll, ReadUpToAndTombstones)
+            arrayOf(PinnedMessages, ChatOverridesTable, SpaceIconAndAll, ReadUpToAndTombstones, ReadBackfill)
 
         /** Applies the settings every PingMe database needs, on-disk or in-memory. */
         fun configure(builder: Builder<PingMeDatabase>): PingMeDatabase =
@@ -118,12 +118,27 @@ private object SpaceIconAndAll : Migration(VERSION_3, VERSION_4) {
 /** 4 to 5 (Gate G7): when a chat was last read here, and chats deleted here (not undone by a sync). */
 private const val VERSION_4 = 4
 
-private object ReadUpToAndTombstones : Migration(VERSION_4, PingMeDatabase.VERSION) {
+private const val VERSION_5 = 5
+
+private object ReadUpToAndTombstones : Migration(VERSION_4, VERSION_5) {
     override fun migrate(connection: SQLiteConnection) {
         connection.execSQL("ALTER TABLE `chats` ADD COLUMN `readUpTo` INTEGER")
         connection.execSQL(
             "CREATE TABLE IF NOT EXISTS `chat_tombstones` (`chatId` TEXT NOT NULL, `hiddenAt` INTEGER NOT NULL, " +
                 "PRIMARY KEY(`chatId`))",
+        )
+    }
+}
+
+/**
+ * 5 to 6 (Gate G7, round 2): a chat that showed as read before "read here" existed is
+ * stamped as read, so the first sync after the upgrade cannot bring it back unread
+ * (owner: Google Messages chats read under 0.7.0 came back unread in 0.7.1).
+ */
+private object ReadBackfill : Migration(VERSION_5, PingMeDatabase.VERSION) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "UPDATE `chats` SET `readUpTo` = `lastActivityAt` WHERE `unreadCount` = 0 AND `readUpTo` IS NULL",
         )
     }
 }
