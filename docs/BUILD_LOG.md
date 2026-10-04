@@ -3240,7 +3240,8 @@ not fixed, waiting on the owner:
    message conversion); PingMe already carries whatsmeow and a device store for
    WhatsApp, so the shape exists. Estimate: one long session. This is a change in the
    network since Phase 6 was built, not a Phase 7 item; the owner decides whether to do
-   it now or after Gate G11.
+   it now or after Gate G11. **Owner's decision (2026-10-04, 2:20 PM): after Gate G11.**
+   It is the first item of work once the gate passes, before Phase 8.
 2. **A chat titled with the owner's own name** ("Clay Aiken") is most likely Messenger's
    message-yourself thread (the reference bridge treats a one-to-one thread with
    yourself as "note to self"). "Clay Rhodes" from the morning no longer shows on the
