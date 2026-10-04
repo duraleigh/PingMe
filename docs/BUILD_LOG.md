@@ -3084,6 +3084,15 @@ the owner's word.
   network alone: it appears only when that member holds a message, and is placed and
   previewed by that member's newest message. The same rule for every network.
 
+### Owner note on merged rows (2026-10-03, 10:30 PM)
+
+- A merged chat's row carries no network badges. It is marked instead by a thin ring in
+  the theme's accent colour orbiting the avatar: the avatar's own shape, a little larger,
+  with a gap between ring and avatar. The ring is drawn outside the avatar's bounds, so
+  every avatar stays the same size, merged or not, and rows keep their layout. Pinned
+  tiles ring the same way, outside the unread ring. Single-network rows keep their badge
+  and have no ring.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a

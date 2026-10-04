@@ -113,11 +113,14 @@ private fun PinnedTile(
     ) {
         Box(Modifier.size(TILE_AVATAR + (RING + RING_GAP) * 2), contentAlignment = Alignment.Center) {
             if (unread) Box(Modifier.matchParentSize().border(RING, accent, shape.toShape()))
-            if (row.faces.isEmpty()) {
-                Avatar(row.title, size = TILE_AVATAR, shape = shape, photo = row.photo)
-            } else {
-                org.pingme.core.ui.components
-                    .GroupAvatar(row.faces, row.title, size = TILE_AVATAR, shape = shape)
+            // A merged chat's ring orbits outside the unread ring (owner, 2026-10-03).
+            Ringed(row.isMerged, shape, gap = RING + RING_GAP + MERGED_GAP) {
+                if (row.faces.isEmpty()) {
+                    Avatar(row.title, size = TILE_AVATAR, shape = shape, photo = row.photo)
+                } else {
+                    org.pingme.core.ui.components
+                        .GroupAvatar(row.faces, row.title, size = TILE_AVATAR, shape = shape)
+                }
             }
             if (unread) {
                 UnreadBadge(
@@ -150,4 +153,5 @@ private val CENTRED_WIDTH = 84.dp
 private val CENTRED_GAP = 24.dp
 private val RING = 3.dp
 private val RING_GAP = 3.dp
+private val MERGED_GAP = 2.dp
 private val TILE_DOT = 20.dp

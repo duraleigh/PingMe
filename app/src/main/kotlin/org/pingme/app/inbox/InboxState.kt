@@ -25,6 +25,8 @@ data class ChatRow(
     val networks: List<NetworkId> = listOf(network),
     /** A group's members for its composite avatar (owner, 2026-10-03); empty otherwise. */
     val faces: List<org.pingme.core.ui.components.Face> = emptyList(),
+    /** A merged chat: ringed, and without network badges (owner, 2026-10-03). */
+    val isMerged: Boolean = false,
 ) {
     val id: ChatId get() = chat.id
     val title: String get() = chat.nameOverride ?: chat.title
@@ -154,6 +156,7 @@ fun InboxSource.select(
                 photoFor(it, people),
                 networksOf(it.id, networkOf).ifEmpty { listOf(network) },
                 facesFor(it, people),
+                isMerged = members.isNotEmpty(),
             )
         }
     val (pinned, rest) = rows.partition { it.chat.isPinned }

@@ -208,7 +208,8 @@ private fun TitleLine(
             )
         }
         // Google Messages is the phone's own texting: its rows carry no badge (owner, Gate G3).
-        row.networks.filter { it != NetworkId.GMESSAGES }.forEach { NetworkBadge(it) }
+        // A merged chat carries no badges: its ring says what it is (owner, 2026-10-03).
+        if (!row.isMerged && row.network != NetworkId.GMESSAGES) NetworkBadge(row.network)
         if (row.chat.folder == ChatFolder.GENERAL) FolderTag(stringResource(R.string.inbox_folder_general))
         row.last?.let {
             Text(
@@ -459,13 +460,29 @@ private fun RowAvatar(
                 Icon(painterResource(UiR.drawable.ic_check), null, tint = colours.onPrimary)
             }
         } else {
-            if (row.faces.isEmpty()) {
-                Avatar(row.title, size = size, photo = row.photo)
-            } else {
-                org.pingme.core.ui.components
-                    .GroupAvatar(row.faces, row.title, size = size)
+            Ringed(row.isMerged, PingMeTheme.shapes.avatar) {
+                if (row.faces.isEmpty()) {
+                    Avatar(row.title, size = size, photo = row.photo)
+                } else {
+                    org.pingme.core.ui.components
+                        .GroupAvatar(row.faces, row.title, size = size)
+                }
             }
         }
         if (row.typing) TypingDots(Modifier.align(Alignment.BottomEnd).offset(x = 8.dp, y = 4.dp))
     }
+}
+
+/** The merged chat's orbiting ring around [content] when [merged]; otherwise just the content. */
+@Composable
+internal fun Ringed(
+    merged: Boolean,
+    shape: androidx.graphics.shapes.RoundedPolygon,
+    modifier: Modifier = Modifier,
+    gap: androidx.compose.ui.unit.Dp = 3.dp,
+    content: @Composable () -> Unit,
+) {
+    // One slot, one place: the ring is a drawing on the box, nothing in the tree changes.
+    org.pingme.core.ui.components
+        .MergedRing(shape, modifier, gap = gap, shown = merged) { content() }
 }
