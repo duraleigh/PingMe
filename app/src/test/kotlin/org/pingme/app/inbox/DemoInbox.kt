@@ -74,6 +74,8 @@ class DemoInbox(
             reactions,
             org.pingme.core.service
                 .Tapbacks(messages),
+            org.pingme.core.service
+                .PeopleApplier(chats, contacts),
         )
     val controls = DemoControls()
     val demo = DemoConnector(controls, MemoryCredentials(), dir.resolve("media"), Clock.System)

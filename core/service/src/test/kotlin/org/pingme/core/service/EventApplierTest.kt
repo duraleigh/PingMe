@@ -156,6 +156,40 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun aPeopleListNamesOneToOneChatsStillTitledByTheirNumber() =
+        runTest {
+            // WhatsApp never lists one-to-one chats again, so a chat stored before the names
+            // came kept its number for good (owner, Gate G7, round 2).
+            seed()
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("c1", title = "+15555550123")))
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("named", title = "Sam (work)")))
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam())))
+            assertEquals("Sam Ortiz", chats.get(accountId.chat("c1"))?.title)
+            assertEquals("the chat already had a name", "Sam (work)", chats.get(accountId.chat("named"))?.title)
+        }
+
+    @Test
+    fun aPeopleListWithoutANameLeavesTheNumberAlone() =
+        runTest {
+            seed()
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("c1", title = "+15555550123")))
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam().copy(displayName = "+15555550123"))))
+            assertEquals("+15555550123", chats.get(accountId.chat("c1"))?.title)
+        }
+
+    @Test
+    fun theNetworksNobodyPlaceholderChatGoesWithThePeopleList() =
+        runTest {
+            seed()
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("0@s.whatsapp.net", title = "+0")))
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam())))
+            assertNull(chats.get(accountId.chat("0@s.whatsapp.net")))
+            // And a later listing of it is ignored.
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("0@s.whatsapp.net", title = "+0")))
+            assertNull(chats.get(accountId.chat("0@s.whatsapp.net")))
+        }
+
+    @Test
     fun yourOwnMessageForAnUnknownChatNeverNamesTheChatYou() =
         runTest {
             accounts.upsert(account())

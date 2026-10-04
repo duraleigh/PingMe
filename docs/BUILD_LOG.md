@@ -2856,3 +2856,27 @@ silence and names (the hidden-id mapping is the lead), Instagram read marks, Mes
 
 Answered, no change: note 21 (RCS pictures): the blur before 0.6.0 was PingMe's own
 thumbnail; any remaining softening is Google Messages compressing outgoing RCS pictures.
+
+### Gate G7 fixes, round 2 (2026-10-03, evening)
+
+The owner installed 0.7.1 at 8:04 PM and found two things at once.
+
+- **WhatsApp chats still titled by number.** The phone's log showed the contact list
+  does arrive now (998 names, two seconds after connecting), and the bridge keeps it
+  across restarts. The real cause was elsewhere: WhatsApp never lists one-to-one chats
+  again after pairing (only groups), so a chat PingMe stored under 0.7.0, before any
+  names existed, kept its number as its title for good; the people list carried the
+  names, but nothing went back to the stored chats. Fixed in the store, for every
+  network: when an account's people list arrives, each one-to-one chat still titled by a
+  bare number or raw id takes that person's name. The round-1 note that blamed the
+  missing contact-list request was only half the story.
+- **Chats read under 0.7.0 came back unread, and chats deleted under 0.7.0 came back.**
+  Round 1 added "read here" and "deleted here" records, but the upgrade creates both
+  empty, so the first sync after the install believed Google Messages' unread marks
+  again, and the deleted code chats had no deletion record to hold them back. The
+  schema is now version 6, whose upgrade stamps every chat already showing as read as
+  read at its last activity. Deletions made under 0.7.0 cannot be recovered after the
+  fact; a chat deleted once more under 0.7.1 or later stays gone.
+- The stale **"+0" chat** (WhatsApp's "nobody" placeholder, stored by an earlier build)
+  is removed with the next people list and is not listed again. The **"You"** chat is
+  WhatsApp's own message-yourself chat, which WhatsApp also labels "You"; it stays.

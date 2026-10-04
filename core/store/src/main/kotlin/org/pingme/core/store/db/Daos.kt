@@ -144,6 +144,11 @@ interface ChatDao {
     @Query("SELECT * FROM chats WHERE accountId = :accountId ORDER BY lastActivityAt DESC")
     fun observeByAccount(accountId: String): Flow<List<ChatWithParticipants>>
 
+    /** The chats one person is in. */
+    @Transaction
+    @Query("SELECT c.* FROM chats c JOIN chat_participants cp ON cp.chatId = c.id WHERE cp.personId = :personId")
+    suspend fun withParticipant(personId: String): List<ChatWithParticipants>
+
     /**
      * The unread counting rule (BUILD_PLAN.md P1.2, UI_DESIGN.md 6.4), grouped so every badge
      * can be summed from it: only chats that are not archived, not low priority, not muted

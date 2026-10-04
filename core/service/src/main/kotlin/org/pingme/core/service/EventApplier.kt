@@ -37,6 +37,7 @@ class EventApplier
         private val typing: TypingTracker,
         private val reactionFeed: ReactionFeed,
         private val tapbacks: Tapbacks,
+        private val people: PeopleApplier,
     ) {
         suspend fun apply(event: ConnectorEvent) {
             when (event) {
@@ -81,10 +82,7 @@ class EventApplier
                 }
 
                 is ConnectorEvent.PeopleUpdated -> {
-                    // Hidden-id rows an earlier build stored go once nothing lists them (owner, Gate G7).
-                    event.people.forEach { contacts.upsert(it) }
-                    contacts.deleteStray(event.accountId, HIDDEN_ID_SUFFIX)
-                    PLACEHOLDER_HANDLES.forEach { contacts.deleteStrayHandle(event.accountId, it) }
+                    people.apply(event)
                 }
 
                 else -> {

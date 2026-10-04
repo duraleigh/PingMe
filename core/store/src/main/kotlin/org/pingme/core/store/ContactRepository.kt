@@ -4,6 +4,7 @@ package org.pingme.core.store
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.pingme.core.model.AccountId
+import org.pingme.core.model.Chat
 import org.pingme.core.model.ContactId
 import org.pingme.core.model.MergeLink
 import org.pingme.core.model.Person
@@ -22,6 +23,7 @@ class ContactRepository
     ) {
         private val personDao = db.personDao()
         private val mergeLinkDao = db.mergeLinkDao()
+        private val chatDao = db.chatDao()
 
         suspend fun person(id: PersonId): Person? = personDao.get(id.value)?.toModel()
 
@@ -37,6 +39,10 @@ class ContactRepository
             personDao.observeByContact(contactId.value).map { rows -> rows.map { it.toModel() } }
 
         suspend fun upsert(person: Person) = personDao.upsert(person.toEntity())
+
+        /** Every chat [personId] is in. */
+        suspend fun chatsWith(personId: PersonId): List<Chat> =
+            chatDao.withParticipant(personId.value).map { it.toModel() }
 
         suspend fun delete(id: PersonId) = personDao.delete(id.value)
 
