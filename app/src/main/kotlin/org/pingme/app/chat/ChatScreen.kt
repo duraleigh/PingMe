@@ -135,6 +135,7 @@ fun ChatRoute(
                         onLoadOlder = viewModel::loadOlder,
                         onNeed = viewModel::need,
                         onTyping = viewModel::typing,
+                        onSendVia = viewModel::sendVia,
                         menu = viewModel.menu,
                         onRememberEmoji = viewModel::rememberEmoji,
                         incoming = viewModel.incomingReactions,
@@ -228,6 +229,7 @@ internal fun rowContext(
     RowContext(
         state.account!!.network,
         state.chat!!.kind,
+        state.networkOf,
         state.names,
         actions.onRetry,
         actions.onNeed,

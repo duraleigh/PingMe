@@ -3,6 +3,7 @@ package org.pingme.app.chat
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,9 +18,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +56,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,6 +73,7 @@ import org.pingme.app.chat.attach.SendButton
 import org.pingme.app.chat.attach.StagedStrip
 import org.pingme.app.chat.search.ChatSearchBar
 import org.pingme.app.chat.search.SearchPeople
+import org.pingme.app.inbox.NetworkBadge
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
@@ -257,7 +264,52 @@ internal fun BottomBars(
             } else {
                 actions.onSend
             }
+        if (state.members.isNotEmpty() && editing == null) NetworkChips(state, actions.onSendVia)
         Composer(send, actions.onTyping, editing, actions.composer)
+    }
+}
+
+/**
+ * A merged chat's composer chips, one per member network (UI_DESIGN.md 10.15): the filled
+ * one is where the next message goes; a disconnected account's chip is outlined in the
+ * error colour. Tap one to switch.
+ */
+@Composable
+private fun NetworkChips(
+    state: ChatUiState,
+    onSendVia: (ChatId) -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val offline = stringResource(R.string.chat_network_disconnected)
+        state.members.forEach { member ->
+            val picked = member.chatId == state.sendVia
+            val colours = MaterialTheme.colorScheme
+            FilterChip(
+                selected = picked,
+                onClick = { onSendVia(member.chatId) },
+                label = { Text(member.label) },
+                leadingIcon = { NetworkBadge(member.network) },
+                border =
+                    FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = picked,
+                        borderColor = if (member.connected) colours.outline else colours.error,
+                        selectedBorderColor = if (member.connected) colours.outline else colours.error,
+                        selectedBorderWidth = if (member.connected) 0.dp else 1.dp,
+                    ),
+                colors =
+                    FilterChipDefaults.filterChipColors(
+                        labelColor = if (member.connected) colours.onSurface else colours.onSurfaceVariant,
+                    ),
+                modifier = Modifier.semantics { if (!member.connected) stateDescription = offline },
+            )
+        }
     }
 }
 

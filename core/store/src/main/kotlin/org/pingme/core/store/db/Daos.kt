@@ -397,6 +397,12 @@ interface MessageDao {
         limit: Int,
     ): Flow<List<MessageWithParts>>
 
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId IN (:chatIds) AND sentAt > :sentAt")
+    suspend fun countNewerIn(
+        chatIds: List<String>,
+        sentAt: Instant,
+    ): Int
+
     /** How many of a chat's messages are newer than [sentAt]: how far back the list must reach to show one. */
     @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND sentAt > :sentAt")
     suspend fun countNewer(

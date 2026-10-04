@@ -2972,3 +2972,22 @@ the owner's word.
 - **Inbox rows** for a merged chat carry a badge per network, preview the newest message
   across the members, show typing from any member, and appear under every network
   filter they have a member on.
+
+### P7.5 The merged chat on screen
+
+- One timeline: a merged chat shows every member's messages in time order. Each bubble
+  keeps only its own network's colour; when a bubble is tapped and its time and ticks
+  appear, a small network badge sits beside them, and nowhere else (owner, Phase 7).
+- The header's badge becomes a dropdown: "All networks" or one member, with the current
+  choice ticked. One network narrows the bubbles to it and sets the composer to it; "All"
+  shows everything and sets the composer to the chat's default account. The chip can
+  still be changed by hand; the next dropdown choice moves it again.
+- Opening: unread messages all from one network open the chat narrowed to that network;
+  unread from two or more networks, or none, open on "All".
+- Composer chips, one per member, above the composer: the filled one is where the next
+  message, typing notice, and scheduled send go; a disconnected account's chip is outlined
+  in the error colour and says "Not connected" to a screen reader. The attach, GIF, and
+  voice offers follow the chosen member's network, as do the call buttons.
+- Search in chat and "jump to date" cover every member; older history is asked of every
+  member's network.
+- Reading, pins, and typing come from all members. The chat's people span accounts.

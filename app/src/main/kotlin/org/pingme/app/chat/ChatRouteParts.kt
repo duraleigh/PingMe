@@ -19,6 +19,7 @@ internal fun headerActions(
 ) = HeaderActions(
     onBack = onBack,
     onSearch = viewModel.search::open,
+    onFilter = viewModel::setFilter,
     onCall = { video ->
         when (placeCall(context, state, video)) {
             CallOutcome.CALLING -> Unit
@@ -30,7 +31,7 @@ internal fun headerActions(
 
 /** The same header actions, with the name and "Chat details" opening [onDetails]. */
 internal fun HeaderActions.copyWithDetails(onDetails: (() -> Unit)?) =
-    HeaderActions(onBack, onCall, onDetails, onSearch)
+    HeaderActions(onBack, onCall, onDetails, onSearch, onFilter)
 
 /** Search in chat: picking a result or a date closes search and jumps there (UI_DESIGN.md 10.14). */
 internal fun searchHooks(
@@ -57,7 +58,11 @@ private fun placeCall(
     state: ChatUiState,
     video: Boolean,
 ): CallOutcome {
-    val network = state.account?.network ?: return CallOutcome.UNAVAILABLE
+    // A merged chat calls on the network the composer is set to (UI_DESIGN.md 10.17).
+    val network =
+        state.members.firstOrNull { it.chatId == state.sendVia }?.network
+            ?: state.account?.network
+            ?: return CallOutcome.UNAVAILABLE
     val calls = state.capabilities?.calls ?: return CallOutcome.UNAVAILABLE
     val method = if (video) calls.video else calls.audio
     if (method == CallMethod.NONE) return CallOutcome.UNAVAILABLE

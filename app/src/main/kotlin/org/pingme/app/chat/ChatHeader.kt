@@ -66,9 +66,59 @@ fun ChatHeader(
             } else {
                 Spacer(Modifier.width(12.dp))
             }
-            TitleBlock(state, actions.onDetails, Modifier.weight(1f))
+            TitleBlock(state, actions.onDetails, Modifier.weight(1f), actions.onFilter)
             CallButtons(state, actions.onCall)
             Overflow(actions)
+        }
+    }
+}
+
+/**
+ * A merged chat's badge opens a dropdown: "All" or one network, which narrows the bubbles
+ * and sets the composer's chip (owner, Phase 7).
+ */
+@Composable
+private fun NetworkPicker(
+    state: ChatUiState,
+    onFilter: ((org.pingme.core.model.AccountId?) -> Unit)?,
+) {
+    var open by remember { mutableStateOf(false) }
+    val current = state.members.firstOrNull { it.accountId == state.filter }
+    Box {
+        Row(
+            Modifier.clickable(role = Role.Button, onClickLabel = stringResource(R.string.chat_pick_network)) {
+                open =
+                    true
+            },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (current != null) {
+                NetworkBadge(current.network)
+            } else {
+                Text(stringResource(R.string.chat_networks_all), style = MaterialTheme.typography.labelMedium)
+            }
+            Icon(painterResource(UiR.drawable.ic_expand_more), null, Modifier.size(16.dp))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.chat_networks_all)) },
+                onClick = {
+                    open = false
+                    onFilter?.invoke(null)
+                },
+                trailingIcon = { if (current == null) Icon(painterResource(UiR.drawable.ic_check), null) },
+            )
+            state.members.forEach { member ->
+                DropdownMenuItem(
+                    text = { Text(member.label) },
+                    leadingIcon = { NetworkBadge(member.network) },
+                    onClick = {
+                        open = false
+                        onFilter?.invoke(member.accountId)
+                    },
+                    trailingIcon = { if (member == current) Icon(painterResource(UiR.drawable.ic_check), null) },
+                )
+            }
         }
     }
 }
@@ -78,6 +128,7 @@ private fun TitleBlock(
     state: ChatUiState,
     onDetails: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    onFilter: ((org.pingme.core.model.AccountId?) -> Unit)? = null,
 ) {
     val details = stringResource(R.string.chat_details)
     Row(
@@ -104,10 +155,14 @@ private fun TitleBlock(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // No badge for Google Messages, the phone's own texting (owner, Gate G3).
-                state.account
-                    ?.takeIf { it.network != NetworkId.GMESSAGES }
-                    ?.let { NetworkBadge(it.network) }
+                if (state.members.isNotEmpty()) {
+                    NetworkPicker(state, onFilter)
+                } else {
+                    // No badge for Google Messages, the phone's own texting (owner, Gate G3).
+                    state.account
+                        ?.takeIf { it.network != NetworkId.GMESSAGES }
+                        ?.let { NetworkBadge(it.network) }
+                }
                 Text(
                     liveStatus(state),
                     style = MaterialTheme.typography.labelMedium,

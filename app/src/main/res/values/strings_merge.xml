@@ -27,4 +27,7 @@
     <string name="action_merge">Merge</string>
     <string name="inbox_bulk_merged">Merged %1$s chats into one</string>
     <string name="menu_merge_suggestions">Merge suggestions</string>
+    <string name="chat_networks_all">All networks</string>
+    <string name="chat_pick_network">Show one network</string>
+    <string name="chat_network_disconnected">Not connected</string>
 </resources>

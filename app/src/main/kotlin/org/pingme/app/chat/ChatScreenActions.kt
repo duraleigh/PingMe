@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import org.pingme.core.model.Attachment
 import org.pingme.core.model.Chat
+import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Message
 import org.pingme.core.model.NetworkId
@@ -19,6 +20,8 @@ class HeaderActions(
     val onCall: (video: Boolean) -> Unit,
     val onDetails: (() -> Unit)? = null,
     val onSearch: (() -> Unit)? = null,
+    /** A merged chat's header dropdown: one member's account, or null for all (owner, Phase 7). */
+    val onFilter: ((org.pingme.core.model.AccountId?) -> Unit)? = null,
 )
 
 /** Everything the chat screen can ask its view model for. */
@@ -31,6 +34,8 @@ class ChatScreenActions(
     val onLoadOlder: () -> Unit,
     val onNeed: (Attachment) -> Unit,
     val onTyping: (String) -> Unit,
+    /** The composer chip in a merged chat: send through this member (UI_DESIGN.md 10.15). */
+    val onSendVia: (ChatId) -> Unit = {},
     /** Press and hold, double tap, delete, select; null in previews. */
     val menu: MessageMenu? = null,
     val onRememberEmoji: (String) -> Unit = {},
@@ -71,6 +76,8 @@ class ComposerHooks(
 class RowContext(
     val network: NetworkId,
     val kind: ChatKind,
+    /** A merged chat: each message's network, for its colour and the badge beside the ticks. */
+    val networkOf: Map<ChatId, NetworkId> = emptyMap(),
     val names: Map<PersonId, String>,
     val onRetry: (Message) -> Unit,
     val onNeed: (Attachment) -> Unit,
@@ -83,7 +90,13 @@ class RowContext(
     val transcripts: org.pingme.app.chat.voice.Transcripts? = null,
     /** Incoming links shown cleaned when "Clean links I receive" is on (UI_DESIGN.md 10.11). */
     val cleanLink: (String) -> String = { it },
-)
+) {
+    /** The network a message went over: its own chat's in a merged chat (UI_DESIGN.md 10.15). */
+    fun networkFor(message: Message): NetworkId = networkOf[message.chatId] ?: network
+
+    /** Whether bubbles name their network beside the time and ticks (only in a merged chat). */
+    val marksNetwork: Boolean get() = networkOf.size > 1
+}
 
 /** One line of the action card. [enabled] false shows it greyed with [reason] (UI_DESIGN.md 1). */
 data class MessageAction(

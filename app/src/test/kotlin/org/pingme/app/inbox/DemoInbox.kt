@@ -250,6 +250,7 @@ class DemoInbox(
             transcriber,
             presence,
             links,
+            merges,
         ).tracked()
 
     fun detailsViewModel(remote: String) =
