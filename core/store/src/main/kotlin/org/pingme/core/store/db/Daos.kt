@@ -321,6 +321,10 @@ interface MessageDao {
     @Query("SELECT id FROM messages WHERE chatId = :chatId ORDER BY sentAt DESC, rowId DESC LIMIT 1")
     suspend fun newestId(chatId: String): String?
 
+    /** When the chat's newest stored message was sent: what "read" must reach (owner, Gate G7, round 3). */
+    @Query("SELECT MAX(sentAt) FROM messages WHERE chatId = :chatId")
+    suspend fun newestSentAt(chatId: String): Instant?
+
     /** The newest message of every chat, for inbox previews (UI_DESIGN.md 3.1). */
     @Query(
         """

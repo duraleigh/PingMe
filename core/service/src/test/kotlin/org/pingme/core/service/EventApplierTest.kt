@@ -214,6 +214,33 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun historyForAChatDeletedHereDoesNotBringItBack() =
+        runTest {
+            // Deleted chats hold no messages, so the backfill fetched their history and rebuilt
+            // them (owner, Gate G7, round 3: the code chats came back unread).
+            seed()
+            chats.hide(accountId.chat("c1"), now)
+            chats.delete(accountId.chat("c1"))
+            val old = now - kotlin.time.Duration.parse("1h")
+            val page = listOf(messageSnapshot("h1", sentAt = old), messageSnapshot("h2", sentAt = old))
+            applier.apply(ConnectorEvent.HistoryBatch(accountId, accountId.chat("c1"), page, complete = true))
+            assertNull(chats.get(accountId.chat("c1")))
+            assertNull(messages.get(accountId.message("h1")))
+            // Something genuinely new brings it back, as before.
+            applier.apply(
+                ConnectorEvent.NewMessage(
+                    accountId,
+                    messageSnapshot(
+                        "n1",
+                        sentAt =
+                            now + kotlin.time.Duration.parse("1m"),
+                    ),
+                ),
+            )
+            assertEquals(1, chats.get(accountId.chat("c1"))?.unreadCount)
+        }
+
+    @Test
     fun yourOwnMessageForAnUnknownChatNeverNamesTheChatYou() =
         runTest {
             accounts.upsert(account())

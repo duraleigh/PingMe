@@ -86,7 +86,13 @@ class ChatActions
             // A merged chat reads as a whole: every member is read on its own network (UI_DESIGN.md 10.15).
             merges.members(id).forEach { setRead(it.id, read) }
             if (read) {
-                chats.update(id) { it.copy(unreadCount = 0, readUpTo = it.lastActivityAt) }
+                // "Read" reaches the newest message PingMe holds: a network's chat time can be
+                // older than its newest message, which then counted as unread on every sync
+                // (owner, Gate G7, round 3: Google Messages chats read here came back unread).
+                val newest = messages.newestSentAt(id)
+                chats.update(id) {
+                    it.copy(unreadCount = 0, readUpTo = maxOf(it.lastActivityAt, newest ?: it.lastActivityAt))
+                }
                 notifications.clear(id)
                 sendReadMarker(id)
             } else {

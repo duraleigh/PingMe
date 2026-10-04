@@ -81,6 +81,9 @@ class MessageRepository
 
         suspend fun newest(chatId: ChatId): MessageId? = dao.newestId(chatId.value)?.let(::MessageId)
 
+        /** When the chat's newest stored message was sent, or null with nothing stored. */
+        suspend fun newestSentAt(chatId: ChatId): Instant? = dao.newestSentAt(chatId.value)
+
         /** How many messages from other people came after [since]. */
         suspend fun incomingSince(
             chatId: ChatId,

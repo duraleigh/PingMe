@@ -2907,6 +2907,20 @@ the owner's word.
   chat wrongly carrying that name takes the other person's own name or number back.
   The owner's words: the chats "must be named correctly", whatever the card says.
 
+- **Eric, Tracy, and the deleted code chats back again, on the round-3 build.** Two
+  causes, both read from the code: a deleted chat holds no messages, so the "fetch
+  history for chats with nothing stored" step fetched its old pages and rebuilt it past
+  the "deleted here" record; and "read" was stamped at the chat's reported time, which
+  Google Messages can report older than the chat's newest message, so that message
+  counted as unread on every sync (chats whose last message was yours were unaffected,
+  which was the pattern). Now history pages for a chat deleted here are dropped, "read"
+  reaches the newest stored message, and the upgrade (schema 8) restamps chats already
+  showing as read. Eric and Tracy, unread at the time of the upgrade, need one more
+  "mark read"; after that it holds.
+- **Photos missing for many people** (owner): not yet explained; the log of a full connect
+  is needed (fetch failures are logged). The photo file is now handed to the image loader
+  as a file, not a bare path, removing one possible cause.
+
 ### P7.1 Contacts
 
 - People are matched to the phone's contacts by phone number: the address book is read

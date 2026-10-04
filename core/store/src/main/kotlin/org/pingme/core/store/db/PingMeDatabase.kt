@@ -59,7 +59,7 @@ abstract class PingMeDatabase : RoomDatabase() {
         const val NAME = "pingme.db"
 
         /** The schema version. Bump it with a migration in [MIGRATIONS] and an exported schema. */
-        const val VERSION = 7
+        const val VERSION = 8
 
         /** Schema migrations, oldest first (BUILD_PLAN.md P1.6). MigrationTest checks every one. */
         val MIGRATIONS: Array<Migration> =
@@ -70,6 +70,7 @@ abstract class PingMeDatabase : RoomDatabase() {
                 ReadUpToAndTombstones,
                 ReadBackfill,
                 ContactLinks,
+                ReadReachesNewest,
             )
 
         /** Applies the settings every PingMe database needs, on-disk or in-memory. */
@@ -153,9 +154,24 @@ private object ReadBackfill : Migration(VERSION_5, VERSION_6) {
 }
 
 /** 6 to 7 (P7.1): the matched contact's name and photo on a person (UI_DESIGN.md 10.18). */
-private object ContactLinks : Migration(VERSION_6, PingMeDatabase.VERSION) {
+private const val VERSION_7 = 7
+
+private object ContactLinks : Migration(VERSION_6, VERSION_7) {
     override fun migrate(connection: SQLiteConnection) {
         connection.execSQL("ALTER TABLE `persons` ADD COLUMN `contactName` TEXT")
         connection.execSQL("ALTER TABLE `persons` ADD COLUMN `contactPhoto` TEXT")
+    }
+}
+
+/**
+ * 7 to 8 (Gate G7, round 3): a chat showing as read is stamped read at its newest stored
+ * message, not the network's chat time, which could be older (Google Messages).
+ */
+private object ReadReachesNewest : Migration(VERSION_7, PingMeDatabase.VERSION) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "UPDATE `chats` SET `readUpTo` = MAX(`readUpTo`, COALESCE((SELECT MAX(m.`sentAt`) FROM `messages` m " +
+                "WHERE m.`chatId` = `chats`.`id`), `readUpTo`)) WHERE `unreadCount` = 0 AND `readUpTo` IS NOT NULL",
+        )
     }
 }

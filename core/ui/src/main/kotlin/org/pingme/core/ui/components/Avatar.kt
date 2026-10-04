@@ -62,7 +62,8 @@ fun Avatar(
         // Drawn over the tile; while it loads, or if it cannot, the tile shows through.
         if (photo != null) {
             AsyncImage(
-                model = photo,
+                // A path on the phone goes as a file; a contacts or web address as it is.
+                model = if (photo.startsWith("/")) java.io.File(photo) else photo,
                 contentDescription = null,
                 modifier = Modifier.matchParentSize(),
                 contentScale = ContentScale.Crop,

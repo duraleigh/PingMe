@@ -142,6 +142,10 @@ class EventApplier
          * what they refer to, which is now in the store (iPhone tapbacks over SMS; owner, Gate G3).
          */
         private suspend fun applyHistory(event: ConnectorEvent.HistoryBatch) {
+            // A chat deleted here has nothing stored, so a history fetch would rebuild it
+            // (owner, Gate G7, round 3: deleted chats came back): old pages are dropped.
+            val newest = event.messages.maxOfOrNull { it.message.sentAt }
+            if (newest != null && hiddenHere(event.chatId, newest)) return
             val (reactions, plain) = event.messages.partition { Tapbacks.parse(it.message.body.orEmpty()) != null }
             plain.forEach { saveMessage(it) }
             reactions.forEach { snapshot ->

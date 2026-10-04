@@ -74,6 +74,22 @@ class ChatActionsTest : ServiceTest() {
         }
 
     @Test
+    fun readStaysReadWhenTheNetworksChatTimeIsOlderThanItsNewestMessage() =
+        runTest {
+            // Google Messages' chat time trailed its newest message, so every sync counted that
+            // message as unread again (owner, Gate G7, round 3: Eric and Tracy).
+            val id = seed().single()
+            val later = now + kotlin.time.Duration.parse("1s") + kotlin.time.Duration.parse("1ms")
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m1", sentAt = later)))
+            applier.applyChats(listOf(chatSnapshot(remote = "c1", unread = 1)))
+            actions.setRead(id, true)
+            assertEquals(0, chat(id).unreadCount)
+            // The network lists the chat again, still "unread", with its older chat time.
+            applier.applyChats(listOf(chatSnapshot(remote = "c1", unread = 1)))
+            assertEquals(0, chat(id).unreadCount)
+        }
+
+    @Test
     fun markingReadClearsTheBadgeAndTellsTheNetwork() =
         runTest {
             val id = seed().single()

@@ -98,7 +98,11 @@ class PeopleLinker
             contacts.chatsTitled(self.accountId, wrong).filter { it.kind == ChatKind.DIRECT }.forEach { chat ->
                 val own = contacts.person(PersonId(chat.id.value)) ?: return@forEach
                 val right = own.name.takeIf { Names.isReal(it) } ?: own.phoneNumber ?: own.displayName
-                if (right != wrong) chats.update(chat.id) { it.copy(title = right) }
+                if (right != wrong) {
+                    chats.update(
+                        chat.id,
+                    ) { it.copy(title = right, participants = (it.participants + own.id).distinct()) }
+                }
             }
         }
 
