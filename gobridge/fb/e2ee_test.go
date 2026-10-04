@@ -221,3 +221,30 @@ func TestWrapMediaByKind(t *testing.T) {
 		t.Fatalf("file: %v %v", file, err)
 	}
 }
+
+// A message I sent from Messenger itself, for a chat the listing has not named, makes the
+// chat with the other person as its member, named from the contact rows when known.
+func TestOwnChannelMessageToANewChatNamesTheOtherPerson(t *testing.T) {
+	s, sink := newTestSession(t)
+	s.applyTable(&table.LSTable{
+		LSDeleteThenInsertContact: []*table.LSDeleteThenInsertContact{{Id: 9, Name: "Joshua Hale", ProfilePictureUrl: "https://p/9"}},
+	}, true)
+	sink.events = nil
+	s.handleWAEvent(textMessage(9, 1000, "MINE1", "🔥🔥🔥", true))
+	if got := kinds(sink.events); len(got) != 2 || got[0] != "thread" || got[1] != "message" {
+		t.Fatalf("events: %v", got)
+	}
+	thread := sub(t, sink.events[0], "thread")
+	users := thread["users"].([]any)
+	if len(users) != 2 {
+		t.Fatalf("users: %v", users)
+	}
+	other := users[1].(map[string]any)
+	if other["id"] != "9" || other["name"] != "Joshua Hale" || other["picture"] != "https://p/9" {
+		t.Fatalf("the other person: %v", other)
+	}
+	msg := sub(t, sink.events[1], "message")
+	if msg["sender"] != "1000" || msg["thread"] != "9" {
+		t.Fatalf("message: %v", msg)
+	}
+}

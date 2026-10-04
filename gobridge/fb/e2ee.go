@@ -19,8 +19,10 @@ import (
 	"time"
 
 	"go.mau.fi/mautrix-meta/pkg/messagix/methods"
+	"go.mau.fi/mautrix-meta/pkg/messagix/socket"
 	"go.mau.fi/whatsmeow"
 	armadillo "go.mau.fi/whatsmeow/proto"
+	"go.mau.fi/whatsmeow/proto/armadilloutil"
 	"go.mau.fi/whatsmeow/proto/waArmadilloApplication"
 	"go.mau.fi/whatsmeow/proto/waArmadilloXMA"
 	"go.mau.fi/whatsmeow/proto/waCommon"
@@ -323,9 +325,18 @@ func (s *Session) announce(jid int64, group bool, pushName, sender string, m Mes
 	fresh := t == nil
 	if fresh {
 		t = &Thread{ID: id(jid), IsGroup: group, Folder: "inbox", jid: jid, members: map[int64]*User{}}
-		if !group {
-			if n, err := strconv.ParseInt(sender, 10, 64); err == nil && n != s.own {
-				t.members[n] = &User{ID: sender, Name: pushName}
+		if !group && jid != s.own {
+			// A one-to-one chat's id on the channel is the other person's id, whoever sent
+			// this (owner, 2026-10-04: a story reply sent from Messenger made a nameless chat).
+			other := &User{ID: id(jid)}
+			if known := s.people[jid]; known != nil {
+				other.Name, other.Picture = known.Name, known.Picture
+			} else if sender == id(jid) {
+				other.Name = pushName
+			}
+			t.members[jid] = other
+			if other.Name == "" {
+				go s.fetchPerson(jid)
 			}
 		}
 		s.threads[jid] = t
@@ -541,6 +552,15 @@ func (s *Session) waArmadillo(evt *events.FBMessage, content *waArmadilloApplica
 		m.Kind = "share"
 		m.Text = x.GetMessageText()
 		m.Share = &Share{Title: x.GetTitleText(), Subtitle: x.GetSubtitleText(), URL: shareURL(x)}
+		if x.GetTargetType() == waArmadilloXMA.ExtendedContentMessage_FB_STORY_REPLY {
+			// A reply to a story carries the reply itself inside: show that text, with the
+			// story as the card (owner, 2026-10-04: the card alone showed as a bubble).
+			if inner := storyReplyText(x); inner != "" {
+				m.Text = inner
+			}
+			m.Share.Title = "Reply to a story"
+			m.Share.Subtitle = x.GetTitleText()
+		}
 	case *waArmadilloApplication.Armadillo_Content_RavenMessage_, *waArmadilloApplication.Armadillo_Content_RavenMessageMsgr:
 		m.Text = "A view-once photo or video; open it in Messenger."
 	case *waArmadilloApplication.Armadillo_Content_ImageGalleryMessage_:
@@ -845,4 +865,58 @@ func (s *Session) setTypingE2EE(t *Thread, typing bool) error {
 	ctx, cancel := s.ctx()
 	defer cancel()
 	return wrap(client.SendChatPresence(ctx, waJID(t.jid), state, waTypes.ChatPresenceMediaText))
+}
+
+// fetchPerson asks the web side who a person is, for a chat the channel started before
+// the web listing named it, and announces the chat again with the name and picture.
+func (s *Session) fetchPerson(fbid int64) {
+	if !s.isLive() {
+		return
+	}
+	ctx, cancel := s.ctx()
+	defer cancel()
+	resp, err := s.client.ExecuteTasks(ctx, &socket.GetContactsFullTask{ContactID: fbid})
+	if err != nil {
+		s.log.Warn().Err(err).Int64("person", fbid).Msg("Could not fetch who a chat is with")
+		return
+	}
+	if resp != nil {
+		s.applyTable(resp, false)
+	}
+	s.mu.Lock()
+	known := s.people[fbid]
+	t := s.threadByJID(fbid)
+	var view Thread
+	if known != nil && t != nil {
+		if m := t.members[fbid]; m != nil && m.Name == "" {
+			m.Name, m.Picture = known.Name, known.Picture
+		}
+		if t.Title == "" {
+			t.Title = known.Name
+		}
+		view = t.view(s.own, s.people)
+	}
+	s.mu.Unlock()
+	if known != nil && t != nil {
+		s.emit(map[string]any{"type": "thread", "thread": view})
+	}
+}
+
+// storyReplyText unwraps the message a story reply carries, as the reference bridge does.
+func storyReplyText(x *waArmadilloXMA.ExtendedContentMessage) string {
+	var app waMsgApplication.MessageApplication
+	if _, err := armadilloutil.Unmarshal(&app, x.GetAssociatedMessage(), 2); err != nil {
+		return ""
+	}
+	var consumer waConsumerApplication.ConsumerApplication
+	if _, err := armadilloutil.Unmarshal(&consumer, app.GetPayload().GetSubProtocol().GetConsumerMessage(), 1); err != nil {
+		return ""
+	}
+	switch c := consumer.GetPayload().GetContent().GetContent().(type) {
+	case *waConsumerApplication.ConsumerApplication_Content_MessageText:
+		return c.MessageText.GetText()
+	case *waConsumerApplication.ConsumerApplication_Content_ExtendedTextMessage:
+		return c.ExtendedTextMessage.GetText().GetText()
+	}
+	return ""
 }

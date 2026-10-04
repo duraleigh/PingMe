@@ -3385,6 +3385,18 @@ that number exists yet.
    one-minute cache. Tests cover offers by card and by name, and none where a text chat
    already exists.
 
+### Owner note (2026-10-04, 7:29 PM): a nameless Messenger chat after a story reply
+
+The owner replied to a story from Messenger itself; PingMe showed a chat with no name, a
+plain person mark, and two bubbles carrying "You replied to Joshua's story". Two faults
+in the new channel code: a chat the channel started before the web listing named it was
+filed under nobody when the first message was the owner's own (only the sender was
+looked at), and a story reply was shown as its card alone. Now a one-to-one chat made
+from the channel always has the other person as its member (the chat's id on the channel
+is their id), named from the contact rows, or fetched from the web by id and announced
+again; and a story reply shows the reply's own text with "Reply to a story" as the card.
+Tests cover the naming.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built
