@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
@@ -87,6 +88,13 @@ class SettingsRepository
             }
         }
 
+        /** Merge suggestions the user turned down, by the key MergeSuggestions gives them (UI_DESIGN.md 10.15). */
+        val dismissedMerges: Flow<Set<String>> = dataStore.data.map { it[DISMISSED_MERGES].orEmpty() }
+
+        suspend fun dismissMerge(key: String) {
+            dataStore.edit { it[DISMISSED_MERGES] = it[DISMISSED_MERGES].orEmpty() + key }
+        }
+
         /** Everything in Settings apart from appearance, reactions, and the inbox bar (BUILD_PLAN.md P2.6). */
         val app: Flow<AppSettings> = dataStore.data.map { decode(it[APP_SETTINGS]) }
 
@@ -116,6 +124,7 @@ class SettingsRepository
             val DOUBLE_TAP = stringPreferencesKey("double_tap_reaction")
             val RECENT_EMOJI = stringPreferencesKey("recent_emoji")
             val APP_SETTINGS = stringPreferencesKey("app_settings")
+            val DISMISSED_MERGES = stringSetPreferencesKey("dismissed_merges")
             val json = Json { ignoreUnknownKeys = true }
 
             /** Emoji never contain a line break, so it separates them. */
