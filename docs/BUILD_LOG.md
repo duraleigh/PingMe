@@ -3076,6 +3076,14 @@ the owner's word.
   Primary chats, not the whole inbox; General chats inside the thirty days come along and
   stay out of All as before). The request queue stays one page.
 
+### Owner note on the network filters (2026-10-03, 10:16 PM)
+
+- A merged chat was listed under every network it had a member on, placed by its newest
+  message on any network, so WhatsApp's list led with people the owner has never spoken
+  to on WhatsApp. Under a network filter a merged chat now stands for its member on that
+  network alone: it appears only when that member holds a message, and is placed and
+  previewed by that member's newest message. The same rule for every network.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a

@@ -98,6 +98,11 @@ fun InboxSource.select(
     now: Instant,
 ): Pair<List<ChatRow>, List<ChatRow>> {
     val networkOf = accounts.associate { it.id to it.network }
+    // Under a network filter a merged chat stands for its member on that network alone:
+    // placed and previewed by that member's newest message, and absent when that member
+    // holds no message at all (owner, 2026-10-03: people merged "in case" are not WhatsApp
+    // conversations).
+    val standIn = HashMap<ChatId, LastMessage>()
     val chats =
         when (selected) {
             // A space can keep its chats out of All, inside the space only (UI_DESIGN.md 10.4).
@@ -111,11 +116,7 @@ fun InboxSource.select(
             }
 
             is InboxBarItem.Network -> {
-                // A merged chat shows under every network it has a member on.
-                inbox.filter {
-                    (networkOf[it.accountId] == selected.network || selected.network in networksOf(it.id, networkOf)) &&
-                        it.matches(narrowings[selected.network])
-                }
+                onNetwork(selected.network, narrowings[selected.network], networkOf, standIn)
             }
 
             is InboxBarItem.Space -> {
@@ -139,8 +140,9 @@ fun InboxSource.select(
             ChatRow(
                 it,
                 network,
-                // A merged chat previews the newest message across its members.
-                if (members.isEmpty()) {
+                // A merged chat previews the newest message across its members, or the one
+                // member's under a network filter.
+                standIn[it.id] ?: if (members.isEmpty()) {
                     last[it.id]
                 } else {
                     members
@@ -157,6 +159,35 @@ fun InboxSource.select(
     val (pinned, rest) = rows.partition { it.chat.isPinned }
     return pinned.sortedBy { it.chat.pinOrder ?: Int.MAX_VALUE } to rest
 }
+
+/**
+ * The chats one network's filter shows: its own chats, and each merged chat that has a
+ * member on it holding a message, placed by that member's newest message and previewed
+ * from it ([standIn]); a merged chat whose member on this network holds nothing is left
+ * out (owner, 2026-10-03: people merged "in case" are not conversations here).
+ */
+private fun InboxSource.onNetwork(
+    network: NetworkId,
+    narrowing: Narrowing?,
+    networkOf: Map<org.pingme.core.model.AccountId, NetworkId>,
+    standIn: MutableMap<ChatId, LastMessage>,
+): List<Chat> =
+    inbox
+        .mapNotNull { chat ->
+            if (!chat.matches(narrowing)) return@mapNotNull null
+            val members = memberships.filterValues { it == chat.id }.keys
+            if (members.isEmpty()) {
+                chat.takeIf { networkOf[it.accountId] == network }
+            } else {
+                val newest =
+                    members
+                        .filter { networkOf[it.accountId] == network }
+                        .mapNotNull { last[it] }
+                        .maxByOrNull { it.sentAt } ?: return@mapNotNull null
+                standIn[chat.id] = newest
+                chat.copy(lastActivityAt = newest.sentAt)
+            }
+        }.sortedByDescending { it.lastActivityAt }
 
 /** The networks a merged chat's members are on, in member order; empty for an ordinary chat. */
 private fun InboxSource.networksOf(

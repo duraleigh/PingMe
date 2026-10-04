@@ -12,12 +12,15 @@ import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.ConnectionState
+import org.pingme.core.model.MessageKind
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.NotificationMode
 import org.pingme.core.model.Space
 import org.pingme.core.model.SpaceIcon
 import org.pingme.core.model.SpaceId
 import org.pingme.core.model.SpaceKind
+import org.pingme.core.model.Transport
+import org.pingme.core.store.LastMessage
 import org.pingme.core.store.UnreadTotals
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -175,6 +178,36 @@ class InboxStateTest {
     @Test
     fun everySpaceIconHasADrawingAndAName() {
         assertEquals(SpaceIcon.entries.toSet(), LOOKS.keys)
+    }
+
+    @Test
+    fun underANetworkFilterAMergedChatStandsForItsMemberOnThatNetworkOnly() {
+        // Merged "in case": the WhatsApp member holds nothing, so WhatsApp's list leaves it
+        // out; Instagram's list places it by the Instagram member's message (owner, 2026-10-03).
+        val wa = rcs.copy(id = AccountId("wa"), network = NetworkId.WHATSAPP)
+        val merged = chat("merged/1", account = ig).copy(lastActivityAt = now)
+        // Chat ids carry their account, as every connector's do ("<account>/<remote>").
+        val onIg = chat("ig/sam", account = ig)
+        val onWa = chat("wa/sam", account = wa)
+        val plainWa = chat("wa/dad", account = wa)
+        val igMessage = LastMessage("hi", MessageKind.TEXT, false, Transport.NETWORK, now - 1.hours, "Sam")
+        val dadMessage = LastMessage("yo", MessageKind.TEXT, false, Transport.NETWORK, now - 2.hours, "Dad")
+        val src =
+            InboxSource(
+                listOf(merged, plainWa),
+                emptyList(),
+                mapOf(onIg.id to igMessage, plainWa.id to dadMessage),
+                listOf(rcs, ig, wa),
+                emptySet(),
+                emptyList(),
+                memberships = mapOf(onIg.id to merged.id, onWa.id to merged.id),
+            )
+        val whatsapp = src.select(InboxBarItem.Network(NetworkId.WHATSAPP), emptyMap(), now).second
+        assertEquals(listOf("wa/dad"), whatsapp.map { it.id.value })
+        val instagram = src.select(InboxBarItem.Network(NetworkId.INSTAGRAM), emptyMap(), now).second
+        assertEquals(listOf("merged/1"), instagram.map { it.id.value })
+        assertEquals("hi", instagram.single().last?.body)
+        assertEquals(now - 1.hours, instagram.single().chat.lastActivityAt)
     }
 
     @Test
