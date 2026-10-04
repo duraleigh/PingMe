@@ -3274,7 +3274,9 @@ not fixed, waiting on the owner:
    loaded, so the rule won, which is why All "worked". The rule now asks the store for the
    members directly, and the read marking waits until the rule has decided. A test opens
    a merged chat for the first time with one unread member and checks the network chosen
-   and that the members are marked read only afterwards.
+   and that the members are marked read only afterwards. (Its first version reported the
+   chat visible twice, itself and through the screen, so the rule ran again after the
+   marking and failed on GitHub; the screen alone reports it now, three local runs green.)
 
 ### Gate G11: the owner's checklist
 

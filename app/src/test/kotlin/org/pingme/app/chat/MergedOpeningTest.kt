@@ -65,11 +65,11 @@ class MergedOpeningTest {
                 demo.mergeService.merge(listOf(sam, samOnOther))
             }
         val vm = demo.chatViewModelFor(merged)
-        // The screen subscribes to the state and reports the chat visible, as on the phone.
+        // The screen subscribes to the state and reports the chat visible, once, as on the
+        // phone; a second report would run the rule again after the marking, with nothing unread.
         compose.setContent {
             PingMeTheme(Appearance(mode = ThemeMode.LIGHT)) { ChatRoute(vm.chatId, onBack = {}, viewModel = vm) }
         }
-        vm.visible(true)
         waitUntil { vm.state.value.filter == other }
         waitUntil { runBlocking { demo.chats.get(samOnOther)!!.unreadCount == 0 } }
         assertEquals(other, vm.state.value.filter)
