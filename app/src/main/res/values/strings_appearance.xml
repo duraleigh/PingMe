@@ -42,6 +42,8 @@
     <string name="appearance_network_colours">Network colours</string>
     <string name="appearance_bubble_colour">Bubble colour</string>
     <string name="appearance_accent_colour">Badge and header colour</string>
+    <string name="appearance_swatch_bubble">Bubble</string>
+    <string name="appearance_swatch_badge">Badge</string>
     <string name="appearance_sender_names">Sender names in groups</string>
     <string name="sender_names_auto">Colourful</string>
     <string name="sender_names_fixed">One colour</string>

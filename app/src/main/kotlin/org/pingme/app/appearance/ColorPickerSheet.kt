@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -48,7 +50,8 @@ fun ColorPickerSheet(
     var tone by remember { mutableFloatStateOf(start.tone.toFloat().coerceIn(TONE)) }
     val colour = Hct.from(hue.toDouble(), chroma.toDouble(), tone.toDouble()).toInt()
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(bottom = 24.dp)) {
+        // Scrolls, so Done is reachable on a short screen (owner, 2026-10-04).
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             Text(title, Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleLarge)
             Box(
                 Modifier

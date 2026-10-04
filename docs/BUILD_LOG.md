@@ -3175,6 +3175,16 @@ deleted, and the WhatsApp chats are named correctly.
   fit and five times, pans with one finger while zoomed, and a double tap toggles between
   fit and twice the size.
 
+- **Network colours "did nothing"** (owner, 2026-10-04, Instagram). Tried on the emulator:
+  the pick is saved and both swatches change, so the mechanism works. What misled was the
+  swatches themselves: the bubble swatch showed the flat base colour while the chat draws
+  the gradient style from it (so it looked orange-red, not maroon), the badge swatch showed
+  the full colour while rows draw the badge as a faint tint of it, and neither said which
+  was which. The two circles are now a small real bubble in the current style and the real
+  badge, labelled "Bubble" and "Badge". The picker sheet scrolls, so Done is reachable on
+  any screen. Note: a bubble colour also sets the badge colour unless the badge has its
+  own; that is by design and now visible.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a

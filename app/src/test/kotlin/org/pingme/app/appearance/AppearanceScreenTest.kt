@@ -2,11 +2,13 @@
 package org.pingme.app.appearance
 
 import android.graphics.Bitmap
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -15,12 +17,18 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.pingme.core.model.NetworkId
+import org.pingme.core.model.Transport
 import org.pingme.core.ui.theme.Appearance
 import org.pingme.core.ui.theme.ChatWallpaper
+import org.pingme.core.ui.theme.ContrastLevel
+import org.pingme.core.ui.theme.NetworkPalette
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.theme.ThemeMode
 import org.robolectric.RobolectricTestRunner
@@ -75,6 +83,35 @@ class AppearanceScreenTest {
     fun theDefaultLookHasNoWarning() {
         show()
         compose.onNodeWithText("Some text will be hard to read").assertDoesNotExist()
+    }
+
+    @Test
+    fun pickingANetworkBubbleColourChangesTheBubbleAndTheSwatch() {
+        // The owner: "I change the colours there and tap Done. Nothing changes" (2026-10-04).
+        show()
+        scrollTo("Network colours")
+        compose.onNode(hasContentDescription("WhatsApp bubble")).performClick()
+        compose.onNode(hasContentDescription("Hue 240.0")).performClick()
+        compose.onNodeWithText("Done").performClick()
+        val picked = appearance.networkColors[NetworkId.WHATSAPP]
+        assertNotNull("the picked colour is kept", picked)
+        val palette =
+            NetworkPalette(
+                lightColorScheme(),
+                dark = false,
+                ContrastLevel.STANDARD,
+                appearance.networkColors,
+                appearance.networkAccents,
+            )
+        val before =
+            NetworkPalette(lightColorScheme(), dark = false, ContrastLevel.STANDARD, emptyMap(), emptyMap())
+                .outgoing(NetworkId.WHATSAPP, Transport.NETWORK)
+                .container
+        assertNotEquals(
+            "the bubble takes the new hue",
+            before,
+            palette.outgoing(NetworkId.WHATSAPP, Transport.NETWORK).container,
+        )
     }
 
     @Test
