@@ -3185,6 +3185,13 @@ deleted, and the WhatsApp chats are named correctly.
   any screen. Note: a bubble colour also sets the badge colour unless the badge has its
   own; that is by design and now visible.
 
+- **Gradient and badge colours** (owner, 2026-10-04): the gradient bubble now runs from
+  the bubble colour to the badge colour, the two swatches in Appearance, with no hidden hue
+  shift (it used to turn forty degrees toward orange, which is why an Instagram bubble read
+  as orange-red while its swatch was wine red). Badges are drawn in the first swatch's colour, the
+  bubble colour, with readable text on it, not a faint tint; the second swatch is the
+  gradient's end and the header accent.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a

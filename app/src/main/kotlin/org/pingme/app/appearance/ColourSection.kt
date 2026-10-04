@@ -311,8 +311,7 @@ private fun NetworkColours(
                             }.semantics { contentDescription = "$name badge" },
                         contentAlignment = Alignment.Center,
                     ) {
-                        org.pingme.app.inbox
-                            .NetworkBadge(network)
+                        Box(Modifier.size(28.dp).clip(RoundedCornerShape(14.dp)).background(Color(accent)))
                     }
                     Text(stringResource(R.string.appearance_swatch_badge), style = MaterialTheme.typography.labelSmall)
                 }

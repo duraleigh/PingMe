@@ -259,7 +259,9 @@ them.
 - Shape family: Round, Soft, Sharp, or Expressive (cookie, clover, sunny, and other
   Material 3 Expressive shapes for avatars and pins).
 - Bubble corner radius slider, bubble tails on or off.
-- Bubble style: Tonal (default), Outlined, Filled, Gradient, Pill.
+- Bubble style: Tonal (default), Outlined, Filled, Gradient (from the network's bubble colour to
+  its gradient-end colour, the two swatches in Appearance; owner, 2026-10-04), Pill. The
+  network badge is drawn in the bubble colour.
 
 ### 4.3 Layout and density
 

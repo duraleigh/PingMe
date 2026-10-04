@@ -40,10 +40,10 @@
     <string name="contrast_medium">Medium</string>
     <string name="contrast_high">High</string>
     <string name="appearance_network_colours">Network colours</string>
-    <string name="appearance_bubble_colour">Bubble colour</string>
-    <string name="appearance_accent_colour">Badge and header colour</string>
-    <string name="appearance_swatch_bubble">Bubble</string>
-    <string name="appearance_swatch_badge">Badge</string>
+    <string name="appearance_bubble_colour">Bubble and badge colour</string>
+    <string name="appearance_accent_colour">Gradient end and header colour</string>
+    <string name="appearance_swatch_bubble">Bubble, badge</string>
+    <string name="appearance_swatch_badge">Gradient end</string>
     <string name="appearance_sender_names">Sender names in groups</string>
     <string name="sender_names_auto">Colourful</string>
     <string name="sender_names_fixed">One colour</string>
