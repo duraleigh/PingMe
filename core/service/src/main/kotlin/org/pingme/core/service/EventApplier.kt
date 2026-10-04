@@ -108,8 +108,12 @@ class EventApplier
                     // A reaction to a message the store never got (older than the history kept, or
                     // in a chat not listed) has nothing to sit on; the row would be refused anyway
                     // (owner, Gate G7: Messenger stuck on "reconnecting" over one such reaction).
-                    if (messages.get(event.messageId) == null) return
+                    val target = messages.get(event.messageId) ?: return
                     messages.addReaction(event.messageId, event.reaction)
+                    // A reaction is activity: the chat moves up as it does in the network's own app.
+                    chats.update(
+                        target.chatId,
+                    ) { it.copy(lastActivityAt = maxOf(it.lastActivityAt, event.reaction.at)) }
                     announceIfFromSomeoneElse(event)
                 }
             }
@@ -375,13 +379,16 @@ val PLACEHOLDER_HANDLES = listOf("0@s.whatsapp.net", "+0")
 const val YOU = "You"
 const val STAND_IN_PREFIX = "tmp/"
 
+// A listing never moves a chat earlier: Instagram re-sends a thread with a stale time after
+// a reaction or a folder change, and the chat sank to that old place in the list, which
+// looked like vanishing while search still found it (owner, 2026-10-04: Jake, Kameron).
 private fun Chat.withSnapshot(s: ChatSnapshot) =
     copy(
         kind = s.kind,
         title = s.title,
         participants = s.participants.map { it.id },
         unreadCount = s.unreadCount,
-        lastActivityAt = s.lastActivityAt,
+        lastActivityAt = maxOf(lastActivityAt, s.lastActivityAt),
         folder = s.folder,
         spaceId = s.spaceId,
         networkRemoteId = s.networkRemoteId,

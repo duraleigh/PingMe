@@ -56,6 +56,20 @@ class EventApplierTest : ServiceTest() {
             assertEquals("hi", messages.get(accountId.message("m1"))?.body)
         }
 
+    // Owner, 2026-10-04: Instagram chats "vanished" after a reaction. The network re-sent the
+    // thread with a stale time and the chat sank to that old place in the list.
+    @Test
+    fun aListingNeverMovesAChatEarlierAndAReactionLiftsIt() =
+        runTest {
+            seed()
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m1", sentAt = now + 5.minutes)))
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot().copy(lastActivityAt = now)))
+            assertEquals(now + 5.minutes, chats.get(chatId)?.lastActivityAt)
+            val liked = Reaction("❤️", sam().id, now + 9.minutes)
+            applier.apply(ConnectorEvent.ReactionChanged(accountId, accountId.message("m1"), liked, removed = false))
+            assertEquals(now + 9.minutes, chats.get(chatId)?.lastActivityAt)
+        }
+
     @Test
     fun anOutgoingMessageMeansTheChatIsRead() =
         runTest {

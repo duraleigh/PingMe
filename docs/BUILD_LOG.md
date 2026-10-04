@@ -3367,6 +3367,13 @@ that number exists yet.
    for). This build writes each of those to the log: every chat removed at a network's
    word, every folder change on a listing, every message dropped for a hidden chat, and
    every Instagram folder-move or thread-gone event. The next vanishing names its cause.
+   **Then the owner searched: "Jake" was found, so the chat was stored and not deleted.**
+   Found by reading with that in hand: when a network re-lists a thread, the stored
+   chat took the listing's time as its own, and Instagram re-sends a thread with a stale
+   time after a reaction or a folder change; the chat sank to that old place in the list,
+   far below the fold, which reads as vanishing. A listing now never moves a chat
+   earlier than it already is, and a reaction lifts the chat to the reaction's time, as
+   Instagram's own list does ("Liked a message · 6m" sits at the top there). Test added.
 2. **Contacts as Google Messages chats to merge** (3:40 PM; "fix everything", 7:05 PM).
    A phone contact with a number now counts as a Google Messages chat before any text
    has been sent to it. Suggestions: a chat, or a cluster, with no Google Messages member
