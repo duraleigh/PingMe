@@ -3113,6 +3113,34 @@ the owner's word.
   messages came from; with no unread, or unread from several networks, on its default
   network. "All" is a choice in the header menu, never the opening state.
 
+### Owner notes on the first full Phase 7 build (2026-10-04, 12:03 AM)
+
+Confirmed by the owner on the phone: Eric and Tracy stay read, the deleted code chats stay
+deleted, and the WhatsApp chats are named correctly.
+
+- **Bottom bar labels** wrap to a second line ("Low priority", "Google Messages").
+- **The orbiting ring is now the unread mark**, not the merged mark (owner: "I like the
+  orbiting ring so much"): an unread row or pinned tile shows the ring in the accent
+  colour (outline colour when muted) around its avatar, the row keeps its soft tint, and
+  the dots on rows and tiles are gone. Merged chats carry no mark for now; the owner will
+  choose one later. They still carry no network badges.
+- **Search results** show each chat's network badge and its number or username, and the
+  person's photo, so three "Quiana Parler" rows read apart.
+- **Missing Instagram pictures**: found in the code. A message's sender was written to the
+  store directly, bypassing the photo step, so every new Instagram message overwrote the
+  person's downloaded picture with the network's web link, which the app cannot show.
+  Exactly the people with recent messages lost their pictures. Senders now go through the
+  same step as everyone else.
+- **Chats still named after your own card** (an "Ali Aksahin" chat under a hidden id was
+  still "Terry Sanford"): the repair now runs on every start, from the card that holds
+  your number, and a chat whose own person PingMe cannot name falls back to its address
+  rather than keep a wrong name.
+- **Missing WhatsApp chats** (Gina Orr, Quiana Parler, among others, present in
+  WhatsApp's own list but not PingMe's WhatsApp filter): not yet explained. The build now
+  logs every inbound WhatsApp event by kind, so the next capture shows whether WhatsApp
+  delivers them at all; the filter rule above also hides a merged chat whose WhatsApp
+  member holds no stored message, which may be part of it.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a

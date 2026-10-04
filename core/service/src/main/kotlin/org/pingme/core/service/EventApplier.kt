@@ -298,7 +298,9 @@ class EventApplier
         private suspend fun saveMessage(snapshot: MessageSnapshot) {
             val message = withQuote(snapshot.message)
             if (chats.get(message.chatId) == null && hiddenHere(message.chatId, message.sentAt)) return
-            snapshot.sender?.let { contacts.upsert(it) }
+            // Through the people step, or a message's sender would overwrite the person's
+            // downloaded picture with the network's link again (owner, 2026-10-04: photos gone).
+            snapshot.sender?.let { people.remember(it) }
             if (chats.get(message.chatId) == null) {
                 // A connector should announce a chat before its messages. If one arrives
                 // first, keep the message under a minimal chat until the chat's own

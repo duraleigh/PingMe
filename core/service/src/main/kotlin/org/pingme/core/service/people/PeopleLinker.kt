@@ -93,15 +93,19 @@ class PeopleLinker
          * The link goes, and each of those chats takes its own person's name or number back.
          */
         private suspend fun unlinkSelf(self: Person) {
-            val wrong = self.contactName ?: return
-            contacts.link(self.id, null, null, null)
+            if (self.contactId != null) contacts.link(self.id, null, null, null)
+            // The card that holds your own number names it, linked or not: every chat still
+            // titled after it that is not with that contact takes its own name or address.
+            val wrong = self.contactName ?: match(self.phoneNumber)?.name ?: return
             contacts.chatsTitled(self.accountId, wrong).filter { it.kind == ChatKind.DIRECT }.forEach { chat ->
-                val own = contacts.person(PersonId(chat.id.value)) ?: return@forEach
-                val right = own.name.takeIf { Names.isReal(it) } ?: own.phoneNumber ?: own.displayName
+                val own = contacts.person(PersonId(chat.id.value))
+                val right =
+                    own?.name?.takeIf { Names.isReal(it) } ?: own?.phoneNumber ?: own?.displayName
+                        ?: Names.address(chat.networkRemoteId)
                 if (right != wrong) {
-                    chats.update(
-                        chat.id,
-                    ) { it.copy(title = right, participants = (it.participants + own.id).distinct()) }
+                    chats.update(chat.id) {
+                        it.copy(title = right, participants = (it.participants + listOfNotNull(own?.id)).distinct())
+                    }
                 }
             }
         }

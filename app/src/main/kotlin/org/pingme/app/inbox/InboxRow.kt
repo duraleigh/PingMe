@@ -291,7 +291,6 @@ private fun RowContent(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (unread) UnreadBadge(muted = row.chat.isMuted)
             }
         }
     }
@@ -460,7 +459,7 @@ private fun RowAvatar(
                 Icon(painterResource(UiR.drawable.ic_check), null, tint = colours.onPrimary)
             }
         } else {
-            Ringed(row.isMerged, PingMeTheme.shapes.avatar) {
+            Ringed(row.isUnread, PingMeTheme.shapes.avatar, muted = row.chat.isMuted) {
                 if (row.faces.isEmpty()) {
                     Avatar(row.title, size = size, photo = row.photo)
                 } else {
@@ -473,16 +472,26 @@ private fun RowAvatar(
     }
 }
 
-/** The merged chat's orbiting ring around [content] when [merged]; otherwise just the content. */
+/** The unread ring around [content] when [unread] (owner, 2026-10-04); the outline colour for a muted chat. */
 @Composable
 internal fun Ringed(
-    merged: Boolean,
+    unread: Boolean,
     shape: androidx.graphics.shapes.RoundedPolygon,
     modifier: Modifier = Modifier,
     gap: androidx.compose.ui.unit.Dp = 3.dp,
+    muted: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    // One slot, one place: the ring is a drawing on the box, nothing in the tree changes.
+    val colours = MaterialTheme.colorScheme
+    val label = stringResource(R.string.inbox_unread)
     org.pingme.core.ui.components
-        .MergedRing(shape, modifier, gap = gap, shown = merged) { content() }
+        .OrbitRing(
+            shape,
+            modifier.semantics { if (unread) contentDescription = label },
+            gap = gap,
+            shown = unread,
+            colour = if (muted) colours.outline else colours.primary,
+        ) {
+            content()
+        }
 }

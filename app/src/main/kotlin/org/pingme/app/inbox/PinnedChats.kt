@@ -90,8 +90,8 @@ fun PinnedRow(
 
 /**
  * One pinned chat. Unread, the tile has to shout as loudly as an unread row does (owner,
- * Gate G2: a dot alone was missed): a thick ring in the accent colour around the avatar, a
- * big dot on its corner, and the name in bold accent colour.
+ * Gate G2: a dot alone was missed): the orbiting ring in the accent colour around the
+ * avatar and the name in bold accent colour (the dot went on 2026-10-04).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -112,23 +112,14 @@ private fun PinnedTile(
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Box(Modifier.size(TILE_AVATAR + (RING + RING_GAP) * 2), contentAlignment = Alignment.Center) {
-            if (unread) Box(Modifier.matchParentSize().border(RING, accent, shape.toShape()))
-            // A merged chat's ring orbits outside the unread ring (owner, 2026-10-03).
-            Ringed(row.isMerged, shape, gap = RING + RING_GAP + MERGED_GAP) {
+            // Unread: the orbiting ring, no dot (owner, 2026-10-04).
+            Ringed(unread, shape, gap = RING_GAP, muted = row.chat.isMuted) {
                 if (row.faces.isEmpty()) {
                     Avatar(row.title, size = TILE_AVATAR, shape = shape, photo = row.photo)
                 } else {
                     org.pingme.core.ui.components
                         .GroupAvatar(row.faces, row.title, size = TILE_AVATAR, shape = shape)
                 }
-            }
-            if (unread) {
-                UnreadBadge(
-                    Modifier.align(Alignment.TopEnd),
-                    muted = row.chat.isMuted,
-                    size = TILE_DOT,
-                    outlined = true,
-                )
             }
             if (row.typing) TypingDots(Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 2.dp))
         }
@@ -153,5 +144,3 @@ private val CENTRED_WIDTH = 84.dp
 private val CENTRED_GAP = 24.dp
 private val RING = 3.dp
 private val RING_GAP = 3.dp
-private val MERGED_GAP = 2.dp
-private val TILE_DOT = 20.dp

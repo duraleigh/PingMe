@@ -76,7 +76,7 @@ fun InboxBottomBar(
                     selected = entry.item == selected,
                     onClick = { actions.onSelect(entry.item) },
                     icon = { BarIcon(entry) },
-                    label = { Text(barLabel(entry, accounts), maxLines = 1) },
+                    label = { BarLabel(barLabel(entry, accounts)) },
                     modifier = narrowMenu,
                 )
             }
@@ -86,7 +86,7 @@ fun InboxBottomBar(
                 selected = inMore,
                 onClick = open,
                 icon = { MoreIcon(more) },
-                label = { Text(stringResource(R.string.bar_more), maxLines = 1) },
+                label = { BarLabel(stringResource(R.string.bar_more)) },
             )
         }
     }
@@ -110,7 +110,7 @@ fun InboxRail(
                     selected = entry.item == selected,
                     onClick = { actions.onSelect(entry.item) },
                     icon = { BarIcon(entry) },
-                    label = { Text(barLabel(entry, accounts), maxLines = 1) },
+                    label = { BarLabel(barLabel(entry, accounts)) },
                     railExpanded = false,
                     modifier = narrowMenu,
                 )
@@ -121,7 +121,7 @@ fun InboxRail(
                 selected = inMore,
                 onClick = open,
                 icon = { MoreIcon(more) },
-                label = { Text(stringResource(R.string.bar_more), maxLines = 1) },
+                label = { BarLabel(stringResource(R.string.bar_more)) },
                 railExpanded = false,
             )
         }

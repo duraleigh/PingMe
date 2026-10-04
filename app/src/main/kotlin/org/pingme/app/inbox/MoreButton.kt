@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.pingme.core.model.Account
 import org.pingme.core.ui.R as UiR
@@ -64,3 +65,9 @@ internal fun MoreIcon(more: List<BarEntry>) {
 }
 
 private val MORE_DOT = 8.dp
+
+// Long names ("Low priority", "Google Messages") wrap to a second line (owner, 2026-10-04).
+@Composable
+internal fun BarLabel(text: String) {
+    Text(text, maxLines = 2, textAlign = TextAlign.Center)
+}

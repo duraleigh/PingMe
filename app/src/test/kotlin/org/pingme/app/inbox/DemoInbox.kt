@@ -316,7 +316,8 @@ class DemoInbox(
             ),
         ).tracked()
 
-    fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()
+    fun searchViewModel() =
+        SearchViewModel(chats, messages, Clock.System, SavedStateHandle(), accounts, contacts).tracked()
 
     fun newChatViewModel(group: Boolean) =
         NewChatViewModel(

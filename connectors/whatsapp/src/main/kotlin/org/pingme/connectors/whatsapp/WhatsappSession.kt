@@ -105,6 +105,7 @@ internal class WhatsappSession(
             }
 
             is WaEvent.History -> {
+                Log.i(TAG, "WhatsApp history: ${event.syncType}, ${event.messages.size} messages for one chat")
                 // A page the history worker asked for goes back to it; everything else flows to the store.
                 val waiter = if (event.syncType == ON_DEMAND) historyWaiters.remove(event.chat.id) else null
                 if (waiter != null) waiter.complete(event) else go.translate(event).forEach { send(it) }
@@ -125,6 +126,8 @@ internal class WhatsappSession(
             }
 
             else -> {
+                // What arrives, by kind, so the phone's log shows whether WhatsApp delivers (owner, Gate G7).
+                Log.i(TAG, "WhatsApp event: ${event::class.simpleName}")
                 go.translate(event).forEach { send(it) }
             }
         }
