@@ -48,6 +48,20 @@ data class PickableChat(
             )
         }
 
+        /** A phone contact's number as the Google Messages chat it would become (owner, 2026-10-04). */
+        fun ofContact(
+            offer: org.pingme.core.service.merge.ContactOffer,
+            account: AccountId?,
+        ) = PickableChat(
+            id = offer.chatId,
+            title = offer.name,
+            network = NetworkId.GMESSAGES,
+            photo = offer.photo,
+            accountId = account,
+            detail = offer.number,
+            hasContactPhoto = offer.photo != null,
+        )
+
         private const val YOU = "You"
     }
 }

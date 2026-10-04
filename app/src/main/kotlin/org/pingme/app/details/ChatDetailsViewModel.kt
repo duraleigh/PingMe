@@ -116,6 +116,7 @@ class ChatDetailsViewModel
         private val clock: Clock,
         private val requests: org.pingme.app.chat.ChatRequests,
         private val merges: org.pingme.core.service.merge.Merges,
+        private val contactChats: org.pingme.core.service.merge.ContactChats,
         mergeRepo: org.pingme.core.store.MergeRepository,
     ) : ViewModel() {
         /** Takes the chat id as text: Hilt cannot generate factories for value classes. */
@@ -204,7 +205,7 @@ class ChatDetailsViewModel
                                         networkOf[other.accountId] ?: org.pingme.core.model.NetworkId.DEMO,
                                         everyone,
                                     )
-                            },
+                            } + contactOffers(),
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), ChatDetailsState())
 
@@ -286,14 +287,24 @@ class ChatDetailsViewModel
             then: (ChatId) -> Unit,
         ) {
             viewModelScope.launch {
-                runCatching { merges.merge(listOf(chatId) + others) }
+                runCatching { merges.merge(listOf(chatId) + contactChats.resolve(others)) }
                     .onSuccess { then(it) }
                     .onFailure { problems.trySend(it.message ?: it.javaClass.simpleName) }
             }
         }
 
         /** Adds [others] to this merged chat. */
-        fun addMembers(others: List<ChatId>) = act { merges.merge(others + chatId, into = chatId) }
+        fun addMembers(others: List<ChatId>) =
+            act { merges.merge(contactChats.resolve(others) + chatId, into = chatId) }
+
+        /** Phone contacts with a number, as the text chats they would become (owner, 2026-10-04). */
+        private suspend fun contactOffers(): List<org.pingme.app.merge.PickableChat> {
+            val offers = contactChats.offers()
+            return offers.list.map {
+                org.pingme.app.merge.PickableChat
+                    .ofContact(it, offers.account)
+            }
+        }
 
         /** Takes [member] out; if that dissolves the merged chat, [gone] leaves the screen. */
         fun split(

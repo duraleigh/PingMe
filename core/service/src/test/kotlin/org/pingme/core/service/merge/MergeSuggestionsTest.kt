@@ -62,6 +62,52 @@ class MergeSuggestionsTest {
 
     private fun suggest(vararg chats: Chat) = MergeMatcher.suggest(chats.toList(), people)
 
+    private val textOffers =
+        Offers(
+            listOf(
+                ContactOffer("Jake Smith", "+15550001", "15550001", ContactId("c-jake"), null),
+                ContactOffer("Sam Ortiz", "+15550002", "15550002", ContactId("c-sam"), null),
+            ),
+            AccountId("gm"),
+        )
+
+    // Owner, 2026-10-04: a phone contact with a number is a Google Messages chat to merge
+    // with, even when no text has ever been sent to it.
+    @Test
+    fun aContactWithANumberIsOfferedAsATextChatByCardOrByName() {
+        val jake = person("ig", "Jake Smith", handle = "jakes")
+        val sam = person("ig", "sam.ortiz", handle = "sam.ortiz", contact = "c-sam")
+        val noOne = person("ig", "Nobody Known", handle = "nobody")
+        val found =
+            MergeMatcher.suggest(
+                listOf(chat("ig", "Jake Smith", jake), chat("ig", "sam.ortiz", sam), chat("ig", "Nobody Known", noOne)),
+                people,
+                textOffers,
+            )
+        assertEquals(2, found.size)
+        val byName = found.first { it.chats.single().title == "Jake Smith" }
+        assertEquals("15550001", byName.contacts.single().digits)
+        assertEquals(setOf(MergeReason.NAME), byName.reasons)
+        val byCard = found.first { it.chats.single().title == "sam.ortiz" }
+        assertEquals("15550002", byCard.contacts.single().digits)
+        assertEquals(setOf(MergeReason.CONTACT), byCard.reasons)
+        assertEquals(ChatId("contact/15550002"), byCard.contacts.single().chatId)
+    }
+
+    @Test
+    fun aClusterThatAlreadyHasATextChatGetsNoOffer() {
+        val jakeIg = person("ig", "Jake Smith", handle = "jakes")
+        val jakeGm = person("gm", "Jake Smith", phone = "+15550009", handle = "+15550009")
+        val found =
+            MergeMatcher.suggest(
+                listOf(chat("ig", "Jake Smith", jakeIg), chat("gm", "Jake Smith", jakeGm)),
+                people,
+                textOffers,
+            )
+        assertEquals(1, found.size)
+        assertTrue(found.single().contacts.isEmpty())
+    }
+
     @Test
     fun theSameNumberOnTwoNetworksIsSuggested() {
         val rcs = chat("rcs", "Sam Ortiz", person("rcs", "Sam Ortiz", "+15555550123", "+15555550123"))

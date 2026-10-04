@@ -129,10 +129,16 @@ internal class InstagramSession(
 
             else -> {
                 if (event is IgEvent.Message) placeThread(event.message)
-                go.translate(event).forEach { send(it) }
+                translated(event).forEach { send(it) }
                 fetchPreviews(event)
             }
         }
+    }
+
+    /** Folder moves and thread removals go to the phone's log (owner, 2026-10-04: chats vanished). */
+    private fun translated(event: IgEvent): List<ConnectorEvent> {
+        if (event is IgEvent.Folder || event is IgEvent.ThreadGone) Log.i(TAG, "Instagram $event")
+        return go.translate(event)
     }
 
     /**
@@ -141,6 +147,7 @@ internal class InstagramSession(
      * folder (General stays out of All) instead of a bare placeholder named by an id that
      * only the next full sync would fix (owner, Gate G7).
      */
+
     private suspend fun ProducerScope<ConnectorEvent>.placeThread(msg: IgMessage) {
         if (go.knows(msg.thread) && go.knowsPerson(msg.sender) && go.knowsFolder(msg.thread)) return
         try {

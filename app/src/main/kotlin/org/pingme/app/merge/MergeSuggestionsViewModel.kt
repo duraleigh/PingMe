@@ -70,6 +70,7 @@ class MergeSuggestionsViewModel
         contacts: ContactRepository,
         private val merges: Merges,
         private val settings: SettingsRepository,
+        private val contactChats: org.pingme.core.service.merge.ContactChats,
     ) : ViewModel() {
         private val edits = MutableStateFlow<Map<String, Edit>>(emptyMap())
         private val notices = Channel<String>(Channel.BUFFERED)
@@ -78,8 +79,8 @@ class MergeSuggestionsViewModel
         val messages = notices.receiveAsFlow()
 
         val state: StateFlow<MergeSuggestionsUiState> =
-            combine(suggestions.suggestions, chats.all(), accounts.accounts(), contacts.inChats(), edits) {
-                found,
+            combine(suggestions.proposals, chats.all(), accounts.accounts(), contacts.inChats(), edits) {
+                proposals,
                 all,
                 accountList,
                 people,
@@ -90,8 +91,15 @@ class MergeSuggestionsViewModel
                 MergeSuggestionsUiState(
                     loading = false,
                     cards =
-                        found.map { suggestion ->
-                            card(suggestion, edited[suggestion.key] ?: Edit(), pickable, networkOf, people)
+                        proposals.suggestions.map { suggestion ->
+                            card(
+                                suggestion,
+                                edited[suggestion.key] ?: Edit(),
+                                pickable,
+                                proposals.offers,
+                                networkOf,
+                                people,
+                            )
                         },
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), MergeSuggestionsUiState())
@@ -132,7 +140,9 @@ class MergeSuggestionsViewModel
                             ?.accountId
                             ?.let { AvatarSource.Network(it) }
                             ?: AvatarSource.Contacts
-                    merges.merge(card.members.map { it.id }, default = sender, avatar = picture)
+                    // A contact offered as a text chat becomes a real chat first (owner, 2026-10-04).
+                    val ids = contactChats.resolve(card.members.map { it.id })
+                    merges.merge(ids, default = sender, avatar = picture)
                     settings.dismissMerge(card.key)
                     notices.send(MERGED)
                 } catch (e: MergeRefusedException) {
@@ -146,21 +156,26 @@ class MergeSuggestionsViewModel
             change: (Edit) -> Edit,
         ) = edits.update { it + (key to change(it[key] ?: Edit())) }
 
+        @Suppress("LongParameterList") // Everything one card is built from.
         private fun card(
             suggestion: MergeSuggestion,
             edit: Edit,
             pickable: List<Chat>,
+            offers: org.pingme.core.service.merge.Offers,
             networkOf: Map<org.pingme.core.model.AccountId, NetworkId>,
             people: Map<PersonId, Person>,
         ): SuggestionCard {
             val byId = pickable.associateBy { it.id }
-            val members =
-                (suggestion.chats.map { it.id } + edit.added)
+            val offerById = offers.byId
+            val shown =
+                (suggestion.chats.map { it.id } + suggestion.contacts.map { it.chatId } + edit.added)
                     .filter { it !in edit.removed }
                     .distinct()
-                    .mapNotNull { byId[it] ?: suggestion.chats.firstOrNull { c -> c.id == it } }
-            val inCard = members.map { it.id }.toSet()
-            val shown = members.map { it.pickable(networkOf, people) }
+                    .mapNotNull { id ->
+                        (byId[id] ?: suggestion.chats.firstOrNull { c -> c.id == id })?.pickable(networkOf, people)
+                            ?: offerById[id]?.let { PickableChat.ofContact(it, offers.account) }
+                    }
+            val inCard = shown.map { it.id }.toSet()
             // The contact's photo when any member has one, otherwise the first member's own picture.
             val photoOf =
                 if (edit.photoPicked) {
@@ -172,8 +187,10 @@ class MergeSuggestionsViewModel
                 key = suggestion.key,
                 reasons = suggestion.reasons,
                 members = shown,
-                candidates = pickable.filter { it.id !in inCard }.map { it.pickable(networkOf, people) },
-                defaultId = edit.defaultId?.takeIf { it in inCard } ?: members.first().id,
+                candidates =
+                    pickable.filter { it.id !in inCard }.map { it.pickable(networkOf, people) } +
+                        offers.list.filter { it.chatId !in inCard }.map { PickableChat.ofContact(it, offers.account) },
+                defaultId = edit.defaultId?.takeIf { it in inCard } ?: shown.first().id,
                 photoOf = photoOf?.takeIf { it in inCard },
             )
         }

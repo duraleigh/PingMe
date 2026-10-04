@@ -38,32 +38,36 @@ class MergePickViewModel
         contacts: ContactRepository,
         suggestions: MergeSuggestions,
         private val merges: Merges,
+        private val contactChats: org.pingme.core.service.merge.ContactChats,
     ) : ViewModel() {
         private val notices = Channel<String>(Channel.BUFFERED)
         val messages = notices.receiveAsFlow()
 
         val state: StateFlow<MergePickUiState> =
-            combine(chats.all(), accounts.accounts(), contacts.inChats(), suggestions.suggestions) {
+            combine(chats.all(), accounts.accounts(), contacts.inChats(), suggestions.proposals) {
                 all,
                 accountList,
                 people,
-                suggested,
+                proposals,
                 ->
                 val networkOf = accountList.associate { it.id to it.network }
                 val parents = all.mapNotNull { it.mergedInto }.toSet()
+                val offers = proposals.offers
                 MergePickUiState(
                     candidates =
                         all
                             .filter { it.kind == ChatKind.DIRECT && it.mergedInto == null && it.id !in parents }
-                            .map { PickableChat.of(it, networkOf[it.accountId] ?: NetworkId.DEMO, people) },
-                    suggestions = suggested.size,
+                            .map { PickableChat.of(it, networkOf[it.accountId] ?: NetworkId.DEMO, people) } +
+                            // Phone contacts with a number, as the text chats they would become (owner, 2026-10-04).
+                            offers.list.map { PickableChat.ofContact(it, offers.account) },
+                    suggestions = proposals.suggestions.size,
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), MergePickUiState())
 
         fun merge(picked: List<ChatId>) {
             viewModelScope.launch {
                 try {
-                    merges.merge(picked)
+                    merges.merge(contactChats.resolve(picked))
                     notices.send(MERGED)
                 } catch (e: MergeRefusedException) {
                     notices.send(e.message.orEmpty())

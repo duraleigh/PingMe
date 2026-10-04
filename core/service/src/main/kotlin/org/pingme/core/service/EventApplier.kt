@@ -66,6 +66,8 @@ class EventApplier
                 }
 
                 is ConnectorEvent.ChatRemoved -> {
+                    // Written to the phone's log: chats vanishing is being chased (owner, 2026-10-04).
+                    android.util.Log.i(TAG, "Removed chat ${event.chatId.value} at the network's word")
                     chats.delete(event.chatId)
                 }
 
@@ -163,6 +165,12 @@ class EventApplier
             if (hiddenHere(snapshot.id, snapshot.lastActivityAt)) return
             snapshot.participants.forEach { people.remember(it) }
             val existing = chats.get(snapshot.id)
+            if (existing != null && existing.folder != snapshot.folder) {
+                android.util.Log.i(
+                    TAG,
+                    "Chat ${snapshot.id.value} '${snapshot.title}' moves ${existing.folder} -> ${snapshot.folder}",
+                )
+            }
             val merged = existing?.withSnapshot(snapshot) ?: snapshot.toNewChat()
             chats.upsert(merged.copy(title = people.titleFor(snapshot), unreadCount = unreadFor(existing, snapshot)))
         }
@@ -196,7 +204,10 @@ class EventApplier
             at: Instant,
         ): Boolean {
             val hiddenAt = chats.hiddenAt(chatId) ?: return false
-            if (at <= hiddenAt) return true
+            if (at <= hiddenAt) {
+                android.util.Log.i(TAG, "Dropped for chat ${chatId.value}: hidden here at $hiddenAt, this is from $at")
+                return true
+            }
             chats.unhide(chatId)
             return false
         }
@@ -400,3 +411,5 @@ private fun ChatSnapshot.toNewChat() =
         defaultSendAccount = null,
         networkRemoteId = networkRemoteId,
     )
+
+private const val TAG = "PingMeApplier"

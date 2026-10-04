@@ -3355,6 +3355,29 @@ before the chat went encrypted, they appear; if not, the only route left is Mess
 contact with a number as a Google Messages chat to merge with, even when no chat with
 that number exists yet.
 
+### Owner notes of 2026-10-04, evening (Instagram chats vanishing; contacts as text chats)
+
+1. **Instagram chats vanish from the inbox** (7:03 PM: Jake, Grégory Ellis, theevandiaries;
+   7:08 PM: Kameron Michaels, right after the owner reacted to a message there; Jake's
+   and Grégory's last events were reactions too). The phone's log buffer for those
+   minutes held no PingMe lines, and the live capture started at 7:08 PM caught nothing
+   either: the removal path logs nothing yet. Read through: nothing on the reaction path
+   deletes a chat, so the chat must be leaving the inbox query another way (a folder
+   move to General or Requests, a merge, an archive, or a removal the network asked
+   for). This build writes each of those to the log: every chat removed at a network's
+   word, every folder change on a listing, every message dropped for a hidden chat, and
+   every Instagram folder-move or thread-gone event. The next vanishing names its cause.
+2. **Contacts as Google Messages chats to merge** (3:40 PM; "fix everything", 7:05 PM).
+   A phone contact with a number now counts as a Google Messages chat before any text
+   has been sent to it. Suggestions: a chat, or a cluster, with no Google Messages member
+   gets the contact whose card is the person's, or whose name reads the same, offered as
+   its text chat; a chat on its own gets such a suggestion too. The two pickers (Settings
+   > Merge chats, and Chat details) list every contact number as a Google Messages chat.
+   On merge the real chat is started first (the Google Messages connector opens a
+   conversation to the number), then merged. Offers are read from the address book with a
+   one-minute cache. Tests cover offers by card and by name, and none where a text chat
+   already exists.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built

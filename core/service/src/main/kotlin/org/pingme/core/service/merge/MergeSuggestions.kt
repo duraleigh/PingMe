@@ -3,7 +3,9 @@ package org.pingme.core.service.merge
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import org.pingme.core.model.Chat
+import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Person
 import org.pingme.core.model.PersonId
@@ -21,9 +23,11 @@ enum class MergeReason { CONTACT, NUMBER, NAME }
 data class MergeSuggestion(
     val chats: List<Chat>,
     val reasons: Set<MergeReason>,
+    /** Phone contacts offered as Google Messages chats to merge with (owner, 2026-10-04). */
+    val contacts: List<ContactOffer> = emptyList(),
 ) {
     /** Stable for this set of chats: dismissing it hides exactly this set, a new member brings it back. */
-    val key: String get() = keyOf(chats.map { it.id.value })
+    val key: String get() = keyOf(chats.map { it.id.value } + contacts.map { it.chatId.value })
 
     companion object {
         fun keyOf(ids: List<String>) = ids.sorted().joinToString("\n")
@@ -42,12 +46,23 @@ class MergeSuggestions
         chats: ChatRepository,
         contacts: ContactRepository,
         settings: SettingsRepository,
+        contactChats: ContactChats,
     ) {
-        val suggestions: Flow<List<MergeSuggestion>> =
+        /** The suggestions and the contact offers they and the pickers draw on. */
+        val proposals: Flow<Proposals> =
             combine(chats.all(), contacts.inChats(), settings.dismissedMerges) { all, people, dismissed ->
-                MergeMatcher.suggest(all, people).filter { it.key !in dismissed }
+                val offers = contactChats.offers()
+                val found = MergeMatcher.suggest(all, people, offers).filter { it.key !in dismissed }
+                Proposals(found, offers)
             }
+
+        val suggestions: Flow<List<MergeSuggestion>> = proposals.map { it.suggestions }
     }
+
+data class Proposals(
+    val suggestions: List<MergeSuggestion>,
+    val offers: Offers,
+)
 
 /** The matching itself, pure, so it can be tested as such. */
 object MergeMatcher {
@@ -56,21 +71,62 @@ object MergeMatcher {
     fun suggest(
         all: List<Chat>,
         people: Map<PersonId, Person>,
+        offers: Offers = Offers(),
     ): List<MergeSuggestion> {
         val parents = all.mapNotNull { it.mergedInto }.toSet()
         val candidates = all.filter { it.kind == ChatKind.DIRECT && it.mergedInto == null && it.id !in parents }
         val groups = Clusters<Chat>()
         val byKey = HashMap<Pair<MergeReason, String>, Chat>()
+        val keys = HashMap<ChatId, List<Pair<MergeReason, String>>>()
         candidates.forEach { chat ->
-            keysOf(chat, people[other(chat, people)]).forEach { key ->
+            keysOf(chat, people[other(chat, people)]).also { keys[chat.id] = it }.forEach { key ->
                 val first = byKey.putIfAbsent(key, chat)
                 if (first != null) groups.join(first, chat, key.first)
             }
         }
-        return groups
-            .all()
-            .filter { (members, _) -> members.map { it.accountId }.distinct().size >= 2 }
-            .map { (members, reasons) -> MergeSuggestion(members.sortedBy { it.id.value }, reasons) }
+        val clustered = groups.all()
+        val inCluster = clustered.flatMap { (members, _) -> members.map { it.id } }.toSet()
+        // A chat on its own, or a cluster, with no Google Messages member yet: a phone contact
+        // with that person's contact card or name is offered as the text chat to merge with.
+        val lone = candidates.filter { it.id !in inCluster }.map { listOf(it) to emptySet<MergeReason>() }
+        return (clustered + lone).mapNotNull { (members, reasons) ->
+            val contacts =
+                if (members.none { it.accountId == offers.account }) {
+                    offered(members.flatMap { keys[it.id].orEmpty() }, offers)
+                } else {
+                    emptyList()
+                }
+            val accountsIn = members.map { it.accountId }.distinct().size + (if (contacts.isEmpty()) 0 else 1)
+            if (accountsIn < 2) return@mapNotNull null
+            val why = reasons + contacts.map { it.reason }
+            MergeSuggestion(members.sortedBy { it.id.value }, why, contacts.map { it.offer })
+        }
+    }
+
+    private class Offered(
+        val offer: ContactOffer,
+        val reason: MergeReason,
+    )
+
+    /** Offers whose contact card is the person's, else whose name reads the same (one per contact). */
+    private fun offered(
+        keys: List<Pair<MergeReason, String>>,
+        offers: Offers,
+    ): List<Offered> {
+        if (offers.account == null) return emptyList()
+        val contactIds = keys.filter { it.first == MergeReason.CONTACT }.map { it.second }.toSet()
+        val names = keys.filter { it.first == MergeReason.NAME }.map { it.second }.toSet()
+        val seen = HashSet<String>()
+        return offers.list.mapNotNull { offer ->
+            val reason =
+                when {
+                    offer.contactId?.value in contactIds -> MergeReason.CONTACT
+                    NameKey.of(offer.name) in names -> MergeReason.NAME
+                    else -> return@mapNotNull null
+                }
+            if (!seen.add(offer.contactId?.value ?: offer.digits)) return@mapNotNull null
+            Offered(offer, reason)
+        }
     }
 
     private fun other(
