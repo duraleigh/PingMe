@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import org.pingme.core.connector.ConnectorEvent
+import org.pingme.core.connector.accountId
 import org.pingme.core.model.Account
 import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatId
@@ -99,8 +100,8 @@ class NotificationRouter
             }
             if (event !is ConnectorEvent.NewMessage || !fresh) return
             val message = event.message.message
-            val chat = chats.get(message.chatId) ?: return
-            val account = accounts.get(chat.accountId)
+            val chat = shownAs(message.chatId) ?: return
+            val account = accounts.get(message.chatId.accountId)
             val app = settings.app.first().notifications
             val decision =
                 decide(
@@ -128,6 +129,12 @@ class NotificationRouter
             shown.post(decision.copy(channelId = channel), chat, message, sender, code)
         }
 
+        // A member of a merged chat notifies as the merged chat: its settings, its name, its screen.
+        private suspend fun shownAs(chatId: ChatId): Chat? {
+            val stored = chats.get(chatId) ?: return null
+            return stored.mergedInto?.let { chats.get(it) } ?: stored
+        }
+
         /** Takes this chat's notifications down: it was opened, read, or replied to. */
         fun clear(chatId: ChatId) = shown.clear(chatId)
 
@@ -145,7 +152,7 @@ class NotificationRouter
         /** A scheduled message went out well after its time (UI_DESIGN.md 10.13): say so. */
         suspend fun sentLate(message: Message) {
             if (!allowed()) return
-            val chat = chats.get(message.chatId) ?: return
+            val chat = shownAs(message.chatId) ?: return
             val channel = channels.ensure(NotificationChannels.DEFAULT, context.getString(R.string.channel_messages))
             shown.postLate(channel, chat, message)
         }

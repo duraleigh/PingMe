@@ -65,6 +65,13 @@ class MessageRepository
             limit: Int,
         ): Flow<List<Message>> = dao.observeLatest(chatId.value, limit).map { rows -> rows.map { it.toModel() } }
 
+        /** The newest [limit] messages across several chats, newest first (a merged chat's timeline). */
+        fun latestIn(
+            chatIds: List<ChatId>,
+            limit: Int,
+        ): Flow<List<Message>> =
+            dao.observeLatestIn(chatIds.map { it.value }, limit).map { rows -> rows.map { it.toModel() } }
+
         fun message(id: MessageId): Flow<Message?> = dao.observe(id.value).map { it?.toModel() }
 
         suspend fun get(id: MessageId): Message? = dao.get(id.value)?.toModel()

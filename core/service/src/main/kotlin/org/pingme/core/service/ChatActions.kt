@@ -37,6 +37,7 @@ class ChatActions
         private val applier: EventApplier,
         private val settings: org.pingme.core.store.SettingsRepository,
         private val notifications: NotificationRouter,
+        private val merges: org.pingme.core.store.MergeRepository,
     ) {
         /** The chat is on screen: its notification comes down at once (owner, Gate G2). */
         fun opened(id: ChatId) = notifications.clear(id)
@@ -82,6 +83,8 @@ class ChatActions
             id: ChatId,
             read: Boolean,
         ) {
+            // A merged chat reads as a whole: every member is read on its own network (UI_DESIGN.md 10.15).
+            merges.members(id).forEach { setRead(it.id, read) }
             if (read) {
                 chats.update(id) { it.copy(unreadCount = 0, readUpTo = it.lastActivityAt) }
                 notifications.clear(id)
@@ -92,6 +95,11 @@ class ChatActions
         }
 
         private suspend fun sendReadMarker(id: ChatId) {
+            if (org.pingme.core.service.merge.Merges
+                    .isMergedId(id)
+            ) {
+                return
+            }
             val newest = messages.newest(id) ?: return
             val network = accounts.get(id.accountId)?.network ?: return
             // "Send read receipts" off: the network never hears it (UI_DESIGN.md 10.3).
@@ -239,6 +247,8 @@ class ChatActions
 
         /** Deletes the chat and its messages from this phone. The network keeps its copy. */
         suspend fun delete(id: ChatId) {
+            // Deleting a merged chat deletes its members; the merged row goes with its last member.
+            merges.members(id).forEach { delete(it.id) }
             notifications.clear(id)
             // Remembered, so the network's next listing does not bring the chat back (owner, Gate G7).
             chats.hide(

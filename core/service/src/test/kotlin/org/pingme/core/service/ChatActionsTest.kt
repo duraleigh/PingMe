@@ -34,6 +34,8 @@ class ChatActionsTest : ServiceTest() {
             applier,
             settings,
             router,
+            org.pingme.core.store
+                .MergeRepository(db),
         )
     }
 

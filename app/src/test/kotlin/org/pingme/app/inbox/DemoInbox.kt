@@ -107,7 +107,10 @@ class DemoInbox(
             presence,
             Clock.System,
         )
-    val actions = ChatActions(chats, messages, accounts, registry, applier, settings, router)
+    val merges =
+        org.pingme.core.store
+            .MergeRepository(db)
+    val actions = ChatActions(chats, messages, accounts, registry, applier, settings, router, merges)
     val pins = PinnedMessageRepository(db)
     val scheduledSends =
         org.pingme.core.store

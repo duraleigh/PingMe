@@ -217,6 +217,8 @@ class EventApplier
                     unreadCount = target.unreadCount + old.unreadCount,
                     isPinned = target.isPinned || old.isPinned,
                     nameOverride = target.nameOverride ?: old.nameOverride,
+                    // A membership the old chat had carries over to the number's chat.
+                    mergedInto = target.mergedInto ?: old.mergedInto,
                 ),
             )
             messages.moveToChat(from, into)

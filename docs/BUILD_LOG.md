@@ -2920,3 +2920,27 @@ the owner's word.
   not a bundled libphonenumber; contact photos are shown from the contacts provider's
   own address rather than copied into app storage, so a changed photo shows without a
   copy going stale. Schema version 7 adds the contact name and photo to a person.
+
+### P7.2 Merged chats, the store and the service
+
+- A merged chat is a chat row of its own (id `merged/<random>`, so no connector is ever
+  asked about it); its members point at it. Members leave the inbox list; the merged row
+  carries their summed unread count and newest activity, kept in step on every write, and
+  pins, mute, archive, low priority, obscure, and notification settings live on it.
+- Unread badges count the members on their own networks (so a merged chat's unread shows
+  under the right network filter), under the merged chat's mute, archive, and low-priority
+  settings; the merged row itself never counts twice.
+- Reading the merged chat reads every member on its network (read markers go out per
+  member). Deleting it deletes the members. Splitting the last pair, or deleting a member
+  of a pair, dissolves the merged chat and the remaining chat returns to the inbox.
+- Merging accepts chats, members (which bring their whole merged chat), and merged chats;
+  the result lands in the merged chat named (or the first one among them), or a new one
+  titled by the contact's name when any member has one. Groups are refused with a plain
+  reason. A member whose person has no contact link takes the link the others have, so an
+  Instagram or Messenger person merged with a phone contact gets that contact's name and
+  photo.
+- A member's new message notifies as the merged chat: its settings, its name, its screen.
+- WhatsApp's own hidden-id fold (round 1) carries a membership over to the number's chat.
+- Deviation from the plan: the plan's `MergeLink` (person to contact) is not what holds a
+  merge together; membership is on the chat (`mergedInto`), which is what every screen and
+  the unread rule need. The person-to-contact link lives on the person (P7.1).
