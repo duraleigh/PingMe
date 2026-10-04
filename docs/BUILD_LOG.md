@@ -3218,6 +3218,34 @@ times per thread). The columns PingMe reads (time, name, picture, key, type, fol
 before the break, and the newest library release and its main branch carry the same
 layout, so there is nothing to update to; noted in case a later field is wanted.
 
+**Confirmed on the phone (2026-10-04, 2:03 PM)**: the first batch after sign-in carried
+29 conversations, every one as a delete-plus-insert pair; the old bridge had dropped all
+29. The Messenger list now shows the same people as the Messenger app (Brett Parker, Toni
+Botting, Don Aiken, Cara Orr Amos, ...), 45 chats after two pages. Two further findings,
+not fixed, waiting on the owner:
+
+1. **Every Messenger chat says "No messages yet", and one-to-one names carry an extra
+   "Messenger user".** Facebook has moved personal one-to-one Messenger chats to
+   end-to-end encryption carried over the WhatsApp protocol. The web inbox still lists
+   each chat (which is what PingMe reads), but under a thread key that is no longer the
+   other person's id (hence the phantom member), and the messages themselves never pass
+   through the web inbox at all: they travel on a separate encrypted channel. The
+   reference bridge registers an encryption device with Meta on first use, keeps the
+   keys in a whatsmeow store on disk, runs a second whatsmeow client against Messenger's
+   servers for those chats, and maps each inbox thread key to its encrypted-channel id
+   through the mapping rows Facebook sends. PingMe's bridge does none of that, so it
+   gets names but no messages, and could not send to those chats either. Groups that
+   are not encrypted still work the old way. Building the encrypted channel is the
+   reference's path, roughly 1,300 lines there (device registration, the client, the
+   message conversion); PingMe already carries whatsmeow and a device store for
+   WhatsApp, so the shape exists. Estimate: one long session. This is a change in the
+   network since Phase 6 was built, not a Phase 7 item; the owner decides whether to do
+   it now or after Gate G11.
+2. **A chat titled with the owner's own name** ("Clay Aiken") is most likely Messenger's
+   message-yourself thread (the reference bridge treats a one-to-one thread with
+   yourself as "note to self"). "Clay Rhodes" from the morning no longer shows on the
+   first screen; to be checked once names are right.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a
