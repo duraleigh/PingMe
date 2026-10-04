@@ -50,11 +50,12 @@ internal class MessengerSession(
     cookiesJson: String,
     private val credentialRef: String,
     private val credentials: CredentialStore,
+    storePath: String = "",
 ) {
     private val events = Channel<Any>(Channel.UNLIMITED)
     val go = FbTranslate(accountId)
     private val session: FbSession =
-        bridge.newSession(cookiesJson) { json ->
+        bridge.newSession(cookiesJson, storePath) { json ->
             try {
                 events.trySend(go.parse(json))
             } catch (
@@ -116,6 +117,10 @@ internal class MessengerSession(
 
             is FbEvent.Live -> {
                 Unit
+            }
+
+            is FbEvent.E2ee -> {
+                Log.i(TAG, "Messenger encrypted channel: ${event.state} ${event.error}".trimEnd())
             }
 
             else -> {

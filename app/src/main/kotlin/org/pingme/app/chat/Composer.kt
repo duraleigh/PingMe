@@ -24,6 +24,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -46,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -225,7 +227,7 @@ private fun RowScope.MessageField(
     TextField(
         state = field,
         modifier = Modifier.weight(1f).testTag(COMPOSER).contentReceiver(receiver),
-        placeholder = { Text(stringResource(network?.let(::sendHint) ?: R.string.chat_message_hint)) },
+        placeholder = { FittedHint(stringResource(network?.let(::sendHint) ?: R.string.chat_message_hint)) },
         leadingIcon = network?.let { { NetworkPick(it, hooks) } },
         shape = RoundedCornerShape(26.dp),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = COMPOSER_LINES),
@@ -280,6 +282,24 @@ private fun NetworkPick(
         }
     }
 }
+
+/** One line that shrinks to fit the box instead of wrapping and growing it (owner, 2026-10-04). */
+@Composable
+private fun FittedHint(text: String) {
+    androidx.compose.foundation.text.BasicText(
+        text,
+        style = LocalTextStyle.current.merge(color = androidx.compose.material3.LocalContentColor.current),
+        maxLines = 1,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        autoSize =
+            androidx.compose.foundation.text.TextAutoSize.StepBased(
+                minFontSize = MIN_HINT_SP.sp,
+                maxFontSize = LocalTextStyle.current.fontSize,
+            ),
+    )
+}
+
+private const val MIN_HINT_SP = 11
 
 /** "Send a WhatsApp message", "Send an Instagram DM", and so on (owner, 2026-10-03). */
 @androidx.annotation.StringRes

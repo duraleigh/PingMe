@@ -3291,6 +3291,52 @@ was silent about the limit. Now the colourfulness slider stops at what the scree
 show for the current hue and lightness and says so ("42 of 42 the screen can show
 here"), so the number set is the number kept.
 
+### Messenger's encrypted one-to-one chats (2026-10-04, afternoon; owner: "Do it now")
+
+Built ahead of the gate at the owner's word. Messenger moved personal one-to-one chats to
+end-to-end encryption carried over the WhatsApp protocol. The bridge now does what the
+reference bridge does:
+
+- **A device registered with Meta once.** On the first connect after this build the
+  bridge registers the phone as an encrypted-chat device (the web page's crypto token
+  signs the request) and keeps the keys in a store at `files/messenger-keys/<account>.db`,
+  opened with the same SQLite driver as WhatsApp's. If Messenger later forgets the device
+  (connect failures 401, 415, 418), the bridge deletes it and registers again, twice at
+  most, then reports the failure in the log.
+- **A second client against Messenger's servers**, started once the web socket is up,
+  through the library's own `PrepareE2EEClient`. Its messages, reactions, edits, unsends,
+  read receipts, and typing become the same events the web tables give, so the Kotlin
+  side is unchanged apart from the key store path and an "e2ee" state event for the log.
+- **Thread identity.** The web listing shows an encrypted chat under a thread key that is
+  not the other person's id; a mapping row ties that key to the chat's id on the channel
+  (the other person's id for a one-to-one chat). The chat is now shown under that id, so
+  the member is the person and the phantom "Messenger user" is gone. The old web-key chat
+  is reported gone, which also clears the empty rows from before this build. A message
+  for a chat the listing has not named yet makes the chat on the spot, and the mapping
+  folds it in when it arrives.
+- **Sending** on an encrypted chat goes over the channel: text and replies, pictures,
+  videos, GIFs (as a video that plays as one, as Messenger wants), voice notes, files,
+  stickers, reactions, edits, unsends, read marks (by sender, as the channel wants, plus
+  the web read mark so the inbox agrees), and typing.
+- **Receiving:** text, pictures, videos, voice notes, files, stickers, places (as a map
+  link), shared links and cards, and view-once media as ordinary media. Attachments are
+  fetched and decrypted on demand through the bridge by a handle in the media address.
+  A contact card, a picture set, and a view-once card on Messenger's own wrapping show
+  as "open it in Messenger".
+- **No history.** Encrypted chats have no history on the server; only what arrives after
+  connecting is seen, and the chat says it has nothing older. Not a choice: the protocol.
+
+Bridge tests cover the mapping, a channel message under the mapped thread, a chat made
+before its listing and folded in, reactions, edits, unsends, and media wrapping. Not yet
+tried on the phone when written: the registration itself, which needs the real account.
+
+- **The box's placeholder** ("Send a Google Message") wrapped to two lines and grew the
+  box (owner, 3:38 PM). It is one line now and shrinks to fit, down to 11sp.
+
+**Owner note (3:40 PM), queued after this:** merge suggestions should treat a phone
+contact with a number as a Google Messages chat to merge with, even when no chat with
+that number exists yet.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built

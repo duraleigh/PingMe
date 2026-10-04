@@ -327,7 +327,7 @@ is a problem.
 | WhatsApp | whatsmeow | Go | MPL-2.0 | Linked device (QR) | Against terms, bans are rare but possible |
 | Telegram | TDLib | C++ with Java binding | Boost | Phone number + code | Official, encouraged |
 | Signal | signalmeow (from mautrix-signal) | Go | AGPL-3.0 | Linked device (QR) | Unofficial, tolerated |
-| Messenger | messagix (from mautrix-meta) | Go | AGPL-3.0 | Browser cookies | Against terms, ban risk |
+| Messenger | messagix (from mautrix-meta), plus whatsmeow for the encrypted one-to-one chats Messenger carries over the WhatsApp protocol (a device registered with Meta, keys on the phone) | Go | AGPL-3.0 | Browser cookies | Against terms, ban risk |
 | Facebook Page inbox | Meta Messenger Platform (Graph API), polled from the phone | Kotlin | n/a | Page access token from a Meta developer app the user creates | Official, no ban risk; 24-hour reply window applies |
 | Instagram | mautrix-instagram (Go, split out of mautrix-meta in August 2026) | Go | AGPL-3.0 | Browser cookies | Against terms, ban risk |
 | Google Voice | mautrix-gvoice | Go | AGPL-3.0 | Google sign-in in an in-app browser, cookies kept on device | Unofficial, tolerated; Beeper ships it |
@@ -475,3 +475,4 @@ What this means in practice:
 | 2026-10-03 | Merged chats: a chat row of its own that members point at; bubbles keep only their network colour, the badge sits beside the time and ticks | What every screen and the unread rule need; the owner wants bubbles uncluttered |
 | 2026-10-04 | A picked network colour is used exactly, in dark mode too | Normalising the tone made picks invisible on the phone; the swatch must be the colour |
 | 2026-10-04 | A merged chat's details offer "Remove" per member and "Unmerge all" | The split icon was not found; undoing a merge must be plain |
+| 2026-10-04 | Messenger one-to-one chats go over the encrypted channel (WhatsApp protocol), with no server history | Messenger moved them there; the web inbox lists them but carries no messages |

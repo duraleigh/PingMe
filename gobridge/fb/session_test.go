@@ -22,7 +22,7 @@ func (r *recorder) OnEvent(raw string) {
 func newTestSession(t *testing.T) (*Session, *recorder) {
 	t.Helper()
 	sink := &recorder{}
-	s, err := NewSession(`{"xs":"x","c_user":"1000","datr":"d"}`, sink)
+	s, err := NewSession(`{"xs":"x","c_user":"1000","datr":"d"}`, "", sink)
 	if err != nil {
 		t.Fatalf("session: %v", err)
 	}
@@ -47,7 +47,7 @@ func sub(t *testing.T, event map[string]any, key string) map[string]any {
 }
 
 func TestMissingCookiesAreRefused(t *testing.T) {
-	if _, err := NewSession(`{"xs":"x"}`, nil); err == nil {
+	if _, err := NewSession(`{"xs":"x"}`, "", nil); err == nil {
 		t.Fatal("a sign-in without c_user and datr was accepted")
 	}
 }
