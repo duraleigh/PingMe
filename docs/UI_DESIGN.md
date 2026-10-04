@@ -790,16 +790,26 @@ pulse. Global search on the inbox uses the same index across all chats.
 
 Chats with the same person on different networks can be merged into one thread.
 - A merged chat shows every message from its underlying chats in one timeline, each
-  bubble carrying its network colour (section 10.1) and badge.
-- The composer shows a network chip on the left of the text field with the current
-  service. Tap it to switch for the next messages. The chip is red-lined when that
-  service is disconnected.
+  bubble carrying only its network colour (section 10.1). The network badge appears
+  beside the time and ticks when a bubble is tapped, and nowhere else on the bubble
+  (owner, 2026-10-03).
+- The header badge of a merged chat is tappable: a dropdown offers "All networks" and
+  each member network. One network narrows the bubbles to it and sets the composer to
+  it; "All" shows everything and sets the composer to the default service. A merged
+  chat opens narrowed to the one network its unread messages came from; with unread
+  from more than one network, or none, it opens on "All" (owner, 2026-10-03).
+- The composer shows a chip per member network above the text field; the filled one is
+  where the next message goes. Tap another to switch for the next messages. A chip is
+  red-lined when that service is disconnected.
 - Each person has a default service, set in the merged chat's details, and the chip
   starts there.
-- PingMe suggests merges when phone numbers match across RCS, SMS, WhatsApp, Signal,
-  Telegram, and Google Voice. It never merges on its own; the user confirms. Instagram
-  and Messenger identities are linked by hand.
-- Merged chats can be split again from Chat details.
+- PingMe suggests merges when people share a phone contact, a phone number, or a name
+  or username that reads the same across networks. It never merges on its own; the
+  user confirms, and every suggestion can be edited first: any proposed chat removed,
+  any other one-to-one chat added, or the suggestion dismissed (owner, 2026-10-03).
+- Any one-to-one chats on any networks can be merged by hand: Merge in the inbox's
+  selection bar, or "Merge with…" in Chat details.
+- Merged chats can be split again from Chat details, one member at a time.
 - Group chats are never merged.
 - Pins, low priority, mute, obscure, and notification settings apply to the merged
   chat as a whole.

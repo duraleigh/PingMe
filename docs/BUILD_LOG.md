@@ -3014,3 +3014,40 @@ the owner's word.
   selected while it shows. Anyone who had five picked keeps the first four; the fifth moves
   into More. The rail on wide screens does the same.
 - UI_DESIGN.md 3.1 and 10.4 and the decisions log carry the change.
+
+### Gate G11: the owner's checklist
+
+Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a
+phone; the emulator has no second network to merge with. Please check, in this order:
+
+1. **Contacts.** Allow contacts if asked. Chats with people in your address book show
+   their contact name and photo (inbox, pinned tiles, chat header, Chat details, the
+   new-chat list, and the sender's picture on a notification). A one-to-one chat that
+   was titled by a bare number takes the contact's name. Someone not in your contacts and
+   known only by a number shows a plain person mark, not digits.
+2. **Instagram pictures.** Instagram and Messenger chats show the person's profile
+   picture.
+3. **Suggestions.** The inbox shows "N people appear on more than one network · Review"
+   when PingMe finds any. On the suggestions screen: the reason is named; leaving a chat
+   out, adding another chat, dismissing, and merging each do what they say. A dismissed
+   suggestion stays gone.
+4. **Merge by hand.** Hold an avatar, pick two chats on different networks, tap Merge.
+   One row appears with a badge per network and the newest message across both. Mark
+   it read: both networks are read. Mute, archive, pin, and delete act on the whole.
+5. **The merged chat.** Bubbles keep their network colour only; tap one and the network
+   badge sits beside the time and ticks. The header badge opens the dropdown; one
+   network narrows the bubbles and moves the composer chip; "All" brings everything
+   back. Send from each chip: the message goes out on that network. A disconnected
+   account's chip is red-lined. The chat opens narrowed to the network of its unread
+   messages when they are all from one network.
+6. **Chat details of a merged chat.** The networks are listed; tapping one sets the
+   default; the split button returns that chat to the inbox; "Add a chat…" works; the
+   phone and video buttons on each member call on that network (say what each one did:
+   dialled at once, opened the app, or nothing).
+7. **Bottom bar.** Four chosen buttons and More; More lists the rest with unread dots;
+   picking one opens the inbox on it. The editor allows four.
+
+Known gaps, not hidden: WhatsApp, Telegram, and Signal profile photos are not fetched
+yet (contact photos cover most people); the demo network cannot show a merge on the
+emulator; whether Google Voice, Messenger, and Meet dial at once or open the app is
+still what the plan calls an open question until tried on the phone.
