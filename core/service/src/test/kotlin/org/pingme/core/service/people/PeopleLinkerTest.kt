@@ -93,6 +93,48 @@ class PeopleLinkerTest : ServiceTest() {
         }
 
     @Test
+    fun yourOwnNumberInTheAddressBookNeverNamesYourChats() =
+        runTest {
+            // Your own entry is in every chat; the card holding your number must not name them all
+            // (owner, Gate G7, round 3: every WhatsApp chat came up as "Terry Sanford").
+            accounts.upsert(account())
+            book.entries = listOf(AddressBookEntry("Terry Sanford", listOf("+15555550100"), "lookup-1", null))
+            val me = sam().copy(id = accountId.person("me"), displayName = "You", phoneNumber = "+15555550100")
+            val other = samByNumber()
+            val snapshot = chatSnapshot("sam", title = "+15555550123").copy(participants = listOf(me, other))
+            withBook.apply(ConnectorEvent.ChatUpdated(accountId, snapshot))
+            withBook.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(me, other)))
+            linker.relinkAll()
+            assertEquals("+15555550123", chats.get(accountId.chat("sam"))?.title)
+            assertNull(contacts.person(me.id)?.contactId)
+        }
+
+    @Test
+    fun chatsAnEarlierBuildNamedAfterYourOwnCardTakeTheirNamesBack() =
+        runTest {
+            accounts.upsert(account())
+            book.entries = listOf(AddressBookEntry("Terry Sanford", listOf("+15555550100"), "lookup-1", null))
+            val me = sam().copy(id = accountId.person("me"), displayName = "You", phoneNumber = "+15555550100")
+            contacts.upsert(me.copy(contactId = ContactId("lookup-1"), contactName = "Terry Sanford"))
+            contacts.upsert(samByNumber())
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("sam", title = "Terry Sanford")))
+            // A real chat with Terry keeps its name: its own person is Terry.
+            val terry =
+                sam().copy(
+                    id = accountId.person("terry"),
+                    displayName = "Terry Sanford",
+                    phoneNumber = "+15555550199",
+                )
+            contacts.upsert(terry)
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("terry", title = "Terry Sanford")))
+            linker.relinkAll()
+            // Sam's chat takes Sam's own name back (the network's, since Sam is not a contact).
+            assertEquals("Sam Ortiz", chats.get(accountId.chat("sam"))?.title)
+            assertEquals("Terry Sanford", chats.get(accountId.chat("terry"))?.title)
+            assertNull(contacts.person(me.id)?.contactName)
+        }
+
+    @Test
     fun withoutAnAddressBookExistingLinksAreLeftAlone() =
         runTest {
             accounts.upsert(account())

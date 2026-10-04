@@ -5,9 +5,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.pingme.core.connector.AddressBook
 import org.pingme.core.connector.AddressBookEntry
+import org.pingme.core.connector.remoteId
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.ContactId
 import org.pingme.core.model.Person
+import org.pingme.core.model.PersonId
 import org.pingme.core.service.Names
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
@@ -31,6 +33,10 @@ class PeopleLinker
     ) {
         private val lock = Mutex()
 
+        private companion object {
+            const val YOU = "You"
+        }
+
         @Volatile private var index: Map<String, AddressBookEntry> = emptyMap()
 
         @Volatile private var loaded = false
@@ -42,7 +48,9 @@ class PeopleLinker
 
         /** [person] with the phone's link applied, from the index as it stands. */
         fun linked(person: Person): Person {
-            if (!loaded) return person
+            // Your own entry is never a contact of yours: linking it named every chat you are in
+            // after the card that holds your number (owner, Gate G7, round 3).
+            if (!loaded || isSelf(person)) return person
             val entry = match(person.phoneNumber) ?: return person
             val id = entry.id ?: return person
             return person.copy(contactId = ContactId(id), contactName = entry.name, contactPhoto = entry.photo)
@@ -54,6 +62,7 @@ class PeopleLinker
                 load()
                 if (!loaded) return@withLock
                 contacts.withPhones().forEach { person ->
+                    if (isSelf(person)) return@forEach unlinkSelf(person)
                     val entry = match(person.phoneNumber)
                     val id = entry?.id?.let(::ContactId)
                     val same =
@@ -68,7 +77,7 @@ class PeopleLinker
         /** A one-to-one chat with [person] still titled by a bare number or raw id takes their name. */
         suspend fun retitle(person: Person) {
             val name = person.name
-            if (!Names.isReal(name)) return
+            if (!Names.isReal(name) || isSelf(person)) return
             contacts
                 .chatsWith(person)
                 .filter { it.kind == ChatKind.DIRECT && Names.isBare(it.title) }
@@ -78,6 +87,22 @@ class PeopleLinker
                     }
                 }
         }
+
+        /**
+         * An earlier build linked your own entry to a contact and named every chat after it.
+         * The link goes, and each of those chats takes its own person's name or number back.
+         */
+        private suspend fun unlinkSelf(self: Person) {
+            val wrong = self.contactName ?: return
+            contacts.link(self.id, null, null, null)
+            contacts.chatsTitled(self.accountId, wrong).filter { it.kind == ChatKind.DIRECT }.forEach { chat ->
+                val own = contacts.person(PersonId(chat.id.value)) ?: return@forEach
+                val right = own.name.takeIf { Names.isReal(it) } ?: own.phoneNumber ?: own.displayName
+                if (right != wrong) chats.update(chat.id) { it.copy(title = right) }
+            }
+        }
+
+        private fun isSelf(person: Person) = person.displayName == YOU || person.id.remoteId == "me"
 
         private suspend fun load() {
             val entries = book.entries()

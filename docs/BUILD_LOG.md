@@ -2895,6 +2895,18 @@ messages when they are all from one network, otherwise on All; the bottom bar ho
 chosen buttons and a fixed fifth "More" button listing everything else. Phase 8 waits for
 the owner's word.
 
+### Gate G7 fixes, round 3 (2026-10-03, 9 PM)
+
+- The round-2 renaming never reached a WhatsApp chat made from your own outgoing message
+  (such a chat lists no participant), so names stayed numbers. A person's chats are now
+  also found by the chat whose address is the person's and by a title that is the number.
+- That fix then named almost every WhatsApp chat "Terry Sanford": the owner's own number
+  is on a contact card of that name, every WhatsApp chat lists "you", and the contact
+  matcher linked "you" to that card and renamed every chat you are in. Your own entry is
+  now never matched to a contact and never renames anything, and on the next start every
+  chat wrongly carrying that name takes the other person's own name or number back.
+  The owner's words: the chats "must be named correctly", whatever the card says.
+
 ### P7.1 Contacts
 
 - People are matched to the phone's contacts by phone number: the address book is read

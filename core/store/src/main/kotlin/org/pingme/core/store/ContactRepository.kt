@@ -58,6 +58,12 @@ class ContactRepository
             personDao.upsert(kept.toEntity())
         }
 
+        /** An account's chats carrying exactly this title. */
+        suspend fun chatsTitled(
+            accountId: AccountId,
+            title: String,
+        ): List<Chat> = chatDao.titled(accountId.value, listOf(title)).map { it.toModel() }
+
         /** Everyone with a phone number, for matching against the address book. */
         suspend fun withPhones(): List<Person> = personDao.withPhones().map { it.toModel() }
 
