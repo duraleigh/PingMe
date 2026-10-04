@@ -113,7 +113,12 @@ private fun PinnedTile(
     ) {
         Box(Modifier.size(TILE_AVATAR + (RING + RING_GAP) * 2), contentAlignment = Alignment.Center) {
             if (unread) Box(Modifier.matchParentSize().border(RING, accent, shape.toShape()))
-            Avatar(row.title, size = TILE_AVATAR, shape = shape, photo = row.photo)
+            if (row.faces.isEmpty()) {
+                Avatar(row.title, size = TILE_AVATAR, shape = shape, photo = row.photo)
+            } else {
+                org.pingme.core.ui.components
+                    .GroupAvatar(row.faces, row.title, size = TILE_AVATAR, shape = shape)
+            }
             if (unread) {
                 UnreadBadge(
                     Modifier.align(Alignment.TopEnd),

@@ -44,7 +44,12 @@ fun ChatActionSheet(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Avatar(row.title, size = 40.dp, photo = row.photo)
+                if (row.faces.isEmpty()) {
+                    Avatar(row.title, size = 40.dp, photo = row.photo)
+                } else {
+                    org.pingme.core.ui.components
+                        .GroupAvatar(row.faces, row.title, size = 40.dp)
+                }
                 Column {
                     Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                     Text(

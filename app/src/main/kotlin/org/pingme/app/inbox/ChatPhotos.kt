@@ -25,4 +25,19 @@ fun photoFor(
     }
 }
 
+/** A group's members, not counting you, as faces for its composite avatar (owner, 2026-10-03). */
+fun facesFor(
+    chat: Chat,
+    people: Map<PersonId, Person>,
+): List<org.pingme.core.ui.components.Face> {
+    if (chat.kind != ChatKind.GROUP) return emptyList()
+    return chat.participants
+        .mapNotNull { people[it] }
+        .filter { it.displayName != YOU }
+        .map {
+            org.pingme.core.ui.components
+                .Face(it.name, it.photo)
+        }
+}
+
 private const val YOU = "You"

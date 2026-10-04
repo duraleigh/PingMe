@@ -78,6 +78,8 @@ data class ChatUiState(
     val phone: String? = null,
     /** The contact's or network's photo for the header (UI_DESIGN.md 10.18). */
     val photo: String? = null,
+    /** A group's members for the header's composite avatar (owner, 2026-10-03). */
+    val faces: List<org.pingme.core.ui.components.Face> = emptyList(),
     /** A merged chat's members, one chip each (UI_DESIGN.md 10.15); empty for an ordinary chat. */
     val members: List<MemberChip> = emptyList(),
     /** Which member's bubbles are shown: an account, or null for all (owner, Phase 7). */
@@ -392,6 +394,12 @@ class ChatViewModel
                             org.pingme.app.inbox
                                 .photoFor(it, everyone.associateBy { p -> p.id })
                         },
+                    faces =
+                        c
+                            ?.let {
+                                org.pingme.app.inbox
+                                    .facesFor(it, everyone.associateBy { p -> p.id })
+                            }.orEmpty(),
                     replyTo = reply,
                     moreHistory = more,
                     reactions = prefs,

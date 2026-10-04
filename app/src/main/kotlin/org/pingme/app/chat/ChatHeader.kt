@@ -144,7 +144,12 @@ private fun TitleBlock(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Avatar(state.title, size = 42.dp, photo = state.photo)
+        if (state.faces.isEmpty()) {
+            Avatar(state.title, size = 42.dp, photo = state.photo)
+        } else {
+            org.pingme.core.ui.components
+                .GroupAvatar(state.faces, state.title, size = 42.dp)
+        }
         val colours = MaterialTheme.colorScheme
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
