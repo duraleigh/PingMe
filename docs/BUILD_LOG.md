@@ -3170,6 +3170,11 @@ deleted, and the WhatsApp chats are named correctly.
    and puts nothing in the shade. Not a code change; noted so the owner can decide whether
    that rule should also require the screen to be in use.
 
+- **Pictures were not pinchable** in the full-screen viewer (owner, 2026-10-04): the viewer
+  only ever showed a picture fitted to the screen. It now zooms with two fingers between
+  fit and five times, pans with one finger while zoomed, and a double tap toggles between
+  fit and twice the size.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a
