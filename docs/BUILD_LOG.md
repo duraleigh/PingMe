@@ -3249,37 +3249,63 @@ not fixed, waiting on the owner:
 
 ### Gate G11: the owner's checklist
 
-Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a
-phone; the emulator has no second network to merge with. Please check, in this order:
+Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built
+after the owner's rounds of notes (the first version named a banner and chips that no
+longer exist). Please check, in this order:
 
 1. **Contacts.** Allow contacts if asked. Chats with people in your address book show
-   their contact name and photo (inbox, pinned tiles, chat header, Chat details, the
-   new-chat list, and the sender's picture on a notification). A one-to-one chat that
-   was titled by a bare number takes the contact's name. Someone not in your contacts and
-   known only by a number shows a plain person mark, not digits.
-2. **Instagram pictures.** Instagram and Messenger chats show the person's profile
-   picture.
-3. **Suggestions.** The inbox shows "N people appear on more than one network · Review"
-   when PingMe finds any. On the suggestions screen: the reason is named; leaving a chat
-   out, adding another chat, dismissing, and merging each do what they say. A dismissed
-   suggestion stays gone.
-4. **Merge by hand.** Hold an avatar, pick two chats on different networks, tap Merge.
-   One row appears with a badge per network and the newest message across both. Mark
-   it read: both networks are read. Mute, archive, pin, and delete act on the whole.
-5. **The merged chat.** Bubbles keep their network colour only; tap one and the network
-   badge sits beside the time and ticks. The header badge opens the dropdown; one
-   network narrows the bubbles and moves the composer chip; "All" brings everything
-   back. Send from each chip: the message goes out on that network. A disconnected
-   account's chip is red-lined. The chat opens narrowed to the network of its unread
-   messages when they are all from one network.
-6. **Chat details of a merged chat.** The networks are listed; tapping one sets the
-   default; the split button returns that chat to the inbox; "Add a chat…" works; the
-   phone and video buttons on each member call on that network (say what each one did:
-   dialled at once, opened the app, or nothing).
-7. **Bottom bar.** Four chosen buttons and More; More lists the rest with unread dots;
-   picking one opens the inbox on it. The editor allows four.
+   their contact name and photo: inbox rows, pinned tiles, the chat header, Chat
+   details, the new-chat list, and the sender's picture on a notification. A one-to-one
+   chat that was titled by a bare number takes the contact's name. Someone known only
+   by a number shows a plain person mark, not digits. Your own number never names a chat.
+2. **Pictures.** Instagram and Messenger chats show the person's profile picture. A
+   group's avatar is built from its members' pictures: two side by side, three in a
+   triangle, up to nine in a ring, ten or more as the multicoloured asterisk, you left out.
+3. **Unread and merged rows.** An unread chat has the orbiting ring, on rows and on
+   pinned tiles, with the row tint; no dot anywhere. A merged row shows no network
+   badges. Avatars are the same size everywhere, merged or not.
+4. **Settings > Merge chats.** "Merge chats you pick" opens a picker of one-to-one chats
+   with each person's number or username; pick two or more on different networks and
+   merge. "Suggestions" shows the count and opens the suggestions screen. On a card: the
+   reason is named (same contact, same number, or similar name); leaving a chat out,
+   adding any chat from the picker, and dismissing each do what they say; you can pick
+   which network sends by default and which picture the merged chat uses; Merge makes
+   one chat. A dismissed suggestion stays gone. Nothing about merging appears in the
+   inbox uninvited.
+5. **Merge from the inbox.** Hold an avatar, pick chats on different networks, tap Merge
+   in the toolbar. One row appears with the newest message across all of them. Mark it
+   read: every network is read. Mute, archive, pin, and delete act on the whole. In Chat
+   details of an ordinary chat, "Merge with…" offers the other one-to-one chats.
+6. **Network filters.** Under a network's button a merged chat appears only if it has a
+   message on that network, placed by that message's time, and shows that network's
+   newest message. Under All it is placed by its newest message anywhere.
+7. **The merged chat.** Bubbles keep their network colour only; tap one and the network
+   badge sits beside the time and ticks. The header badge opens a dropdown: All or one
+   network. One network narrows the bubbles and sets the box; All brings everything
+   back. The badge inside the box does the same thing as the header. The box says "Send
+   a WhatsApp message", "Send an Instagram DM", and so on. Send on each network and
+   confirm it arrives there. GIFs are in the + menu. Opening rule: unread messages all
+   from one network open the chat on that network; otherwise it opens on the default
+   network, never on All.
+8. **Chat details of a merged chat.** The member chats are listed with their number or
+   username; tapping one sets the default network; the split button returns that chat
+   to the inbox on its own; "Add a chat…" works; the phone and video buttons on each
+   member call on that network (say what each one did: dialled at once, opened the
+   app, or nothing).
+9. **Bottom bar.** Four chosen buttons and More, line icons, long labels wrapping to two
+   lines. More lists the rest with unread dots; picking one opens the inbox on it. The
+   editor allows four.
+10. **Appearance.** Each network's row shows the real bubble and the real badge. The
+    first swatch is the bubble and badge colour; the second is the gradient's end and
+    the header accent. Changing a colour changes the chat.
+11. **Pictures full screen.** Pinch to zoom, drag while zoomed, double tap to toggle.
+12. **Instagram.** Only the last 30 days of Primary are listed. General folder chats
+    stay out of All and under the General list. A video taken in the chat and kept
+    plays as an ordinary video.
 
-Known gaps, not hidden: WhatsApp, Telegram, and Signal profile photos are not fetched
-yet (contact photos cover most people); the demo network cannot show a merge on the
-emulator; whether Google Voice, Messenger, and Meet dial at once or open the app is
-still what the plan calls an open question until tried on the phone.
+Known gaps, not hidden: Messenger one-to-one chats show names but no messages until the
+encrypted channel is built (first work after this gate); WhatsApp, Telegram, and Signal
+profile photos are not fetched yet (contact photos cover most people); the box badge does
+not yet mark a disconnected account; how a merged row is marked is still the owner's call;
+the demo network cannot show a merge on the emulator; whether Google Voice, Messenger,
+and Meet dial at once or open the app is an open question until tried on the phone.
