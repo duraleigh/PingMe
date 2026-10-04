@@ -147,6 +147,7 @@ func (s *Session) Connect() error {
 		}
 	}
 	s.mu.Unlock()
+	s.log.Info().Str("own_id", s.OwnID()).Msg("Messenger page loaded")
 	s.emit(map[string]any{"type": "connected", "id": s.OwnID(), "cookies": s.CookiesJSON()})
 	if initial != nil {
 		s.applyTable(initial, true)
@@ -740,19 +741,37 @@ func (s *Session) fold(tbl *table.LSTable) []map[string]any {
 	for _, c := range tbl.LSVerifyContactRowExists {
 		s.learn(c.ContactId, c.Name, c.ProfilePictureUrl)
 	}
+	// Facebook deletes and re-inserts a thread in the same batch when it re-sends the
+	// inbox; a delete row for a thread the batch also upserts is that, not a deletion
+	// (the reference bridge ignores it the same way). Honouring it dropped every chat.
+	upserted := map[int64]bool{}
+	for _, row := range tbl.LSDeleteThenInsertThread {
+		upserted[row.ThreadKey] = true
+	}
+	for _, row := range tbl.LSUpdateOrInsertThread {
+		upserted[row.ThreadKey] = true
+	}
 	gone := map[int64]bool{}
+	reinserted := 0
+	mark := func(key int64) {
+		if upserted[key] {
+			reinserted++
+		} else {
+			gone[key] = true
+		}
+	}
 	for _, row := range tbl.LSDeleteThread {
-		gone[row.ThreadKey] = true
+		mark(row.ThreadKey)
 	}
 	for _, row := range tbl.LSDeletePartialThread {
-		gone[row.ThreadKey] = true
+		mark(row.ThreadKey)
 	}
 	for _, row := range tbl.LSDeleteMessageRequest {
-		gone[row.ThreadKey] = true
+		mark(row.ThreadKey)
 	}
 	for _, row := range tbl.LSRemoveParticipantFromThread {
 		if row.ParticipantId == s.own {
-			gone[row.ThreadKey] = true
+			mark(row.ThreadKey)
 		} else if t := s.threads[row.ThreadKey]; t != nil {
 			delete(t.members, row.ParticipantId)
 			touched[row.ThreadKey] = true
@@ -761,6 +780,10 @@ func (s *Session) fold(tbl *table.LSTable) []map[string]any {
 	for key := range gone {
 		delete(s.threads, key)
 		events = append(events, map[string]any{"type": "threadGone", "thread": id(key)})
+	}
+	if len(upserted)+len(gone)+reinserted > 0 {
+		s.log.Info().Int("threads", len(upserted)).Int("gone", len(gone)).Int("reinserted", reinserted).
+			Int("known", len(s.threads)).Msg("Thread rows in this batch")
 	}
 	for _, row := range tbl.LSDeleteThenInsertThread {
 		if gone[row.ThreadKey] {

@@ -3192,6 +3192,32 @@ deleted, and the WhatsApp chats are named correctly.
   bubble colour, with readable text on it, not a faint tint; the second swatch is the
   gradient's end and the header accent.
 
+### Owner note on Messenger (2026-10-04, 12:04 PM)
+
+**No Messenger chats in PingMe at all**; the Messenger filter held one stray chat, "Clay
+Rhodes, Messenger user", with no messages. From last night's phone log: Messenger signed
+in and handed over fifteen conversations on the first page, yet none reached PingMe. The
+Go bridge's own log said nothing more, and the Kotlin side logs only failures, so the
+cause was found by reading: when Facebook re-sends the inbox it puts a "delete this
+thread" row and a "here is this thread" row for the same conversation in one batch. The
+reference bridge ignores the delete in that case ("Ignoring LSDeleteThread for thread that
+has active upserts in the same sync"); PingMe's bridge did the opposite, honoured the
+delete, skipped the insert, and told the app the chat was gone, so every conversation
+Facebook listed that way vanished before it was ever stored. The one chat that survived
+was simply one Facebook had not re-sent. Fixed in the bridge: a delete row for a thread
+the same batch also upserts is not a deletion; a lone delete still is. A bridge test
+reproduces the batch. The bridge now logs, per batch, how many thread rows it saw, how
+many were deletions, and how many were re-insertions, and the connector logs who it
+signed in as and how many chats it listed, so the next phone log settles it instead of
+reasoning. Still to confirm on the phone: that the chats appear with names, and who
+"Clay Rhodes" is (its members and the account's own id will be in the log).
+
+Also seen in that log and not fixed: Messenger's thread rows no longer match the
+library's table layout from column 39 on (the library warns "Failed to set" seventeen
+times per thread). The columns PingMe reads (time, name, picture, key, type, folder) sit
+before the break, and the newest library release and its main branch carry the same
+layout, so there is nothing to update to; noted in case a later field is wanted.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch (pull request to follow). Nothing below has been tried on a

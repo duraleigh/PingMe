@@ -94,6 +94,7 @@ internal class MessengerSession(
         when (event) {
             is FbEvent.Connected -> {
                 go.ownId = event.id.ifEmpty { go.ownId }
+                Log.i(TAG, "Messenger signed in as ${go.ownId}")
                 if (event.cookies.isNotEmpty()) credentials.save(credentialRef, event.cookies.toByteArray())
             }
 
@@ -141,7 +142,9 @@ internal class MessengerSession(
             pages++
             if (!more) break
         }
-        return go.threadsJson(request { session.threads() }).map { go.chat(it) }
+        val chats = go.threadsJson(request { session.threads() }).map { go.chat(it) }
+        Log.i(TAG, "Messenger listed ${chats.size} chats after $pages pages")
+        return chats
     }
 
     /** Up to [limit] messages older than [before] (the newest when null), newest first. */
