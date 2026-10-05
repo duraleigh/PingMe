@@ -45,9 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -69,6 +67,7 @@ import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Transport
 import org.pingme.core.ui.components.Avatar
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.Haptics
 import org.pingme.core.ui.theme.InboxDensity
 import org.pingme.core.ui.theme.MotionIntensity
@@ -227,21 +226,11 @@ private fun SwipeFeedback(
     state: AnchoredDraggableState<SwipeSide>,
     haptics: Haptics,
 ) {
-    val feedback = LocalHapticFeedback.current
+    val feedback = rememberHaptic()
     LaunchedEffect(state, haptics) {
         if (haptics == Haptics.OFF) return@LaunchedEffect
         snapshotFlow { state.targetValue }.distinctUntilChanged().drop(1).collect { target ->
-            if (target != SwipeSide.REST) {
-                feedback.performHapticFeedback(
-                    if (haptics ==
-                        Haptics.STRONG
-                    ) {
-                        HapticFeedbackType.LongPress
-                    } else {
-                        HapticFeedbackType.GestureThresholdActivate
-                    },
-                )
-            }
+            if (target != SwipeSide.REST) feedback.tick()
         }
     }
 }

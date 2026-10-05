@@ -43,6 +43,7 @@ fun SoundRows(
 ) {
     var asking by remember { mutableStateOf<Ask?>(null) }
     val pickers = rememberSoundPickers(sound) { onChange(it, vibration) }
+    val context = LocalContext.current
     Column(modifier) {
         ListItem(
             headlineContent = { Text(stringResource(R.string.details_sound)) },
@@ -70,6 +71,9 @@ fun SoundRows(
         Ask.VIBRATION -> {
             Choose(R.string.details_vibration, VIBRATIONS, vibration, { stringResource(vibrationLabel(it)) }, {
                 onChange(sound, it)
+                // Play the pattern once, so the pick is felt at once rather than at the next
+                // message (owner, 2026-10-05: "none of the per-chat haptics do anything").
+                preview(context, it)
             }) { asking = null }
         }
 
@@ -189,3 +193,16 @@ private val SOUNDS =
         R.string.details_sound_file,
     )
 private val VIBRATIONS: List<VibrationPattern?> = listOf(null) + VibrationPattern.entries
+
+/** Plays a vibration pattern once on the phone's vibrator; the default pattern plays as Short. */
+private fun preview(
+    context: android.content.Context,
+    pattern: VibrationPattern?,
+) {
+    val timings = (pattern ?: VibrationPattern.SHORT).timings
+    if (timings.isEmpty()) return
+    val vibrator =
+        org.pingme.core.ui.components.HapticPlayer
+            .vibratorOf(context) ?: return
+    runCatching { vibrator.vibrate(android.os.VibrationEffect.createWaveform(timings, -1)) }
+}

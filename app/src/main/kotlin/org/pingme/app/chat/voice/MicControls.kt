@@ -29,13 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -48,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.pingme.app.R
+import org.pingme.core.ui.components.HapticPlayer
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.R as UiR
 
 /**
@@ -66,7 +65,7 @@ fun MicButton(
     onTooShort: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val haptic = rememberHaptic()
     val density = LocalDensity.current
     val cancelAt = with(density) { CANCEL_DISTANCE.toPx() }
     val lockAt = with(density) { LOCK_DISTANCE.toPx() }
@@ -99,7 +98,7 @@ fun MicButton(
                         return@awaitEachGesture
                     }
                     if (!voice.start()) return@awaitEachGesture
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    haptic.bump()
                     var moved = Offset.Zero
                     var outcome: Slide? = null
                     var liftedAt = down.uptimeMillis
@@ -128,7 +127,7 @@ private enum class Slide { TAPPED, RELEASED, CANCELLED, LOCKED }
 private fun ended(
     how: Slide,
     voice: VoiceNotes,
-    haptic: HapticFeedback,
+    haptic: HapticPlayer,
     tooShort: () -> Unit,
 ) {
     when (how) {
@@ -143,12 +142,12 @@ private fun ended(
 
         Slide.CANCELLED -> {
             voice.cancel()
-            haptic.performHapticFeedback(HapticFeedbackType.Reject)
+            haptic.reject()
         }
 
         Slide.LOCKED -> {
             voice.lock()
-            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            haptic.tick()
         }
     }
 }

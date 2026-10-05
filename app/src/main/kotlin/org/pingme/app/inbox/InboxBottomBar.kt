@@ -18,7 +18,6 @@ import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
@@ -34,9 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -51,6 +48,8 @@ import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Space
 import org.pingme.core.model.SpaceIcon
+import org.pingme.core.ui.components.PingMeSheet
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
 
@@ -139,7 +138,7 @@ private fun BarButton(
 ) {
     val item = entry.item as? InboxBarItem.Network
     var open by remember { mutableStateOf(false) }
-    val haptics = LocalHapticFeedback.current
+    val haptics = rememberHaptic()
     val narrowable = item != null && entry.narrowOptions.isNotEmpty()
     val narrowed = entry.narrowedTo?.let { narrowingLabel(it, accounts) }
     // The button fills the slot the bar gives it, so its icon sits in the middle (UI_DESIGN.md 3.1).
@@ -152,7 +151,7 @@ private fun BarButton(
                         Modifier.pointerInput(entry) {
                             detectTapGestures(
                                 onLongPress = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    haptics.tick()
                                     open = true
                                 },
                                 onTap = { actions.onSelect(entry.item) },
@@ -291,7 +290,7 @@ fun barLabel(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditBarSheet(
+internal fun EditBarSheet(
     current: List<InboxBarItem?>,
     accounts: List<Account>,
     spaces: List<Space>,
@@ -305,7 +304,7 @@ fun EditBarSheet(
             accounts.map { it.network }.distinct().map { InboxBarItem.Network(it) } +
             spaces.map { InboxBarItem.Space(it.id) } +
             InboxBarItem.LowPriority
-    ModalBottomSheet(onDismissRequest = {
+    PingMeSheet(onDismiss = {
         onSave(picked)
         onDismiss()
     }) {

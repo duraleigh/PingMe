@@ -85,7 +85,8 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 ```
 
 - **Pinned row**: horizontally scrolling tiles of the user's pinned chats, drawn with the
-  chosen shape family. Long-press to reorder or unpin.
+  chosen shape family. Press and hold a tile and drag it to a new place to reorder
+  (owner, 2026-10-05); let go without moving and the chat's action sheet opens.
   Users can choose a grid, a row, or "pinned at top of list" style. Up to 12 pins.
   In the grid, one or two pins sit centred, three to five share the width evenly, and
   more wrap at five a line (owner, Gate G2). An unread tile must shout as loudly as an
@@ -295,8 +296,17 @@ them.
 
 - Animation intensity: Off, Subtle, Full, Extra. Governs reactions, bubble entrance,
   and transitions. "Off" also selects the standard motion scheme.
-- Haptics: Off, Light, Strong.
+- Haptics: Off, Light, Strong. PingMe drives the phone's vibrator itself rather than
+  relying on the system's touch feedback, which was never felt (owner, 2026-10-05). A
+  tick marks a swipe crossing its threshold, a long press on a bar button or the send
+  button, and a voice note locking; a bump marks a reaction landing, a recording
+  starting, and a pinned tile lifting to be dragged; two quick ticks mark a cancelled
+  recording. Light and Strong use different effects; Off plays none. Picking a
+  per-chat vibration pattern in Chat details plays that pattern once.
 - Respects the system reduce-motion setting regardless of the in-app choice.
+- Every drawer that slides up from the bottom opens fully rather than stopping halfway,
+  and keeps its content clear of the keyboard: a picker with a search box or a hex code
+  field rises above the keyboard on its own (owner, 2026-10-05).
 
 ### 4.6 Icon and shortcuts
 

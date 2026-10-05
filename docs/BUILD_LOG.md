@@ -3725,3 +3725,32 @@ read before the fake's history had been processed. The profile-picture fetch add
 morning runs beside the event loop and widened that window. The wait now runs on the
 real clock, and the picture fetch runs on its own thread pool. Three local runs of the
 WhatsApp tests in a row pass.
+
+### Owner notes of 2026-10-05, 11:00 to 11:20 AM: haptics, drawers under the keyboard, pin reordering
+
+"Nothing about haptics is working. None of the haptics settings do anything. None of
+the per-chat haptics do anything." In-app haptics went through the framework's touch
+feedback, which the owner's phone never turned into anything felt. PingMe now drives the
+vibrator itself (`HapticPlayer` in the theme module; VIBRATE permission added): a tick
+for a swipe threshold, a long press on a bar button or the send button, and a voice
+note locking; a bump for a reaction landing, a recording starting, and a pinned tile
+lifting; two quick ticks for a cancelled recording. Light and Strong use different
+effects; Off plays none. The per-chat "haptics" are the notification vibration
+patterns in Chat details; those go through the chat's notification channel, which is
+rebuilt with a new version whenever the pattern changes (checked: the version bumps).
+Picking a pattern now plays it once so the choice is felt immediately. If notifications
+still do not vibrate after this build, the phone's own "vibrate for notifications"
+setting is the next thing to check, since Android applies it above every channel.
+
+"If the keyboard opens over top of these drawers... the drawer should automatically
+slide up itself so it's still visible above the keyboard." Every drawer now goes
+through one `PingMeSheet`: it opens fully (no half stop) and its content pads itself
+above the keyboard. Applied to all thirteen drawers (GIF, emoji, colour picker, attach,
+send later, forward, chat actions, chat picker, bar editor, account picker, delete,
+info, reactions). UI_DESIGN.md 4.5 updated.
+
+"Allow me to press and hold the pinned chats at the top of the screen so I can reorder
+the pinned ones." Press and hold a tile: it lifts with a bump, follows the finger, and
+the other tiles make room as it crosses their slots; letting go saves the new order.
+Letting go without moving opens the chat's action sheet as before. Works in the grid and
+the row styles. UI_DESIGN.md 3.1 updated.

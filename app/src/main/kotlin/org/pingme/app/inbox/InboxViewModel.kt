@@ -61,6 +61,14 @@ class InboxViewModel
     ) : ViewModel() {
         private val rowActions = RowActions(viewModelScope, actions, merges)
 
+        /** A pinned tile dragged to a new place (owner, 2026-10-05). */
+        fun movePin(
+            id: ChatId,
+            position: Int,
+        ) {
+            viewModelScope.launch { actions.movePin(id, position) }
+        }
+
         /** The one-time "turn off Google Messages' notifications" prompt is due (UI_DESIGN.md 6.3). */
         val gmessagesReminder: StateFlow<Boolean> =
             combine(settings.app, accounts.accounts()) { app, all ->

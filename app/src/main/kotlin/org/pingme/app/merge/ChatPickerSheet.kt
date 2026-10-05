@@ -14,7 +14,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +30,7 @@ import org.pingme.app.inbox.NetworkBadge
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.components.Avatar
+import org.pingme.core.ui.components.PingMeSheet
 
 /**
  * Picks one-to-one chats from any network to merge (owner, Phase 7): a search box, a
@@ -38,7 +38,7 @@ import org.pingme.core.ui.components.Avatar
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatPickerSheet(
+internal fun ChatPickerSheet(
     chats: List<PickableChat>,
     onPick: (List<ChatId>) -> Unit,
     onDismiss: () -> Unit,
@@ -50,7 +50,7 @@ fun ChatPickerSheet(
             val q = query.trim()
             if (q.isEmpty()) chats else chats.filter { it.title.contains(q, ignoreCase = true) }
         }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         Column(Modifier.padding(bottom = 16.dp)) {
             Text(
                 stringResource(R.string.merge_pick_title),

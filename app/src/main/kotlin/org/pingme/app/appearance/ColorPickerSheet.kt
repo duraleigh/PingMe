@@ -14,7 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.materialkolor.hct.Hct
 import org.pingme.app.R
 import org.pingme.core.ui.components.ColorSwatch
+import org.pingme.core.ui.components.PingMeSheet
 import org.pingme.core.ui.components.SliderSetting
 
 /**
@@ -41,7 +41,7 @@ import org.pingme.core.ui.components.SliderSetting
  * chat wallpapers, and a chat's own bubble colour.
  */
 @Composable
-fun ColorPickerSheet(
+internal fun ColorPickerSheet(
     title: String,
     initial: Int,
     onPick: (Int) -> Unit,
@@ -49,7 +49,7 @@ fun ColorPickerSheet(
     onReset: (() -> Unit)? = null,
 ) {
     val pick = remember(initial) { Pick(initial) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         // Scrolls, so Done is reachable on a short screen (owner, 2026-10-04).
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             Text(title, Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleLarge)

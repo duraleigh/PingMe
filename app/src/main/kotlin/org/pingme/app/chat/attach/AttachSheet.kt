@@ -25,7 +25,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +44,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.core.util.Consumer
 import org.pingme.app.R
+import org.pingme.core.ui.components.PingMeSheet
 import java.io.File
 import org.pingme.core.ui.R as UiR
 
@@ -58,13 +58,13 @@ enum class AttachProblem { NO_LOCATION, NO_CAMERA }
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AttachSheet(
+internal fun AttachSheet(
     pick: AttachLaunchers,
     onDismiss: () -> Unit,
     /** Opens the GIF picker; null where the network cannot take GIFs (owner, 2026-10-03: GIFs live here). */
     onGif: (() -> Unit)? = null,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         FlowRow(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 24.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,

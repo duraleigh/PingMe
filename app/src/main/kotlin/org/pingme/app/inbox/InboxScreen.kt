@@ -100,6 +100,7 @@ fun InboxRoute(
                 },
                 bar = BarActions(viewModel::select, viewModel::narrow),
                 onSaveBar = viewModel::setBarItems,
+                onMovePin = viewModel::movePin,
             ),
         navigation = navigation,
         reactions = viewModel.reactions,
@@ -137,6 +138,8 @@ class InboxCallbacks(
     val onSaveBar: (List<InboxBarItem?>) -> Unit,
     /** One action on every selected row (owner, Gate G3). */
     val onBulk: (List<ChatRow>, BulkAction) -> Unit = { _, _ -> },
+    /** A pinned tile dragged to a new place (owner, 2026-10-05). */
+    val onMovePin: (ChatId, Int) -> Unit = { _, _ -> },
 )
 
 /**
@@ -189,6 +192,7 @@ fun InboxScreen(
                 onOpen = { navigation.onOpenChat(it.id) },
                 onHold = { holding = it },
                 onSwipe = callbacks.onSwipe,
+                onMovePin = callbacks.onMovePin,
                 onFlipEnd = { flips.remove(it) },
                 contentPadding = padding,
                 selected = selection.ids,
@@ -353,6 +357,7 @@ private fun ChatListBody(
     contentPadding: PaddingValues,
     selected: Set<ChatId> = emptySet(),
     onSelect: (ChatRow) -> Unit = {},
+    onMovePin: (ChatId, Int) -> Unit = { _, _ -> },
 ) {
     val style = PingMeTheme.appearance.pinnedStyle
     // "Top of list" shows pinned chats as ordinary rows above the rest (UI_DESIGN.md 4.3).
@@ -367,9 +372,9 @@ private fun ChatListBody(
             item(key = "pinned") {
                 Column {
                     if (style == PinnedStyle.GRID) {
-                        PinnedGrid(state.pinned, onOpen, onHold)
+                        PinnedGrid(state.pinned, onOpen, onHold, onMove = onMovePin)
                     } else {
-                        PinnedRow(state.pinned, onOpen, onHold)
+                        PinnedRow(state.pinned, onOpen, onHold, onMove = onMovePin)
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
                 }

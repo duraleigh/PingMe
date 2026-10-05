@@ -55,7 +55,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -79,6 +78,7 @@ import org.pingme.core.model.AccountId
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.ChatLook
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.theme.with
@@ -174,7 +174,7 @@ fun ChatScreen(
     val highlight = remember { mutableStateMapOf<String, Boolean>() }
     val ui = remember { ChatUi() }
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val haptic = rememberHaptic()
     Notices(actions.menu, snackbar)
 
     fun jumpTo(id: String) {
@@ -252,8 +252,7 @@ private fun MessageList(
     onJump: (String) -> Unit,
 ) {
     if (state.chat == null || state.account == null) return
-    val haptic = LocalHapticFeedback.current
-    val haptics = PingMeTheme.appearance.haptics
+    val haptic = rememberHaptic()
     val timestamps = PingMeTheme.appearance.timestamps
     val context = rowContext(state, actions, onJump)
     val obscured = state.chat.isObscured
@@ -286,7 +285,7 @@ private fun MessageList(
                         }
                     Entrance(item.message, ui, placement.background(tint)) {
                         MessageTouch(
-                            gestures = gesturesFor(item.message, state, actions, ui, haptic, haptics),
+                            gestures = gesturesFor(item.message, state, actions, ui, haptic),
                             wobble = ui.wobble[key] ?: 0,
                         ) {
                             HideAgain(key, ui.unblurred)
@@ -323,8 +322,7 @@ private fun gesturesFor(
     state: ChatUiState,
     actions: ChatScreenActions,
     ui: ChatUi,
-    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
-    haptics: org.pingme.core.ui.theme.Haptics,
+    haptic: org.pingme.core.ui.components.HapticPlayer,
 ): BubbleGestures {
     val selecting = state.selection.isNotEmpty()
     val key = message.id.value
@@ -347,7 +345,7 @@ private fun gesturesFor(
             live {
                 val prefs = state.reactions
                 val emoji = actions.menu?.doubleTapEmoji(prefs.doubleTap, prefs.quick, state.capabilities?.reactions)
-                if (emoji != null) ui.react(message, emoji, null, state, actions, haptic, haptics)
+                if (emoji != null) ui.react(message, emoji, null, state, actions, haptic)
             },
         onHold = live { if (selecting) actions.menu?.toggle(message) else ui.holding = message },
         onSwipeReply = live { actions.onReply(message) },
