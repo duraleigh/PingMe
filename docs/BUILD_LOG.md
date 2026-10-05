@@ -3812,3 +3812,15 @@ open up their Instagram profile page." Done: in a direct Instagram chat (or a me
 sending on Instagram) the header's avatar opens instagram.com/<username>, which the
 Instagram app takes over; the name still opens Chat details. A person known only by a
 numeric id has no page. UI_DESIGN.md 10.17 updated.
+
+### Builds on the phone (2026-10-05, afternoon)
+
+- 10:56 AM: every listed Instagram page stores its messages; folder fields recorded.
+- 3:55 PM (one build, after the phone was off debugging from 12:20 to 3:50): one picture
+  per Google Messages message; vibrator haptics; drawers above the keyboard; pinned
+  reorder; who-reacted sheet; status chip naming every account; wrapping notice;
+  Instagram profile from the avatar; shade reply steps and reconnects in the diagnostic
+  file.
+
+Next: the owner tries a shade reply, then the diagnostic file names the failing step;
+Gate G11 checklist; the merged-row mark is still the owner's call.
