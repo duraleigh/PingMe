@@ -3754,3 +3754,24 @@ the pinned ones." Press and hold a tile: it lifts with a bump, follows the finge
 the other tiles make room as it crosses their slots; letting go saves the new order.
 Letting go without moving opens the chat's action sheet as before. Works in the grid and
 the row styles. UI_DESIGN.md 3.1 updated.
+
+### Owner notes of 2026-10-05, 11:27 AM: "GM is not connected", the cut-off notice, one name on the chip
+
+The phone's log says what happened at 11:27: the network blipped (Instagram re-subscribed
+its live socket at 11:27:24, Signal's directory answered 429 at 11:27:28), and a Google
+Messages request to Google's server then sat with no answer until it timed out at
+11:31:30. Google Messages sent and received normally up to 11:27:52. Both accounts went
+to "Reconnecting" and the supervisor's backoff took over; nothing in PingMe dropped them.
+From this build the supervisor writes every reconnect (which account, why, which try,
+how long until the next) and every return to Connected or "needs attention" to the
+diagnostic file, so the next one explains itself without a log dump.
+
+"I can not read that entire message in the text input box because it cut off. It
+should wrap." The "<network> is not connected; the message will wait" line is a notice,
+not a prompt, so it now wraps; the ordinary "Send a WhatsApp message" prompts still
+shrink to one line as the owner asked on 2026-10-04.
+
+"The inbox screen only says Instagram is disconnected. But the accounts screen shows
+both IG and GM are reconnecting." The chip under the bar and the pill in the bar now
+name every account in that state ("Instagram, Google Messages reconnecting"); a tap
+still goes to the worst one.

@@ -231,13 +231,15 @@ private fun RowScope.MessageField(
         state = field,
         modifier = Modifier.weight(1f).testTag(COMPOSER).contentReceiver(receiver),
         placeholder = {
-            FittedHint(
-                when {
-                    network == null -> stringResource(R.string.chat_message_hint)
-                    hooks?.connected == false -> stringResource(R.string.send_hint_disconnected, badgeLabel(network))
-                    else -> stringResource(sendHint(network))
-                },
-            )
+            when {
+                network == null -> FittedHint(stringResource(R.string.chat_message_hint))
+
+                // The "not connected" line is a notice, not a prompt: it wraps so it can be
+                // read in full (owner, 2026-10-05: it was cut off).
+                hooks?.connected == false -> Text(stringResource(R.string.send_hint_disconnected, badgeLabel(network)))
+
+                else -> FittedHint(stringResource(sendHint(network)))
+            }
         },
         leadingIcon = network?.let { { NetworkPick(it, hooks) } },
         shape = RoundedCornerShape(26.dp),

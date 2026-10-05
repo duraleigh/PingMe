@@ -135,7 +135,13 @@ private fun StatusPill(
             Health.ATTENTION -> c.errorContainer to c.onErrorContainer
             Health.NONE -> c.surfaceContainerHigh to c.onSurfaceVariant
         }
-    val name = account?.displayName.orEmpty()
+    // Every account in that state is named (owner, 2026-10-05: two were reconnecting, one was shown).
+    val name =
+        when (health) {
+            Health.ATTENTION -> accounts.filter { it.state is ConnectionState.ActionNeeded }
+            Health.WORKING -> accounts.filter { it.state is ConnectionState.Reconnecting }
+            else -> emptyList()
+        }.joinToString { it.displayName }.ifEmpty { account?.displayName.orEmpty() }
     val label =
         when (health) {
             Health.OK -> stringResource(R.string.status_connected)
@@ -187,6 +193,12 @@ fun HealthChip(
 ) {
     val worst = problems.firstOrNull() ?: return
     val attention = worst.state is ConnectionState.ActionNeeded
+    // Every account in the same state is named, not just the worst (owner, 2026-10-05:
+    // "the inbox only says Instagram is disconnected" while Google Messages was too).
+    val names =
+        problems
+            .filter { (it.state is ConnectionState.ActionNeeded) == attention }
+            .joinToString { it.displayName }
     val c = MaterialTheme.colorScheme
     Surface(
         onClick = { onFix(worst) },
@@ -204,7 +216,7 @@ fun HealthChip(
             Text(
                 stringResource(
                     if (attention) R.string.health_attention else R.string.health_reconnecting,
-                    worst.displayName,
+                    names,
                 ),
                 Modifier.padding(start = 8.dp),
                 style = MaterialTheme.typography.labelLarge,
