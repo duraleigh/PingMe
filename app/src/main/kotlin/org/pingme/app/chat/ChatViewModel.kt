@@ -185,7 +185,11 @@ class ChatViewModel
                 // The view model outlives one visit: the opening rule runs on every showing,
                 // and nothing marks the chat read until it has decided.
                 decided.value = false
-                viewModelScope.launch { openOn() }
+                viewModelScope.launch {
+                    openOn()
+                    // Opening a chat tells its network it is read, unread here or not.
+                    runCatching { chatActions.tellNetworkRead(chatId) }
+                }
             } else if (presence.visible == chatId) {
                 presence.visible = null
             }

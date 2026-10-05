@@ -3460,6 +3460,20 @@ page of its thread to learn its time (falling back to now). WhatsApp and Signal 
 refusal wording but repopulate their memory from the history the network sends on
 connect; left alone until seen on the phone.
 
+**6:06 AM build on the phone:** reactions on older Instagram messages go through (owner
+confirmed). Read marks still do not reach Instagram. The log of the minutes spent
+reading shows no read-marker line at all, neither a failure nor a refusal, and the mark
+call matches the library's shape, so most likely no mark was sent: the one thing that
+stops it before sending is PingMe's own "Send read receipts" switch, which was off for
+Instagram at Gate G7. Asked the owner to check Settings > Privacy. The next build logs
+each read marker sent, and each held back by the switch, so the log names it.
+**Owner: the switch has always been on.** Then the path is the only other one: PingMe
+told the network about a read only when the chat still counted as unread in PingMe. A
+chat PingMe had already read before this morning's fix, when Instagram's marks were
+being dropped, was never told again, so Instagram kept it unread for good. Now opening
+a chat tells its network it is read whether or not PingMe still counts it unread (a
+merged chat tells each member's network); the unread case keeps its existing path.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built

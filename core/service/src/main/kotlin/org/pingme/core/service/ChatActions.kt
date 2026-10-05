@@ -100,6 +100,21 @@ class ChatActions
             }
         }
 
+        /**
+         * Tells the network a chat already counted read here is read, on opening it (owner,
+         * 2026-10-05: Instagram kept chats unread that PingMe had read before its marks worked).
+         * A chat still unread here is covered by [setRead]; a merged chat tells each member's network.
+         */
+        suspend fun tellNetworkRead(id: ChatId) {
+            val members = merges.members(id)
+            if (members.isNotEmpty()) {
+                members.forEach { tellNetworkRead(it.id) }
+                return
+            }
+            val chat = chats.get(id) ?: return
+            if (chat.unreadCount == 0) sendReadMarker(id)
+        }
+
         private suspend fun sendReadMarker(id: ChatId) {
             if (org.pingme.core.service.merge.Merges
                     .isMergedId(id)
