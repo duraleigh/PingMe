@@ -114,11 +114,13 @@ class ChatActions
                     .privacy
                     .sendsReadReceipts(network)
             ) {
+                Log.i(TAG, "Read marker for $network kept here: 'Send read receipts' is off for it")
                 return
             }
             val connector = registry[network] ?: return
             try {
                 connector.markRead(id, newest)
+                Log.i(TAG, "Read marker sent to $network for ${id.value}")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: UnsupportedCapabilityException) {
