@@ -166,6 +166,10 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 +----------------------------------------------+
 ```
 
+Tapping the reaction chips opens a sheet that lists every reaction with who placed it
+and when, newest first; the user's own read "You" (owner, 2026-10-05: a thumbs up in a
+group chat with no way to see whose it was).
+
 - **Bubbles**: incoming bubbles are Material 3 tonal surfaces (surface container
   high) on every network. Outgoing bubbles take the colour of the network the message
   went out on, so a glance at your own bubble says which service carried it. See

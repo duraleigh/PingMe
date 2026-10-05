@@ -98,6 +98,8 @@ class RowContext(
     val transcripts: org.pingme.app.chat.voice.Transcripts? = null,
     /** Incoming links shown cleaned when "Clean links I receive" is on (UI_DESIGN.md 10.11). */
     val cleanLink: (String) -> String = { it },
+    /** The user's own person id here, so their own reactions read "You". */
+    val me: PersonId? = null,
 ) {
     /** The network a message went over: its own chat's in a merged chat (UI_DESIGN.md 10.15). */
     fun networkFor(message: Message): NetworkId = networkOf[message.chatId] ?: network

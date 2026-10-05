@@ -172,6 +172,9 @@
         <item quantity="other">%d new messages</item>
     </plurals>
     <string name="you">You</string>
+    <string name="reactions_title">Reactions</string>
+    <string name="reactions_see_who">See who reacted</string>
+    <string name="reactions_someone">Someone</string>
     <string name="emoji_search">Search emoji</string>
     <string name="emoji_recent">Recent</string>
     <string name="chat_double_tap_fallback">Not available here, so double tap sends %1$s</string>

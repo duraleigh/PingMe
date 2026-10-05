@@ -239,6 +239,7 @@ internal fun rowContext(
         actions.settings.media.gifsAutoplay,
         actions.transcripts,
         actions.cleanLink,
+        me = state.me,
     )
 
 @Composable

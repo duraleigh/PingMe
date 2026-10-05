@@ -3705,3 +3705,12 @@ flips. Not yet fixed: the fix needs those fields.
 
 Also seen: one view-once video listed with nothing but "RAVEN_VIDEO" as its content
 type and no message id; the live form is still to be caught.
+
+### Owner note of 2026-10-05, 10:45 AM: who placed a reaction in a group chat
+
+"Someone else in the group chat reacted to Terry's message with a thumbs up. But I can't
+see who reacted... Probably something like tapping on the reactions area to reveal all
+reactions and who placed them." Done: the reaction chips under a bubble are a button
+("See who reacted"); a tap opens a sheet listing every reaction with the emoji, the
+person's name, and the time, newest first. The owner's own reactions read "You";
+someone PingMe has no name for reads "Someone". UI_DESIGN.md 3.2 updated.

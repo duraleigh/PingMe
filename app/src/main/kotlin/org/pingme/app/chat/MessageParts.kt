@@ -2,6 +2,7 @@
 package org.pingme.app.chat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +29,10 @@ import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
@@ -240,10 +245,24 @@ private val MARK = 14.dp
 /** How far the second circle sits past the first: the circles overlap, as Google Messages' do. */
 private val MARK_OVERLAP = 8.dp
 
-/** Reaction chips under the bubble: each emoji once, with how many (UI_DESIGN.md 3.2). */
+/**
+ * Reaction chips under the bubble: each emoji once, with how many (UI_DESIGN.md 3.2). A tap
+ * on the chips opens a sheet naming who placed each reaction (owner, 2026-10-05: a thumbs
+ * up in a group chat with no way to see whose it was).
+ */
 @Composable
-internal fun Reactions(message: Message) {
-    Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+internal fun Reactions(
+    message: Message,
+    context: RowContext,
+) {
+    var open by remember { mutableStateOf(false) }
+    val label = stringResource(R.string.reactions_see_who)
+    Row(
+        Modifier
+            .padding(top = 2.dp)
+            .clickable(role = Role.Button, onClickLabel = label) { open = true },
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         message.reactions.groupBy { it.emoji }.forEach { (emoji, who) ->
             Surface(
                 shape = CircleShape,
@@ -258,6 +277,7 @@ internal fun Reactions(message: Message) {
             }
         }
     }
+    if (open) ReactionsSheet(message.reactions, context) { open = false }
 }
 
 /** "Not sent: <reason>" with Retry (UI_DESIGN.md 3.2). */
@@ -286,10 +306,7 @@ internal fun scheduledLabel(at: kotlin.time.Instant): String =
             .format(at.toJavaInstant().atZone(ZoneId.systemDefault())),
     )
 
-internal fun clockTime(message: Message): String =
-    DateTimeFormatter
-        .ofLocalizedTime(FormatStyle.SHORT)
-        .format(message.sentAt.toJavaInstant().atZone(ZoneId.systemDefault()))
+internal fun clockTime(message: Message): String = clockTime(message.sentAt)
 
 private val LINK_IMAGE = 140.dp
 private const val QUOTE_TINT = 0.12f

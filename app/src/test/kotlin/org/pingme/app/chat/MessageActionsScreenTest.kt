@@ -139,6 +139,11 @@ class MessageActionsScreenTest {
         ).forEach { compose.onNodeWithText(it).assertExists() }
         compose.onNode(hasContentDescription("React with 😂")).performClick()
         waitFor { stored(message)!!.reactions.any { it.emoji == "😂" } }
+        // Tapping the chips names who reacted (owner, 2026-10-05): the user's own reads "You".
+        waitFor { compose.onAllNodesWithText("😂").fetchSemanticsNodes().size == 1 }
+        compose.onNodeWithText("😂").performClick()
+        waitForText("Reactions")
+        assertTrue(compose.onAllNodesWithText("You").fetchSemanticsNodes().isNotEmpty())
     }
 
     // Holds [text]'s bubble, checks the bar, the bubble and the card are on screen and apart
