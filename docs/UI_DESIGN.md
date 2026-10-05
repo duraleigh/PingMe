@@ -590,8 +590,10 @@ send button is disabled with that reason rather than failing after the fact.
 
 ## 7. Accessibility
 
-- Every custom bubble style and colour choice is checked against a 4.5:1 contrast
-  minimum in the Appearance studio, with a warning when a combination fails.
+- The Appearance studio shows no contrast warning. The live preview at the top is the
+  check: the owner judges how a colour reads by eye (owner, 2026-10-05: "I know what I
+  can see or not see using my own eyes"). Text on a picked colour is black or white,
+  whichever reads better, and that is the only automatic help.
 - Full TalkBack labelling, including reactions ("2 heart reactions, from Sam and Dad")
   and voice note state.
 - Font size honours the system scale in addition to the in-app slider.
@@ -637,7 +639,7 @@ lightness and hue so they stay distinguishable side by side, and every colour al
 has a network badge next to it. A colour the user picks for a network is used exactly
 as picked, in light and dark mode alike, with black or white text, whichever reads
 better on it (owner, 2026-10-04: keeping only the hue of a pick made picks look
-ignored); the studio's contrast warning still says when a pick reads badly.
+ignored); there is no contrast warning (owner, 2026-10-05).
 
 | Network | Signature | Light-mode bubble | Note |
 |---|---|---|---|

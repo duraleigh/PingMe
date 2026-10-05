@@ -52,7 +52,14 @@ class ChatActions
                 chats.update(id) { it.copy(isPinned = false, pinOrder = null) }
                 return true
             }
-            val pins = chats.pinned()
+            // Only pins that show in the grid count toward the twelve: a chat folded into a
+            // merged chat, or sitting in Requests or General, kept its pin flag unseen and
+            // blocked new pins (owner, 2026-10-05: "pin up to 12" with eight on screen).
+            val pins =
+                chats.pinned().filter {
+                    it.mergedInto == null && it.folder != ChatFolder.GENERAL &&
+                        it.folder != ChatFolder.REQUESTS
+                }
             if (pins.any { it.id == id }) return true
             if (pins.size >= MAX_PINS) return false
             val next = (pins.mapNotNull { it.pinOrder }.maxOrNull() ?: -1) + 1

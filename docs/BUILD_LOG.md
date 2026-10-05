@@ -3638,3 +3638,17 @@ view-once photo either shows (and stays) or leaves a "View-once without a file" 
 the diagnostic file for me to read (`adb pull
 /sdcard/Android/data/org.pingme.app/files/diag/pingme.log`; the 8:45 AM build wrote it
 to private storage, which debugging cannot read, so this build moves it).
+
+### Owner notes of 2026-10-05, 9:07 and 9:09 AM: "pin up to 12" with eight pinned; the contrast warning
+
+"Attempting to pin another conversation to the top of the inbox gave me this error"
+(with eight pinned tiles on screen). The pin limit counted every chat row with the pin
+flag, including rows that show nowhere: a chat folded into a merged chat keeps its flag
+(the merged chat takes the pin), and a chat in Requests or General is not in the grid.
+Four or more such rows filled the twelve. Now only pins that show in the grid count.
+
+"Get rid of this big ass warning. I know what I can see or not see using my own eyes."
+The red "Some text will be hard to read" card in Appearance is gone, and UI_DESIGN.md
+7 and 10.1 now say the preview is the check and there is no contrast warning. The
+contrast arithmetic stays in the theme module (black-or-white text on a picked colour
+still uses it); only the card is removed.

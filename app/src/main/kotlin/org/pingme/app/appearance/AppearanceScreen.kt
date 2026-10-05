@@ -38,9 +38,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.pingme.app.R
 import org.pingme.core.ui.components.SettingsSectionHeader
 import org.pingme.core.ui.theme.Appearance
-import org.pingme.core.ui.theme.ContrastIssue
-import org.pingme.core.ui.theme.PingMeTheme
-import org.pingme.core.ui.theme.contrastIssues
 
 /**
  * Settings > Appearance (UI_DESIGN.md 3.5, 4): the live preview sits at the top and every
@@ -151,11 +148,9 @@ fun AppearanceScreen(
         Column(Modifier.fillMaxSize().padding(padding)) {
             AppearancePreview(appearance, Modifier.fillMaxWidth())
             HorizontalDivider()
-            val scheme = MaterialTheme.colorScheme
-            val palette = PingMeTheme.networkColors
-            val issues = remember(appearance, scheme, palette) { contrastIssues(appearance, scheme, palette) }
+            // No contrast warning here: the preview above shows how the colours read, and the
+            // owner judges that by eye (owner, 2026-10-05: "I know what I can see").
             LazyColumn(Modifier.weight(1f)) {
-                if (issues.isNotEmpty()) item { ContrastWarning(issues) }
                 item { SettingsSectionHeader(stringResource(R.string.appearance_section_colour)) }
                 item { ColourSection(appearance, onChange) }
                 item { SettingsSectionHeader(stringResource(R.string.appearance_section_shape)) }
@@ -171,23 +166,6 @@ fun AppearanceScreen(
                 item { SettingsSectionHeader(stringResource(R.string.appearance_section_file)) }
                 item { ThemeFileSection(actions) }
             }
-        }
-    }
-}
-
-/** The 4.5:1 warning (UI_DESIGN.md 7): which combinations fail, and by how much. */
-@Composable
-private fun ContrastWarning(issues: List<ContrastIssue>) {
-    Card(
-        Modifier.fillMaxWidth().padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(painterResource(org.pingme.core.ui.R.drawable.ic_contrast), null)
-                Text(stringResource(R.string.appearance_contrast_title), style = MaterialTheme.typography.titleMedium)
-            }
-            issues.forEach { Text(stringResource(R.string.appearance_contrast_issue, it.what, it.ratio)) }
         }
     }
 }

@@ -15,8 +15,6 @@
     <string name="appearance_section_icon">Icon and shortcuts</string>
     <string name="appearance_section_file">Theme file</string>
 
-    <string name="appearance_contrast_title">Some text will be hard to read</string>
-    <string name="appearance_contrast_issue">%1$s: %2$.1f to 1 (needs 4.5 to 1)</string>
 
     <string name="appearance_colour_source">Colour source</string>
     <string name="colour_source_dynamic">Wallpaper</string>

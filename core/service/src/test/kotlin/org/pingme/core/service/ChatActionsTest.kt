@@ -74,6 +74,17 @@ class ChatActionsTest : ServiceTest() {
         }
 
     @Test
+    fun aPinHiddenInsideAMergedChatDoesNotCountTowardTwelve() =
+        runTest {
+            val ids = seed(13)
+            ids.take(12).forEach { assertTrue(actions.setPinned(it, true)) }
+            // One pinned chat is folded into a merged chat: its pin flag stays but shows nowhere.
+            chats.update(ids[0]) { it.copy(mergedInto = ids[1]) }
+            assertTrue("the hidden pin frees its slot", actions.setPinned(ids[12], true))
+            assertTrue(chat(ids[12]).isPinned)
+        }
+
+    @Test
     fun readStaysReadWhenTheNetworksChatTimeIsOlderThanItsNewestMessage() =
         runTest {
             // Google Messages' chat time trailed its newest message, so every sync counted that

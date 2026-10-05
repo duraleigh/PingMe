@@ -73,17 +73,13 @@ class AppearanceScreenTest {
     }
 
     @Test
-    fun hardToReadCombinationsAreWarnedAbout() {
+    fun hardToReadCombinationsGetNoWarning() {
+        // The owner (2026-10-05): "I know what I can see or not see using my own eyes."
+        // The preview is the check; no card second-guesses it.
         appearance = Appearance(mode = ThemeMode.DARK, wallpaper = ChatWallpaper.Colour(0xFFFFFFFF.toInt()))
         show()
-        compose.onNodeWithText("Some text will be hard to read").assertExists()
-        compose.onNodeWithText("Dates and notices on the wallpaper", substring = true).assertExists()
-    }
-
-    @Test
-    fun theDefaultLookHasNoWarning() {
-        show()
         compose.onNodeWithText("Some text will be hard to read").assertDoesNotExist()
+        compose.onNodeWithText("Dates and notices on the wallpaper", substring = true).assertDoesNotExist()
     }
 
     @Test
