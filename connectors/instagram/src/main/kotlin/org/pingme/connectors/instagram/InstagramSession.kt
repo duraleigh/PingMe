@@ -137,7 +137,11 @@ internal class InstagramSession(
 
     /** Folder moves and thread removals go to the phone's log (owner, 2026-10-04: chats vanished). */
     private fun translated(event: IgEvent): List<ConnectorEvent> {
-        if (event is IgEvent.Folder || event is IgEvent.ThreadGone) Log.i(TAG, "Instagram $event")
+        if (event is IgEvent.Folder || event is IgEvent.ThreadGone) {
+            Log.i(TAG, "Instagram $event")
+            org.pingme.core.connector.Diag
+                .note(TAG, "Instagram $event")
+        }
         return go.translate(event)
     }
 

@@ -54,6 +54,7 @@ class ContactChats
         private val accounts: AccountRepository,
         private val contacts: ContactRepository,
         private val actions: ChatActions,
+        private val chats: org.pingme.core.store.ChatRepository,
     ) {
         private var cached: Pair<Long, Offers>? = null
 
@@ -95,14 +96,29 @@ class ContactChats
             return ids.map { id ->
                 if (ContactOffer.isOffer(id)) {
                     cached = null
-                    actions.startChat(account, "+" + ContactOffer.digitsOf(id))
+                    stored(actions.startChat(account, "+" + ContactOffer.digitsOf(id)))
                 } else {
                     id
                 }
             }
         }
 
+        /**
+         * The started chat's row arrives through the network's event a moment after its id;
+         * merging before it is there dropped the member ("Pick at least two chats", owner,
+         * 2026-10-05, first tap only). Waits for the row, briefly.
+         */
+        private suspend fun stored(id: ChatId): ChatId {
+            repeat(STORE_WAIT_STEPS) {
+                if (chats.get(id) != null) return id
+                kotlinx.coroutines.delay(STORE_WAIT_STEP_MS)
+            }
+            return id
+        }
+
         private companion object {
             const val CACHE_MS = 60_000L
+            const val STORE_WAIT_STEPS = 50
+            const val STORE_WAIT_STEP_MS = 100L
         }
     }

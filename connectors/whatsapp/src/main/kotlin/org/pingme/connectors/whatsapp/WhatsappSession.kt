@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.builtins.ListSerializer
@@ -170,11 +171,42 @@ internal class WhatsappSession(
 
     private fun loggedOut(reason: String) = ActionNeededException(reason, WHATSAPP_PACKAGE)
 
+    /**
+     * Profile pictures for the people in one-to-one chats, a few at a time, reported as
+     * they come so the service can save them (owner, 2026-10-05: WhatsApp chats showed no
+     * pictures). A person who hides their picture, or has none, is simply left as is.
+     */
+    private suspend fun ProducerScope<ConnectorEvent>.fetchPictures() {
+        val wanted = go.partners().filter { !go.hasAvatar(it) }.take(PICTURE_BATCH)
+        val got = ArrayList<String>()
+        wanted.forEach { jid ->
+            val url =
+                try {
+                    request { session.profilePictureUrl(jid) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
+                    Log.i(TAG, "No profile picture for $jid: ${e.message}")
+                    ""
+                }
+            go.learnAvatar(jid, url)
+            if (url.isNotEmpty()) got += jid
+            if (got.size >= PICTURE_FLUSH) {
+                send(ConnectorEvent.PeopleUpdated(accountId, go.peopleOf(got)))
+                got.clear()
+            }
+        }
+        if (got.isNotEmpty()) send(ConnectorEvent.PeopleUpdated(accountId, go.peopleOf(got)))
+    }
+
     private suspend fun ProducerScope<ConnectorEvent>.learnNames() {
         try {
             val contacts = go.participants(request { session.contacts() })
             go.learnNames(contacts)
             send(ConnectorEvent.PeopleUpdated(accountId, go.people(contacts)))
+            launch { fetchPictures() }
             // Chats an earlier build filed under a hidden id fold into the number's chat.
             go.idPairs(request { session.hiddenIdMap() }).forEach { pair ->
                 send(ConnectorEvent.ChatMerged(accountId, go.chatId(pair.lid), go.chatId(pair.phone)))
@@ -472,6 +504,8 @@ internal class WhatsappSession(
         }
 
     private companion object {
+        const val PICTURE_BATCH = 80
+        const val PICTURE_FLUSH = 10
         const val TAG = "PingMeWhatsapp"
         const val ON_DEMAND = "ON_DEMAND"
         const val MILLIS = 1000L

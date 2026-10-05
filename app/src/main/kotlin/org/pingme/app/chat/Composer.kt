@@ -2,6 +2,7 @@
 package org.pingme.app.chat
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.content.MediaType
 import androidx.compose.foundation.content.ReceiveContentListener
@@ -25,6 +26,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -68,6 +70,7 @@ import org.pingme.app.chat.voice.RecordingBar
 import org.pingme.app.chat.voice.VoiceNotes
 import org.pingme.app.chat.voice.VoiceReplyStarter
 import org.pingme.app.inbox.NetworkBadge
+import org.pingme.app.inbox.badgeLabel
 import org.pingme.core.model.Message
 import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.theme.PingMeTheme
@@ -227,7 +230,15 @@ private fun RowScope.MessageField(
     TextField(
         state = field,
         modifier = Modifier.weight(1f).testTag(COMPOSER).contentReceiver(receiver),
-        placeholder = { FittedHint(stringResource(network?.let(::sendHint) ?: R.string.chat_message_hint)) },
+        placeholder = {
+            FittedHint(
+                when {
+                    network == null -> stringResource(R.string.chat_message_hint)
+                    hooks?.connected == false -> stringResource(R.string.send_hint_disconnected, badgeLabel(network))
+                    else -> stringResource(sendHint(network))
+                },
+            )
+        },
         leadingIcon = network?.let { { NetworkPick(it, hooks) } },
         shape = RoundedCornerShape(26.dp),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = COMPOSER_LINES),
@@ -255,14 +266,22 @@ private fun NetworkPick(
     var open by remember { mutableStateOf(false) }
     val choices = hooks.members
     Box(Modifier.padding(start = 6.dp)) {
+        // A disconnected account is red-lined (UI_DESIGN.md 10.15), so the owner sees why the
+        // message would wait before sending it.
+        val ring =
+            if (hooks.connected) {
+                Modifier
+            } else {
+                Modifier.border(2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(8.dp))
+            }
         NetworkBadge(
             network,
             if (choices.size > 1) {
-                Modifier.clickable(role = Role.Button, onClickLabel = stringResource(R.string.chat_pick_send_network)) {
+                ring.clickable(role = Role.Button, onClickLabel = stringResource(R.string.chat_pick_send_network)) {
                     open = true
                 }
             } else {
-                Modifier
+                ring
             },
         )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {

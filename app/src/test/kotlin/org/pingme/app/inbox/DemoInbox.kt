@@ -116,7 +116,7 @@ class DemoInbox(
             .Merges(chats, merges, contacts)
     val contactChats =
         org.pingme.core.service.merge
-            .ContactChats(org.pingme.core.connector.AddressBook.None, accounts, contacts, actions)
+            .ContactChats(org.pingme.core.connector.AddressBook.None, accounts, contacts, actions, chats)
     val pins = PinnedMessageRepository(db)
     val scheduledSends =
         org.pingme.core.store

@@ -3,6 +3,7 @@ package org.pingme.core.service
 
 import org.pingme.core.connector.ChatSnapshot
 import org.pingme.core.connector.ConnectorEvent
+import org.pingme.core.connector.Diag
 import org.pingme.core.connector.MessageSnapshot
 import org.pingme.core.connector.accountId
 import org.pingme.core.connector.remoteId
@@ -68,6 +69,7 @@ class EventApplier
                 is ConnectorEvent.ChatRemoved -> {
                     // Written to the phone's log: chats vanishing is being chased (owner, 2026-10-04).
                     android.util.Log.i(TAG, "Removed chat ${event.chatId.value} at the network's word")
+                    Diag.note(TAG, "Removed chat ${event.chatId.value} at the network's word")
                     chats.delete(event.chatId)
                 }
 
@@ -170,10 +172,9 @@ class EventApplier
             snapshot.participants.forEach { people.remember(it) }
             val existing = chats.get(snapshot.id)
             if (existing != null && existing.folder != snapshot.folder) {
-                android.util.Log.i(
-                    TAG,
-                    "Chat ${snapshot.id.value} '${snapshot.title}' moves ${existing.folder} -> ${snapshot.folder}",
-                )
+                val move = "Chat ${snapshot.id.value} moves ${existing.folder} to ${snapshot.folder}: ${snapshot.title}"
+                android.util.Log.i(TAG, move)
+                Diag.note(TAG, move)
             }
             val merged = existing?.withSnapshot(snapshot) ?: snapshot.toNewChat()
             chats.upsert(merged.copy(title = people.titleFor(snapshot), unreadCount = unreadFor(existing, snapshot)))
@@ -210,6 +211,7 @@ class EventApplier
             val hiddenAt = chats.hiddenAt(chatId) ?: return false
             if (at <= hiddenAt) {
                 android.util.Log.i(TAG, "Dropped for chat ${chatId.value}: hidden here at $hiddenAt, this is from $at")
+                Diag.note(TAG, "Dropped for chat ${chatId.value}: hidden here at $hiddenAt, this is from $at")
                 return true
             }
             chats.unhide(chatId)

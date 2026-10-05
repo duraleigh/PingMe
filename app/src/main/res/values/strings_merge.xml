@@ -42,6 +42,7 @@
     <string name="send_hint_gmessages">Send a Google Message</string>
     <string name="send_hint_sms">Send a text</string>
     <string name="send_hint_whatsapp">Send a WhatsApp message</string>
+    <string name="send_hint_disconnected">%1$s is not connected; the message will wait</string>
     <string name="send_hint_instagram">Send an Instagram DM</string>
     <string name="send_hint_signal">Send a Signal</string>
     <string name="send_hint_telegram">Send a Telegram</string>

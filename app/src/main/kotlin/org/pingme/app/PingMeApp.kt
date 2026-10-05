@@ -24,6 +24,8 @@ class PingMeApp :
 
     override fun onCreate() {
         super.onCreate()
+        // PingMe's own diagnostic file, read over wireless debugging when a fault needs chasing.
+        org.pingme.core.connector.Diag.dir = java.io.File(filesDir, "diag")
         // With PingMe on screen a message makes its sound and nothing lands in the shade (owner, Gate G3).
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             object : DefaultLifecycleObserver {

@@ -76,6 +76,8 @@ class ComposerHooks(
     val members: List<MemberChip> = emptyList(),
     val sendVia: ChatId? = null,
     val onSendVia: (ChatId) -> Unit = {},
+    /** The sending account is connected; false red-lines the badge and says so in the box. */
+    val connected: Boolean = true,
 )
 
 /** What a message row needs besides the message. */

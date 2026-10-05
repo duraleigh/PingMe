@@ -127,6 +127,9 @@ internal fun composerHooks(
     members = state.members,
     sendVia = state.sendVia,
     onSendVia = viewModel::sendVia,
+    connected =
+        state.members.firstOrNull { it.chatId == state.sendVia }?.connected
+            ?: (state.account?.state is org.pingme.core.model.ConnectionState.Connected),
     onProblem = { problem ->
         onNotice(
             when (problem) {

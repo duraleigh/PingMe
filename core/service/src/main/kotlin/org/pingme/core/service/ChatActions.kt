@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import org.pingme.core.connector.Connector
 import org.pingme.core.connector.ConnectorRegistry
+import org.pingme.core.connector.Diag
 import org.pingme.core.connector.UnsupportedCapabilityException
 import org.pingme.core.connector.accountId
 import org.pingme.core.model.AccountId
@@ -136,6 +137,7 @@ class ChatActions
             try {
                 connector.markRead(id, newest)
                 Log.i(TAG, "Read marker sent to $network for ${id.value}")
+                Diag.note(TAG, "Read marker sent to $network for ${id.value}")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: UnsupportedCapabilityException) {

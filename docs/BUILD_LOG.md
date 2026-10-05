@@ -3546,9 +3546,54 @@ longer exist). Please check, in this order:
     stay out of All and under the General list. A video taken in the chat and kept
     plays as an ordinary video.
 
-Known gaps, not hidden: Messenger one-to-one chats show names but no messages until the
-encrypted channel is built (first work after this gate); WhatsApp, Telegram, and Signal
-profile photos are not fetched yet (contact photos cover most people); the box badge does
-not yet mark a disconnected account; how a merged row is marked is still the owner's call;
-the demo network cannot show a merge on the emulator; whether Google Voice, Messenger,
-and Meet dial at once or open the app is an open question until tried on the phone.
+Known gaps, not hidden: Messenger one-to-one chats hold no past messages (the encrypted
+channel is built; Messenger keeps that history only in its own secure backup); how a
+merged row is marked is still the owner's call; the demo network cannot show a merge on
+the emulator; whether Google Voice, Messenger, and Meet dial at once or open the app is
+an open question until tried on the phone.
+
+### Owner notes of 2026-10-05, 8:40 AM: photos, the box badge, the diagnostic file, the merge tap
+
+The owner: "The Whatsapp, telegram, and signal profile photos.... that's your
+responsibility. Why have you not already done it?" Done in this step, all three:
+
+- **WhatsApp.** After the contact list arrives, the session asks WhatsApp for the profile
+  picture of each one-to-one chat partner that has none yet (up to 80 a connection, one
+  request at a time, the small preview size) and reports the people again with the
+  picture's address every ten found. People who hide their picture are simply left as
+  they were. Pictures are kept by the app's avatar saver like Instagram's.
+- **Telegram.** Each user Telegram tells the session about has their small profile photo
+  downloaded once (two at a time), copied beside the account's other files under
+  `avatars/<user id>.jpg`, and the person reported again with the path. Telegram's own
+  store keeps the original.
+- **Signal.** The Go bridge writes the contact list's picture for each person beside
+  the account's store under `avatars/<id>.jpg`, and when a person has only a profile
+  picture it fetches and decrypts that in the background, then reports the contact
+  list again. Members carry an `avatar` field the Kotlin side keeps.
+
+"The box badge marking a disconnected account.... I don't even know what that means."
+It is the rule in UI_DESIGN.md 10.15: in a merged chat the badge inside the box names
+the network the message goes on, and when that account is disconnected the badge gets
+a red ring and the box says "WA is not connected; the message will wait". Built now,
+for merged and plain chats alike.
+
+"The Instagram general misfiring is something you were supposed to fix yourself
+already." The fault has not shown itself while the log was being read, and the phone's
+log is gone by the time debugging is on. So PingMe now keeps its own small diagnostic
+file on the phone: `files/diag/pingme.log`, half a megabyte and the one before it,
+holding chat removals, folder moves, dropped messages, read markers, and Instagram's
+folder and thread-gone events. Nothing leaves the phone (DESIGN.md 6.5). When the
+misfiling happens again, the owner turns wireless debugging on at any later time and
+the file says which event moved the chat. Added as `Diag` in the connector API module
+so every connector can write to it.
+
+"When I accept a merge suggestion by tapping 'merge' I get the error 'pick at least two
+chats to merge'... go back to tap 'merge' again, it goes through fine." A contact-only
+suggestion starts a Google Messages chat for the number first, and the merge ran before
+the chat row was stored. The merge now waits for the row (up to five seconds) before
+joining, so the first tap goes through.
+
+Test on the phone: pictures appear on WhatsApp, Telegram, and Signal rows within a
+minute of connecting (people with hidden pictures keep their initials); a merge
+suggestion merges on the first tap; turning Wi-Fi off and opening a chat shows the red
+ring and the "not connected" hint in the box.
