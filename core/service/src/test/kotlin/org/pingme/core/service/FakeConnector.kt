@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger
 /** A scriptable connector for testing the service. Not the demo network (that is P1.5). */
 class FakeConnector : Connector {
     override val network = NetworkId.DEMO
-    override val capabilities =
+    override var capabilities =
         Capabilities(
             reply = ReplyRule.NATIVE,
             deleteForMe = true,

@@ -93,6 +93,16 @@ class MessageActions
             forceSms: Boolean = false,
             attachments: List<OutgoingAttachment> = emptyList(),
         ): Message {
+            // A network that carries one picture per message gets one message per picture:
+            // the text rides with the first (owner, 2026-10-05: Google Messages dropped the
+            // second of two screenshots sent together).
+            val limit = connectorFor(chatId)?.capabilities?.attachmentsPerMessage ?: Int.MAX_VALUE
+            if (attachments.size > limit) {
+                val pieces = attachments.chunked(limit)
+                val first = send(chatId, text, replyTo, replyToName, forceSms, pieces.first())
+                pieces.drop(1).forEach { send(chatId, "", null, null, forceSms, it) }
+                return first
+            }
             val network = networkOf(chatId)
             val text = cleaned(text)
             val pending =

@@ -31,6 +31,12 @@ data class Capabilities(
     val block: Boolean,
     val multiAccount: Boolean,
     val calls: CallRule,
+    /**
+     * How many pictures or files one message can carry. Google Messages keeps one per
+     * message and drops the rest (owner, 2026-10-05: two screenshots sent, one arrived), so
+     * the service sends a draft with more as that many messages.
+     */
+    val attachmentsPerMessage: Int = Int.MAX_VALUE,
 )
 
 /** How long after sending an action stays available. */

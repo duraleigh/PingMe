@@ -3775,3 +3775,17 @@ shrink to one line as the owner asked on 2026-10-04.
 both IG and GM are reconnecting." The chip under the bar and the pill in the bar now
 name every account in that state ("Instagram, Google Messages reconnecting"); a tap
 still goes to the worst one.
+
+### Owner note of 2026-10-05, 11:41 AM: two pictures sent in Google Messages, one arrived
+
+"I attached two images... according to the recipient only one of them came through."
+The phone's log: PingMe sent one message carrying two pictures (11:39:41, media=2); the
+copy Google handed back had one (11:40:36, media=1). Google Messages keeps one picture
+per message and drops the rest, which is why the Messages app itself sends each picture
+as its own message. The stand-in bubble showed both; the network's copy then replaced
+it with one picture that had no file on the phone, hence the empty box.
+
+Fixed: a connector now says how many attachments one message can carry (Google
+Messages: one), and the service sends a draft with more as that many messages, the
+text riding with the first. Each gets its own stand-in and its own echo, so the bubbles
+match what was sent.

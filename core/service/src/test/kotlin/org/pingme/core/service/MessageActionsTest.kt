@@ -126,6 +126,32 @@ class MessageActionsTest : ServiceTest() {
         }
 
     @Test
+    fun aNetworkThatCarriesOnePictureAMessageGetsOneMessagePerPicture() =
+        runTest {
+            // Google Messages keeps one picture per message and drops the rest (owner,
+            // 2026-10-05: two screenshots sent, one arrived).
+            seed()
+            connector.capabilities = connector.capabilities.copy(attachmentsPerMessage = 1)
+            val one = File.createTempFile("one", ".jpg").apply { writeBytes(ByteArray(PHOTO_BYTES)) }
+            val two = File.createTempFile("two", ".jpg").apply { writeBytes(ByteArray(PHOTO_BYTES)) }
+            val files =
+                listOf(one, two).map { OutgoingAttachment(it.path, "image/jpeg", AttachmentKind.IMAGE, it.name, null) }
+            val drafts = mutableListOf<OutgoingMessage>()
+            connector.sendResult = { draft ->
+                drafts += draft
+                SendResult.Failed("No signal", retryable = true)
+            }
+            val first = actions.send(chatId, "two options", attachments = files)
+            assertEquals(2, drafts.size)
+            assertEquals("two options", drafts[0].body)
+            assertEquals(listOf(files[0]), drafts[0].attachments)
+            assertEquals(null, drafts[1].body)
+            assertEquals(listOf(files[1]), drafts[1].attachments)
+            assertEquals("two options", first.body)
+            assertEquals(1, first.attachments.size)
+        }
+
+    @Test
     fun aPhotoShowsOnItsPendingBubbleAndGoesAgainOnRetry() =
         runTest {
             seed()
