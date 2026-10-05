@@ -3652,3 +3652,15 @@ The red "Some text will be hard to read" card in Appearance is gone, and UI_DESI
 7 and 10.1 now say the preview is the check and there is no contrast warning. The
 contrast arithmetic stays in the theme module (black-or-white text on a picked colour
 still uses it); only the card is removed.
+
+### Owner note of 2026-10-05, 9:14 AM: unread on the bottom bar by label colour
+
+"Instead of placing that little dot on an icon when a network has an unread message...
+make the font of the title of that network display in the color assigned to the network
+in appearance settings... If there are unread messages in one of the networks/spaces
+that overflow into the More section, print the word 'More' in the current color of the
+phone's theme." Done: the dots are gone from the bar, the rail, and the list behind
+More. A network's label takes its bubble colour from Appearance while it has unread
+messages; All, Unread, a space, and Low priority take the theme's primary colour (a
+space has no network colour, so it takes the theme's, the same as More); More takes the
+theme's primary colour when anything behind it is unread. UI_DESIGN.md 3.1 updated.

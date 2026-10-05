@@ -115,8 +115,13 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   confirmation) for all of them at once (owner, Gate G3).
 - **Bottom bar**: its items are spaced evenly and centred across the full width. It holds
   five positions: four chosen as section 10.4 describes, and a fixed fifth, **More**, which
-  opens a list of every filter and space not in the bar, each with its unread dot (owner,
-  2026-10-03).
+  opens a list of every filter and space not in the bar (owner, 2026-10-03). Unread is
+  said by the label's colour, not a dot (owner, 2026-10-05): a network with unread
+  messages shows its name in that network's bubble colour from Appearance ("Google
+  Messages" in the Google Messages colour, "WhatsApp" in WhatsApp's, and so on); All,
+  Unread, a space, or Low priority with unread messages shows its name in the theme's
+  primary colour; and **More** shows in the theme's primary colour when anything behind it
+  is unread. The list behind More colours its entries the same way.
 - **Swipe actions**: left and right swipes are user-assignable from Pin or unpin, Archive,
   Mute or unmute, Mark read or unread, Low priority, Delete. Each direction can be
   set independently, and either can be turned off.

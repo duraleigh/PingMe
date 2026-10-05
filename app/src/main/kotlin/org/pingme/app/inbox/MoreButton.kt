@@ -2,23 +2,22 @@
 package org.pingme.app.inbox
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import org.pingme.core.model.Account
+import org.pingme.core.model.Transport
+import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
 
 /**
@@ -41,7 +40,7 @@ internal fun MoreButton(
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             more.forEach { entry ->
                 DropdownMenuItem(
-                    text = { Text(barLabel(entry, accounts)) },
+                    text = { Text(barLabel(entry, accounts), color = unreadColour(entry)) },
                     leadingIcon = { BarIcon(entry) },
                     trailingIcon = {
                         if (entry.item == selected) Icon(painterResource(UiR.drawable.ic_check), null)
@@ -56,18 +55,39 @@ internal fun MoreButton(
     }
 }
 
-// More shows a dot when anything behind it is unread.
+// Unread behind More is said by its label's colour (owner, 2026-10-05), not a dot.
 @Composable
-internal fun MoreIcon(more: List<BarEntry>) {
-    BadgedBox(badge = { if (more.any { it.badge > 0 }) Badge(Modifier.size(MORE_DOT)) }) {
-        Icon(painterResource(UiR.drawable.ic_apps), null)
+internal fun MoreIcon() {
+    Icon(painterResource(UiR.drawable.ic_apps), null)
+}
+
+/**
+ * The colour a bar label takes while its list holds unread messages (owner, 2026-10-05):
+ * a network's label in that network's bubble colour from Appearance, and any other list
+ * (All, Unread, a space, Low priority) in the theme's primary colour. Unspecified when
+ * nothing is unread, so the label reads in the bar's usual colour.
+ */
+@Composable
+internal fun unreadColour(entry: BarEntry): Color {
+    if (entry.badge <= 0) return Color.Unspecified
+    val item = entry.item
+    return if (item is InboxBarItem.Network) {
+        PingMeTheme.networkColors.outgoing(item.network, Transport.NETWORK).container
+    } else {
+        MaterialTheme.colorScheme.primary
     }
 }
 
-private val MORE_DOT = 8.dp
+/** More reads in the theme's colour while anything behind it is unread (owner, 2026-10-05). */
+@Composable
+internal fun moreColour(more: List<BarEntry>): Color =
+    if (more.any { it.badge > 0 }) MaterialTheme.colorScheme.primary else Color.Unspecified
 
 // Long names ("Low priority", "Google Messages") wrap to a second line (owner, 2026-10-04).
 @Composable
-internal fun BarLabel(text: String) {
-    Text(text, maxLines = 2, textAlign = TextAlign.Center)
+internal fun BarLabel(
+    text: String,
+    colour: Color = Color.Unspecified,
+) {
+    Text(text, color = colour, maxLines = 2, textAlign = TextAlign.Center)
 }

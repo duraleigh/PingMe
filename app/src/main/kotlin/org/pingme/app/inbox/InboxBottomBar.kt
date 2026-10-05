@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -76,7 +74,7 @@ fun InboxBottomBar(
                     selected = entry.item == selected,
                     onClick = { actions.onSelect(entry.item) },
                     icon = { BarIcon(entry) },
-                    label = { BarLabel(barLabel(entry, accounts)) },
+                    label = { BarLabel(barLabel(entry, accounts), unreadColour(entry)) },
                     modifier = narrowMenu,
                 )
             }
@@ -85,8 +83,8 @@ fun InboxBottomBar(
             ShortNavigationBarItem(
                 selected = inMore,
                 onClick = open,
-                icon = { MoreIcon(more) },
-                label = { BarLabel(stringResource(R.string.bar_more)) },
+                icon = { MoreIcon() },
+                label = { BarLabel(stringResource(R.string.bar_more), moreColour(more)) },
             )
         }
     }
@@ -110,7 +108,7 @@ fun InboxRail(
                     selected = entry.item == selected,
                     onClick = { actions.onSelect(entry.item) },
                     icon = { BarIcon(entry) },
-                    label = { BarLabel(barLabel(entry, accounts)) },
+                    label = { BarLabel(barLabel(entry, accounts), unreadColour(entry)) },
                     railExpanded = false,
                     modifier = narrowMenu,
                 )
@@ -120,8 +118,8 @@ fun InboxRail(
             WideNavigationRailItem(
                 selected = inMore,
                 onClick = open,
-                icon = { MoreIcon(more) },
-                label = { BarLabel(stringResource(R.string.bar_more)) },
+                icon = { MoreIcon() },
+                label = { BarLabel(stringResource(R.string.bar_more), moreColour(more)) },
                 railExpanded = false,
             )
         }
@@ -226,17 +224,16 @@ private fun narrowingLabel(
         }
     }
 
-// Unread shows as a small dot, not a count (owner, Gate G3: the numbers were loud).
+// Unread is said by the label's colour, not a dot or a count (owner, 2026-10-05; Gate G3:
+// the numbers were loud): see [unreadColour].
 @Composable
 internal fun BarIcon(entry: BarEntry) {
-    BadgedBox(badge = { if (entry.badge > 0) Badge(Modifier.size(UNREAD_DOT)) }) {
-        when (val item = entry.item) {
-            null -> Icon(painterResource(UiR.drawable.ic_forum), null)
-            InboxBarItem.Unread -> Icon(painterResource(UiR.drawable.ic_mark_chat_unread), null)
-            is InboxBarItem.Network -> Icon(painterResource(item.network.lineIcon()), null)
-            is InboxBarItem.Space -> Icon(painterResource((entry.spaceIcon ?: SpaceIcon.SPACE).drawable()), null)
-            InboxBarItem.LowPriority -> Icon(painterResource(UiR.drawable.ic_low_priority), null)
-        }
+    when (val item = entry.item) {
+        null -> Icon(painterResource(UiR.drawable.ic_forum), null)
+        InboxBarItem.Unread -> Icon(painterResource(UiR.drawable.ic_mark_chat_unread), null)
+        is InboxBarItem.Network -> Icon(painterResource(item.network.lineIcon()), null)
+        is InboxBarItem.Space -> Icon(painterResource((entry.spaceIcon ?: SpaceIcon.SPACE).drawable()), null)
+        InboxBarItem.LowPriority -> Icon(painterResource(UiR.drawable.ic_low_priority), null)
     }
 }
 
@@ -403,5 +400,3 @@ fun NewMenu(
 private const val HALF = 0.5f
 
 const val INBOX_BAR = "inbox-bar"
-
-private val UNREAD_DOT = 7.dp
