@@ -385,6 +385,12 @@ func (s *Session) MarkRead(fbid, messageID string, timestamp int64) error {
 	if err != nil {
 		return wrap(err)
 	}
+	// The read watermark is the time of reading, not the message's own: a reaction
+	// that came after the newest message sits past the message's time, and marking read
+	// up to the message alone left the thread unread in Instagram (owner, 2026-10-05).
+	if now := time.Now().UnixMilli(); now > timestamp {
+		timestamp = now
+	}
 	var at slidetypes.MarkReadData
 	at.MessageID = messageID
 	at.MessageTimestampMS.Time = time.UnixMilli(timestamp)

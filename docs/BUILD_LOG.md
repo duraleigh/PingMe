@@ -3473,6 +3473,12 @@ chat PingMe had already read before this morning's fix, when Instagram's marks w
 being dropped, was never told again, so Instagram kept it unread for good. Now opening
 a chat tells its network it is read whether or not PingMe still counts it unread (a
 merged chat tells each member's network); the unread case keeps its existing path.
+**On the phone (6:50 AM build):** opening a chat logs "Read marker sent to INSTAGRAM for
+..." with no failure. **Owner, 7:30 AM: typed messages now read in Instagram; a reaction
+to one of the owner's messages does not.** The mark named the newest message and its
+own time as the watermark, and a reaction that came after it sits past that time. The
+watermark is now the time of reading, so whatever came before the open counts.
+The hex box build (6:46 AM push) installed on the phone at about 7:25 AM.
 
 ### Owner note (2026-10-05, 6:25 AM): hex codes for any colour
 
