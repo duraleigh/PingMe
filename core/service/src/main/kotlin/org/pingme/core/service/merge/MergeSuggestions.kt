@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.core.service.merge
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatId
@@ -48,13 +50,17 @@ class MergeSuggestions
         settings: SettingsRepository,
         contactChats: ContactChats,
     ) {
-        /** The suggestions and the contact offers they and the pickers draw on. */
+        /**
+         * The suggestions and the contact offers they and the pickers draw on. Computed off
+         * the main thread: on it, matching every chat against every contact froze the app
+         * (owner, 2026-10-04, 7:57 PM: "PingMe isn't responding").
+         */
         val proposals: Flow<Proposals> =
             combine(chats.all(), contacts.inChats(), settings.dismissedMerges) { all, people, dismissed ->
                 val offers = contactChats.offers()
                 val found = MergeMatcher.suggest(all, people, offers).filter { it.key !in dismissed }
                 Proposals(found, offers)
-            }
+            }.flowOn(Dispatchers.Default)
 
         val suggestions: Flow<List<MergeSuggestion>> = proposals.map { it.suggestions }
     }
@@ -85,6 +91,7 @@ object MergeMatcher {
             }
         }
         val clustered = groups.all()
+        val index = OfferIndex(offers)
         val inCluster = clustered.flatMap { (members, _) -> members.map { it.id } }.toSet()
         // A chat on its own, or a cluster, with no Google Messages member yet: a phone contact
         // with that person's contact card or name is offered as the text chat to merge with.
@@ -92,7 +99,7 @@ object MergeMatcher {
         return (clustered + lone).mapNotNull { (members, reasons) ->
             val contacts =
                 if (members.none { it.accountId == offers.account }) {
-                    offered(members.flatMap { keys[it.id].orEmpty() }, offers)
+                    index.offered(members.flatMap { keys[it.id].orEmpty() })
                 } else {
                     emptyList()
                 }
@@ -108,24 +115,42 @@ object MergeMatcher {
         val reason: MergeReason,
     )
 
-    /** Offers whose contact card is the person's, else whose name reads the same (one per contact). */
-    private fun offered(
-        keys: List<Pair<MergeReason, String>>,
-        offers: Offers,
-    ): List<Offered> {
-        if (offers.account == null) return emptyList()
-        val contactIds = keys.filter { it.first == MergeReason.CONTACT }.map { it.second }.toSet()
-        val names = keys.filter { it.first == MergeReason.NAME }.map { it.second }.toSet()
-        val seen = HashSet<String>()
-        return offers.list.mapNotNull { offer ->
-            val reason =
-                when {
-                    offer.contactId?.value in contactIds -> MergeReason.CONTACT
-                    NameKey.of(offer.name) in names -> MergeReason.NAME
-                    else -> return@mapNotNull null
+    /** The offers indexed once by contact card and by name key, so each chat's lookup is cheap. */
+    private class OfferIndex(
+        private val offers: Offers,
+    ) {
+        private val byContact = HashMap<String, MutableList<ContactOffer>>()
+        private val byName = HashMap<String, MutableList<ContactOffer>>()
+
+        init {
+            if (offers.account != null) {
+                offers.list.forEach { offer ->
+                    offer.contactId?.let { byContact.getOrPut(it.value) { ArrayList() } += offer }
+                    NameKey.of(offer.name)?.let { byName.getOrPut(it) { ArrayList() } += offer }
                 }
-            if (!seen.add(offer.contactId?.value ?: offer.digits)) return@mapNotNull null
-            Offered(offer, reason)
+            }
+        }
+
+        /** Offers whose contact card is the person's, else whose name reads the same (one per contact). */
+        fun offered(keys: List<Pair<MergeReason, String>>): List<Offered> {
+            if (offers.account == null) return emptyList()
+            val seen = HashSet<String>()
+            val out = ArrayList<Offered>()
+
+            fun take(
+                offer: ContactOffer,
+                reason: MergeReason,
+            ) {
+                if (seen.add(offer.contactId?.value ?: offer.digits)) out += Offered(offer, reason)
+            }
+            keys.forEach { (reason, key) ->
+                when (reason) {
+                    MergeReason.CONTACT -> byContact[key]?.forEach { take(it, MergeReason.CONTACT) }
+                    MergeReason.NAME -> byName[key]?.forEach { take(it, MergeReason.NAME) }
+                    MergeReason.NUMBER -> Unit
+                }
+            }
+            return out
         }
     }
 

@@ -3410,6 +3410,20 @@ second way chats left the list; the folder-event log line will name what filed i
 the next time. The Telegram lines "Removed chat ... at the network's word" at start are
 the old "joined Telegram" notice-only chats being cleared, by design.
 
+### The 7:56 PM build froze the app (owner, 8:20 PM: "No accounts. No messages. Keeps crashing")
+
+No crash: "PingMe isn't responding", first at 7:57 PM, one minute after that build
+started, then on every touch. The contact-offer matching ran on the main thread and
+compared every chat against every contact with the name normalisation done afresh for
+each pair, on every change of the chat list; with hundreds of chats and a thousand
+contacts the main thread never came back, so the screen showed the empty first state
+("No accounts"). Put the 4:31 PM build back on the phone at 8:22 PM so it works again;
+killed the pending build that carried the same code. Fix: the offers are indexed once by
+contact card and by name key, so each chat's lookup is a map read, and the suggestion
+flow runs off the main thread. The next build carries everything from the evening plus
+this. Lesson written down: anything that scales with the address book runs off the main
+thread and is indexed, never nested.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built
