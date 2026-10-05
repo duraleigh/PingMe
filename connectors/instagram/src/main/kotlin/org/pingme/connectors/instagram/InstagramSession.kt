@@ -142,7 +142,45 @@ internal class InstagramSession(
             org.pingme.core.connector.Diag
                 .note(TAG, "Instagram $event")
         }
+        when (event) {
+            is IgEvent.Message -> {
+                noteViewOnce(event.message, "live")
+            }
+
+            is IgEvent.Thread -> {
+                event.thread.messages.forEach { noteViewOnce(it, "listed") }
+            }
+
+            // Typing for a thread PingMe has no chat for would show nowhere (owner, 2026-10-05).
+            is IgEvent.Typing -> {
+                if (!go.knows(event.thread)) {
+                    org.pingme.core.connector.Diag
+                        .note(TAG, "Typing for an unknown thread ${event.thread} from ${event.sender}")
+                }
+            }
+
+            else -> {
+                Unit
+            }
+        }
         return go.translate(event)
+    }
+
+    /**
+     * A view-once message that came without its file goes to the phone's diagnostic file
+     * with everything else Instagram said about it (owner, 2026-10-05: unviewed view-once
+     * photos showed as gone), so the next one tells us what Instagram sends.
+     */
+    private fun noteViewOnce(
+        msg: IgMessage,
+        how: String,
+    ) {
+        if (msg.viewOnceGone.isEmpty()) return
+        org.pingme.core.connector.Diag
+            .note(
+                TAG,
+                "View-once without a file ($how) thread=${msg.thread} id=${msg.id} ${msg.viewOnceGone}: ${msg.raw}",
+            )
     }
 
     /**

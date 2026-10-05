@@ -498,7 +498,9 @@ func (s *Session) handleEvent(ctx context.Context, raw slidetypes.ClientEvent) e
 	case *slidetypes.ResnapshotRequired:
 		s.emit(map[string]any{"type": "resync"})
 	case *slidetypes.TypingNotification:
-		s.emit(map[string]any{"type": "typing", "thread": evt.ThreadID, "sender": strconv.FormatInt(evt.SenderID, 10),
+		// The typing stream names the thread by its long id; chats go by the short one
+		// (owner, 2026-10-05: Instagram typing never showed).
+		s.emit(map[string]any{"type": "typing", "thread": s.fbidFor(evt.ThreadID), "sender": strconv.FormatInt(evt.SenderID, 10),
 			"typing": evt.ActivityStatus != 0})
 	case *slidetypes.Delta:
 		s.handleDelta(evt)
@@ -518,7 +520,13 @@ func (s *Session) handleDelta(d *slidetypes.Delta) {
 		if thread == "" {
 			thread = evt.Message.ThreadFBID
 		}
-		s.emit(map[string]any{"type": "message", "message": convertMessage(evt.Message, thread)})
+		converted := convertMessage(evt.Message, thread)
+		if converted.ViewOnceGone != "" {
+			// The whole live event, for the phone's diagnostic file (owner, 2026-10-05:
+			// unviewed view-once photos arrived as "gone").
+			converted.Raw = clip(string(d.Raw), rawLimit)
+		}
+		s.emit(map[string]any{"type": "message", "message": converted})
 	case *slidetypes.AdminMessageEvent:
 		if evt.Message == nil {
 			return
@@ -597,6 +605,31 @@ func (s *Session) remember(t Thread) Thread {
 }
 
 // idsFor finds the two ids a thread goes by, asking Instagram when a listing has not said.
+// fbidFor turns a thread's long id into the short one chats go by, when the thread is
+// known; any other id is returned as it came.
+func (s *Session) fbidFor(id string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if known := s.ids[id]; known != nil {
+		return id
+	}
+	for fbid, ids := range s.ids {
+		if ids != nil && ids.LongID == id {
+			return fbid
+		}
+	}
+	return id
+}
+
+func clip(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	return s[:limit] + "…"
+}
+
+const rawLimit = 6000
+
 func (s *Session) idsFor(fbid string) (*instameow.ThreadIGIDs, error) {
 	s.mu.Lock()
 	known := s.ids[fbid]

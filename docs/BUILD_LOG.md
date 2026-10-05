@@ -3580,7 +3580,8 @@ for merged and plain chats alike.
 "The Instagram general misfiring is something you were supposed to fix yourself
 already." The fault has not shown itself while the log was being read, and the phone's
 log is gone by the time debugging is on. So PingMe now keeps its own small diagnostic
-file on the phone: `files/diag/pingme.log`, half a megabyte and the one before it,
+file on the phone: `Android/data/org.pingme.app/files/diag/pingme.log`, half a
+megabyte and the one before it,
 holding chat removals, folder moves, dropped messages, read markers, and Instagram's
 folder and thread-gone events. Nothing leaves the phone (DESIGN.md 6.5). When the
 misfiling happens again, the owner turns wireless debugging on at any later time and
@@ -3597,3 +3598,43 @@ Test on the phone: pictures appear on WhatsApp, Telegram, and Signal rows within
 minute of connecting (people with hidden pictures keep their initials); a merge
 suggestion merges on the first tap; turning Wi-Fi off and opening a chat shows the red
 ring and the "not connected" hint in the box.
+
+### Owner notes of 2026-10-05, 8:29 and 8:41 AM: unviewed view-once photos shown as gone; no Instagram typing
+
+"These are all ephemeral photos that are still unviewed in Instagram. PingMe has not
+populated them at all... And it obviously has not made them permanent as it's supposed
+to." Four view-once photos from one person read "A view-once photo or video that
+Instagram no longer shows" while Instagram still had them unviewed.
+
+What the code says: the bridge calls a view-once message gone whenever Instagram's copy
+of it carries no attachment, which is also how the reference bridge (mautrix-meta
+v0.2609.0) reads it. Two things were wrong on PingMe's side and are fixed here:
+
+- **A held file was being thrown away.** When Instagram hands the same message back
+  later without its attachment (the start-up listing, or the page fetched to mark the
+  chat read), the service overwrote the stored message wholesale: the picture PingMe
+  had already fetched, and its kind, were replaced by the "no longer shows" line. Now
+  a message that already holds a view-once file keeps its file, kind, and body when a
+  copy without attachments arrives.
+- **Nothing recorded what Instagram actually sent.** The library's "unknown fields" map
+  turned out to stay empty (its tag is not one the JSON parser honours), so the bridge
+  now keeps the whole live event (up to 6,000 characters) on a file-less view-once
+  message, and the connector writes it, and the message's content type, to the
+  diagnostic file: "View-once without a file (live|listed) thread=… id=…: …". If
+  Instagram delivers the bytes some other way for an unviewed photo, the next one will
+  show it, and the bridge can be taught to fetch it. If the record shows nothing but
+  the view mode, Instagram is not giving the web client the file, and the design table
+  in UI_DESIGN.md 10.16 will be corrected to say so.
+
+"Instagram is also not showing typing indicators in PingMe, even though they do show in
+the Instagram app itself." The typing stream names the thread by its long id (the
+24-digit one), while PingMe's chats go by the short thread id, so every typing event
+landed on a chat that does not exist. The bridge now maps a known long id to its short
+one before reporting typing. A typing event for a thread PingMe still does not know is
+written to the diagnostic file so the cause is visible if it is something else.
+
+Test on the phone: someone typing in an Instagram chat shows the dots in PingMe; a new
+view-once photo either shows (and stays) or leaves a "View-once without a file" line in
+the diagnostic file for me to read (`adb pull
+/sdcard/Android/data/org.pingme.app/files/diag/pingme.log`; the 8:45 AM build wrote it
+to private storage, which debugging cannot read, so this build moves it).

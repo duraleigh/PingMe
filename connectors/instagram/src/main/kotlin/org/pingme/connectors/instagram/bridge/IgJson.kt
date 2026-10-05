@@ -67,6 +67,8 @@ data class IgMessage(
     val viewOnce: Boolean = false,
     val viewOnceGone: String = "",
     val unsent: Boolean = false,
+    /** What Instagram sent for a view-once message without a file, for the diagnostic file. */
+    val raw: String = "",
 )
 
 @Serializable

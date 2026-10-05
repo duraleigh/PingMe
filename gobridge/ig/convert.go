@@ -3,6 +3,7 @@
 package ig
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 
@@ -67,7 +68,10 @@ type Message struct {
 	ViewOnce  bool       `json:"viewOnce"`
 	// View-once media Instagram will not hand out again ("viewed", "replayed").
 	ViewOnceGone string `json:"viewOnceGone,omitempty"`
-	Unsent       bool   `json:"unsent"`
+	// What Instagram sent for a view-once message that came without a file, for the phone's
+	// diagnostic file (owner, 2026-10-05: unviewed view-once photos arrived as "gone").
+	Raw    string `json:"raw,omitempty"`
+	Unsent bool   `json:"unsent"`
 }
 
 // Media is one picture, video, GIF, voice note, or sticker: the address to fetch it from.
@@ -231,9 +235,11 @@ func fill(out *Message, msg *slidetypes.Message) {
 	case *slidetypes.MessageContentRavenImage:
 		out.Kind = "image"
 		raven(out, content.Attachment, content.ViewMode, "image")
+		noteGone(out, msg, content.Unrecognized)
 	case *slidetypes.MessageContentRavenVideo:
 		out.Kind = "video"
 		raven(out, content.Attachment, content.ViewMode, "video")
+		noteGone(out, msg, content.Unrecognized)
 	case *slidetypes.MessageContentAudio:
 		out.Kind = "voice"
 		for _, a := range content.AudioAttachments {
@@ -312,6 +318,26 @@ func raven(out *Message, a *slidetypes.Attachment, mode slidetypes.RavenViewMode
 		media.URL = a.PreviewCDNURL
 	}
 	out.Media = append(out.Media, media)
+}
+
+// noteGone keeps whatever else Instagram said about a view-once message that came without
+// a file: the fields the library does not know, on the content and on the message, plus
+// the message's content type. The phone's diagnostic file shows them, so the next such
+// message says what Instagram actually sends for an unviewed one.
+func noteGone(out *Message, msg *slidetypes.Message, content map[string]any) {
+	if out.ViewOnceGone == "" {
+		return
+	}
+	raw := map[string]any{"contentType": msg.ContentType, "typename": msg.Typename}
+	if len(content) > 0 {
+		raw["content"] = content
+	}
+	if len(msg.Unrecognized) > 0 {
+		raw["message"] = msg.Unrecognized
+	}
+	if b, err := json.Marshal(raw); err == nil {
+		out.Raw = string(b)
+	}
 }
 
 func convertShare(x *slidetypes.XMAContent) *Share {

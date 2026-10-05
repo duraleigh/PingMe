@@ -4,6 +4,8 @@ package ig
 
 import (
 	"encoding/json"
+	"go.mau.fi/mautrix-meta/pkg/instameow"
+	"strings"
 	"testing"
 
 	"go.mau.fi/mautrix-meta/pkg/instameow/slidetypes"
@@ -59,6 +61,16 @@ func TestMediaAndSharesFlatten(t *testing.T) {
 	if got := convertMessage(gone, "T"); got.Kind != "image" || !got.ViewOnce || got.ViewOnceGone == "" {
 		t.Fatalf("view-once wrong: %+v", got)
 	}
+	// What Instagram called a file-less view-once message is kept for the phone's
+	// diagnostic file (owner, 2026-10-05: unviewed photos arrived as "gone").
+	unseen := parseMessage(t, `{"message_id": "M8", "sender_fbid": "2", "timestamp_ms": "1", "content_type": "raven", "content": {
+		"__typename": "SlideMessageRavenImageContent", "view_mode": 0, "attachment": null}}`)
+	if got := convertMessage(unseen, "T"); !strings.Contains(got.Raw, `"contentType":"raven"`) {
+		t.Fatalf("raw wrong: %q", got.Raw)
+	}
+	if got := convertMessage(picture, "T"); got.Raw != "" {
+		t.Fatalf("raw kept for an ordinary picture: %q", got.Raw)
+	}
 	// A video taken in the chat and kept (view mode 2) is an ordinary video, not ephemeral,
 	// even when the live event carries no address yet: the id fetches one later
 	// (owner, 2026-10-04: a kept video read as "view-once ... no longer shows").
@@ -100,5 +112,21 @@ func TestThreadsCarryFoldersPeopleAndMessages(t *testing.T) {
 	}
 	if len(thread.Messages) != 1 || thread.Messages[0].Text != "hi" {
 		t.Fatalf("messages wrong: %+v", thread.Messages)
+	}
+}
+
+func TestTypingThreadsGoByTheShortID(t *testing.T) {
+	s := &Session{ids: map[string]*instameow.ThreadIGIDs{"340": {LongID: "340282366841710300949128", ShortID: "340"}}}
+	if got := s.fbidFor("340282366841710300949128"); got != "340" {
+		t.Fatalf("long id not mapped: %q", got)
+	}
+	if got := s.fbidFor("340"); got != "340" {
+		t.Fatalf("short id changed: %q", got)
+	}
+	if got := s.fbidFor("999"); got != "999" {
+		t.Fatalf("unknown id changed: %q", got)
+	}
+	if got := clip("abcdef", 3); got != "abc…" {
+		t.Fatalf("clip wrong: %q", got)
 	}
 }

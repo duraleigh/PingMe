@@ -313,7 +313,7 @@ class EventApplier
         }
 
         private suspend fun saveMessage(snapshot: MessageSnapshot) {
-            val message = withQuote(snapshot.message)
+            val message = withQuote(messages.keepingHeldViewOnce(snapshot.message))
             if (chats.get(message.chatId) == null && hiddenHere(message.chatId, message.sentAt)) return
             // Through the people step, or a message's sender would overwrite the person's
             // downloaded picture with the network's link again (owner, 2026-10-04: photos gone).
@@ -422,3 +422,17 @@ private fun ChatSnapshot.toNewChat() =
     )
 
 private const val TAG = "PingMeApplier"
+
+/**
+ * A view-once picture or video PingMe already holds stays held: when the network hands
+ * the same message back later without its file (Instagram lists a view-once message as
+ * gone once it has been fetched), the stored copy keeps its file, kind, and body instead
+ * of turning into "no longer shows" (owner, 2026-10-05; UI_DESIGN.md 10.16: ephemeral
+ * media is saved wherever the network delivers it).
+ */
+private suspend fun MessageRepository.keepingHeldViewOnce(message: Message): Message {
+    if (message.attachments.isNotEmpty()) return message
+    val stored = get(message.id) ?: return message
+    if (stored.attachments.none { it.isEphemeral }) return message
+    return message.copy(kind = stored.kind, body = stored.body, attachments = stored.attachments)
+}

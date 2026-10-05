@@ -347,6 +347,48 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun aHeldViewOncePictureSurvivesTheNetworkListingItAsGone() =
+        runTest {
+            seed()
+            val held =
+                Attachment(
+                    accountId.attachment("c1/v1/0"),
+                    AttachmentKind.IMAGE,
+                    "image/jpeg",
+                    null,
+                    0,
+                    "/data/v1.jpg",
+                    "ref",
+                    null,
+                    null,
+                    null,
+                    true,
+                    null,
+                )
+            val first = messageSnapshot("v1")
+            applier.apply(
+                ConnectorEvent.NewMessage(
+                    accountId,
+                    first.copy(
+                        message =
+                            first.message.copy(
+                                body = null,
+                                kind = org.pingme.core.model.MessageKind.IMAGE,
+                                attachments = listOf(held),
+                            ),
+                    ),
+                ),
+            )
+            applier.apply(
+                ConnectorEvent.NewMessage(accountId, messageSnapshot("v1", body = "A view-once photo that is gone")),
+            )
+            val stored = messages.get(accountId.message("v1"))!!
+            assertEquals(listOf(held), stored.attachments)
+            assertEquals(org.pingme.core.model.MessageKind.IMAGE, stored.kind)
+            assertNull(stored.body)
+        }
+
+    @Test
     fun aMessageForAnUnknownChatStillLands() =
         runTest {
             accounts.upsert(account())
