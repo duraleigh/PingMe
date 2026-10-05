@@ -3804,3 +3804,11 @@ changed in the send itself until that is known.
 CI, 12:00 PM: one run failed on the Facebook Page contract test that disconnects while
 the poll loop is running: the loop tried to send after the stream had closed. The loop
 now treats that as the end of the stream.
+
+### Owner note of 2026-10-05, 2:30 PM: the avatar in an Instagram chat opens the profile
+
+"When in an Instagram network chat, touching the contact's avatar in the top bar should
+open up their Instagram profile page." Done: in a direct Instagram chat (or a merged chat
+sending on Instagram) the header's avatar opens instagram.com/<username>, which the
+Instagram app takes over; the name still opens Chat details. A person known only by a
+numeric id has no page. UI_DESIGN.md 10.17 updated.

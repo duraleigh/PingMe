@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.chat
 
+import androidx.core.net.toUri
 import org.pingme.app.R
 import org.pingme.app.chat.search.ChatSearchState
 import org.pingme.app.chat.search.SearchHooks
@@ -27,11 +28,33 @@ internal fun headerActions(
             CallOutcome.UNAVAILABLE -> onNotice(R.string.chat_calls_unavailable)
         }
     },
+    onProfile =
+        state.profileUrl?.let { url ->
+            { if (!openPage(context, url)) onNotice(R.string.chat_profile_unavailable) }
+        },
 )
+
+/** Opens [url] in whatever handles it (the Instagram app for a profile page); false when nothing can. */
+private fun openPage(
+    context: android.content.Context,
+    url: String,
+): Boolean =
+    try {
+        context.startActivity(
+            android.content
+                .Intent(android.content.Intent.ACTION_VIEW, url.toUri())
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        true
+    } catch (_: android.content.ActivityNotFoundException) {
+        false
+    } catch (_: SecurityException) {
+        false
+    }
 
 /** The same header actions, with the name and "Chat details" opening [onDetails]. */
 internal fun HeaderActions.copyWithDetails(onDetails: (() -> Unit)?) =
-    HeaderActions(onBack, onCall, onDetails, onSearch, onFilter)
+    HeaderActions(onBack, onCall, onDetails, onSearch, onFilter, onProfile)
 
 /** Search in chat: picking a result or a date closes search and jumps there (UI_DESIGN.md 10.14). */
 internal fun searchHooks(

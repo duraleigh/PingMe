@@ -874,6 +874,9 @@ it does not, PingMe cannot save what it never receives. Current state per networ
 ### 10.17 Chat header: name, info, calls
 
 - **Tapping the name** opens Chat details (section 3.4).
+- **Tapping the avatar** in an Instagram chat opens the person's Instagram profile page,
+  in the Instagram app where it is installed (owner, 2026-10-05). A person PingMe knows
+  only by a numeric id has no page, and the avatar does nothing.
 - **An info button** in Chat details opens the person's card in the phone's contacts
   app, via the contact lookup Android provides, for anyone matched to a contact.
   Unmatched people get "Add to contacts".

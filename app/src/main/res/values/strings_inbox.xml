@@ -148,6 +148,8 @@
     <string name="status_failed">Not sent</string>
     <string name="status_scheduled">Scheduled</string>
     <string name="chat_details">Chat details</string>
+    <string name="chat_open_profile">Open their Instagram profile</string>
+    <string name="chat_profile_unavailable">Nothing on this phone can open an Instagram profile</string>
     <string name="chat_search">Search in chat</string>
     <string name="chat_more">More</string>
     <string name="chat_call">Call</string>

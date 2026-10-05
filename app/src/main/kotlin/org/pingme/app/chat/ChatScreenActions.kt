@@ -22,6 +22,8 @@ class HeaderActions(
     val onSearch: (() -> Unit)? = null,
     /** A merged chat's header dropdown: one member's account, or null for all (owner, Phase 7). */
     val onFilter: ((org.pingme.core.model.AccountId?) -> Unit)? = null,
+    /** The avatar opens the person's page on the network, where there is one (owner, 2026-10-05). */
+    val onProfile: (() -> Unit)? = null,
 )
 
 /** Everything the chat screen can ask its view model for. */

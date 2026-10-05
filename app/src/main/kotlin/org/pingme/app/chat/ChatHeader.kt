@@ -66,7 +66,7 @@ fun ChatHeader(
             } else {
                 Spacer(Modifier.width(12.dp))
             }
-            TitleBlock(state, actions.onDetails, Modifier.weight(1f), actions.onFilter)
+            TitleBlock(state, actions.onDetails, Modifier.weight(1f), actions.onFilter, actions.onProfile)
             CallButtons(state, actions.onCall)
             Overflow(actions)
         }
@@ -129,8 +129,17 @@ private fun TitleBlock(
     onDetails: (() -> Unit)?,
     modifier: Modifier = Modifier,
     onFilter: ((org.pingme.core.model.AccountId?) -> Unit)? = null,
+    onProfile: (() -> Unit)? = null,
 ) {
     val details = stringResource(R.string.chat_details)
+    val profile = stringResource(R.string.chat_open_profile)
+    // The avatar opens the person's Instagram page (owner, 2026-10-05); the name still opens details.
+    val avatarModifier =
+        if (onProfile != null) {
+            Modifier.clickable(onClickLabel = profile, role = Role.Button, onClick = onProfile)
+        } else {
+            Modifier
+        }
     Row(
         modifier.then(
             if (onDetails !=
@@ -145,7 +154,7 @@ private fun TitleBlock(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (state.faces.isEmpty()) {
-            Avatar(state.title, size = 42.dp, photo = state.photo)
+            Avatar(state.title, size = 42.dp, photo = state.photo, modifier = avatarModifier)
         } else {
             org.pingme.core.ui.components
                 .GroupAvatar(state.faces, state.title, size = 42.dp)

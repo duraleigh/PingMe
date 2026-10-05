@@ -76,6 +76,8 @@ data class ChatUiState(
     val pinned: List<Message> = emptyList(),
     /** The other person's number in a one-to-one chat, for the call icons. */
     val phone: String? = null,
+    /** The other person's Instagram profile page, in an Instagram chat (owner, 2026-10-05). */
+    val profileUrl: String? = null,
     /** The contact's or network's photo for the header (UI_DESIGN.md 10.18). */
     val photo: String? = null,
     /** A group's members for the header's composite avatar (owner, 2026-10-03). */
@@ -425,6 +427,17 @@ class ChatViewModel
                             ?.firstNotNullOfOrNull { id ->
                                 everyone.find { it.id == id }?.phoneNumber
                             },
+                    profileUrl =
+                        c?.let {
+                            instagramProfileUrl(
+                                it.kind,
+                                it.participants,
+                                sendNetwork,
+                                sending?.accountId ?: a?.id,
+                                me,
+                                everyone,
+                            )
+                        },
                     photo =
                         c?.let {
                             org.pingme.app.inbox
@@ -704,3 +717,30 @@ class ChatViewModel
             val TYPING_PAUSE = 5.seconds
         }
     }
+
+/**
+ * The Instagram profile page of the one other person in a direct Instagram chat, or null:
+ * tapping the avatar in the header opens it (owner, 2026-10-05). A person known only by a
+ * numeric id has no page to open.
+ */
+internal fun instagramProfileUrl(
+    kind: org.pingme.core.model.ChatKind,
+    participants: List<PersonId>,
+    network: NetworkId?,
+    accountId: org.pingme.core.model.AccountId?,
+    me: PersonId?,
+    everyone: List<org.pingme.core.model.Person>,
+): String? {
+    if (kind != org.pingme.core.model.ChatKind.DIRECT || network != NetworkId.INSTAGRAM ||
+        accountId == null
+    ) {
+        return null
+    }
+    val handle =
+        participants
+            .filter { it.accountId == accountId && it != me }
+            .firstNotNullOfOrNull { id -> everyone.find { it.id == id }?.networkHandle }
+            ?.takeIf { it.isNotEmpty() && !it.all(Char::isDigit) }
+            ?: return null
+    return "https://www.instagram.com/$handle/"
+}
