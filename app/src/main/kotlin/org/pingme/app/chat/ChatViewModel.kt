@@ -736,11 +736,27 @@ internal fun instagramProfileUrl(
     ) {
         return null
     }
+    val others = participants.filter { it.accountId == accountId && it != me }
     val handle =
-        participants
-            .filter { it.accountId == accountId && it != me }
+        others
             .firstNotNullOfOrNull { id -> everyone.find { it.id == id }?.networkHandle }
             ?.takeIf { it.isNotEmpty() && !it.all(Char::isDigit) }
-            ?: return null
-    return "https://www.instagram.com/$handle/"
+    if (handle == null) noteNoProfile(participants, me, others, everyone)
+    return handle?.let { "https://www.instagram.com/$it/" }
+}
+
+private val notedProfiles = java.util.Collections.synchronizedSet(HashSet<String>())
+
+/** Why an Instagram chat has no profile page, once per chat, for the diagnostic file (owner, 2026-10-05). */
+private fun noteNoProfile(
+    participants: List<PersonId>,
+    me: PersonId?,
+    others: List<PersonId>,
+    everyone: List<org.pingme.core.model.Person>,
+) {
+    val key = participants.joinToString { it.value }
+    if (!notedProfiles.add(key)) return
+    val handles = others.map { id -> "${id.value}=${everyone.find { it.id == id }?.networkHandle}" }
+    org.pingme.core.connector.Diag
+        .note("PingMeChat", "No Instagram profile: me=${me?.value} participants=$key others=$handles")
 }
