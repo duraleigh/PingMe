@@ -3397,6 +3397,19 @@ is their id), named from the contact rows, or fetched from the web by id and ann
 again; and a story reply shows the reply's own text with "Reply to a story" as the card.
 Tests cover the naming.
 
+**On the phone (7:56 PM build):** the channel reconnected with the registered device in
+six seconds; the nameless chat became "Joshua Raifman" from the web listing; his reply
+"Thank you clay :)" arrived over the channel under his name (the first message received
+on it); and his chat shows "Happy birthday" from April 2022, so the web listing does
+still carry the messages from before a chat went encrypted, and the mapping folds them
+in. The web history request itself never fired: it sat on the "older messages" path,
+which only runs when scrolling up, not on the first page. Moved to the first page, so
+every encrypted chat asks once when opened or backfilled. Also seen: Grégory Ellis's
+Instagram chat "moves GENERAL -> PRIMARY" on the listing, so General misfiling was a
+second way chats left the list; the folder-event log line will name what filed it there
+the next time. The Telegram lines "Removed chat ... at the network's word" at start are
+the old "joined Telegram" notice-only chats being cleared, by design.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built

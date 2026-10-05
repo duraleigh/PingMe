@@ -339,6 +339,12 @@ func (s *Session) Messages(threadID, olderThan string) (string, error) {
 		return "", err
 	}
 	if olderThan == "" {
+		// An encrypted chat has no history on the channel; the web side is asked once,
+		// under both of the chat's ids, in case it still holds the messages from before
+		// the chat went encrypted (the reference bridge asks the same way).
+		if t := s.threadAt(key); t != nil && t.jid != 0 {
+			return marshal(s.askWebOnce(t, key))
+		}
 		s.mu.Lock()
 		t := s.threads[key]
 		var known []Message
@@ -351,11 +357,8 @@ func (s *Session) Messages(threadID, olderThan string) (string, error) {
 		}
 		return marshal(known)
 	}
-	// An encrypted chat has no history on the channel; the web side is asked once, under
-	// both of the chat's ids, in case it still holds the messages from before the chat
-	// went encrypted (the reference bridge asks the same way).
 	if t := s.threadAt(key); t != nil && t.jid != 0 {
-		return marshal(s.askWebOnce(t, key))
+		return marshal([]Message{})
 	}
 	if !s.isLive() {
 		return "", ErrNotConnected
