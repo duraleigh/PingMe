@@ -3714,3 +3714,14 @@ reactions and who placed them." Done: the reaction chips under a bubble are a bu
 ("See who reacted"); a tap opens a sheet listing every reaction with the emoji, the
 person's name, and the time, newest first. The owner's own reactions read "You";
 someone PingMe has no name for reads "Someone". UI_DESIGN.md 3.2 updated.
+
+### CI, 2026-10-05, 11:03 AM: the WhatsApp contract test read an empty first page
+
+The reactions build failed one CI run (the other passed) on the WhatsApp contract test
+that pages history backwards: the first page came back empty. Right after connecting,
+the session waits up to ten seconds for the history sync to land before answering a
+first page, but that wait ran on the test clock, which skips delays, so the page was
+read before the fake's history had been processed. The profile-picture fetch added this
+morning runs beside the event loop and widened that window. The wait now runs on the
+real clock, and the picture fetch runs on its own thread pool. Three local runs of the
+WhatsApp tests in a row pass.

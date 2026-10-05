@@ -206,7 +206,9 @@ internal class WhatsappSession(
             val contacts = go.participants(request { session.contacts() })
             go.learnNames(contacts)
             send(ConnectorEvent.PeopleUpdated(accountId, go.people(contacts)))
-            launch { fetchPictures() }
+            // Off the event loop, so the pictures never hold up the messages (2026-10-05: a
+            // contract test read an empty first page once this ran beside it).
+            launch(Dispatchers.IO) { fetchPictures() }
             // Chats an earlier build filed under a hidden id fold into the number's chat.
             go.idPairs(request { session.hiddenIdMap() }).forEach { pair ->
                 send(ConnectorEvent.ChatMerged(accountId, go.chatId(pair.lid), go.chatId(pair.phone)))
@@ -259,10 +261,11 @@ internal class WhatsappSession(
         val chat = chatId.remoteId
         val anchorId = before?.remoteId?.substringAfterLast('/')
         var remembered = go.recentPage(chat, anchorId, limit)
-        // Right after connecting, the history sync is still landing: a first page waits for it a little.
+        // Right after connecting, the history sync is still landing: a first page waits for it a
+        // little, on the real clock (a test clock would skip the wait and read an empty page).
         var waited = 0
         while (before == null && remembered.isNullOrEmpty() && waited < FIRST_PAGE_WAIT_MS) {
-            kotlinx.coroutines.delay(FIRST_PAGE_STEP_MS.toLong())
+            withContext(Dispatchers.Default) { kotlinx.coroutines.delay(FIRST_PAGE_STEP_MS.toLong()) }
             waited += FIRST_PAGE_STEP_MS
             remembered = go.recentPage(chat, null, limit)
         }
