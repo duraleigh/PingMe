@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextReplacement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -83,6 +84,17 @@ class AppearanceScreenTest {
     fun theDefaultLookHasNoWarning() {
         show()
         compose.onNodeWithText("Some text will be hard to read").assertDoesNotExist()
+    }
+
+    @Test
+    fun aTypedHexCodeIsKeptExactly() {
+        // The owner (2026-10-05): "allow me to input HEX codes for any colours".
+        show()
+        scrollTo("Network colours")
+        compose.onNode(hasContentDescription("WhatsApp bubble")).performClick()
+        compose.onNodeWithText("Hex code").performTextReplacement("#FF8800")
+        compose.onNodeWithText("Done").performClick()
+        assertEquals(0xFFFF8800.toInt(), appearance.networkColors[NetworkId.WHATSAPP])
     }
 
     @Test

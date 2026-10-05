@@ -131,6 +131,7 @@
     <!-- Not a count: a value and the most the screen can show at this hue and lightness. -->
     <string name="picker_colourfulness_of" tools:ignore="PluralsCandidate">%1$d of %2$d the screen can show here</string>
     <string name="picker_lightness">Lightness</string>
+    <string name="picker_hex">Hex code</string>
 
     <string name="preview_sam">Sam Ortiz</string>
     <string name="preview_incoming">Are you still coming tonight?</string>

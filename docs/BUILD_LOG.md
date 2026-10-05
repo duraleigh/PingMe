@@ -3474,6 +3474,16 @@ being dropped, was never told again, so Instagram kept it unread for good. Now o
 a chat tells its network it is read whether or not PingMe still counts it unread (a
 merged chat tells each member's network); the unread case keeps its existing path.
 
+### Owner note (2026-10-05, 6:25 AM): hex codes for any colour
+
+Every colour picker in Appearance (seed, manual palette, network bubble and badge, chat
+wallpaper, and the per-chat bubble colour, which all share the one sheet) has a "Hex
+code" box above the sliders. A typed #RRGGBB (with or without the #) sets the colour
+exactly and is kept exactly on Done; the sliders move to its nearest hue, colourfulness,
+and lightness; moving a slider or tapping a quick swatch takes over from the typed code.
+The box shows the current colour's code at all times and marks itself when the text is
+not a code yet. Test: a typed code for WhatsApp's bubble is stored exactly.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built
