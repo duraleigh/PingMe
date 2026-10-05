@@ -4,6 +4,7 @@ package org.pingme.connectors.fbpage
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -62,13 +63,19 @@ internal class FbPageSession(
                 closed.receive()
                 close()
             }
-            while (true) {
-                poll()
-                send(ConnectorEvent.State(accountId, ConnectionState.Polled(Clock.System.now())))
-                select<Unit> {
-                    wake.onReceive { }
-                    onTimeout(pollEvery) { }
+            // A poll racing the close may still try to send after the stream has ended; that is
+            // the end of the stream, not a fault (CI, 2026-10-05: ClosedSendChannelException).
+            try {
+                while (true) {
+                    poll()
+                    send(ConnectorEvent.State(accountId, ConnectionState.Polled(Clock.System.now())))
+                    select<Unit> {
+                        wake.onReceive { }
+                        onTimeout(pollEvery) { }
+                    }
                 }
+            } catch (e: ClosedSendChannelException) {
+                Log.i(TAG, "Polling stopped: the stream is closed (${e.message})")
             }
         }
 

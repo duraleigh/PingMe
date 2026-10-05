@@ -3789,3 +3789,18 @@ Fixed: a connector now says how many attachments one message can carry (Google
 Messages: one), and the service sends a draft with more as that many messages, the
 text riding with the first. Each gets its own stand-in and its own echo, so the bubbles
 match what was sent.
+
+### Owner note of 2026-10-05, 12:00 PM: a reply from the notification shade sent nothing
+
+"Tapping send does dismiss the notification... But it did not. The reply didn't get sent
+and it's not in the chat." The receiver behind the shade's Reply button sends the text
+through the same path as the message box and then marks the chat read, which takes the
+notification down. The phone's log held nothing from the attempt (the log buffer on
+this phone turns over in minutes), so the receiver now writes every step to the
+diagnostic file: the action and chat it got, how many characters, the message it made
+and its status, or the error. The next attempt will say which step failed. Nothing is
+changed in the send itself until that is known.
+
+CI, 12:00 PM: one run failed on the Facebook Page contract test that disconnects while
+the poll loop is running: the loop tried to send after the stream had closed. The loop
+now treats that as the end of the stream.
