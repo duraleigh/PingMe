@@ -3424,6 +3424,19 @@ flow runs off the main thread. The next build carries everything from the evenin
 this. Lesson written down: anything that scales with the address book runs off the main
 thread and is indexed, never nested.
 
+### The 8:25 PM build on the phone (2026-10-05, 4:33 AM)
+
+Installed once wireless debugging came back; started by me, with PingMe brought to the
+front and looked at: Connected, every network listed, chats and messages present, no
+"not responding" in its first minutes. The freeze is gone. What could not be read: the
+Messenger history answers, because the phone's log buffer is 256 KB and the Messenger
+library's column warnings (seventeen per thread, hundreds per listing) fill it and make
+the log client drop lines ("liblog: 44" in the log is 44 dropped). Brett Parker's and
+Toni Botting's chats still show nothing after opening. Two changes for the next build:
+the library's own log goes out at error level only (PingMe's lines stay at info), and the
+connector logs how many messages the first page of each Messenger chat returned. The
+phone's log buffer was also raised to 8 MB for the session (until reboot).
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built

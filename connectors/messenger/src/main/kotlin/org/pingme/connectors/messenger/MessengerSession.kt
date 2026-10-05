@@ -161,6 +161,7 @@ internal class MessengerSession(
         val thread = chatId.remoteId
         val anchor = before?.remoteId?.substringAfter('/').orEmpty()
         val page = go.messagesJson(request { session.messages(thread, anchor) })
+        if (anchor.isEmpty()) Log.i(TAG, "Messenger history for $thread: ${page.size} messages on the first page")
         return page
             .filter { it.kind != "system" && it.id != anchor }
             .sortedByDescending { it.timestamp }

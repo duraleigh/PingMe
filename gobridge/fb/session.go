@@ -110,7 +110,11 @@ func NewSession(cookiesJSON, dbPath string, sink EventSink) (*Session, error) {
 		jidOf:    map[int64]int64{},
 		keyOf:    map[int64]int64{},
 	}
-	s.client = messagix.NewClient(jar, s.log, &messagix.Config{ClientSettings: exhttp.SensibleClientSettings})
+	// The library's own log goes out at error level only: its table parser warns seventeen
+	// times per thread about columns Messenger moved, which filled the phone's small log
+	// buffer and pushed PingMe's own lines out (2026-10-05). Our lines stay at info.
+	quiet := s.log.Level(zerolog.ErrorLevel)
+	s.client = messagix.NewClient(jar, quiet, &messagix.Config{ClientSettings: exhttp.SensibleClientSettings})
 	s.client.SetEventHandler(s.handleEvent)
 	if err := s.openStore(dbPath); err != nil {
 		return nil, err
