@@ -18,6 +18,7 @@ import org.pingme.connectors.instagram.bridge.IgEvent
 import org.pingme.connectors.instagram.bridge.IgMedia
 import org.pingme.connectors.instagram.bridge.IgMessage
 import org.pingme.connectors.instagram.bridge.IgSession
+import org.pingme.connectors.instagram.bridge.IgThread
 import org.pingme.connectors.instagram.bridge.IgTranslate
 import org.pingme.connectors.instagram.bridge.igJson
 import org.pingme.core.connector.ActionNeededException
@@ -149,6 +150,9 @@ internal class InstagramSession(
 
             is IgEvent.Thread -> {
                 event.thread.messages.forEach { noteViewOnce(it, "listed") }
+                if (notPrimary(event.thread)) {
+                    noteFolder(event.thread, "as an event")
+                }
             }
 
             // Typing for a thread PingMe has no chat for would show nowhere (owner, 2026-10-05).
@@ -164,6 +168,38 @@ internal class InstagramSession(
             }
         }
         return go.translate(event)
+    }
+
+    /**
+     * What a listing page held, and the folder fields of every thread not filed as Primary,
+     * for the phone's diagnostic file (owner, 2026-10-05: chats moved Requests to General
+     * for no visible reason, and chats were missing from the Instagram list).
+     */
+    private fun noteListing(
+        folder: String,
+        page: Int,
+        threads: List<IgThread>,
+    ) {
+        val withMessages = threads.count { it.messages.isNotEmpty() }
+        org.pingme.core.connector.Diag
+            .note(TAG, "Listed $folder page $page: ${threads.size} threads, $withMessages with messages")
+        threads
+            .filter {
+                notPrimary(it)
+            }.forEach { noteFolder(it, "listed from $folder") }
+    }
+
+    private fun notPrimary(thread: IgThread) = go.folderOf(thread) != org.pingme.core.model.ChatFolder.PRIMARY
+
+    private fun noteFolder(
+        thread: IgThread,
+        how: String,
+    ) {
+        org.pingme.core.connector.Diag.note(
+            TAG,
+            "Thread ${thread.id} '${thread.title}' $how: folder='${thread.folder}' system='${thread.systemFolder}' " +
+                "tag='${thread.folderTag}' -> ${go.folderOf(thread)}",
+        )
     }
 
     /**
@@ -288,6 +324,12 @@ internal class InstagramSession(
                         break
                     }
                 page.threads.mapTo(found) { go.chat(it) }
+                // Each listed thread carries its newest messages: they go into the store too,
+                // or every chat past the first page sat empty until a message arrived live, and
+                // a merged chat's Instagram side was left out of the Instagram list (owner,
+                // 2026-10-05: five chats missing from the Instagram inbox).
+                page.threads.filter { it.messages.isNotEmpty() }.forEach { events.trySend(IgEvent.Thread(it)) }
+                noteListing(folder, pages, page.threads)
                 cursor = page.nextCursor
                 pages++
                 val recent = folder == INBOX && page.threads.any { it.lastMessageAt >= cutoff }

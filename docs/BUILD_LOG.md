@@ -3678,3 +3678,30 @@ Next: the owner's Gate G11 checklist (above) plus these: typing dots in an Insta
 chat; a new view-once photo (shows and stays, or leaves a "View-once without a file"
 record for me to pull); pinning a ninth chat; the bar's coloured labels; the merged-row
 mark is still the owner's call. Phase 8 waits for the gate.
+
+### Owner note of 2026-10-05, 10:15 AM: chats missing from the Instagram inbox
+
+"Why are there still messages missing from the Instagram inbox?" Five of Instagram's
+top rows (Daniel Waynick, ericbellmoves, Thayne Jasperson, Kevin Wiltz, parker) were not
+in PingMe's Instagram list while the rows around them were.
+
+From the diagnostic file (first pull, 10:15 AM) and the code: at start-up the bridge
+hands over the first mailbox page with each thread's newest messages; every later page
+is listed through the sync as bare chats, and their messages were thrown away. So a
+chat whose last messages arrived while PingMe was closed had no stored message at all.
+A plain chat still shows (with "No messages yet"), but a merged chat is shown under a
+network filter only when its member on that network holds a message, so the merged
+ones vanished from the Instagram list. The rows that did show all had messages from
+live events or the owner's own sends. Fixed: every listed page now carries its threads'
+newest messages into the store.
+
+The same pull showed six chats moving Requests to General one after another during the
+inbox listing (Kris Wojciechowski, Britt Pauline, Yoshi's, Justin Hammond, Tracie, Kayla
+Edie Mora), which is the General misfiling the owner has been reporting. The request
+listing files them as Requests; a later listing files them as General. The diagnostic
+file now records, for every thread not filed as Primary, the three folder fields
+Instagram sent and where the thread came from, so the next pull names the field that
+flips. Not yet fixed: the fix needs those fields.
+
+Also seen: one view-once video listed with nothing but "RAVEN_VIDEO" as its content
+type and no message id; the live form is still to be caught.

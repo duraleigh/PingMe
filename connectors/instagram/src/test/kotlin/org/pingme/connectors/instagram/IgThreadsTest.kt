@@ -81,4 +81,51 @@ class IgThreadsTest {
             assertEquals(true, seen.indexOf(chat) < seen.indexOf(message))
             job.cancel()
         }
+
+    @Test
+    fun aListedPageBringsItsMessagesAlong() =
+        runBlocking {
+            // Every listed page carries its threads' newest messages into the store; before,
+            // only the first page did, and merged chats past it had no Instagram message to
+            // show under the Instagram filter (owner, 2026-10-05).
+            val bridge = FakeIgBridge()
+            val connector =
+                InstagramConnector(bridge, MemoryCredentialStore(), Files.createTempDirectory("ig").toFile())
+            val account =
+                Account(
+                    AccountId("ig"),
+                    NetworkId.INSTAGRAM,
+                    "Instagram",
+                    0,
+                    ConnectionState.Connected,
+                    true,
+                    NotificationMode.NORMAL,
+                    "instagram/100",
+                )
+            val events = Channel<ConnectorEvent>(Channel.UNLIMITED)
+            val flow =
+                connector.connect(
+                    account,
+                    Credentials(
+                        "instagram/100",
+                        """{"sessionid":"s","csrftoken":"c","ds_user_id":"100"}""".toByteArray(),
+                    ),
+                )
+            val job = launch(Dispatchers.Default) { flow.collect { events.send(it) } }
+            withTimeout(5000) { while (events.receive() !is ConnectorEvent.State) Unit }
+            while (events.tryReceive().isSuccess) Unit
+            val listed = connector.syncChats(account.id)
+            assertEquals(true, listed.any { it.id.value.endsWith(FakeInstagram.THREAD) })
+            val batch =
+                withTimeout(5000) {
+                    var found: ConnectorEvent.HistoryBatch? = null
+                    while (found == null) {
+                        found = events.receive() as? ConnectorEvent.HistoryBatch
+                    }
+                    found
+                }
+            assertEquals(true, batch.chatId.value.endsWith(FakeInstagram.THREAD))
+            assertEquals(2, batch.messages.size)
+            job.cancel()
+        }
 }
