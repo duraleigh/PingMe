@@ -3824,3 +3824,12 @@ numeric id has no page. UI_DESIGN.md 10.17 updated.
 
 Next: the owner tries a shade reply, then the diagnostic file names the failing step;
 Gate G11 checklist; the merged-row mark is still the owner's call.
+
+### Owner note of 2026-10-05, 7:24 PM: New chat should always start on Google Messages
+
+"When starting a new chat... The picker should ALWAYS default to Google Messages."
+Done: the Google Messages chip comes first and is picked whenever the screen opens.
+The screenshot also showed WhatsApp's raw ids under names ("12024137187@s.whatsapp.net",
+"...@lid") and the same person twice (once by number, once by hidden id); the second
+line is now the number or a username and never a raw id, and a hidden-id twin of
+someone already listed is left out. UI_DESIGN.md 3.1 updated.

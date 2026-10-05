@@ -134,7 +134,9 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   system status bar height, 24 dp on most phones, and nothing more.
 - **Filters**: the bottom bar, section 3.1 above, and section 10.4 for spaces.
 - **FAB menu**: expands into New chat and New group. (Scan QR was removed by the
-  owner, 2026-09-30.)
+  owner, 2026-09-30.) New chat and New group always start on Google Messages, with
+  its chip first, whatever was picked last time (owner, 2026-10-05). Under each
+  person's name is their number or username, never a network's raw id.
 - **Connection health chip**: when any connector is not Connected, a slim chip appears
   under the app bar: "RCS reconnecting" or "RCS needs attention, tap to fix". This is
   the single place connection state surfaces on the home screen.
