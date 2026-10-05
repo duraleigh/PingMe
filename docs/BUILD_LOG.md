@@ -3664,3 +3664,17 @@ More. A network's label takes its bubble colour from Appearance while it has unr
 messages; All, Unread, a space, and Low priority take the theme's primary colour (a
 space has no network colour, so it takes the theme's, the same as More); More takes the
 theme's primary colour when anything behind it is unread. UI_DESIGN.md 3.1 updated.
+
+### Builds on the phone (2026-10-05)
+
+- 8:45 AM: profile pictures, the box badge, the diagnostic file (private storage), the
+  merge first tap.
+- 9:32 AM: the held view-once file, Instagram typing by short thread id, the diagnostic
+  file under Android/data.
+- 9:55 AM: bar labels coloured by network when unread, the pin limit counting only
+  visible pins, the Appearance contrast warning removed.
+
+Next: the owner's Gate G11 checklist (above) plus these: typing dots in an Instagram
+chat; a new view-once photo (shows and stays, or leaves a "View-once without a file"
+record for me to pull); pinning a ninth chat; the bar's coloured labels; the merged-row
+mark is still the owner's call. Phase 8 waits for the gate.
