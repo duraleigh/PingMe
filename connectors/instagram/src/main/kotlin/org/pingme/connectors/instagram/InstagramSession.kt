@@ -350,35 +350,62 @@ internal class InstagramSession(
         return copy(message = message.copy(attachments = listOf(kept), kind = messageKindOf(file.kind)))
     }
 
+    // A message id names its thread ("<thread>/<id>"), so reactions, unsends, and edits need
+    // nothing the session remembers: after a restart the session knew nothing of older
+    // messages and refused to react to them (owner, 2026-10-05: "wait for the message to
+    // finish sending" on a message received long before).
+    private fun threadOf(id: MessageId) = id.remoteId.substringBeforeLast('/')
+
+    private fun idOf(id: MessageId) = id.remoteId.substringAfterLast('/')
+
     suspend fun react(
         messageId: MessageId,
         emoji: String?,
         remove: Boolean,
     ) {
-        val seen = go.seen(messageId) ?: throw UnsupportedCapabilityException("Wait for the message to finish sending")
-        val id = messageId.remoteId.substringAfterLast('/')
-        request { session.sendReaction(seen.thread, id, emoji ?: seen.let { "" }, remove) }
+        request { session.sendReaction(threadOf(messageId), idOf(messageId), emoji ?: "", remove) }
     }
 
     suspend fun unsend(messageId: MessageId) {
-        val seen = go.seen(messageId) ?: throw UnsupportedCapabilityException("This message cannot be unsent")
-        request { session.unsend(seen.thread, messageId.remoteId.substringAfterLast('/')) }
+        request { session.unsend(threadOf(messageId), idOf(messageId)) }
     }
 
     suspend fun edit(
         messageId: MessageId,
         text: String,
     ) {
-        val seen = go.seen(messageId) ?: throw UnsupportedCapabilityException("This message cannot be edited")
-        request { session.edit(seen.thread, messageId.remoteId.substringAfterLast('/'), text) }
+        request { session.edit(threadOf(messageId), idOf(messageId), text) }
     }
 
+    /**
+     * Tells Instagram the chat is read up to [upTo]. The mark needs the message's time; a
+     * message from before this start is looked up in a page of the thread (the session
+     * dropped read marks for such messages, so Instagram kept them unread; owner, 2026-10-05).
+     */
     suspend fun markRead(
         chatId: ChatId,
         upTo: MessageId,
     ) {
-        val seen = go.seen(upTo) ?: return
-        request { session.markRead(chatId.remoteId, upTo.remoteId.substringAfterLast('/'), seen.timestamp) }
+        val at = go.seen(upTo)?.timestamp ?: recalled(upTo)?.timestamp ?: System.currentTimeMillis()
+        request { session.markRead(chatId.remoteId, idOf(upTo), at) }
+    }
+
+    /** Brings a message from before this start back into the session's memory, from a page of its thread. */
+    private suspend fun recalled(id: MessageId): IgTranslate.Seen? {
+        val thread = threadOf(id)
+        val page =
+            try {
+                go.messagesJson(request { session.messages(thread, "", RECALL) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                Log.w(TAG, "Could not recall the thread $thread for a read mark", e)
+                return null
+            }
+        page.forEach { go.message(it.copy(thread = it.thread.ifEmpty { thread })) }
+        return go.seen(id)
     }
 
     suspend fun typing(
@@ -458,6 +485,9 @@ internal class InstagramSession(
 
         /** A safety cap on pages of about twenty threads; the thirty-day rule normally stops sooner. */
         const val MAX_PAGES = 60
+
+        /** Messages fetched to find one from before this start. */
+        const val RECALL = 50
 
         /** How far back the inbox listing reaches (owner, 2026-10-03: the last thirty days of Primary). */
         const val RECENT_MS = 30L * 24 * 60 * 60 * 1000

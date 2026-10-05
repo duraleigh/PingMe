@@ -3446,6 +3446,20 @@ Messenger's "secure storage" backup (PIN) holds them, and no library reads it. N
 messages on those chats arrive and replies go out. Also confirmed on that start: no hang,
 the channel up in seven seconds, PingMe's own lines all present in the log.
 
+### Owner notes of 2026-10-05, 5:17 AM: Instagram reactions refused, reads not marked
+
+Both from one cause. The Instagram connector keeps an in-memory note of every message it
+has seen since the app started, and used it to find a message's thread (for a reaction,
+unsend, or edit) and its time (for a read mark). After a restart that memory is empty,
+so reacting to any message from before the start was refused with "Wait for the message
+to finish sending", and a read mark for such a message was dropped without a word, so
+Instagram kept the chat unread. Every build today restarted the app, so every older
+message hit this. Now a message id carries its thread, so reactions, unsends, and edits
+need nothing remembered; and a read mark for a message not seen this session fetches a
+page of its thread to learn its time (falling back to now). WhatsApp and Signal share the
+refusal wording but repopulate their memory from the history the network sends on
+connect; left alone until seen on the phone.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built
