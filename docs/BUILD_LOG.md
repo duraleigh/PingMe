@@ -3437,6 +3437,15 @@ the library's own log goes out at error level only (PingMe's lines stay at info)
 connector logs how many messages the first page of each Messenger chat returned. The
 phone's log buffer was also raised to 8 MB for the session (until reboot).
 
+**The 4:42 AM build (5:05 AM): the history question settled.** With a readable log, the
+bridge asked the web side for the history of every encrypted Messenger chat under both
+of its ids, 52 requests; every one answered zero messages, none refused. The three
+Messenger chats with messages are the ones whose listing carried them. So the messages
+sent before PingMe's device existed cannot be fetched by any route PingMe has; only
+Messenger's "secure storage" backup (PIN) holds them, and no library reads it. New
+messages on those chats arrive and replies go out. Also confirmed on that start: no hang,
+the channel up in seven seconds, PingMe's own lines all present in the log.
+
 ### Gate G11: the owner's checklist
 
 Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built
