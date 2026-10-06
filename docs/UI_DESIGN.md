@@ -419,7 +419,11 @@ library. Intensity Subtle keeps only Pick and Land. Off disables all of it.
   and directly in a specific chat"). One press starts a hands-free recording in that chat,
   exactly as a tap on the mic does; a second press sends it. The key is taken only while a
   chat is on screen, so everywhere else it keeps the job the phone gives it. Holding the
-  key counts as one press. The key never has to work in the background.
+  key counts as one press. The key never has to work in the background. On the owner's
+  razr the phone's own key service takes the key before any app sees it, so the key is
+  set, in the phone's settings, to open PingMe: PingMe opened again while it is already
+  in front and in a chat is the press. Button Mapper, or anything else, can fire the
+  `org.pingme.action.VOICE_NOTE` intent for the same effect from any button it can see.
 - **As a reply**: pick Reply (or swipe) on a message, then hold the mic. The voice
   note carries the reply quote just like a text reply. There is also a direct "Voice
   reply" action in the long-press action sheet that opens the reply strip and starts

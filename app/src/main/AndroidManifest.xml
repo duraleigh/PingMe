@@ -84,6 +84,18 @@
         </activity>
 
         <!-- One launcher entry per icon variant; AppIconSwitcher enables exactly one (UI_DESIGN.md 4.6). -->
+        <!-- The phone's side key, set to open PingMe, or Button Mapper firing this action: a
+             voice note in the open chat (owner, 2026-10-06). Not a launcher entry. -->
+        <activity-alias
+            android:name=".VoiceNote"
+            android:exported="true"
+            android:label="@string/voice_note_shortcut"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="org.pingme.action.VOICE_NOTE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
         <activity-alias
             android:name=".IconDefault"
             android:enabled="true"

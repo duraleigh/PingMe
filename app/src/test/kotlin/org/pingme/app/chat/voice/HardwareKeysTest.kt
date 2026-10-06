@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.chat.voice
 
+import android.content.Intent
 import android.view.KeyEvent
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.launch
@@ -71,6 +72,35 @@ class HardwareKeysTest {
                 assertTrue(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_SEARCH, 2))
                 runCurrent()
                 assertEquals(listOf(KeyEvent.KEYCODE_SEARCH), presses)
+            } finally {
+                gone()
+            }
+        }
+
+    @Test
+    fun theSideKeyOpeningPingMeAgainCountsAsAPressOnlyInAChatInFront() =
+        runTest {
+            val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            val shortcut = Intent(HardwareKeys.ACTION_VOICE_NOTE)
+            assertFalse("no chat listening", HardwareKeys.fromIntent(launcher, resumed = true))
+            val gone = HardwareKeys.listen()
+            try {
+                val presses = mutableListOf<Int>()
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    HardwareKeys.pressed.collect { presses += it }
+                }
+                assertFalse(
+                    "a launcher tap from the background is just opening the app",
+                    HardwareKeys.fromIntent(launcher, resumed = false),
+                )
+                assertTrue(HardwareKeys.fromIntent(launcher, resumed = true))
+                assertTrue(
+                    "Button Mapper's intent counts even from the background",
+                    HardwareKeys.fromIntent(shortcut, resumed = false),
+                )
+                assertFalse(HardwareKeys.fromIntent(Intent(Intent.ACTION_VIEW), resumed = true))
+                runCurrent()
+                assertEquals(2, presses.size)
             } finally {
                 gone()
             }

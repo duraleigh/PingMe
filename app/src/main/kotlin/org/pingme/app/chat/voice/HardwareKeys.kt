@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.chat.voice
 
+import android.content.Intent
 import android.view.KeyEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -45,6 +46,30 @@ object HardwareKeys {
         return true
     }
 
+    /**
+     * The side key by way of the phone's own setting: Motorola's key service takes the key
+     * before any app sees it (found on the phone, 2026-10-06), but it will open an app of the
+     * owner's choosing. PingMe opened again while it is already in front and resumed can only
+     * be that, so it counts as a press; so does Button Mapper firing [ACTION_VOICE_NOTE].
+     * True when the intent was taken as a press.
+     */
+    fun fromIntent(
+        intent: Intent?,
+        resumed: Boolean,
+    ): Boolean {
+        intent ?: return false
+        val shortcut = intent.action == ACTION_VOICE_NOTE
+        val relaunch = intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_LAUNCHER) && resumed
+        if (!shortcut && !relaunch) return false
+        if (listeners.get() == 0) {
+            Diag.note(TAG, "Voice-note launch (${intent.action}) with no chat on screen")
+            return false
+        }
+        Diag.note(TAG, "Voice-note launch (${intent.action}) in a chat")
+        presses.tryEmit(KeyEvent.KEYCODE_SEARCH)
+        return true
+    }
+
     /** A chat is on screen and wants the key; the returned function says it has gone. */
     fun listen(): () -> Unit {
         listeners.incrementAndGet()
@@ -66,6 +91,9 @@ object HardwareKeys {
             KeyEvent.KEYCODE_HOME,
             KeyEvent.KEYCODE_POWER,
         )
+
+    /** What Button Mapper (or anything else) fires to start or send a voice note in the open chat. */
+    const val ACTION_VOICE_NOTE = "org.pingme.action.VOICE_NOTE"
     private const val BUFFER = 8
     private const val TAG = "PingMeKeys"
 }

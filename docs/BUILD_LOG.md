@@ -3928,3 +3928,22 @@ Installed on the phone at 6:03 AM (build 9463ff0, GitHub's build of 5:35 AM; the
 off wireless debugging from about 5:40 until 6:03). Waiting on the owner's first press of
 the side key in a chat; the diagnostic file will say whether the press reached PingMe and
 under which key code.
+
+### 2026-10-06, 6:10 AM: the side key never reaches PingMe; the way round it
+
+The owner pressed the side key several times in a chat on the 6:03 AM build. PingMe's
+diagnostic file has no key entry at all: the press never reached the activity. The phone
+shows why: Motorola's key service (`com.motorola.mykey`, running inside the system server)
+takes the key and runs the owner's chosen action for it (a single press opens the camera,
+a double press opens Moto Journal). No app can get in front of that. A capture of the
+kernel's key events was inconclusive (the tool buffers its output when not on a terminal).
+
+Built instead: the phone's setting for that key can open an app of the owner's choosing,
+and PingMe opened again while it is already in front, resumed, and in a chat can only be
+that, so it now counts as the press (start a hands-free recording; press again to send).
+The activity is single-top, so the relaunch arrives as a new intent. A Voice note activity
+alias also answers `org.pingme.action.VOICE_NOTE` so Button Mapper (the owner asked about
+its adb setup script) can fire it from any button it can see. The owner's step: set the
+side key's single press to open PingMe in the phone's settings. The in-app key path stays,
+in case a later Motorola update lets the key through. UI_DESIGN.md 5.6 updated; tests cover
+the relaunch rule and the intent.
