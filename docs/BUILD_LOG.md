@@ -4069,3 +4069,21 @@ readers: settings section titles are headings (jump by heading), and the inbox's
 connection chip is a polite live region, spoken when it appears or changes. Part two,
 TalkBack on the phone itself, needs the owner's leave for each screen driven, or the
 owner's own pass with TalkBack on.
+
+### P8.2 Backup and restore (2026-10-06, evening)
+
+The Phase 2 backup was the bare database file, unlocked, without settings. Now, as the
+plan asks: one file locked with a passphrase, holding the database, the settings file,
+and the kept view-once pictures. The lock is AES-256-GCM under a PBKDF2 key, applied in
+megabyte chunks so a backup of any size streams in and out without sitting in memory;
+an empty sealed chunk ends the file so a cut-off copy is caught, and a wrong passphrase
+is told apart from damage. Restore unpacks the database to a temporary file, checks it
+as before (version, tables), points the kept pictures at where they landed in app
+storage, clears paths of media that is not here, swaps the settings file, replaces the
+database, and the app restarts. A plain database file from the older backup still
+restores. The Backup page has the passphrase field with a show/hide toggle; Save waits
+for a passphrase. Tests: the lock's round trip across chunks, empty input, wrong
+passphrase against damage; the store's round trip of database, settings, and a kept
+picture (with ordinary media left to download again), the wrong passphrase refusing with
+nothing changed, the old plain backup, and junk refused. UI_DESIGN.md 10.18a added. Still
+to do for P8.2: the end-to-end proof on the emulator with the demo network.

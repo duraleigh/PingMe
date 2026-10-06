@@ -307,10 +307,11 @@ class SettingsScreenTest {
         show(SettingsPage.BACKUP)
         compose.assertAccessible()
         assertTrue(shown("Save a backup"))
-        val file = temp.newFile("backup.db")
-        vm.exportTo(android.net.Uri.fromFile(file))
+        val file = temp.newFile("backup.pingme")
+        vm.exportTo(android.net.Uri.fromFile(file), "open sesame")
         waitFor { shown("Backup saved.") }
-        assertEquals("SQLite format 3", file.readBytes().copyOf(SQLITE.length).decodeToString())
+        // Locked, not a bare database (Phase 8, P8.2).
+        assertEquals("PINGME-BACKUP-1", file.readBytes().copyOf(15).decodeToString())
     }
 
     @Test
@@ -318,7 +319,7 @@ class SettingsScreenTest {
         show(SettingsPage.BACKUP)
         compose.assertAccessible()
         val file = temp.newFile("notes.txt").apply { writeText("shopping list") }
-        vm.restoreFrom(android.net.Uri.fromFile(file))
+        vm.restoreFrom(android.net.Uri.fromFile(file), "")
         waitFor { shown("That file is not a PingMe backup.") }
         assertEquals(0, restarts)
     }

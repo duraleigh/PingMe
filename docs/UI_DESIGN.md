@@ -933,6 +933,19 @@ the owner's phone (2026-10-06) that is "dial at once" for the dialer, Meet, Goog
 WhatsApp, Signal, and Telegram, and "open the chat in the app" for Instagram and
 Messenger, whose installed versions register no call entry point for other apps.
 
+### 10.18a Backup and restore
+
+Settings > Backup saves everything that lives only in PingMe to one file, and brings it
+back. The file is locked with a passphrase the owner types on the page, used both to save
+and to restore; nobody can recover it. It holds the database (chats, messages, merges,
+pins, names, folders, reactions, keyword rules, spaces), the settings file (appearance,
+the bottom bar, quick reactions, notification choices, the Groq key), and the view-once
+pictures and videos PingMe kept, which no network can hand back (10.16). Logins stay in
+the phone's keystore and are not in it: after a restore each network is logged in again.
+Other photos and files download again when shown. Restoring replaces everything on the
+phone and restarts PingMe. A plain database file saved by an older PingMe still restores.
+The wrong passphrase is told apart from a damaged file.
+
 ### 10.18 Avatars from Google Contacts
 
 Every person's avatar comes from Google Contacts first. PingMe matches people to
