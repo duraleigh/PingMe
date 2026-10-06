@@ -3846,3 +3846,16 @@ Installed 9:10 PM and tested again on the phone: the avatar tap now lands in the
 Instagram app on the person's profile. Also on the phone since 8:33 PM: New chat on
 Google Messages with clean second lines. Still to test by the owner: a reply from the
 notification shade (the diagnostic file records each step).
+
+### 2026-10-05, 10:15 PM: three more tests on the phone, with the owner's leave
+
+- New chat opens on Google Messages, chip first and selected; the list shows numbers,
+  no raw ids. Passed.
+- Full Team group: a tap on the thumbs-up chip opens the Reactions sheet with the
+  emoji, the name, and the time. Passed. The sheet names Terry Anzaldo for the reaction
+  on Terry's own message; PingMe names whoever Google's reaction record lists, so the
+  owner is asked to compare with the Messages app.
+- GIF picker with the keyboard up: the sheet's handle sits at the top of the screen and
+  the search box is well above the keyboard. Passed.
+The shade reply stays with the owner: a test would send a real message from the
+owner's account.
