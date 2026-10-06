@@ -37,6 +37,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
@@ -202,7 +205,9 @@ fun HealthChip(
     val c = MaterialTheme.colorScheme
     Surface(
         onClick = { onFix(worst) },
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        // Spoken when it appears or changes, without stealing focus (Phase 8, P8.1).
+        modifier =
+            modifier.padding(horizontal = 16.dp, vertical = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
         shape = MaterialTheme.shapes.large,
         color = if (attention) c.errorContainer else c.tertiaryContainer,
         contentColor = if (attention) c.onErrorContainer else c.onTertiaryContainer,

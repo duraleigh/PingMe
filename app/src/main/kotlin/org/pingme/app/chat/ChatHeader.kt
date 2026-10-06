@@ -35,7 +35,10 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -185,6 +188,8 @@ private fun TitleBlock(
                 }
                 Text(
                     liveStatus(state),
+                    // "Sam is typing…" is spoken as it changes (Phase 8, P8.1).
+                    Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     style = MaterialTheme.typography.labelMedium,
                     color = if (state.typing.isEmpty()) colours.onSurfaceVariant else colours.primary,
                     maxLines = 1,

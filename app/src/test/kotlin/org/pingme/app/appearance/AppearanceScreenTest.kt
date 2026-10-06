@@ -24,6 +24,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Transport
 import org.pingme.core.ui.theme.Appearance
@@ -140,5 +141,11 @@ class AppearanceScreenTest {
             .resolve("appearance.png")
             .outputStream()
             .use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    @Test
+    fun everyControlHasASpokenNameAndIsBigEnough() {
+        show()
+        compose.assertAccessible()
     }
 }

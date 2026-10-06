@@ -4033,3 +4033,39 @@ folder, hold-volume-down dictation through Groq, and the stripped bridge library
 owner reported Nini Cre moved out of General at 4:27 PM on the old build, the same cause
 as Carrie. The diagnostic file had rotated by the time it was pulled, so those moves are
 not on record; the next one would be.
+
+## Gate G11 passed; Phase 8 begins (2026-10-06, 6:15 PM)
+
+The owner: "Go ahead with phase 8." Phase 7 is signed off with today's build (23a6bf4)
+on the phone. Still the owner's call, carried forward: the merged-row mark, and which
+Google account Meet calls from (set inside Meet). Phase 8 steps, in the plan's order:
+
+- **P8.1 Accessibility pass.** The automated accessibility checks in the Compose test
+  library on every screen test, a sweep of every control for a spoken name, then
+  TalkBack on the phone (with the owner's leave for each screen driven). The Appearance
+  contrast warning stays out, by the owner's decision of 2026-10-05.
+- **P8.2 Backup and restore**, proven on the emulator and the demo network: back up,
+  wipe, restore, compare; then a backup from the phone restored on the emulator.
+- **P8.3 Battery review** from the phone's battery statistics after a day of use.
+- **P8.4 A crash-free week** on the phone.
+- **P8.5 Tag v1.0.0**; CI attaches the APK to the release.
+
+### P8.1 Accessibility pass, part one: the automated sweep (2026-10-06, 7:40 PM)
+
+An audit in the test suite walks the semantics tree of every window on screen (the
+screen, plus any sheet, menu, or dialog) and reports two things a screen reader user hits
+first: a control with no spoken name, and a tap target under 48 dp; it also proves it saw
+controls at all. It runs on every screen test (inbox, chat, message actions, obscured
+chat, chat details, appearance, settings, login, setup) and inside the tests that open
+the account menu, the chat action sheet, the message action bar and card, the Reactions
+sheet, the selection toolbar, the attach sheet, the GIF picker, search results, the paused
+recording bar, Requests, Archived, New chat, New group, the Send later sheet, and every
+settings page.
+
+Found and fixed: each attach option was a named tappable column with a second, unnamed
+button inside it (the round icon), so a screen reader met an unnamed button beside every
+option; the circle is now only the look. Everything else passed. Also added for screen
+readers: settings section titles are headings (jump by heading), and the inbox's
+connection chip is a polite live region, spoken when it appears or changes. Part two,
+TalkBack on the phone itself, needs the owner's leave for each screen driven, or the
+owner's own pass with TalkBack on.

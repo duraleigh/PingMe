@@ -32,6 +32,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.core.connector.chat
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ConnectionState
@@ -154,6 +155,8 @@ class InboxScreenTest {
     fun pressAndHoldPinsAChatIntoTheGrid() {
         show()
         compose.onNodeWithText("Dad").performTouchInput { longClick() }
+        // The chat's action sheet, as a screen reader sees it (P8.1).
+        compose.assertAccessible()
         compose.onNodeWithText("Pin to top").performClick()
         waitFor { chat("dad").isPinned }
         // Pinned chats leave the list: its preview line goes, the tile stays.
@@ -221,6 +224,8 @@ class InboxScreenTest {
             ).performClick()
         compose.onNodeWithText("Archived").assertExists()
         compose.onNodeWithText("Requests").assertExists()
+        // The open menu is part of the screen a screen reader sees (P8.1).
+        compose.assertAccessible()
         assertFalse(
             "Settings waits for P2.6",
             compose
@@ -282,5 +287,11 @@ class InboxScreenTest {
     private companion object {
         const val TIMEOUT = 15_000L
         const val STEP_MS = 50L
+    }
+
+    @Test
+    fun everyControlHasASpokenNameAndIsBigEnough() {
+        show()
+        compose.assertAccessible()
     }
 }

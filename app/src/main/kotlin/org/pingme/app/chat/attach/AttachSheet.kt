@@ -15,16 +15,18 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -96,12 +98,21 @@ private fun AttachOption(
     @DrawableRes icon: Int,
     onClick: () -> Unit,
 ) {
-    // The label is part of the target: the whole option takes the tap.
+    // The label is part of the target: the whole option takes the tap. The circle is only
+    // the look, not a second button: a screen reader found an unnamed button beside each
+    // named option (P8.1).
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.width(OPTION_WIDTH).clickable(role = Role.Button, onClick = onClick),
     ) {
-        FilledTonalIconButton(onClick, Modifier.size(OPTION_SIZE)) { Icon(painterResource(icon), null) }
+        Surface(
+            Modifier.size(OPTION_SIZE),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) { Icon(painterResource(icon), null) }
+        }
         Text(
             stringResource(label),
             Modifier.padding(top = 6.dp),
