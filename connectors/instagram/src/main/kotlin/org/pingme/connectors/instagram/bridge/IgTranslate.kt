@@ -110,6 +110,9 @@ class IgTranslate(
     /** The folder a thread sits in (UI_DESIGN.md 6.4). */
     fun folderOf(thread: IgThread): ChatFolder = folderOf(thread.systemFolder, thread.folder, thread.folderTag)
 
+    private fun hasFolderFields(thread: IgThread) =
+        thread.folder.isNotEmpty() || thread.systemFolder.isNotEmpty() || thread.folderTag.isNotEmpty()
+
     /** Data events become connector events; control events return nothing. */
     @Synchronized
     fun translate(event: IgEvent): List<ConnectorEvent> =
@@ -131,10 +134,24 @@ class IgTranslate(
     /** A thread as a chat, remembered for later lookups, with its newest messages as history. */
     @Synchronized
     fun chat(thread: IgThread): ChatSnapshot {
-        threads[thread.id] = thread
+        // A thread handed over again without its folder fields (a live update carries the
+        // messages, not the folder) keeps the folder it was listed with; without this a
+        // General chat jumped to Primary at its next message (owner, 2026-10-06: Carrie).
+        val known = threads[thread.id]
+        val kept =
+            if (known == null) {
+                thread
+            } else {
+                thread.copy(
+                    folder = thread.folder.ifEmpty { known.folder },
+                    systemFolder = thread.systemFolder.ifEmpty { known.systemFolder },
+                    folderTag = thread.folderTag.ifEmpty { known.folderTag },
+                )
+            }
+        threads[thread.id] = kept
         thread.users.forEach { names[it.id] = it }
         if (ownId.isEmpty()) thread.users.firstOrNull { it.isMe }?.let { ownId = it.id }
-        return snapshot(thread)
+        return snapshot(kept)
     }
 
     @Synchronized
@@ -152,7 +169,8 @@ class IgTranslate(
             participants = listOf(me()) + others.map(::person),
             unreadCount = if (thread.markedUnread || unreadFromOthers) 1 else 0,
             lastActivityAt = Instant.fromEpochMilliseconds(thread.lastMessageAt),
-            folder = folderOf(thread),
+            // Unknown stays unknown: the store keeps the folder it has (UI_DESIGN.md 6.4).
+            folder = if (hasFolderFields(thread)) folderOf(thread) else null,
             spaceId = null,
             networkRemoteId = thread.id,
         )

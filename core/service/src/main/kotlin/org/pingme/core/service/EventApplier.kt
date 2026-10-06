@@ -171,7 +171,7 @@ class EventApplier
             if (hiddenHere(snapshot.id, snapshot.lastActivityAt)) return
             snapshot.participants.forEach { people.remember(it) }
             val existing = chats.get(snapshot.id)
-            if (existing != null && existing.folder != snapshot.folder) {
+            if (existing != null && snapshot.folder != null && existing.folder != snapshot.folder) {
                 val move = "Chat ${snapshot.id.value} moves ${existing.folder} to ${snapshot.folder}: ${snapshot.title}"
                 android.util.Log.i(TAG, move)
                 Diag.note(TAG, move)
@@ -391,7 +391,8 @@ private fun Chat.withSnapshot(s: ChatSnapshot) =
         participants = s.participants.map { it.id },
         unreadCount = s.unreadCount,
         lastActivityAt = maxOf(lastActivityAt, s.lastActivityAt),
-        folder = s.folder,
+        // A snapshot that does not know the folder leaves the chat where it is (Instagram, 2026-10-06).
+        folder = s.folder ?: folder,
         spaceId = s.spaceId,
         networkRemoteId = s.networkRemoteId,
     )

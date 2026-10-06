@@ -4014,3 +4014,14 @@ copy: no file, nothing to fetch, blank bubble. Now any copy of a message that ar
 without a file keeps the file the store already holds for that attachment (by id, else by
 position), on every network, and the diagnostic file notes each time it does. Tested: a
 sent picture listed again twice without its file keeps it.
+
+### 2026-10-06, 2:55 PM: a General chat jumped to Primary at its next message
+
+The owner: "Carrie is in the general folder!! She should NOT be showing up in my pingme
+instagram chats." Instagram's live thread update that carries a new message does not
+carry the folder fields, and the translator replaced its memory of the thread with that
+bare copy; with every folder field empty, the folder came out as Primary and the chat
+moved. Now a thread handed over without folder fields keeps the folder it was listed
+with, and a chat snapshot that does not know its folder says so (null) and the store keeps
+the folder it has. Tested: a thread listed as General, then handed over bare, stays
+General; a snapshot without a folder leaves a stored General chat in General.

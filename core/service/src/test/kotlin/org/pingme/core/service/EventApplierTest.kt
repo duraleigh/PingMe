@@ -12,6 +12,7 @@ import org.pingme.core.connector.message
 import org.pingme.core.connector.person
 import org.pingme.core.model.Attachment
 import org.pingme.core.model.AttachmentKind
+import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.Reaction
@@ -511,6 +512,18 @@ class EventApplierTest : ServiceTest() {
                     .single()
                     .localPath,
             )
+        }
+
+    @Test
+    fun aChatListedAgainWithoutAFolderStaysWhereItIs() =
+        runTest {
+            seed()
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot().copy(folder = ChatFolder.GENERAL)))
+            assertEquals(ChatFolder.GENERAL, chats.get(chatId)!!.folder)
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot()))
+            assertEquals(ChatFolder.GENERAL, chats.get(chatId)!!.folder)
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot().copy(folder = ChatFolder.PRIMARY)))
+            assertEquals(ChatFolder.PRIMARY, chats.get(chatId)!!.folder)
         }
 
     @Test

@@ -66,6 +66,16 @@ class IgTranslateTest {
     }
 
     @Test
+    fun aThreadHandedOverWithoutItsFolderKeepsTheOneItWasListedWith() {
+        // Carrie sat in General; her next message moved her to Primary (owner, 2026-10-06).
+        assertEquals(ChatFolder.GENERAL, go.chat(thread(folder = "GENERAL")).folder)
+        val bare = go.chat(thread(messages = listOf(text("m1"))))
+        assertEquals(ChatFolder.GENERAL, bare.folder)
+        // A thread never listed with a folder does not claim one.
+        assertEquals(null, go.chat(thread(id = "other")).folder)
+    }
+
+    @Test
     fun foldersFollowInstagramsNames() {
         assertEquals(ChatFolder.REQUESTS, IgTranslate.folderOf("PENDING", "", ""))
         assertEquals(ChatFolder.REQUESTS, IgTranslate.folderOf("SPAM", "", ""))
@@ -87,7 +97,8 @@ class IgTranslateTest {
         assertEquals("Sam Ortiz", chat.title)
         assertEquals(listOf("You", "Sam Ortiz"), chat.participants.map { it.displayName })
         assertEquals("a message from Sam after my last read", 1, chat.unreadCount)
-        assertEquals(ChatFolder.PRIMARY, chat.folder)
+        // No folder fields: the folder is unknown, not Primary (the inbox shows unknown under Primary).
+        assertEquals(null, chat.folder)
         val batch = events[1] as ConnectorEvent.HistoryBatch
         assertEquals(listOf("m2", "m1"), batch.messages.map { it.message.networkRemoteId })
         assertTrue(batch.messages[1].message.isOutgoing)
