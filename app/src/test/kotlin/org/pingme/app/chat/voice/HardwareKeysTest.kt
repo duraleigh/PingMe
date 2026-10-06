@@ -50,7 +50,7 @@ class HardwareKeysTest {
         try {
             assertTrue(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_SEARCH, 0))
             // Other keys keep their jobs even while a chat listens.
-            assertFalse(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 0))
+            assertFalse(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_DOWN, 0))
         } finally {
             gone()
         }
@@ -105,6 +105,37 @@ class HardwareKeysTest {
                 gone()
             }
         }
+
+    @Test
+    fun volumeUpIsTakenDownAndUpOnlyWhileAChatListens() =
+        runTest {
+            assertFalse(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 0))
+            assertFalse(HardwareKeys.onKeyUp(KeyEvent.KEYCODE_VOLUME_UP))
+            val gone = HardwareKeys.listen()
+            try {
+                val moves = mutableListOf<Boolean>()
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    HardwareKeys.volumeUp.collect { moves += it }
+                }
+                assertTrue(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 0))
+                assertTrue("repeats while held are swallowed", HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 3))
+                assertTrue(HardwareKeys.onKeyUp(KeyEvent.KEYCODE_VOLUME_UP))
+                // Volume down is never touched.
+                assertFalse(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_DOWN, 0))
+                assertFalse(HardwareKeys.onKeyUp(KeyEvent.KEYCODE_VOLUME_DOWN))
+                runCurrent()
+                assertEquals(listOf(true, false), moves)
+            } finally {
+                gone()
+            }
+        }
+
+    @Test
+    fun aShortVolumePressIsVolumeAHeldOneSends() {
+        assertEquals(VolumeHold.VOLUME, volumeHoldEnded(150))
+        assertEquals(VolumeHold.SEND, volumeHoldEnded(HardwareKeys.HOLD_MS))
+        assertEquals(VolumeHold.SEND, volumeHoldEnded(5_000))
+    }
 
     @Test
     fun firstPressAsksForAHandsFreeRecordingSecondPressSends() {

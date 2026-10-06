@@ -414,7 +414,12 @@ library. Intensity Subtle keeps only Pick and Land. Off disables all of it.
     paused, the recording so far can be played back; Resume carries on recording.
   - **Hold** the mic: it records while held. Release to send, slide left to cancel,
     slide up to lock into the same recording bar as a tap.
-- **The phone's side key** (the razr's dedicated key) works inside an open chat as a third
+- **Volume up, held** (owner, 2026-10-06: "press and hold the volume up button to record and
+  release it to stop recording"): inside an open chat, holding volume up records and letting
+  go sends, exactly like holding the mic. A short press is still a volume press: the sliver
+  recorded is dropped and the volume goes up with the usual slider. Volume down is never
+  touched, and outside a chat both keys are the phone's.
+- **The phone's side key** (the razr's dedicated key) works inside an open chat as a further
   way to record (owner, 2026-10-06: "I would only ever use this key while I am in the app
   and directly in a specific chat"). One press starts a hands-free recording in that chat,
   exactly as a tap on the mic does; a second press sends it. The key is taken only while a

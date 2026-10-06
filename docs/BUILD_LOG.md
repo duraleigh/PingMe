@@ -3947,3 +3947,19 @@ its adb setup script) can fire it from any button it can see. The owner's step: 
 side key's single press to open PingMe in the phone's settings. The in-app key path stays,
 in case a later Motorola update lets the key through. UI_DESIGN.md 5.6 updated; tests cover
 the relaunch rule and the intent.
+
+### 2026-10-06, 6:45 AM: hold volume up to record
+
+The side key on the owner's phone produces no press at all at the button driver, with or
+without Button Mapper (the owner uninstalled it), and the only thing left able to switch a
+key off at that level is Motorola's own software (Moto Unplugged is an active device
+admin; Motorola's key app carries a "disabled by your enterprise admin" dialog). The owner
+is trying a restart; if the key stays dead it is hardware, and the relaunch handling from
+6:14 AM is ready for whenever it comes back.
+
+Built in the meantime, at the owner's request: volume up held in an open chat records, and
+letting go sends, like holding the mic; a short press cancels the sliver recorded and raises
+the volume by hand with the system slider, so volume still works while reading a chat.
+Volume down is untouched. The activity hands key-ups to `HardwareKeys` too. Tests cover the
+down/up events being taken only while a chat listens, volume down left alone, and the
+short-press/held split. UI_DESIGN.md 5.6 updated.

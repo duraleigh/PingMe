@@ -55,6 +55,11 @@ class MainActivity : ComponentActivity() {
         event: KeyEvent,
     ): Boolean = HardwareKeys.onKeyDown(keyCode, event.repeatCount) || super.onKeyDown(keyCode, event)
 
+    override fun onKeyUp(
+        keyCode: Int,
+        event: KeyEvent,
+    ): Boolean = HardwareKeys.onKeyUp(keyCode) || super.onKeyUp(keyCode, event)
+
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
