@@ -883,28 +883,32 @@ it does not, PingMe cannot save what it never receives. Current state per networ
   app, via the contact lookup Android provides, for anyone matched to a contact.
   Unmatched people get "Add to contacts".
 - **Phone icon and video icon** sit beside the overflow menu. Each places a call on
-  the service the chat is currently using and, where Android allows it, starts the
-  call immediately rather than opening a dial screen:
+  the service the chat is currently using (in a merged chat, the network the composer is
+  set to) and, where Android allows it, starts the call immediately rather than opening
+  a dial screen. What each app answers was read off the owner's phone on 2026-10-06, from
+  the apps' intent filters and the call rows they add to the phone's contacts:
 
 | Service | Audio | Video |
 |---|---|---|
-| Google Messages, SMS, merged chat on those | Dials the number immediately in the default dialer (needs the phone-call permission, asked once) | Opens Google Meet calling to that number, immediately where Meet exposes it |
-| WhatsApp | Starts a WhatsApp call immediately, using the call entry WhatsApp registers in the phone's contacts | Same, video |
-| Signal | Same mechanism, immediate | Same, video |
+| Google Messages, SMS, merged chat on those | Dials the number immediately in the default dialer. Needs the phone-call permission, asked once at the first tap; refused, the dialer opens with the number filled in | Starts a Google Meet call to that number at once, through Meet's own call action (Meet ignores a plain view of a number) |
+| WhatsApp | Starts a WhatsApp call immediately through the call row WhatsApp adds to the person's contact | Same, video |
+| Signal | Same mechanism, immediate; the video row is Signal's own video-call row | Same, video |
 | Telegram | Same mechanism, immediate | Same, video |
-| Google Voice | Opens Google Voice to that person; whether it can dial immediately is an open question | Not offered |
-| Instagram | Opens the Instagram thread; Instagram exposes no call intent | Same |
-| Messenger | Opens the Messenger thread; immediate calling is an open question | Same |
+| Google Voice | Dials the number at once inside Google Voice, which answers the call action itself (phone-call permission, as above) | Not offered |
+| Instagram | Opens that chat in the Instagram app, where the call buttons are. Instagram lets no other app start its calls | Same |
+| Messenger | Opens that chat in the Messenger app, where the call buttons are. Messenger lets no other app start its calls | Same |
 
-The immediate WhatsApp, Signal, and Telegram calls depend on the person being in the
-phone's contacts with that app's contact sync on. When they are not, the icon opens
-the app to that person instead, and the button's long-press explains why.
+The immediate WhatsApp, Signal, and Telegram calls depend on the app having been let at
+the phone's contacts, which is when it adds its call rows. When the row is missing, the
+icon opens the app to that person (wa.me, signal.me, t.me) and a notice says to let the
+app see the contacts and try again. Every icon's long-press says what the tap does on this
+network, and a notice after the tap says what happened whenever the call did not simply
+start.
 
-Decided behaviour for the rest: the icon always does the most direct thing the
-service allows. For Google Voice, Messenger, and Meet that is "dial immediately" if
-device testing finds an intent for it, otherwise "open the app to that person". For
-Instagram it is "open the thread", which is all Instagram allows, and the icon
-carries that as its long-press explanation.
+Decided behaviour: the icon always does the most direct thing the service allows. On
+the owner's phone (2026-10-06) that is "dial at once" for the dialer, Meet, Google Voice,
+WhatsApp, Signal, and Telegram, and "open the chat in the app" for Instagram and
+Messenger, whose installed versions register no call entry point for other apps.
 
 ### 10.18 Avatars from Google Contacts
 
@@ -930,8 +934,9 @@ refresh when the contact changes.
    open-source-friendly alternative would be preferable if one is reliable.
 4. Should the reaction particle layer be capped on low-end devices automatically
    (based on frame timing) rather than only by the user's intensity setting?
-5. Whether Google Voice, Messenger, and Google Meet expose intents that start a call
-   immediately, or only open the app to the person. Needs testing on a device.
+5. Settled on the owner's phone (2026-10-06): Google Voice and Google Meet answer a call
+   action and dial at once; Messenger and Instagram expose no call entry point, so the icon
+   opens the chat in the app. Revisit if a later Messenger or Instagram version adds one.
 6. Whether Instagram's hidden requests (the ones Meta filters out of the Requests
    tab) are reachable through the endpoints the connector uses, or only the visible
    ones.

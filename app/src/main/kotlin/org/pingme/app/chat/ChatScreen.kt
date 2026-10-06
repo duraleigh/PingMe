@@ -55,7 +55,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -110,11 +109,8 @@ fun ChatRoute(
     val overrides by viewModel.overrides.collectAsStateWithLifecycle()
     val appSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val jump by viewModel.jumps.request.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val resources = LocalResources.current
-    val scope = rememberCoroutineScope()
-    val notice: (Int) -> Unit = { scope.launch { snackbar.showSnackbar(resources.getString(it)) } }
+    val notices = rememberChatNotices()
     // This chat's own look from Chat details, over the app's (UI_DESIGN.md 3.4).
     val app = PingMeTheme.appearance
     val look = remember(overrides.lookJson) { ChatLook.fromJson(overrides.lookJson) }
@@ -127,7 +123,7 @@ fun ChatRoute(
                 state = state,
                 actions =
                     ChatScreenActions(
-                        header = headerActions(viewModel, state, onBack, context, notice).copyWithDetails(onDetails),
+                        header = headerActions(viewModel, state, onBack, onDetails, context, notices),
                         onSend = { viewModel.send(it) },
                         onReply = viewModel::reply,
                         onRetry = viewModel::retry,
@@ -145,11 +141,11 @@ fun ChatRoute(
                         settings = appSettings,
                         transcripts = viewModel.transcripts.takeIf { appSettings.media.transcribeVoice },
                         search = searchHooks(viewModel, searching, jump),
-                        composer = composerHooks(viewModel, state, notice),
+                        composer = composerHooks(viewModel, state, notices.notice),
                         cleanLink = { if (appSettings.privacy.cleanLinksReceived) viewModel.links.clean(it) else it },
                     ),
                 modifier = modifier,
-                snackbar = snackbar,
+                snackbar = notices.snackbar,
             )
         }
         org.pingme.app.chat.attach

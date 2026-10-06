@@ -1,38 +1,59 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.chat
 
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalResources
 import androidx.core.net.toUri
+import kotlinx.coroutines.launch
 import org.pingme.app.R
 import org.pingme.app.chat.search.ChatSearchState
 import org.pingme.app.chat.search.SearchHooks
+import org.pingme.core.connector.remoteId
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.MessageId
 
 // The chat route's wiring, kept apart so the route itself stays short.
 
-/** The header's buttons; [onNotice] shows a snackbar when a call cannot be placed here. */
+/** The header's buttons; [notices] carries the snackbar for whatever cannot be done here, and the call placer. */
 internal fun headerActions(
     viewModel: ChatViewModel,
     state: ChatUiState,
     onBack: (() -> Unit)?,
+    onDetails: (() -> Unit)?,
     context: android.content.Context,
-    onNotice: (Int) -> Unit,
+    notices: ChatNotices,
 ) = HeaderActions(
     onBack = onBack,
+    onDetails = onDetails,
     onSearch = viewModel.search::open,
     onFilter = viewModel::setFilter,
     onCall = { video ->
-        when (placeCall(context, state, video)) {
-            CallOutcome.CALLING -> Unit
-            CallOutcome.OPENED_APP -> onNotice(R.string.chat_call_opened_app)
-            CallOutcome.UNAVAILABLE -> onNotice(R.string.chat_calls_unavailable)
-        }
+        callRequest(state, video)?.let(notices.placeCall) ?: notices.notice(R.string.chat_calls_unavailable)
     },
     onProfile =
         state.profileUrl?.let { url ->
-            { if (!openPage(context, url)) onNotice(R.string.chat_profile_unavailable) }
+            { if (!openPage(context, url)) notices.notice(R.string.chat_profile_unavailable) }
         },
 )
+
+/** The chat route's snackbar and the two ways of speaking into it: a string resource, or a call's outcome. */
+internal class ChatNotices(
+    val snackbar: SnackbarHostState,
+    val notice: (Int) -> Unit,
+    val placeCall: (CallRequest) -> Unit,
+)
+
+@Composable
+internal fun rememberChatNotices(): ChatNotices {
+    val snackbar = remember { SnackbarHostState() }
+    val resources = LocalResources.current
+    val scope = rememberCoroutineScope()
+    val say: (String) -> Unit = { text -> scope.launch { snackbar.showSnackbar(text) } }
+    return ChatNotices(snackbar, { say(resources.getString(it)) }, rememberCallPlacer(say))
+}
 
 /**
  * Opens [url] in the Instagram app when it is installed, else in whatever handles it
@@ -64,10 +85,6 @@ private fun openWith(
 
 private const val INSTAGRAM_PACKAGE = "com.instagram.android"
 
-/** The same header actions, with the name and "Chat details" opening [onDetails]. */
-internal fun HeaderActions.copyWithDetails(onDetails: (() -> Unit)?) =
-    HeaderActions(onBack, onCall, onDetails, onSearch, onFilter, onProfile)
-
 /** Search in chat: picking a result or a date closes search and jumps there (UI_DESIGN.md 10.14). */
 internal fun searchHooks(
     viewModel: ChatViewModel,
@@ -88,18 +105,17 @@ internal fun searchHooks(
     onJumped = viewModel.jumps::done,
 )
 
-private fun placeCall(
-    context: android.content.Context,
+/** What the phone or video icon calls, or null when this chat cannot be called from here. */
+internal fun callRequest(
     state: ChatUiState,
     video: Boolean,
-): CallOutcome {
+): CallRequest? {
     // A merged chat calls on the network the composer is set to (UI_DESIGN.md 10.17).
-    val network =
-        state.members.firstOrNull { it.chatId == state.sendVia }?.network
-            ?: state.account?.network
-            ?: return CallOutcome.UNAVAILABLE
-    val calls = state.capabilities?.calls ?: return CallOutcome.UNAVAILABLE
+    val member = state.members.firstOrNull { it.chatId == state.sendVia }
+    val network = member?.network ?: state.account?.network ?: return null
+    val calls = state.capabilities?.calls ?: return null
     val method = if (video) calls.video else calls.audio
-    if (method == CallMethod.NONE) return CallOutcome.UNAVAILABLE
-    return Calls(context).start(network, method, video, state.phone)
+    if (method == CallMethod.NONE) return null
+    val thread = (member?.chatId ?: state.chat?.id)?.remoteId
+    return CallRequest(network, method, video, CallTarget(state.phone, thread))
 }

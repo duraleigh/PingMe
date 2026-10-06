@@ -3859,3 +3859,41 @@ notification shade (the diagnostic file records each step).
   the search box is well above the keyboard. Passed.
 The shade reply stays with the owner: a test would send a real message from the
 owner's account.
+
+### 2026-10-06: the call buttons, checked against the apps on the phone
+
+The owner restated what the header's phone and video buttons must do on each network
+(dialer and Google Meet for Google Messages; the app's own audio and video call for
+WhatsApp, Signal, Instagram, Telegram, and Messenger; Google Voice for Google Voice, with
+no video button). With the phone online, the installed apps' intent filters and the call
+rows they add to the phone's contacts were read (read-only, no screen control). Findings
+and fixes:
+
+- **Google Meet** does not answer a plain view of a tel: number, so the video button had
+  been opening Meet's front page. It now uses Meet's own call action and starts the call.
+- **Google Voice** answers the system call action itself, so the button now dials the
+  number at once inside Google Voice instead of opening the app.
+- **Phone-call permission** was declared but never asked for. The first tap on a dialer
+  button asks once; refused, the dialer opens with the number filled in and a notice says
+  why.
+- **Signal video** used Signal's audio-call row; it now uses the video-call row Signal
+  adds.
+- **WhatsApp** has put no call rows on the owner's contacts at all (Signal and Telegram
+  have, for about 230 to 240 people each), so both WhatsApp buttons had been opening
+  WhatsApp's front page. Without the row the button now opens the person's WhatsApp chat
+  and a notice says to let WhatsApp see the contacts, then try again. Once WhatsApp has
+  contacts access and syncs, the buttons call at once. This is the one thing the owner
+  has to do on the phone.
+- **Instagram and Messenger** register no call entry point for other apps on the
+  installed versions (Instagram 439, Messenger 581), so no app can start their calls.
+  The design asked for calls; the nearest thing is built: the button opens that exact
+  chat in the app (instagram.com/direct/t and messenger.com/t links, sent to the app),
+  where the call buttons are at the top, and a notice says so. Before it opened only the
+  app's front page.
+- Each button's long-press now says what the tap will do on this network, as 10.17 asked.
+- Chat details of a merged chat use the same placer, so its per-member buttons gain all
+  of the above.
+
+UI_DESIGN.md 10.17 and open question 5 are updated with what the phone showed. Tests
+cover the Meet action, Google Voice dialing, the permission ask, Signal's video row, the
+WhatsApp fallback, the Instagram and Messenger links, and the notices.

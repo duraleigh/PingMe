@@ -48,4 +48,6 @@ class MergeChoices(
     val onSplit: (ChatId) -> Unit,
     val onUnmerge: () -> Unit,
     val onDefault: (AccountId) -> Unit,
+    /** A member's phone or video button (UI_DESIGN.md 10.17). */
+    val onCall: (org.pingme.app.chat.CallRequest) -> Unit = {},
 )

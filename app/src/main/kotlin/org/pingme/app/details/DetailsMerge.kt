@@ -23,8 +23,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
+import org.pingme.app.chat.CallRequest
+import org.pingme.app.chat.CallTarget
 import org.pingme.app.inbox.NetworkBadge
 import org.pingme.app.merge.ChatPickerSheet
+import org.pingme.core.connector.remoteId
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
 import org.pingme.core.ui.components.SettingsSectionHeader
@@ -81,21 +84,20 @@ fun DetailsMerge(
 
 // A call button per network (UI_DESIGN.md 10.17; owner, Phase 7): each does the most direct thing its service allows.
 @Composable
-private fun MemberCalls(member: MemberRow) {
+private fun MemberCalls(
+    member: MemberRow,
+    onCall: (CallRequest) -> Unit,
+) {
     val calls = member.calls ?: return
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val phone = member.person?.phoneNumber
-    val dial =
-        org.pingme.app.chat
-            .Calls(context)
+    val target = CallTarget(member.person?.phoneNumber, member.chat.id.remoteId)
     androidx.compose.foundation.layout.Row {
         if (calls.audio != org.pingme.core.model.CallMethod.NONE) {
-            IconButton({ dial.start(member.network, calls.audio, false, phone) }) {
+            IconButton({ onCall(CallRequest(member.network, calls.audio, false, target)) }) {
                 Icon(painterResource(UiR.drawable.ic_call), stringResource(R.string.chat_call))
             }
         }
         if (calls.video != org.pingme.core.model.CallMethod.NONE) {
-            IconButton({ dial.start(member.network, calls.video, true, phone) }) {
+            IconButton({ onCall(CallRequest(member.network, calls.video, true, target)) }) {
                 Icon(painterResource(UiR.drawable.ic_videocam), stringResource(R.string.chat_video_call))
             }
         }
@@ -131,7 +133,7 @@ private fun MemberLine(
         },
         trailingContent = {
             androidx.compose.foundation.layout.Row {
-                MemberCalls(member)
+                MemberCalls(member, choices.onCall)
                 // Labelled, not an icon: the owner could not find the split button (2026-10-04).
                 TextButton({ choices.onSplit(member.chat.id) }) { Text(stringResource(R.string.merge_member_remove)) }
             }

@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import org.pingme.app.R
 import org.pingme.app.chat.search.SearchType
 import org.pingme.core.model.ChatId
@@ -53,6 +54,10 @@ fun ChatDetailsRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) { viewModel.notices.collect { snackbar.showSnackbar(it) } }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val placeCall =
+        org.pingme.app.chat
+            .rememberCallPlacer { text -> scope.launch { snackbar.showSnackbar(text) } }
     val toChat = { ask: () -> Unit ->
         ask()
         navigation.onBackToChat()
@@ -83,6 +88,7 @@ fun ChatDetailsRoute(
                         onSplit = { member -> viewModel.split(member, navigation.onLeft) },
                         onUnmerge = { viewModel.unmerge(navigation.onLeft) },
                         onDefault = viewModel::setDefault,
+                        onCall = placeCall,
                     ),
                 chat =
                     ChatChoices(
