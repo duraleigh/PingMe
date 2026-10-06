@@ -63,12 +63,15 @@ jobs:
           java-version: "17"
 
       # The runner image ships an Android SDK with licences accepted. Install exactly
-      # the packages the build uses so AGP never has to fetch them mid-build.
+      # the packages the build uses so AGP never has to fetch them mid-build. The NDK is
+      # here, not only in the bridge step: without it AGP cannot strip the bridge's
+      # native library and the APK came out 175 MB larger on a bridge cache hit
+      # (2026-10-06, build d638b17: 541 MB instead of 366 MB).
       - name: Android SDK packages
         if: steps.changes.outputs.code == 'true'
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-37.2" "build-tools;36.0.0" > /dev/null
+            "platforms;android-37.2" "build-tools;36.0.0" "ndk;27.3.13750724" > /dev/null
 
       - uses: gradle/actions/setup-gradle@v6
         if: steps.changes.outputs.code == 'true'
@@ -97,7 +100,6 @@ jobs:
           # build.sh downloads Signal's native library from this repository's releases.
           GH_TOKEN: ${{ github.token }}
         run: |
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.3.13750724" > /dev/null
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.3.13750724"
           go install golang.org/x/mobile/cmd/gomobile@latest
           gomobile init

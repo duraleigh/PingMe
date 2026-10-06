@@ -3981,3 +3981,13 @@ the no-other-network-calls rule, recorded in DESIGN.md 6.5: it happens only with
 owner's own key and only while they hold the key. The key is stored in the app's settings
 on the phone, never in the code or CI. Tests cover the multipart body, the dictation state
 machine with a fake recorder and a fake Groq, and volume down taken only with dictation on.
+
+### 2026-10-06, 11:50 AM: the dictation build is 541 MB; the NDK was missing on a cache hit
+
+GitHub's build of the dictation commit (d638b17) came out at 541 MB against 366 MB for the
+one before. The Go bridge library inside grew from 78 MB to 127 MB although the bridge was
+a cache hit and unchanged: the build log says "Unable to strip the following libraries,
+packaging them as they are: libgojni.so". The NDK, which does the stripping, was installed
+only inside the bridge-build step, which runs on a cache miss; on a hit there was no NDK.
+The workflow now installs the NDK with the other SDK packages every time. The 541 MB build
+works and installs; the next build is back to size.
