@@ -434,14 +434,7 @@ class ChatViewModel
                     names = nameMap,
                     typing = typers.mapNotNull { nameMap[it] },
                     pinned = pins,
-                    phone =
-                        c
-                            ?.takeIf { it.kind == org.pingme.core.model.ChatKind.DIRECT }
-                            ?.participants
-                            ?.filter { id -> sending == null || id.accountId == sending.accountId }
-                            ?.firstNotNullOfOrNull { id ->
-                                everyone.find { it.id == id }?.phoneNumber
-                            },
+                    phone = c?.let { callNumber(it.kind, it.participants, sending?.accountId, me, everyone) },
                     profileUrl =
                         c?.let {
                             instagramProfileUrl(
@@ -734,10 +727,33 @@ class ChatViewModel
     }
 
 /**
+ * The number the call icons dial in a one-to-one chat: the other person's, never the owner's
+ * own. Google Messages lists the owner among a chat's participants, as "You", and the first
+ * participant with a number was the owner (owner, 2026-10-06: "it calls my phone number!!!").
+ */
+internal fun callNumber(
+    kind: org.pingme.core.model.ChatKind,
+    participants: List<PersonId>,
+    accountId: org.pingme.core.model.AccountId?,
+    me: PersonId?,
+    everyone: List<org.pingme.core.model.Person>,
+): String? {
+    if (kind != org.pingme.core.model.ChatKind.DIRECT) return null
+    return participants
+        .filter { (accountId == null || it.accountId == accountId) && it != me }
+        .mapNotNull { id -> everyone.find { it.id == id } }
+        .filterNot { it.displayName == YOU }
+        .firstNotNullOfOrNull { it.phoneNumber }
+}
+
+private const val YOU = "You"
+
+/**
  * The Instagram profile page of the one other person in a direct Instagram chat, or null:
  * tapping the avatar in the header opens it (owner, 2026-10-05). A person known only by a
  * numeric id has no page to open.
  */
+
 internal fun instagramProfileUrl(
     kind: org.pingme.core.model.ChatKind,
     participants: List<PersonId>,

@@ -3991,3 +3991,12 @@ packaging them as they are: libgojni.so". The NDK, which does the stripping, was
 only inside the bridge-build step, which runs on a cache miss; on a hit there was no NDK.
 The workflow now installs the NDK with the other SDK packages every time. The 541 MB build
 works and installs; the next build is back to size.
+
+### 2026-10-06, 12:50 PM: the Google Messages call button rang the owner's own number
+
+The owner: "Tapping the phone icon in the header of google messages chats opens the
+dialer, but it doesn't call the contact's phone number, it calls my phone number!!!"
+Google Messages lists the owner among every chat's participants (named "You"), and the
+header took the first participant with a number. The number now comes from a function
+that drops the owner by id and by that name and takes the other person's number; tested
+with the owner first in the list, with and without the owner's id known.
