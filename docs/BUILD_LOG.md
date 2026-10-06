@@ -3841,3 +3841,8 @@ Brackett's chat, a tap on the header avatar. The profile page opened, but in Chr
 not the Instagram app, because the phone does not hand instagram.com links to the app.
 The page is now sent to the Instagram app by name when it is installed, with the
 browser as the fallback. The owner's earlier tap was on the build before the feature.
+
+Installed 9:10 PM and tested again on the phone: the avatar tap now lands in the
+Instagram app on the person's profile. Also on the phone since 8:33 PM: New chat on
+Google Messages with clean second lines. Still to test by the owner: a reply from the
+notification shade (the diagnostic file records each step).
