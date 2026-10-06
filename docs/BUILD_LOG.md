@@ -4087,3 +4087,14 @@ passphrase against damage; the store's round trip of database, settings, and a k
 picture (with ordinary media left to download again), the wrong passphrase refusing with
 nothing changed, the old plain backup, and junk refused. UI_DESIGN.md 10.18a added. Still
 to do for P8.2: the end-to-end proof on the emulator with the demo network.
+
+### 2026-10-06, 7:30 PM: the APK is still 541 MB; the NDK must be named by version
+
+The run with the NDK installed among the SDK packages still said "Unable to strip":
+AGP looks for the NDK by its own default version unless the project names one, and the
+version installed was not that one. The earlier 366 MB builds had rebuilt the Go bridge,
+whose step exported ANDROID_NDK_HOME, which AGP also honours; the cache-hit path had
+neither. `ndkVersion` is now set in the app module to the version CI installs (the same
+one is installed here). Also added: `-Ppingme.abi=x86_64` builds a one-processor debug
+APK for the emulator, since the all-types debug APK is 966 MB and the emulator link
+here moves under half a megabyte a second.

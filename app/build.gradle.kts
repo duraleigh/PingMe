@@ -27,12 +27,24 @@ val giphyKey =
 android {
     namespace = "org.pingme.app"
 
+    // The NDK by version, so AGP finds it and strips the bridge's native library: with the
+    // NDK merely installed under another version the release APK came out 175 MB larger
+    // ("Unable to strip", 2026-10-06). CI installs this exact version with the SDK packages.
+    ndkVersion = "27.3.13750724"
+
     defaultConfig {
         applicationId = "org.pingme.app"
         versionCode = 8
         versionName = "0.7.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GIPHY_API_KEY", "\"$giphyKey\"")
+        // A local build for one processor type (-Ppingme.abi=x86_64 for the emulator): the
+        // all-types debug APK is near a gigabyte and too slow to push to the emulator.
+        (project.findProperty("pingme.abi") as String?)?.let { abi ->
+            // Only a local, one-off build narrows the types; shipped builds carry them all.
+            //noinspection ChromeOsAbiSupport
+            ndk { abiFilters += abi.split(",") }
+        }
     }
 
     // Sideload signing (BUILD_PLAN.md P0.3). CI decodes the SIDELOAD_KEYSTORE_B64
