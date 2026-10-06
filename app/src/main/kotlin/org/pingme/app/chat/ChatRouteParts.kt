@@ -34,15 +34,25 @@ internal fun headerActions(
         },
 )
 
-/** Opens [url] in whatever handles it (the Instagram app for a profile page); false when nothing can. */
+/**
+ * Opens [url] in the Instagram app when it is installed, else in whatever handles it
+ * (2026-10-05: the phone sent the page to Chrome); false when nothing can.
+ */
 private fun openPage(
     context: android.content.Context,
     url: String,
+): Boolean = openWith(context, url, INSTAGRAM_PACKAGE) || openWith(context, url, null)
+
+private fun openWith(
+    context: android.content.Context,
+    url: String,
+    appPackage: String?,
 ): Boolean =
     try {
         context.startActivity(
             android.content
                 .Intent(android.content.Intent.ACTION_VIEW, url.toUri())
+                .setPackage(appPackage)
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
         )
         true
@@ -51,6 +61,8 @@ private fun openPage(
     } catch (_: SecurityException) {
         false
     }
+
+private const val INSTAGRAM_PACKAGE = "com.instagram.android"
 
 /** The same header actions, with the name and "Chat details" opening [onDetails]. */
 internal fun HeaderActions.copyWithDetails(onDetails: (() -> Unit)?) =

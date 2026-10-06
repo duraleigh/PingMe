@@ -3833,3 +3833,11 @@ The screenshot also showed WhatsApp's raw ids under names ("12024137187@s.whatsa
 "...@lid") and the same person twice (once by number, once by hidden id); the second
 line is now the number or a username and never a raw id, and a hidden-id twin of
 someone already listed is left out. UI_DESIGN.md 3.1 updated.
+
+### 2026-10-05, 8:40 PM: the Instagram avatar tap, tested on the phone
+
+With the owner's leave, PingMe was driven on the phone: Instagram filter, Jeff
+Brackett's chat, a tap on the header avatar. The profile page opened, but in Chrome,
+not the Instagram app, because the phone does not hand instagram.com links to the app.
+The page is now sent to the Instagram app by name when it is installed, with the
+browser as the fallback. The owner's earlier tap was on the build before the feature.
