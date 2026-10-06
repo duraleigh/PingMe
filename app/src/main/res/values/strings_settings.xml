@@ -97,6 +97,8 @@
     <string name="storage_gif_autoplay">Play GIFs by themselves</string>
     <string name="storage_gif_autoplay_note">Off: a GIF stays still until you tap it.</string>
     <string name="storage_transcribe">Write out voice notes</string>
+    <string name="storage_dictation_key">Groq key for dictation</string>
+    <string name="storage_dictation_note">Hold volume down in a chat to dictate into the message box. The recording goes to Groq with this key, only while you hold it. Leave this empty to keep volume down as volume.</string>
     <string name="storage_transcribe_note">Shows the words under each voice note. It happens on your phone and needs Android 13 or newer.</string>
     <string name="storage_save_all">Save all incoming media</string>
     <string name="storage_save_all_note">Downloads every photo, video, and file as it arrives, including view-once media where the network sends it to linked devices.</string>

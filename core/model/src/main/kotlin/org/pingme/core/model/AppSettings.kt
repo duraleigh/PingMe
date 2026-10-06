@@ -90,6 +90,8 @@ data class MediaSettings(
     val gifsAutoplay: Boolean = true,
     /** On-device voice-note transcription, off by default. */
     val transcribeVoice: Boolean = false,
+    /** The owner's Groq key for dictation by volume down; blank leaves volume down as volume (5.6). */
+    val groqKey: String = "",
     /** "Save all incoming media". */
     val saveAllMedia: Boolean = false,
     /** The folder the user chose for saved media; null keeps it in app storage. */

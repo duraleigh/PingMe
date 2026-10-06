@@ -6,6 +6,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -13,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import org.pingme.app.R
 import org.pingme.core.model.MediaSettings
 import org.pingme.core.ui.components.SettingsSectionHeader
@@ -52,6 +55,7 @@ fun StoragePage(
         SwitchSetting(stringResource(R.string.storage_transcribe), media.transcribeVoice, { on ->
             change { it.copy(transcribeVoice = on) }
         }, description = stringResource(R.string.storage_transcribe_note))
+        GroqKeyField(media.groqKey) { typed -> change { it.copy(groqKey = typed) } }
         SettingsSectionHeader(stringResource(R.string.settings_storage))
         SwitchSetting(stringResource(R.string.storage_save_all), media.saveAllMedia, { on ->
             change { it.copy(saveAllMedia = on) }
@@ -81,4 +85,23 @@ fun StoragePage(
             modifier = Modifier.clickable(onClickLabel = pick) { folder.launch(null) },
         )
     }
+}
+
+/** The owner's Groq key for dictation by volume down (UI_DESIGN.md 5.6); kept only on this phone. */
+@Composable
+private fun GroqKeyField(
+    key: String,
+    onChange: (String) -> Unit,
+) {
+    androidx.compose.material3.OutlinedTextField(
+        value = key,
+        onValueChange = onChange,
+        label = { Text(stringResource(R.string.storage_dictation_key)) },
+        supportingText = { Text(stringResource(R.string.storage_dictation_note)) },
+        singleLine = true,
+        modifier =
+            androidx.compose.ui.Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }

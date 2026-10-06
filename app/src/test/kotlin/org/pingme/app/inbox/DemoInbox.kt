@@ -249,6 +249,9 @@ class DemoInbox(
             reactions,
             files,
             recorder,
+            recorder,
+            org.pingme.app.chat.voice
+                .GroqTranscriber(),
             gifStore,
             chatSearch,
             requests,

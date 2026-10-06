@@ -118,6 +118,7 @@ internal fun composerHooks(
     outbox = viewModel.outbox,
     voice = viewModel.voice.takeIf { state.capabilities?.voiceNote?.let { it != MediaRule.UNSUPPORTED } == true },
     onVoiceTooShort = { onNotice(R.string.voice_too_short) },
+    dictation = viewModel.dictation.takeIf { it.ready },
     gifs = viewModel.gifs.takeIf { state.capabilities?.gif?.let { it != MediaRule.UNSUPPORTED } == true },
     gifPicks =
         org.pingme.app.chat.gif

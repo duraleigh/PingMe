@@ -64,9 +64,11 @@ import org.pingme.app.chat.attach.rememberAttachLaunchers
 import org.pingme.app.chat.gif.GifPickerSheet
 import org.pingme.app.chat.gif.GifPicks
 import org.pingme.app.chat.later.SendLaterSheet
+import org.pingme.app.chat.voice.DictationRow
 import org.pingme.app.chat.voice.MicButton
 import org.pingme.app.chat.voice.MicState
 import org.pingme.app.chat.voice.RecordingBar
+import org.pingme.app.chat.voice.VoiceKeyListener
 import org.pingme.app.chat.voice.VoiceNotes
 import org.pingme.app.chat.voice.VoiceReplyStarter
 import org.pingme.app.inbox.NetworkBadge
@@ -99,11 +101,13 @@ internal fun Composer(
     val copying by outbox?.busy.collectOr(0)
     val mic by voice?.state.collectOr(MicState.Idle)
     val recording = mic as? MicState.Recording
-    voice?.let { VoiceReplyStarter(it, hooks.onVoiceTooShort) }
+    voice?.let { VoiceReplyStarter(it) }
+    VoiceKeyListener(voice, hooks.dictation?.takeIf { editing == null }, hooks.onVoiceTooShort)
     if (recording?.locked == true && voice != null) {
         RecordingBar(recording, voice, Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp))
         return
     }
+    hooks.dictation?.takeIf { editing == null }?.let { DictationRow(it, field) }
     StagedStrip(staged, copying > 0, { outbox?.remove(it) })
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),

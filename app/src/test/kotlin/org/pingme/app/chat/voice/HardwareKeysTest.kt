@@ -131,6 +131,34 @@ class HardwareKeysTest {
         }
 
     @Test
+    fun volumeDownIsTakenOnlyWhileAChatWithDictationListens() =
+        runTest {
+            val plain = HardwareKeys.listen()
+            try {
+                assertFalse(
+                    "no key set: volume down is volume",
+                    HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_DOWN, 0),
+                )
+            } finally {
+                plain()
+            }
+            val gone = HardwareKeys.listen(dictation = true)
+            try {
+                val moves = mutableListOf<Boolean>()
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    HardwareKeys.volumeDown.collect { moves += it }
+                }
+                assertTrue(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_DOWN, 0))
+                assertTrue(HardwareKeys.onKeyUp(KeyEvent.KEYCODE_VOLUME_DOWN))
+                runCurrent()
+                assertEquals(listOf(true, false), moves)
+            } finally {
+                gone()
+            }
+            assertFalse(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_DOWN, 0))
+        }
+
+    @Test
     fun aShortVolumePressIsVolumeAHeldOneSends() {
         assertEquals(VolumeHold.VOLUME, volumeHoldEnded(150))
         assertEquals(VolumeHold.SEND, volumeHoldEnded(HardwareKeys.HOLD_MS))

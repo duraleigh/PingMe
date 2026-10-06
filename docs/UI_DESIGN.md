@@ -419,6 +419,14 @@ library. Intensity Subtle keeps only Pick and Land. Off disables all of it.
   go sends, exactly like holding the mic. A short press is still a volume press: the sliver
   recorded is dropped and the volume goes up with the usual slider. Volume down is never
   touched, and outside a chat both keys are the phone's.
+- **Volume down, held: dictation** (owner, 2026-10-06). The phone's own speech recogniser
+  hears nothing on the owner's phone, so dictation goes to Groq's Whisper endpoint with
+  the owner's own key, entered under Settings, Storage and media, Voice notes. Inside an
+  open chat, holding volume down records with the phone's microphone; letting go sends
+  the recording to Groq and the words land at the cursor in the message box, with a space
+  before them when the box already has text. A line above the box says "Listening…",
+  "Writing it out…", or what went wrong. A short press is still a volume press. Without a
+  key, volume down is never taken.
 - **The phone's side key** (the razr's dedicated key) works inside an open chat as a further
   way to record (owner, 2026-10-06: "I would only ever use this key while I am in the app
   and directly in a specific chat"). One press starts a hands-free recording in that chat,

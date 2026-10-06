@@ -163,6 +163,8 @@ class ChatViewModel
         reactionFeed: org.pingme.core.service.ReactionFeed,
         files: org.pingme.app.chat.attach.OutgoingFiles,
         recorder: VoiceRecorder,
+        dictationRecorder: VoiceRecorder,
+        groq: org.pingme.app.chat.voice.GroqTranscriber,
         gifStore: org.pingme.app.chat.gif.GifStore,
         private val searchRepo: org.pingme.core.store.ChatSearchRepository,
         requests: ChatRequests,
@@ -261,6 +263,19 @@ class ChatViewModel
                 SharingStarted.Eagerly,
                 org.pingme.core.model
                     .AppSettings(),
+            )
+
+        /** Volume down held: dictation into the box through Groq with the owner's key (UI_DESIGN.md 5.6). */
+        val dictation =
+            org.pingme.app.chat.voice.Dictation(
+                viewModelScope,
+                dictationRecorder,
+                Clock.System,
+                {
+                    appSettings.value.media.groqKey
+                        .trim()
+                },
+                groq::transcribe,
             )
 
         /** A merged chat's members (UI_DESIGN.md 10.15); empty for an ordinary chat. */

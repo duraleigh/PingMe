@@ -177,14 +177,10 @@ fun rememberMicPermission(onGrant: () -> Unit): () -> Unit {
 /**
  * "Voice reply" from the action sheet, and the phone's side key: once the microphone is allowed,
  * start recording locked so it is one tap, or one press, from the message to talking
- * (UI_DESIGN.md 5.6). [onTooShort] is for a key press that sent nothing worth keeping.
+ * (UI_DESIGN.md 5.6).
  */
 @Composable
-fun VoiceReplyStarter(
-    voice: VoiceNotes,
-    onTooShort: () -> Unit = {},
-) {
-    VoiceKeyListener(voice, onTooShort)
+fun VoiceReplyStarter(voice: VoiceNotes) {
     val context = LocalContext.current
     val asked by voice.lockedRequest.collectAsStateWithLifecycle()
     val ask = rememberMicPermission { voice.start(locked = true) }

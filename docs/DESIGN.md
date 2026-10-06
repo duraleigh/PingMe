@@ -271,7 +271,10 @@ Every record keeps the network's own ID alongside PingMe's ID so syncs can recon
   Messages on the phone does the decryption before relaying, exactly as it does for the
   web client.
 - No analytics, no crash reporting, no network calls except to the networks the user
-  connected. If opt-in crash reporting is ever added it is off by default.
+  connected, the GIF provider when the user searches, and Groq's transcription endpoint
+  when the user has entered their own Groq key and holds the dictation key (owner,
+  2026-10-06: the phone's built-in recogniser hears nothing). The key lives only on the
+  phone. If opt-in crash reporting is ever added it is off by default.
 - The message database is in app-private storage. Full database encryption is a
   later option, not a v1 requirement.
 

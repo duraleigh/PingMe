@@ -28,6 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * - **Volume up, held**: records while held and sends on release, like holding the mic. A
  *   short press is still a volume press: the sliver recorded is dropped and the volume goes up.
+ * - **Volume down, held**, when a Groq key is set: dictates into the message box; a short
+ *   press is still a volume press. Without a key the chat never takes volume down.
  * - **The side key** (the razr's dedicated key): one press starts a hands-free recording, a
  *   second press sends. On the owner's razr the phone's own key service takes that key before
  *   any app sees it, so it is set, in the phone's settings, to open PingMe; PingMe opened
@@ -37,13 +39,18 @@ import java.util.concurrent.atomic.AtomicInteger
 object HardwareKeys {
     private val presses = MutableSharedFlow<Int>(extraBufferCapacity = BUFFER)
     private val volumeUps = MutableSharedFlow<Boolean>(extraBufferCapacity = BUFFER)
+    private val volumeDowns = MutableSharedFlow<Boolean>(extraBufferCapacity = BUFFER)
     private val listeners = AtomicInteger()
+    private val dictating = AtomicInteger()
 
     /** The key codes of the side key, one per press, while a chat listens. */
     val pressed: SharedFlow<Int> = presses.asSharedFlow()
 
     /** Volume up going down (true) and coming back up (false), while a chat listens. */
     val volumeUp: SharedFlow<Boolean> = volumeUps.asSharedFlow()
+
+    /** Volume down going down (true) and coming back up (false), while a chat with dictation listens. */
+    val volumeDown: SharedFlow<Boolean> = volumeDowns.asSharedFlow()
 
     /** The activity's key-down. True when a chat on screen takes the key, so nothing else sees it. */
     fun onKeyDown(
@@ -53,6 +60,10 @@ object HardwareKeys {
         if (listeners.get() == 0) return false
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
             if (repeatCount == 0) volumeUps.tryEmit(true)
+            return true
+        }
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && dictating.get() > 0) {
+            if (repeatCount == 0) volumeDowns.tryEmit(true)
             return true
         }
         if (keyCode !in VOICE_KEYS) {
@@ -70,9 +81,12 @@ object HardwareKeys {
 
     /** The activity's key-up: the release of a held volume up ends the recording. */
     fun onKeyUp(keyCode: Int): Boolean {
-        if (listeners.get() == 0 || keyCode != KeyEvent.KEYCODE_VOLUME_UP) return false
-        volumeUps.tryEmit(false)
-        return true
+        if (listeners.get() == 0) return false
+        return when {
+            keyCode == KeyEvent.KEYCODE_VOLUME_UP -> volumeUps.tryEmit(false)
+            keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && dictating.get() > 0 -> volumeDowns.tryEmit(false)
+            else -> false
+        }
     }
 
     /**
@@ -97,10 +111,17 @@ object HardwareKeys {
         return true
     }
 
-    /** A chat is on screen and wants the keys; the returned function says it has gone. */
-    fun listen(): () -> Unit {
+    /**
+     * A chat is on screen and wants the keys, volume down too when [dictation] is true; the
+     * returned function says it has gone.
+     */
+    fun listen(dictation: Boolean = false): () -> Unit {
         listeners.incrementAndGet()
-        return { listeners.decrementAndGet() }
+        if (dictation) dictating.incrementAndGet()
+        return {
+            listeners.decrementAndGet()
+            if (dictation) dictating.decrementAndGet()
+        }
     }
 
     /**
@@ -150,42 +171,79 @@ fun volumeHoldEnded(heldMs: Long): VolumeHold =
         VolumeHold.SEND
     }
 
-/** Listens for the keys while this composer is on screen. */
+/** Listens for the keys while this composer is on screen; [dictation] null leaves volume down alone. */
 @Composable
 fun VoiceKeyListener(
-    voice: VoiceNotes,
+    voice: VoiceNotes?,
+    dictation: Dictation?,
     onTooShort: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val haptic = rememberHaptic()
     val tooShort by rememberUpdatedState(onTooShort)
-    val ask = rememberMicPermission { }
-    DisposableEffect(Unit) {
-        val gone = HardwareKeys.listen()
+    DisposableEffect(dictation) {
+        val gone = HardwareKeys.listen(dictation = dictation != null)
         onDispose { gone() }
     }
     LaunchedEffect(voice) {
+        voice ?: return@LaunchedEffect
         HardwareKeys.pressed.collect { if (!voiceKeyPressed(voice)) tooShort() }
     }
-    LaunchedEffect(voice) {
+    if (voice != null) {
+        HeldKey(
+            HardwareKeys.volumeUp,
+            AudioManager.ADJUST_RAISE,
+            start = { voice.state.value !is MicState.Recording && voice.start() },
+            cancel = voice::cancel,
+            finish = { if (!voice.send()) tooShort() },
+        )
+    }
+    if (dictation != null) {
+        HeldKey(
+            HardwareKeys.volumeDown,
+            AudioManager.ADJUST_LOWER,
+            start = dictation::start,
+            cancel = dictation::cancel,
+            finish = { if (!dictation.stop()) tooShort() },
+        )
+    }
+}
+
+/**
+ * One volume key held: [start] on the way down (after the microphone is allowed), then on
+ * release either [cancel] and a volume nudge in [direction] for a short press, or [finish].
+ */
+@Composable
+private fun HeldKey(
+    moves: SharedFlow<Boolean>,
+    direction: Int,
+    start: () -> Boolean,
+    cancel: () -> Unit,
+    finish: () -> Unit,
+) {
+    val context = LocalContext.current
+    val haptic = rememberHaptic()
+    val ask = rememberMicPermission { }
+    val begin by rememberUpdatedState(start)
+    val drop by rememberUpdatedState(cancel)
+    val end by rememberUpdatedState(finish)
+    LaunchedEffect(moves) {
         var heldSince = 0L
-        HardwareKeys.volumeUp.collect { down ->
+        moves.collect { down ->
             if (down) {
                 if (!micAllowed(context)) {
                     ask()
-                } else if (voice.state.value !is MicState.Recording && voice.start()) {
+                } else if (begin()) {
                     heldSince = System.currentTimeMillis()
                     haptic.bump()
                 }
             } else if (heldSince != 0L) {
                 when (volumeHoldEnded(System.currentTimeMillis() - heldSince)) {
                     VolumeHold.VOLUME -> {
-                        voice.cancel()
-                        raiseVolume(context)
+                        drop()
+                        nudgeVolume(context, direction)
                     }
 
                     VolumeHold.SEND -> {
-                        if (!voice.send()) tooShort()
+                        end()
                     }
                 }
                 heldSince = 0L
@@ -198,7 +256,10 @@ private fun micAllowed(context: Context) =
     ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
 /** The volume press the chat took, done by hand: the same nudge, with the system's slider. */
-private fun raiseVolume(context: Context) {
+private fun nudgeVolume(
+    context: Context,
+    direction: Int,
+) {
     val audio = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
-    audio.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
+    audio.adjustVolume(direction, AudioManager.FLAG_SHOW_UI)
 }

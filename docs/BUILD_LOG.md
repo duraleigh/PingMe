@@ -3966,3 +3966,18 @@ short-press/held split. UI_DESIGN.md 5.6 updated.
 
 Installed on the phone at 7:09 AM (build 69a462b, GitHub's build of 7:08 AM). Waiting on
 the owner's first hold of volume up in a chat.
+
+### 2026-10-06, 7:30 AM: dictation by volume down, through Groq
+
+The owner's phone's built-in speech recogniser hears nothing (Gemini, Gboard, Chrome all
+deaf; third-party apps hear fine), so PingMe's on-device transcription path is no use to
+them; they use Dictate keyboard with a Groq key. Driving that keyboard's mic button is
+impossible for another app (only a keyboard can switch keyboards). Built instead, at the
+owner's suggestion: volume down held in a chat records with the microphone, and on release
+the recording goes to Groq's Whisper endpoint (whisper-large-v3-turbo, plain-text answer)
+with the owner's key from Settings; the words land at the cursor. A short press stays a
+volume press; without a key volume down is never taken. This is a deliberate exception to
+the no-other-network-calls rule, recorded in DESIGN.md 6.5: it happens only with the
+owner's own key and only while they hold the key. The key is stored in the app's settings
+on the phone, never in the code or CI. Tests cover the multipart body, the dictation state
+machine with a fake recorder and a fake Groq, and volume down taken only with dictation on.
