@@ -3923,3 +3923,8 @@ chat, and the diagnostic file afterwards, will tell; if it does not arrive, the 
 setting has to be changed to no action, which the owner does in the phone's settings.
 UI_DESIGN.md 5.6 updated. Tests cover taking the key only while a chat listens, one press
 for a held key, and start-then-send.
+
+Installed on the phone at 6:03 AM (build 9463ff0, GitHub's build of 5:35 AM; the phone was
+off wireless debugging from about 5:40 until 6:03). Waiting on the owner's first press of
+the side key in a chat; the diagnostic file will say whether the press reached PingMe and
+under which key code.
