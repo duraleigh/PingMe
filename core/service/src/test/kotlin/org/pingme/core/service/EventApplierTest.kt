@@ -458,6 +458,62 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun aSentPictureListedAgainWithoutItsFileKeepsIt() =
+        runTest {
+            // Google Messages hands a sent message back on every status change, each copy
+            // naming only the network's file (owner, 2026-10-06: blank purple bubbles).
+            seed()
+            val file =
+                Attachment(
+                    accountId.attachment("real/0"),
+                    AttachmentKind.IMAGE,
+                    "image/jpeg",
+                    "p.jpg",
+                    3,
+                    "/data/p.jpg",
+                    null,
+                    null,
+                    null,
+                    null,
+                    false,
+                    null,
+                )
+            val sent =
+                messageSnapshot("real", body = "", outgoing = true).let {
+                    it.copy(message = it.message.copy(attachments = listOf(file)))
+                }
+            applier.apply(ConnectorEvent.NewMessage(accountId, sent))
+            val again = sent.copy(message = sent.message.copy(attachments = listOf(file.copy(localPath = null))))
+            applier.apply(ConnectorEvent.MessageUpdated(accountId, again))
+            applier.apply(ConnectorEvent.MessageUpdated(accountId, again))
+            assertEquals(
+                "/data/p.jpg",
+                messages
+                    .get(accountId.message("real"))!!
+                    .attachments
+                    .single()
+                    .localPath,
+            )
+            // A copy whose attachment id changed still keeps the file by position.
+            val renamed =
+                sent.copy(
+                    message =
+                        sent.message.copy(
+                            attachments = listOf(file.copy(id = accountId.attachment("real/x"), localPath = null)),
+                        ),
+                )
+            applier.apply(ConnectorEvent.MessageUpdated(accountId, renamed))
+            assertEquals(
+                "/data/p.jpg",
+                messages
+                    .get(accountId.message("real"))!!
+                    .attachments
+                    .single()
+                    .localPath,
+            )
+        }
+
+    @Test
     fun historyBatchesAddMessagesWithoutCountingThemUnread() =
         runTest {
             seed()

@@ -4000,3 +4000,17 @@ Google Messages lists the owner among every chat's participants (named "You"), a
 header took the first participant with a number. The number now comes from a function
 that drops the owner by id and by that name and takes the other person's number; tested
 with the owner first in the list, with and without the owner's id known.
+
+### 2026-10-06, 2:15 PM: sent pictures in Google Messages still went blank
+
+The owner: "photos sent in google messages are STILL disappearing from the chat!!! You
+were supposed to have fixed this!!" (a sent picture shown as an empty purple bubble). The
+Gate G7 fix carried the stand-in's file over to the network's first copy of the message.
+What it missed: Google Messages hands the message back again on every status change
+(sent, delivered, read), each copy naming only the network's file, with no download
+reference while the phone's upload is still pending. The second copy arrived after the
+stand-in had been retired, found nothing to take the file from, and overwrote the stored
+copy: no file, nothing to fetch, blank bubble. Now any copy of a message that arrives
+without a file keeps the file the store already holds for that attachment (by id, else by
+position), on every network, and the diagnostic file notes each time it does. Tested: a
+sent picture listed again twice without its file keeps it.

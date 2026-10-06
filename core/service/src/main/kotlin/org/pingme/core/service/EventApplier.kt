@@ -313,7 +313,7 @@ class EventApplier
         }
 
         private suspend fun saveMessage(snapshot: MessageSnapshot) {
-            val message = withQuote(messages.keepingHeldViewOnce(snapshot.message))
+            val message = withQuote(messages.keepingLocalFiles(messages.keepingHeldViewOnce(snapshot.message)))
             if (chats.get(message.chatId) == null && hiddenHere(message.chatId, message.sentAt)) return
             // Through the people step, or a message's sender would overwrite the person's
             // downloaded picture with the network's link again (owner, 2026-10-04: photos gone).
@@ -422,6 +422,34 @@ private fun ChatSnapshot.toNewChat() =
     )
 
 private const val TAG = "PingMeApplier"
+
+/**
+ * A file PingMe already holds for a message stays with it. Google Messages hands a sent
+ * message back on every status change (sent, delivered, read), each time naming only the
+ * network's copy of the picture, and until this the stored copy lost its file at the second
+ * update, after the stand-in that first supplied it was gone: a blank bubble (owner,
+ * 2026-10-06: "photos sent in google messages are STILL disappearing"). The same holds for
+ * any network listing a message again after its file was fetched.
+ */
+private suspend fun MessageRepository.keepingLocalFiles(message: Message): Message {
+    if (message.attachments.none { it.localPath == null }) return message
+    val stored = get(message.id) ?: return message
+    if (stored.attachments.isEmpty()) return message
+    val byId = stored.attachments.associateBy { it.id }
+    var kept = 0
+    val merged =
+        message.attachments.mapIndexed { i, a ->
+            val held = byId[a.id]?.localPath ?: stored.attachments.getOrNull(i)?.localPath
+            if (a.localPath == null && held != null) {
+                kept++
+                a.copy(localPath = held)
+            } else {
+                a
+            }
+        }
+    if (kept > 0) Diag.note("PingMeApplier", "Kept $kept file(s) for ${message.id.value} listed again without them")
+    return message.copy(attachments = merged)
+}
 
 /**
  * A view-once picture or video PingMe already holds stays held: when the network hands
