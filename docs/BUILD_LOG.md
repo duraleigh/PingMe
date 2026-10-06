@@ -3963,3 +3963,6 @@ the volume by hand with the system slider, so volume still works while reading a
 Volume down is untouched. The activity hands key-ups to `HardwareKeys` too. Tests cover the
 down/up events being taken only while a chat listens, volume down left alone, and the
 short-press/held split. UI_DESIGN.md 5.6 updated.
+
+Installed on the phone at 7:09 AM (build 69a462b, GitHub's build of 7:08 AM). Waiting on
+the owner's first hold of volume up in a chat.
