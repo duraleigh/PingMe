@@ -4025,3 +4025,11 @@ moved. Now a thread handed over without folder fields keeps the folder it was li
 with, and a chat snapshot that does not know its folder says so (null) and the store keeps
 the folder it has. Tested: a thread listed as General, then handed over bare, stays
 General; a snapshot without a folder leaves a stored General chat in General.
+
+Installed on the phone at 6:07 PM (build 23a6bf4, GitHub's build of 3:15 PM; the phone was
+off wireless debugging from about 11:00 AM to 6:05 PM). On it: the call and video buttons
+dialling the other person, sent pictures keeping their file, Instagram chats keeping their
+folder, hold-volume-down dictation through Groq, and the stripped bridge library. The
+owner reported Nini Cre moved out of General at 4:27 PM on the old build, the same cause
+as Carrie. The diagnostic file had rotated by the time it was pulled, so those moves are
+not on record; the next one would be.
