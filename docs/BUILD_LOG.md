@@ -3897,3 +3897,11 @@ and fixes:
 UI_DESIGN.md 10.17 and open question 5 are updated with what the phone showed. Tests
 cover the Meet action, Google Voice dialing, the permission ask, Signal's video row, the
 WhatsApp fallback, the Instagram and Messenger links, and the notices.
+
+Installed on the phone at 4:51 AM (build 4f8e33b, GitHub's build of 4:17 AM). The owner
+granted WhatsApp the Contacts permission on the phone; within minutes WhatsApp had put its
+call, video-call, and profile entries on 1,005 contacts, so the WhatsApp call buttons now
+have their direct route. Current WhatsApp has no separate "sync contacts" switch; the
+permission alone is what it needed. Also of note for later sessions: after this computer's
+working session restarted, `adb start-server` hung for good; running `adb nodaemon server`
+in the background restored the phone link.
