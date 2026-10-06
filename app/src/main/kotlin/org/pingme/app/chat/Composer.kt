@@ -99,7 +99,7 @@ internal fun Composer(
     val copying by outbox?.busy.collectOr(0)
     val mic by voice?.state.collectOr(MicState.Idle)
     val recording = mic as? MicState.Recording
-    voice?.let { VoiceReplyStarter(it) }
+    voice?.let { VoiceReplyStarter(it, hooks.onVoiceTooShort) }
     if (recording?.locked == true && voice != null) {
         RecordingBar(recording, voice, Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp))
         return

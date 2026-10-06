@@ -3905,3 +3905,21 @@ have their direct route. Current WhatsApp has no separate "sync contacts" switch
 permission alone is what it needed. Also of note for later sessions: after this computer's
 working session restarted, `adb start-server` hung for good; running `adb nodaemon server`
 in the background restored the phone link.
+
+### 2026-10-06: the side key records a voice note
+
+The owner asked for one of the phone's hardware keys to trigger a voice note, only while
+inside a chat, recording into that chat. The phone's buttons were read off the kernel
+(read-only): power, volume up, volume down, and the dedicated side key, which reports as
+KEY_SEARCH; Motorola's "My key" feature currently gives a single press of it to the camera
+and a double press to Moto Journal. Built: the activity hands every key-down to
+`HardwareKeys`; while a chat's composer is on screen, the search or assistant key codes
+start a hands-free recording (the same path as "Voice reply", so the microphone permission
+is checked first) and a second press sends. Any other unusual key code that reaches an open
+chat is written to the diagnostic file, so if Motorola delivers the side key under another
+code it can be added. Not yet known from here: whether Motorola's key service lets the press
+reach PingMe at all while "My key" is set to open the camera. The owner's first press in a
+chat, and the diagnostic file afterwards, will tell; if it does not arrive, the My key
+setting has to be changed to no action, which the owner does in the phone's settings.
+UI_DESIGN.md 5.6 updated. Tests cover taking the key only while a chat listens, one press
+for a held key, and start-then-send.

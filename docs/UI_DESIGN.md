@@ -414,6 +414,12 @@ library. Intensity Subtle keeps only Pick and Land. Off disables all of it.
     paused, the recording so far can be played back; Resume carries on recording.
   - **Hold** the mic: it records while held. Release to send, slide left to cancel,
     slide up to lock into the same recording bar as a tap.
+- **The phone's side key** (the razr's dedicated key) works inside an open chat as a third
+  way to record (owner, 2026-10-06: "I would only ever use this key while I am in the app
+  and directly in a specific chat"). One press starts a hands-free recording in that chat,
+  exactly as a tap on the mic does; a second press sends it. The key is taken only while a
+  chat is on screen, so everywhere else it keeps the job the phone gives it. Holding the
+  key counts as one press. The key never has to work in the background.
 - **As a reply**: pick Reply (or swipe) on a message, then hold the mic. The voice
   note carries the reply quote just like a text reply. There is also a direct "Voice
   reply" action in the long-press action sheet that opens the reply strip and starts
