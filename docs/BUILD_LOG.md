@@ -4218,3 +4218,8 @@ listing, Nate's thread carried five messages whose newest, the share, had an emp
 (the same for other threads whose newest message is a share), so the listing's copy of it
 could not be stored under a usable id. The catch-up covers it from now on; the listing
 itself is fixed next so a shared post or reel is stored at sync time too.
+
+Installed at 4:52 AM (the Instagram id fix). Proven on the first sync: five listed
+threads carried a message without an id, Nate's among them, and each had its newest
+messages fetched with ids before storing. The connection service came up by itself after
+the install again. Nothing is waiting on the owner.
