@@ -183,6 +183,18 @@ internal class InstagramSession(
         val withMessages = threads.count { it.messages.isNotEmpty() }
         org.pingme.core.connector.Diag
             .note(TAG, "Listed $folder page $page: ${threads.size} threads, $withMessages with messages")
+        // The newest threads in detail: which messages a listing carries (owner, 2026-10-07: a
+        // message sent from the Instagram app at 2:10 AM was not in the 2:12 AM listing).
+        if (page < DETAILED_PAGES) {
+            threads.forEach { t ->
+                val newest = t.messages.maxByOrNull { it.timestamp }
+                org.pingme.core.connector.Diag.note(
+                    TAG,
+                    "  ${t.id} '${t.title.take(TITLE_CHARS)}' last=${t.lastMessageAt} carries ${t.messages.size}: " +
+                        "newest ${newest?.id} at ${newest?.timestamp} from ${newest?.sender} kind=${newest?.kind}",
+                )
+            }
+        }
         threads
             .filter {
                 notPrimary(it)
@@ -347,6 +359,12 @@ internal class InstagramSession(
         val thread = chatId.remoteId
         val anchor = before?.remoteId?.substringAfterLast('/').orEmpty()
         val page = go.messagesJson(request { session.messages(thread, anchor, limit) })
+        org.pingme.core.connector.Diag.note(
+            TAG,
+            "Fetched $thread before='$anchor': ${page.size} message(s), newest ${page.maxByOrNull {
+                it.timestamp
+            }?.let { "${it.id} at ${it.timestamp} from ${it.sender}" }}",
+        )
         val messages =
             page
                 .filter {
@@ -569,6 +587,10 @@ internal class InstagramSession(
 
         /** A safety cap on pages of about twenty threads; the thirty-day rule normally stops sooner. */
         const val MAX_PAGES = 60
+
+        /** How many listing pages are written out thread by thread. */
+        const val DETAILED_PAGES = 2
+        const val TITLE_CHARS = 24
 
         /** Messages fetched to find one from before this start. */
         const val RECALL = 50

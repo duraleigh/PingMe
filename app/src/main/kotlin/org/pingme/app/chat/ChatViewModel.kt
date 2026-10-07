@@ -193,6 +193,8 @@ class ChatViewModel
                     openOn()
                     // Opening a chat tells its network it is read, unread here or not.
                     runCatching { chatActions.tellNetworkRead(chatId) }
+                    // And fetches the newest page, for anything missed without a live connection.
+                    runCatching { messageActions.catchUp(chatId) }
                 }
             } else if (presence.visible == chatId) {
                 presence.visible = null

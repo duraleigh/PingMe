@@ -4192,3 +4192,14 @@ restart and after every update (both broadcasts Android allows a foreground serv
 start from), and the service no longer stops itself on a momentarily empty account list.
 Whether the owner's Instagram message fell in that window, or was missed with the
 service up, waits on the time and the contact.
+
+### 2026-10-07, 2:50 AM: the 2:12 AM resync did not bring the 2:10 AM message either
+
+The owner's message to Nate from the Instagram app at 2:10 AM (inside the dead window) is
+still not in PingMe after the 2:12 AM resync, which listed the inbox's newest threads with
+the messages each carried. Two things are built for it. First, diagnostics: the first two
+listing pages are written out thread by thread (id, title, the newest message carried,
+its time and sender), and every history fetch notes what came back, so the next sync and
+the next opening of Nate's chat show what Instagram hands over. Second, a catch-up: opening
+a chat now fetches the newest page from the network and merges it, on every network, so
+anything that arrived while PingMe had no live connection is picked up on the first look.

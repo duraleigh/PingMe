@@ -358,6 +358,31 @@ class MessageActions
             return older.size >= count
         }
 
+        /**
+         * The newest page from the network, on opening a chat: what arrived while PingMe had no
+         * live connection (a dead window after an install or a restart, or a lost socket) is
+         * caught up here (owner, 2026-10-07: a message sent from the Instagram app at 2:10 AM,
+         * while PingMe lay killed, never showed). A merged chat catches up every member.
+         */
+        suspend fun catchUp(chatId: ChatId) {
+            val targets =
+                if (org.pingme.core.service.merge.Merges
+                        .isMergedId(chatId)
+                ) {
+                    merges.members(chatId).map {
+                        it.id
+                    }
+                } else {
+                    listOf(chatId)
+                }
+            targets.forEach { id ->
+                val connector = connectorFor(id) ?: return@forEach
+                val newest = quietly("catch-up") { connector.syncMessages(id, null, PAGE) } ?: return@forEach
+                Diag.note(TAG, "Catch-up for ${id.value}: ${newest.size} newest message(s) from the network")
+                applier.apply(ConnectorEvent.HistoryBatch(id.accountId, id, newest, complete = false))
+            }
+        }
+
         private suspend fun deliver(
             pending: Message,
             forceSms: Boolean,
