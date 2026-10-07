@@ -4253,3 +4253,10 @@ fields take their defaults). With a switch off, that key is only volume inside a
 the way it already was outside one; the side key is not touched by either. Also tidied on
 the way: a chat on a network that cannot take voice notes no longer swallows volume up
 with nothing to show for it. UI_DESIGN.md 5.6 names both switches.
+
+GitHub's build of the switches failed at 4:36 PM on something else: Gradle 9.8.1 and
+Material 3 1.5.0-beta01 were published this afternoon, and the lint check "a newer
+version is available", counted as an error, failed the build on the spot (the check here
+had run offline and not noticed). That check is now a note rather than an error, so a
+release landing somewhere never breaks a build again; versions move when a step calls
+for it. Pushed again.

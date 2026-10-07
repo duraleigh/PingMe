@@ -85,6 +85,10 @@ android {
     lint {
         warningsAsErrors = true
         abortOnError = true
+        // "A newer version is available" is a note, not a defect: with warningsAsErrors it
+        // broke every build the afternoon Gradle 9.8.1 and Material 3 1.5.0-beta01 came out
+        // (2026-10-07). Versions move on their own step, not whenever a release lands.
+        informational += listOf("AndroidGradlePluginVersion", "GradleDependency")
     }
 
     testOptions {
