@@ -4174,3 +4174,7 @@ default member and goes out on its network.
 Installed on the phone at 10:41 PM (the merged-chat routing). Waiting on the owner: a
 share to the same person, and a reply from the notification shade on a merged chat; the
 diagnostic file records both.
+
+2:16 AM, 2026-10-07: the owner's share to the same merged chat went through. The
+diagnostic file shows the path: one target, 126 characters, merged chat resolved to its
+Google Messages member, message stored and sent on that network.
