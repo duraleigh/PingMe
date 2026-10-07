@@ -73,6 +73,12 @@ class IgTranslateTest {
         assertEquals(ChatFolder.GENERAL, bare.folder)
         // A thread never listed with a folder does not claim one.
         assertEquals(null, go.chat(thread(id = "other")).folder)
+        // A thread fetched on its own says only system='INBOX': not a request, folder still unknown
+        // (owner, 2026-10-07: General chats moved to Primary at every new message).
+        assertEquals(null, go.chat(thread(id = "fetched", systemFolder = "INBOX")).folder)
+        assertEquals(ChatFolder.GENERAL, go.chat(thread(folder = "GENERAL")).folder)
+        assertEquals(ChatFolder.GENERAL, go.chat(thread(systemFolder = "INBOX")).folder)
+        assertEquals(ChatFolder.REQUESTS, go.chat(thread(id = "req", systemFolder = "PENDING")).folder)
     }
 
     @Test

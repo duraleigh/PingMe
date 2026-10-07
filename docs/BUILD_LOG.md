@@ -4223,3 +4223,15 @@ Installed at 4:52 AM (the Instagram id fix). Proven on the first sync: five list
 threads carried a message without an id, Nate's among them, and each had its newest
 messages fetched with ids before storing. The connection service came up by itself after
 the install again. Nothing is waiting on the owner.
+
+### 2026-10-07, 9:40 AM: General chats moved to Primary at every new message (owner report)
+
+The owner, with the Instagram app's inbox beside PingMe's: three General chats in PingMe's
+Instagram inbox this morning. The diagnostic file: "Chat … moves GENERAL to PRIMARY: Kelly
+DeMattia" at 5:19 AM, and the thread fetched for that message carried folder='',
+system='INBOX', tag=''. The 2:55 PM fix yesterday read "any folder field present" as
+knowing the folder, and system='INBOX' alone then came out as Primary. The system field
+only tells a request from everything else; the folder field (or a tag) tells Primary from
+General. A thread with system='INBOX' and nothing else now has an unknown folder and the
+store keeps what the listing said. The chats moved this morning go back to General at
+the next listing, which their new messages put on its first pages.

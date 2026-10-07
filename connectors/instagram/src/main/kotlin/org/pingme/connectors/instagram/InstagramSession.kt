@@ -201,7 +201,8 @@ internal class InstagramSession(
             }.forEach { noteFolder(it, "listed from $folder") }
     }
 
-    private fun notPrimary(thread: IgThread) = go.folderOf(thread) != org.pingme.core.model.ChatFolder.PRIMARY
+    private fun notPrimary(thread: IgThread) =
+        go.folderOrUnknown(thread).let { it != null && it != org.pingme.core.model.ChatFolder.PRIMARY }
 
     private fun noteFolder(
         thread: IgThread,

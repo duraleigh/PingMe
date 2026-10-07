@@ -110,8 +110,19 @@ class IgTranslate(
     /** The folder a thread sits in (UI_DESIGN.md 6.4). */
     fun folderOf(thread: IgThread): ChatFolder = folderOf(thread.systemFolder, thread.folder, thread.folderTag)
 
-    private fun hasFolderFields(thread: IgThread) =
-        thread.folder.isNotEmpty() || thread.systemFolder.isNotEmpty() || thread.folderTag.isNotEmpty()
+    /**
+     * The folder when the thread says which, else null. A thread fetched on its own, or handed
+     * over with a live message, carries system='INBOX' and nothing else: that says it is not a
+     * request, not that it is Primary. Reading it as Primary moved General chats into the inbox
+     * at every new message (owner, 2026-10-07: "three more general folder messages in my
+     * PingMe inbox this morning"). Only the folder field or a tag tells Primary from General.
+     */
+    fun folderOrUnknown(thread: IgThread): ChatFolder? =
+        when {
+            thread.systemFolder in REQUEST_FOLDERS -> ChatFolder.REQUESTS
+            thread.folder.isNotEmpty() || thread.folderTag.isNotEmpty() -> folderOf(thread)
+            else -> null
+        }
 
     /** Data events become connector events; control events return nothing. */
     @Synchronized
@@ -170,7 +181,7 @@ class IgTranslate(
             unreadCount = if (thread.markedUnread || unreadFromOthers) 1 else 0,
             lastActivityAt = Instant.fromEpochMilliseconds(thread.lastMessageAt),
             // Unknown stays unknown: the store keeps the folder it has (UI_DESIGN.md 6.4).
-            folder = if (hasFolderFields(thread)) folderOf(thread) else null,
+            folder = folderOrUnknown(thread),
             spaceId = null,
             networkRemoteId = thread.id,
         )
