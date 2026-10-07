@@ -4151,3 +4151,9 @@ the system takes a held key over for a long-press of its own; such an up now kee
 hold going instead of ending it, and every volume key down, up (with the cancelled mark),
 and the length of each hold go to the diagnostic file, so the next hold shows the pattern
 either way.
+
+Installed at 10:05 PM (build 1e0e0a4 equivalent: the key logging). The owner's hold at
+10:06 PM worked: volume down, release 3.2 s later with no cancelled mark, 3,267 ms
+recorded and joined, 56 characters back from Groq. Whether the cancelled-release guard,
+the microphone hand-off, or circumstances (the keyboard closed) cured the 9 PM failures
+is not settled; the key and recorder notes stay on, so a recurrence will name itself.
