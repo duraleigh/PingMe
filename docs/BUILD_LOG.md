@@ -4203,3 +4203,8 @@ its time and sender), and every history fetch notes what came back, so the next 
 the next opening of Nate's chat show what Instagram hands over. Second, a catch-up: opening
 a chat now fetches the newest page from the network and merges it, on every network, so
 anything that arrived while PingMe had no live connection is picked up on the first look.
+
+Installed at 3:10 AM (service restart and catch-up). Proven at once: the install's own
+MY_PACKAGE_REPLACED broadcast started the connection service, and every account was
+connected by 3:10:33 without the owner opening PingMe. Waiting on the owner opening Nate's
+chat, for the catch-up fetch and the listing notes.
