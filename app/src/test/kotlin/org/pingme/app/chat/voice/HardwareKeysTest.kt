@@ -131,6 +131,20 @@ class HardwareKeysTest {
         }
 
     @Test
+    fun volumeUpIsLeftAloneWhenItsSwitchIsOff() =
+        runTest {
+            val gone = HardwareKeys.listen(volumeUp = false)
+            try {
+                assertFalse(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 0))
+                assertFalse(HardwareKeys.onKeyUp(KeyEvent.KEYCODE_VOLUME_UP))
+                // The side key still works in that chat.
+                assertTrue(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_SEARCH, 0))
+            } finally {
+                gone()
+            }
+        }
+
+    @Test
     fun volumeDownIsTakenOnlyWhileAChatWithDictationListens() =
         runTest {
             val plain = HardwareKeys.listen()

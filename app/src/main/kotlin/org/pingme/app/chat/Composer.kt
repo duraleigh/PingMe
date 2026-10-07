@@ -102,12 +102,13 @@ internal fun Composer(
     val mic by voice?.state.collectOr(MicState.Idle)
     val recording = mic as? MicState.Recording
     voice?.let { VoiceReplyStarter(it) }
-    VoiceKeyListener(voice, hooks.dictation?.takeIf { editing == null }, hooks.onVoiceTooShort)
+    val dictation = hooks.dictation?.takeIf { editing == null }
+    VoiceKeyListener(voice, dictation, hooks.onVoiceTooShort, volumeUp = hooks.volumeUpRecords)
     if (recording?.locked == true && voice != null) {
         RecordingBar(recording, voice, Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp))
         return
     }
-    hooks.dictation?.takeIf { editing == null }?.let { DictationRow(it, field) }
+    dictation?.let { DictationRow(it, field) }
     StagedStrip(staged, copying > 0, { outbox?.remove(it) })
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),

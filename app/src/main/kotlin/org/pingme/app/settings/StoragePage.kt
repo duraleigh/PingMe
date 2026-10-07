@@ -51,11 +51,7 @@ fun StoragePage(
         SwitchSetting(stringResource(R.string.storage_gif_autoplay), media.gifsAutoplay, { on ->
             change { it.copy(gifsAutoplay = on) }
         }, description = stringResource(R.string.storage_gif_autoplay_note))
-        SettingsSectionHeader(stringResource(R.string.storage_voice))
-        SwitchSetting(stringResource(R.string.storage_transcribe), media.transcribeVoice, { on ->
-            change { it.copy(transcribeVoice = on) }
-        }, description = stringResource(R.string.storage_transcribe_note))
-        GroqKeyField(media.groqKey) { typed -> change { it.copy(groqKey = typed) } }
+        VoiceSection(media, change)
         SettingsSectionHeader(stringResource(R.string.settings_storage))
         SwitchSetting(stringResource(R.string.storage_save_all), media.saveAllMedia, { on ->
             change { it.copy(saveAllMedia = on) }
@@ -85,6 +81,25 @@ fun StoragePage(
             modifier = Modifier.clickable(onClickLabel = pick) { folder.launch(null) },
         )
     }
+}
+
+/** Voice notes (UI_DESIGN.md 5.6): transcripts, the two volume-key switches, and the Groq key. */
+@Composable
+private fun VoiceSection(
+    media: MediaSettings,
+    change: ((MediaSettings) -> MediaSettings) -> Unit,
+) {
+    SettingsSectionHeader(stringResource(R.string.storage_voice))
+    SwitchSetting(stringResource(R.string.storage_transcribe), media.transcribeVoice, { on ->
+        change { it.copy(transcribeVoice = on) }
+    }, description = stringResource(R.string.storage_transcribe_note))
+    SwitchSetting(stringResource(R.string.storage_volume_up), media.volumeUpRecords, { on ->
+        change { it.copy(volumeUpRecords = on) }
+    }, description = stringResource(R.string.storage_volume_up_note))
+    SwitchSetting(stringResource(R.string.storage_volume_down), media.volumeDownDictates, { on ->
+        change { it.copy(volumeDownDictates = on) }
+    }, description = stringResource(R.string.storage_volume_down_note))
+    GroqKeyField(media.groqKey) { typed -> change { it.copy(groqKey = typed) } }
 }
 
 /** The owner's Groq key for dictation by volume down (UI_DESIGN.md 5.6); kept only on this phone. */

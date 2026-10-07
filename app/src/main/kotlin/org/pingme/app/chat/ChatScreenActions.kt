@@ -67,7 +67,9 @@ class ComposerHooks(
     /** Voice notes; null where the network cannot take them. */
     val voice: org.pingme.app.chat.voice.VoiceNotes? = null,
     val onVoiceTooShort: () -> Unit = {},
-    /** Dictation by volume down into the box (UI_DESIGN.md 5.6); null without a Groq key. */
+    /** Holding volume up records (UI_DESIGN.md 5.6); the owner's switch in Settings, Voice notes. */
+    val volumeUpRecords: Boolean = true,
+    /** Dictation by volume down into the box (UI_DESIGN.md 5.6); null without a Groq key or with its switch off. */
     val dictation: org.pingme.app.chat.voice.Dictation? = null,
     /** The GIF button's picker; null where the network cannot take GIFs. */
     val gifs: org.pingme.app.chat.gif.GifSearch? = null,

@@ -241,6 +241,22 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun theVolumeKeysCanBeGivenBackOneAtATime() {
+        show(SettingsPage.STORAGE)
+        assertTrue(vm.state.value.app.media.volumeUpRecords && vm.state.value.app.media.volumeDownDictates)
+        tap("Volume up records a voice note")
+        waitFor {
+            vm.state.value.app.media
+                .let { !it.volumeUpRecords && it.volumeDownDictates }
+        }
+        tap("Volume down dictates")
+        waitFor {
+            vm.state.value.app.media
+                .let { !it.volumeUpRecords && !it.volumeDownDictates }
+        }
+    }
+
+    @Test
     fun allMediaCanBeSaved() {
         show(SettingsPage.STORAGE)
         compose.assertAccessible()

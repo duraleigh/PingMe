@@ -278,6 +278,7 @@ class ChatViewModel
                         .trim()
                 },
                 groq::transcribe,
+                { appSettings.value.media.volumeDownDictates },
             )
 
         /** A merged chat's members (UI_DESIGN.md 10.15); empty for an ordinary chat. */

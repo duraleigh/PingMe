@@ -41,12 +41,13 @@ object HardwareKeys {
     private val volumeUps = MutableSharedFlow<Boolean>(extraBufferCapacity = BUFFER)
     private val volumeDowns = MutableSharedFlow<Boolean>(extraBufferCapacity = BUFFER)
     private val listeners = AtomicInteger()
+    private val recording = AtomicInteger()
     private val dictating = AtomicInteger()
 
     /** The key codes of the side key, one per press, while a chat listens. */
     val pressed: SharedFlow<Int> = presses.asSharedFlow()
 
-    /** Volume up going down (true) and coming back up (false), while a chat listens. */
+    /** Volume up going down (true) and coming back up (false), while a chat with the volume-up switch on listens. */
     val volumeUp: SharedFlow<Boolean> = volumeUps.asSharedFlow()
 
     /** Volume down going down (true) and coming back up (false), while a chat with dictation listens. */
@@ -58,7 +59,7 @@ object HardwareKeys {
         repeatCount: Int,
     ): Boolean {
         if (listeners.get() == 0) return false
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP && recording.get() > 0) {
             if (repeatCount == 0) {
                 Diag.note(TAG, "Volume up down")
                 volumeUps.tryEmit(true)
@@ -97,7 +98,8 @@ object HardwareKeys {
     ): Boolean {
         if (listeners.get() == 0) return false
         val volume =
-            keyCode == KeyEvent.KEYCODE_VOLUME_UP || (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && dictating.get() > 0)
+            (keyCode == KeyEvent.KEYCODE_VOLUME_UP && recording.get() > 0) ||
+                (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && dictating.get() > 0)
         if (!volume) return false
         Diag.note(TAG, "${KeyEvent.keyCodeToString(keyCode)} up${if (cancelled) " (cancelled by the system)" else ""}")
         if (cancelled) return true
@@ -127,14 +129,20 @@ object HardwareKeys {
     }
 
     /**
-     * A chat is on screen and wants the keys, volume down too when [dictation] is true; the
-     * returned function says it has gone.
+     * A chat is on screen and wants the side key; volume up too when [volumeUp] is true and
+     * volume down when [dictation] is true (each has its own switch in Settings, Voice notes).
+     * The returned function says it has gone.
      */
-    fun listen(dictation: Boolean = false): () -> Unit {
+    fun listen(
+        dictation: Boolean = false,
+        volumeUp: Boolean = true,
+    ): () -> Unit {
         listeners.incrementAndGet()
+        if (volumeUp) recording.incrementAndGet()
         if (dictation) dictating.incrementAndGet()
         return {
             listeners.decrementAndGet()
+            if (volumeUp) recording.decrementAndGet()
             if (dictation) dictating.decrementAndGet()
         }
     }
@@ -147,6 +155,7 @@ object HardwareKeys {
 
     private val EVERYDAY_KEYS =
         setOf(
+            KeyEvent.KEYCODE_VOLUME_UP,
             KeyEvent.KEYCODE_VOLUME_DOWN,
             KeyEvent.KEYCODE_VOLUME_MUTE,
             KeyEvent.KEYCODE_BACK,
@@ -186,16 +195,21 @@ fun volumeHoldEnded(heldMs: Long): VolumeHold =
         VolumeHold.SEND
     }
 
-/** Listens for the keys while this composer is on screen; [dictation] null leaves volume down alone. */
+/**
+ * Listens for the keys while this composer is on screen; [dictation] null leaves volume down
+ * alone, and [volumeUp] false (the switch in Settings, Voice notes) leaves volume up alone.
+ */
 @Composable
 fun VoiceKeyListener(
     voice: VoiceNotes?,
     dictation: Dictation?,
     onTooShort: () -> Unit,
+    volumeUp: Boolean = true,
 ) {
     val tooShort by rememberUpdatedState(onTooShort)
-    DisposableEffect(dictation) {
-        val gone = HardwareKeys.listen(dictation = dictation != null)
+    val holdsVolumeUp = voice != null && volumeUp
+    DisposableEffect(dictation, holdsVolumeUp) {
+        val gone = HardwareKeys.listen(dictation = dictation != null, volumeUp = holdsVolumeUp)
         onDispose {
             gone()
             // Leaving the chat mid-hold would otherwise keep the microphone open.
@@ -207,7 +221,7 @@ fun VoiceKeyListener(
         HardwareKeys.pressed.collect { if (!voiceKeyPressed(voice)) tooShort() }
     }
     // One microphone user at a time: starting either lets the other go.
-    if (voice != null) {
+    if (voice != null && volumeUp) {
         HeldKey(
             HardwareKeys.volumeUp,
             AudioManager.ADJUST_RAISE,

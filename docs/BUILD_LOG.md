@@ -4241,3 +4241,15 @@ DeMattia, and Denise Halladay Koch back from Primary to General, and the service
 up by itself after the install. Open from this morning: the test process's intermittent
 native crash ("double free", twice in about a dozen runs; the voice tests alone pass
 twice in a row), to be chased on its own.
+
+### 2026-10-07, 4:05 PM: switches for the volume keys (owner request)
+
+The owner: the volume-up voice note and the volume-down dictation are to stay exactly as
+they are, but each needs its own switch in Settings so it can be turned off at any time,
+both on from the start. Two switches now sit under Settings, Storage and media, Voice
+notes: "Volume up records a voice note" and "Volume down dictates", above the Groq key.
+Each is on by default (a settings file saved before this build reads as on, since the new
+fields take their defaults). With a switch off, that key is only volume inside a chat,
+the way it already was outside one; the side key is not touched by either. Also tidied on
+the way: a chat on a network that cannot take voice notes no longer swallows volume up
+with nothing to show for it. UI_DESIGN.md 5.6 names both switches.

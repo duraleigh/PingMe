@@ -57,6 +57,8 @@ class Dictation(
     private val clock: Clock,
     private val key: () -> String,
     private val transcribe: suspend (File, String) -> String,
+    /** The owner's switch for volume down (Settings, Voice notes); off leaves the key as volume. */
+    private val enabled: () -> Boolean = { true },
 ) {
     private val current = MutableStateFlow<DictationState>(DictationState.Idle)
     private val words = MutableSharedFlow<String>(extraBufferCapacity = BUFFER)
@@ -66,8 +68,8 @@ class Dictation(
     /** Each finished dictation's text, once. */
     val results: SharedFlow<String> = words.asSharedFlow()
 
-    /** True when there is a key to send the audio with; without one volume down stays volume. */
-    val ready: Boolean get() = key().isNotBlank()
+    /** True when the switch is on and there is a key to send the audio with; otherwise volume down stays volume. */
+    val ready: Boolean get() = enabled() && key().isNotBlank()
 
     /** Opens the microphone; false when it would not open or a dictation is still being written out. */
     fun start(): Boolean {

@@ -39,7 +39,7 @@ class DictationTest {
     }
 
     private fun dictation(scope: kotlinx.coroutines.CoroutineScope) =
-        Dictation(scope, recorder, clock, { key }) { file, k -> answer(file, k) }
+        Dictation(scope, recorder, clock, { key }, transcribe = { file, k -> answer(file, k) })
 
     @Test
     fun heldThenReleasedSendsTheRecordingAndHandsBackTheWords() =
@@ -89,5 +89,18 @@ class DictationTest {
     fun withoutAKeyThereIsNoDictation() {
         key = " "
         assertFalse(dictation(kotlinx.coroutines.GlobalScope).ready)
+    }
+
+    @Test
+    fun withTheSwitchOffThereIsNoDictationEvenWithAKey() {
+        val off =
+            Dictation(
+                kotlinx.coroutines.GlobalScope,
+                recorder,
+                clock,
+                { key },
+                { file, k -> answer(file, k) },
+            ) { false }
+        assertFalse(off.ready)
     }
 }

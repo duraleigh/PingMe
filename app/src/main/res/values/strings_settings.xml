@@ -97,6 +97,10 @@
     <string name="storage_gif_autoplay">Play GIFs by themselves</string>
     <string name="storage_gif_autoplay_note">Off: a GIF stays still until you tap it.</string>
     <string name="storage_transcribe">Write out voice notes</string>
+    <string name="storage_volume_up">Volume up records a voice note</string>
+    <string name="storage_volume_up_note">Hold volume up in a chat to record; let go to send. Off: volume up is only volume.</string>
+    <string name="storage_volume_down">Volume down dictates</string>
+    <string name="storage_volume_down_note">Hold volume down in a chat to speak into the message box. Off: volume down is only volume.</string>
     <string name="storage_dictation_key">Groq key for dictation</string>
     <string name="storage_dictation_note">Hold volume down in a chat to dictate into the message box. The recording goes to Groq with this key, only while you hold it. Leave this empty to keep volume down as volume.</string>
     <string name="storage_transcribe_note">Shows the words under each voice note. It happens on your phone and needs Android 13 or newer.</string>
