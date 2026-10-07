@@ -4235,3 +4235,9 @@ only tells a request from everything else; the folder field (or a tag) tells Pri
 General. A thread with system='INBOX' and nothing else now has an unknown folder and the
 store keeps what the listing said. The chats moved this morning go back to General at
 the next listing, which their new messages put on its first pages.
+
+Installed at 10:04 AM. The first listing after it moved MariaW, Jessica Sheker, Kelly
+DeMattia, and Denise Halladay Koch back from Primary to General, and the service came
+up by itself after the install. Open from this morning: the test process's intermittent
+native crash ("double free", twice in about a dozen runs; the voice tests alone pass
+twice in a row), to be chased on its own.
