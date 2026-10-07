@@ -206,7 +206,10 @@ class IgTranslate(
 
     private fun threadEvents(thread: IgThread): List<ConnectorEvent> {
         val chat = chat(thread)
-        val plain = thread.messages.filter { it.kind != "system" }
+        // A listing can hand a message over without its id (a shared post or reel; owner,
+        // 2026-10-07): it cannot be stored under a usable id, and the catch-up fetch on opening
+        // the chat brings it with one.
+        val plain = thread.messages.filter { it.kind != "system" && it.id.isNotBlank() }
         val batch = ConnectorEvent.HistoryBatch(accountId, chat.id, plain.map { snapshotOf(it) }, complete = false)
         return listOf(ConnectorEvent.ChatUpdated(accountId, chat), batch)
     }

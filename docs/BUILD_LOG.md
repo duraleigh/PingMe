@@ -4208,3 +4208,13 @@ Installed at 3:10 AM (service restart and catch-up). Proven at once: the install
 MY_PACKAGE_REPLACED broadcast started the connection service, and every account was
 connected by 3:10:33 without the owner opening PingMe. Waiting on the owner opening Nate's
 chat, for the catch-up fetch and the listing notes.
+
+### 2026-10-07, 4:25 AM: the message is in; the listing hands over shares without an id
+
+The owner opened Nate's chat on the 3:10 AM build and the 2:10 AM message is there. The
+diagnostic file shows how: the catch-up fetch on opening brought 20 messages with proper
+ids, the newest the 2:10 AM share. And it shows why the resyncs had missed it: in every
+listing, Nate's thread carried five messages whose newest, the share, had an empty id
+(the same for other threads whose newest message is a share), so the listing's copy of it
+could not be stored under a usable id. The catch-up covers it from now on; the listing
+itself is fixed next so a shared post or reel is stored at sync time too.

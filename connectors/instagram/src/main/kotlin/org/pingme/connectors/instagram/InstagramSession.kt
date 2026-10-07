@@ -340,7 +340,7 @@ internal class InstagramSession(
                 // or every chat past the first page sat empty until a message arrived live, and
                 // a merged chat's Instagram side was left out of the Instagram list (owner,
                 // 2026-10-05: five chats missing from the Instagram inbox).
-                page.threads.filter { it.messages.isNotEmpty() }.forEach { events.trySend(IgEvent.Thread(it)) }
+                page.threads.filter { it.messages.isNotEmpty() }.forEach { events.trySend(IgEvent.Thread(withIds(it))) }
                 noteListing(folder, pages, page.threads)
                 cursor = page.nextCursor
                 pages++
@@ -348,6 +348,28 @@ internal class InstagramSession(
             } while (cursor.isNotEmpty() && pages < MAX_PAGES && recent)
         }
         return found
+    }
+
+    /**
+     * A listing hands a shared post or reel over without its id (owner, 2026-10-07: the
+     * message sent from the Instagram app at 2:10 AM was in every listing, unusable). Such a
+     * thread's newest messages are fetched properly, with ids, before they are stored.
+     */
+    private suspend fun withIds(thread: IgThread): IgThread {
+        if (thread.messages.none { it.id.isBlank() }) return thread
+        return try {
+            val fetched = go.messagesJson(request { session.messages(thread.id, "", thread.messages.size) })
+            org.pingme.core.connector.Diag
+                .note(TAG, "Listed thread ${thread.id} had a message without an id; fetched ${fetched.size} with ids")
+            thread.copy(messages = fetched)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            Log.w(TAG, "Could not fetch ids for the listed thread ${thread.id}", e)
+            thread
+        }
     }
 
     /** Up to [limit] messages older than [before] (the newest when null), newest first. */
