@@ -4098,3 +4098,18 @@ neither. `ndkVersion` is now set in the app module to the version CI installs (t
 one is installed here). Also added: `-Ppingme.abi=x86_64` builds a one-processor debug
 APK for the emulator, since the all-types debug APK is 966 MB and the emulator link
 here moves under half a megabyte a second.
+
+### P8.2, the emulator proof: blocked by the emulator tonight (2026-10-06, 8:40 PM)
+
+The end-to-end proof (back up, wipe, restore, compare on the emulator with the demo
+network) could not be run: the emulator here is reached over a slow link (a shell
+round trip of four to seven seconds, a 165 MB one-type install took 18 minutes) and
+after that install its system process stopped responding ("Process system isn't
+responding"), with the package service answering "Broken pipe" and a reboot not curing
+it. What is proven so far is in the tests, on real files: the locked file's round trip
+across chunks, the store's round trip of database, settings file, and a kept picture,
+the wrong passphrase refused with nothing changed, the old plain backup, junk refused,
+and the Backup page saving a locked file. The emulator proof stays open on the P8.2
+list and is tried again when the emulator is responsive; a round trip on the phone
+itself (save, then restore the same file, no wipe) is the other proof, with the owner's
+leave.
