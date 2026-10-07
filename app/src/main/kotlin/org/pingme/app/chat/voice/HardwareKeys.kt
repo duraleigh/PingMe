@@ -181,17 +181,25 @@ fun VoiceKeyListener(
     val tooShort by rememberUpdatedState(onTooShort)
     DisposableEffect(dictation) {
         val gone = HardwareKeys.listen(dictation = dictation != null)
-        onDispose { gone() }
+        onDispose {
+            gone()
+            // Leaving the chat mid-hold would otherwise keep the microphone open.
+            dictation?.cancel()
+        }
     }
     LaunchedEffect(voice) {
         voice ?: return@LaunchedEffect
         HardwareKeys.pressed.collect { if (!voiceKeyPressed(voice)) tooShort() }
     }
+    // One microphone user at a time: starting either lets the other go.
     if (voice != null) {
         HeldKey(
             HardwareKeys.volumeUp,
             AudioManager.ADJUST_RAISE,
-            start = { voice.state.value !is MicState.Recording && voice.start() },
+            start = {
+                dictation?.cancel()
+                voice.state.value !is MicState.Recording && voice.start()
+            },
             cancel = voice::cancel,
             finish = { if (!voice.send()) tooShort() },
         )
@@ -200,9 +208,13 @@ fun VoiceKeyListener(
         HeldKey(
             HardwareKeys.volumeDown,
             AudioManager.ADJUST_LOWER,
-            start = dictation::start,
+            start = {
+                voice?.cancel()
+                dictation.start()
+            },
             cancel = dictation::cancel,
-            finish = { if (!dictation.stop()) tooShort() },
+            // Nothing heard shows on the dictation line itself, not as the voice note's notice.
+            finish = { dictation.stop() },
         )
     }
 }

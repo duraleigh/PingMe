@@ -4125,3 +4125,17 @@ closed, so it was never seen. Now every step of a share is written to the diagno
 (targets, files readable, the message sent and its status, any failure), an unreadable
 share says so, and the picker stays open with the reason whenever nothing went. The
 owner's next attempt, with the diagnostic file, names the failing step.
+
+### 2026-10-06, 9:20 PM: "Too short to send" after twenty seconds of dictation (owner report)
+
+The owner holds volume down, "Listening…" shows, they talk for twenty seconds, let go,
+and the voice note's "Too short to send" notice appears. So the recorder started and the
+rejection came at release: Android's stop call reporting no audio captured (which it does
+when something else holds the microphone), or the single part failing to join. No log yet:
+the phone has been off wireless debugging. Now the recorder notes every recording's
+length, parts, and whether it joined and was kept, and every stretch whose stop call
+refused; dictation that ends with nothing says so on its own line ("nothing was heard. Is
+another app using the microphone?") instead of borrowing the voice note's notice; a voice
+note and a dictation let each other's microphone go when they start; and leaving the chat
+mid-hold closes the dictation recorder. The owner's next hold, with the diagnostic file,
+names the step.

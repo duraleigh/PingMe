@@ -37,6 +37,9 @@ sealed interface DictationState {
 
     data object Transcribing : DictationState
 
+    /** The microphone gave nothing to send: another app may be using it. */
+    data object NothingHeard : DictationState
+
     data class Failed(
         val reason: String,
     ) : DictationState
@@ -68,8 +71,12 @@ class Dictation(
 
     /** Opens the microphone; false when it would not open or a dictation is still being written out. */
     fun start(): Boolean {
-        if (current.value !is DictationState.Idle && current.value !is DictationState.Failed) return false
-        if (!recorder.start(now())) return false
+        val busy = current.value is DictationState.Listening || current.value is DictationState.Transcribing
+        if (busy) return false
+        if (!recorder.start(now())) {
+            Diag.note(TAG, "The microphone would not open for dictation")
+            return false
+        }
         current.value = DictationState.Listening
         return true
     }
@@ -79,7 +86,8 @@ class Dictation(
         if (current.value != DictationState.Listening) return false
         val made = recorder.finish(now())
         if (made == null) {
-            current.value = DictationState.Idle
+            Diag.note(TAG, "Dictation ended with nothing to send")
+            current.value = DictationState.NothingHeard
             return false
         }
         current.value = DictationState.Transcribing
@@ -141,17 +149,35 @@ fun DictationRow(
     }
     val line =
         when (val s = state) {
-            DictationState.Idle -> return
-            DictationState.Listening -> stringResource(R.string.dictation_listening)
-            DictationState.Transcribing -> stringResource(R.string.dictation_writing)
-            is DictationState.Failed -> stringResource(R.string.dictation_failed, s.reason)
+            DictationState.Idle -> {
+                return
+            }
+
+            DictationState.Listening -> {
+                stringResource(R.string.dictation_listening)
+            }
+
+            DictationState.Transcribing -> {
+                stringResource(R.string.dictation_writing)
+            }
+
+            DictationState.NothingHeard -> {
+                stringResource(
+                    R.string.dictation_failed,
+                    stringResource(R.string.dictation_nothing_heard),
+                )
+            }
+
+            is DictationState.Failed -> {
+                stringResource(R.string.dictation_failed, s.reason)
+            }
         }
     Row(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Text(
             line,
             style = MaterialTheme.typography.labelLarge,
             color =
-                if (state is DictationState.Failed) {
+                if (state is DictationState.Failed || state is DictationState.NothingHeard) {
                     MaterialTheme.colorScheme.error
                 } else {
                     MaterialTheme.colorScheme.primary

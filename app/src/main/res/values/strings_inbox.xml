@@ -164,6 +164,7 @@
     <string name="dictation_listening">Listening… let go to write it out</string>
     <string name="dictation_writing">Writing it out…</string>
     <string name="dictation_failed">Dictation failed: %1$s</string>
+    <string name="dictation_nothing_heard">nothing was heard. Is another app using the microphone?</string>
     <string name="chat_calls_unavailable">This chat can\'t place calls from this phone</string>
     <string name="chat_call_opened_app">Opened %1$s: nothing more direct worked</string>
     <string name="chat_call_opened_dialer">Opened the dialer with the number. Allow phone calls for PingMe and it will dial at once.</string>
