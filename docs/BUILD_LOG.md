@@ -4178,3 +4178,17 @@ diagnostic file records both.
 2:16 AM, 2026-10-07: the owner's share to the same merged chat went through. The
 diagnostic file shows the path: one target, 126 characters, merged chat resolved to its
 Google Messages member, message stored and sent on that network.
+
+### 2026-10-07, 2:30 AM: a message sent from the Instagram app never showed; the service was down
+
+The owner sent a message from the Instagram app itself and it did not appear in PingMe.
+The phone's system log explains the evening: the 10:41 PM install force-stopped PingMe,
+and from then until the owner opened it at 2:12 AM every PingMe process was an "empty"
+one, with no connection service, frozen by Motorola's battery manager and killed by
+Android as empty at 11:17 PM, 11:59 PM, 1:23 AM, and 2:09 AM. Nothing live could arrive
+in that window. The connection service was started only when the app was opened; at boot
+only the scheduled-send alarm was re-armed. Now a receiver starts the service after a
+restart and after every update (both broadcasts Android allows a foreground service to
+start from), and the service no longer stops itself on a momentarily empty account list.
+Whether the owner's Instagram message fell in that window, or was missed with the
+service up, waits on the time and the contact.

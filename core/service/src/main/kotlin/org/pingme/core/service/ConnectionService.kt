@@ -77,7 +77,8 @@ class ConnectionService : Service() {
         accountWatch =
             scope.launch {
                 accounts.accounts().collect { all ->
-                    if (all.none { it.state.wantsConnection() }) stopSelf()
+                    // An empty list is the store reopening, not every account gone: keep running.
+                    if (all.isNotEmpty() && all.none { it.state.wantsConnection() }) stopSelf()
                 }
             }
     }
