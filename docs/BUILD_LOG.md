@@ -4260,3 +4260,6 @@ version is available", counted as an error, failed the build on the spot (the ch
 had run offline and not noticed). That check is now a note rather than an error, so a
 release landing somewhere never breaks a build again; versions move when a step calls
 for it. Pushed again.
+
+Installed at 5:20 PM; the service was back and syncing within a minute. Both switches are
+on; the owner can turn either off under Settings, Storage and media, Voice notes.
