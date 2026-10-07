@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.pingme.app.chat.attach.OutgoingFiles
 import org.pingme.core.connector.ConnectorRegistry
+import org.pingme.core.connector.Diag
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.Chat
@@ -161,43 +162,61 @@ class ShareViewModel
 
         /** Sends the share to every picked target, one message each, then says where it went. */
         fun send() {
-            val share = payload ?: return
+            val share = payload
             val s = state.value
             val targets = (s.chats + s.people).filter { it.key in s.picked }
-            if (targets.isEmpty() || s.sending) return
+            // Every step goes to the diagnostic file (owner, 2026-10-06: "Send gets pressed.
+            // But nothing gets sent as a message").
+            Diag.note(
+                TAG,
+                "Send: ${targets.size} target(s), ${share?.uris?.size ?: 0} file(s), " +
+                    "${share?.text?.length ?: 0} characters of text, sending=${s.sending}",
+            )
+            if (share == null || targets.isEmpty() || s.sending) return
             form.update { it.copy(sending = true) }
             viewModelScope.launch {
-                var last: ChatId? = null
-                var sent = 0
-                for (target in targets) {
-                    try {
-                        val chatId = chatFor(target)
-                        // Copied once per send: a network may keep or move the file it is given.
-                        val attachments = share.uris.mapNotNull { files.copy(it) }
-                        // What is shared goes first (a picture can take a while to upload), and the
-                        // note follows as its own message once it is away, so the other side never
-                        // reads the words and then waits for the picture (owner, Gate G7).
-                        if (share.text.isBlank() && attachments.isEmpty()) continue
-                        messageActions.send(chatId, share.text, attachments = attachments)
-                        s.note
-                            .trim()
-                            .takeIf { it.isNotEmpty() }
-                            ?.let { messageActions.send(chatId, it) }
-                        last = chatId
-                        sent++
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (
-                        @Suppress("TooGenericExceptionCaught") e: Exception,
-                    ) {
-                        failures.send(e.message)
-                    }
-                }
-                requests.finish()
+                val went = targets.mapNotNull { sendOne(it, share, s.note) }
                 form.update { it.copy(sending = false) }
-                done.send(if (sent == 1) last else null)
+                // Nothing went: the picker stays, with the reason on screen, instead of closing
+                // as if it had worked.
+                if (went.isEmpty()) return@launch
+                requests.finish()
+                done.send(went.singleOrNull())
             }
         }
+
+        /** One target's send; the chat it went to, or null with the reason raised for the screen. */
+        private suspend fun sendOne(
+            target: ShareTarget,
+            share: SharePayload,
+            note: String,
+        ): ChatId? =
+            try {
+                val chatId = chatFor(target)
+                // Copied once per send: a network may keep or move the file it is given.
+                val attachments = share.uris.mapNotNull { files.copy(it) }
+                Diag.note(TAG, "To ${chatId.value}: ${attachments.size} of ${share.uris.size} file(s) readable")
+                // What is shared goes first (a picture can take a while to upload), and the
+                // note follows as its own message once it is away, so the other side never
+                // reads the words and then waits for the picture (owner, Gate G7).
+                if (share.text.isBlank() && attachments.isEmpty()) {
+                    failures.send(UNREADABLE)
+                    null
+                } else {
+                    val message = messageActions.send(chatId, share.text, attachments = attachments)
+                    Diag.note(TAG, "Sent ${message.id.value} to ${chatId.value}: ${message.status}")
+                    note.trim().takeIf { it.isNotEmpty() }?.let { messageActions.send(chatId, it) }
+                    chatId
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                Diag.note(TAG, "Share to $target failed: $e")
+                failures.send(e.message)
+                null
+            }
 
         private suspend fun chatFor(target: ShareTarget): ChatId =
             when (target) {
@@ -208,6 +227,10 @@ class ShareViewModel
         private companion object {
             const val STOP_AFTER = 5_000L
             const val MAX_PEOPLE = 30
+            const val TAG = "PingMeShare"
+
+            /** Shown when the shared file could not be read and there was no text to send instead. */
+            const val UNREADABLE = "the shared file could not be read"
         }
     }
 

@@ -4113,3 +4113,15 @@ and the Backup page saving a locked file. The emulator proof stays open on the P
 list and is tried again when the emulator is responsive; a round trip on the phone
 itself (save, then restore the same file, no wipe) is the other proof, with the owner's
 leave.
+
+### 2026-10-06, 9:00 PM: sharing into PingMe sends nothing (owner report)
+
+The owner: "The share sheet opens. The recipient is chosen. Send gets pressed. But
+nothing gets sent as a message." The phone was off wireless debugging, so no diagnostic
+file yet. What the code allowed: when every shared file failed to copy and there was no
+text, the send loop skipped the target silently and the picker closed as if it had
+worked; and when a send threw, the failure notice was raised a moment before the picker
+closed, so it was never seen. Now every step of a share is written to the diagnostic file
+(targets, files readable, the message sent and its status, any failure), an unreadable
+share says so, and the picker stays open with the reason whenever nothing went. The
+owner's next attempt, with the diagnostic file, names the failing step.

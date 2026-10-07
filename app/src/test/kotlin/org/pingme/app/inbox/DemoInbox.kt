@@ -286,6 +286,21 @@ class DemoInbox(
                 merges,
             ).tracked()
 
+    /** The share picker, as if [intent] had come in through Android's share sheet. */
+    fun shareViewModel(intent: android.content.Intent) =
+        org.pingme.app.share.ShareViewModel(
+            org.pingme.app.share
+                .ShareRequests()
+                .apply { fromIntent(intent) },
+            chats,
+            accounts,
+            contacts,
+            registry,
+            actions,
+            messageActions,
+            files,
+        )
+
     fun settingsViewModel() =
         org.pingme.app.settings
             .SettingsViewModel(
