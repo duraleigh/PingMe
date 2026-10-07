@@ -4157,3 +4157,16 @@ Installed at 10:05 PM (build 1e0e0a4 equivalent: the key logging). The owner's h
 recorded and joined, 56 characters back from Groq. Whether the cancelled-release guard,
 the microphone hand-off, or circumstances (the keyboard closed) cured the 9 PM failures
 is not settled; the key and recorder notes stay on, so a recurrence will name itself.
+
+### 2026-10-06, 10:20 PM: the share that sent nothing was a share to a merged chat
+
+The owner shared text into PingMe on the 10:05 PM build and it failed again; the
+diagnostic file names the step: one target, 117 characters of text, sent to
+`merged/…`, status Failed("This network is not connected"). A merged chat has no
+network of its own; the chat screen picks a member to send through, but the share picker
+and a reply from the notification shade name the merged chat itself, and the send then
+found no connector. Now a message to a merged chat goes through one member: the default
+network's when it is connected, else the first connected member, else the default's; the
+same for Send later. This is most likely the earlier shade-reply failure too (the chat the
+owner replied to from the shade was merged). Tested: a send to a merged chat lands on the
+default member and goes out on its network.

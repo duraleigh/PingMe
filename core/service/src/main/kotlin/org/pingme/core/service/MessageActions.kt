@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 import org.pingme.core.connector.Connector
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.ConnectorRegistry
+import org.pingme.core.connector.Diag
 import org.pingme.core.connector.OutgoingAttachment
 import org.pingme.core.connector.OutgoingMessage
 import org.pingme.core.connector.SendResult
@@ -66,6 +67,7 @@ class MessageActions
         private val settings: org.pingme.core.store.SettingsRepository,
         private val links: org.pingme.core.service.links.CleanLinks,
         private val previews: org.pingme.core.service.links.PreviewRequests,
+        private val merges: org.pingme.core.store.MergeRepository,
     ) {
         private val uploads = MutableStateFlow<Map<MessageId, Float>>(emptyMap())
 
@@ -92,6 +94,43 @@ class MessageActions
             replyToName: String? = null,
             forceSms: Boolean = false,
             attachments: List<OutgoingAttachment> = emptyList(),
+        ): Message = sendTo(sendTarget(chatId), text, replyTo, replyToName, forceSms, attachments)
+
+        /**
+         * A merged chat (UI_DESIGN.md 10.15) has no network of its own: a message to it goes
+         * through one member, the default network's when it is connected, else the first
+         * connected member, else the default's. The chat screen picks its member itself; the
+         * share picker and a reply from the notification shade name the merged chat (owner,
+         * 2026-10-06: a share to a merged chat failed with "This network is not connected").
+         */
+        private suspend fun sendTarget(chatId: ChatId): ChatId {
+            if (!org.pingme.core.service.merge.Merges
+                    .isMergedId(chatId)
+            ) {
+                return chatId
+            }
+            val members = merges.members(chatId)
+            if (members.isEmpty()) return chatId
+            val preferred = chats.get(chatId)?.defaultSendAccount
+
+            suspend fun connected(member: org.pingme.core.model.Chat) =
+                accounts.get(member.accountId)?.state is org.pingme.core.model.ConnectionState.Connected
+            val chosen =
+                members.firstOrNull { it.accountId == preferred && connected(it) }
+                    ?: members.firstOrNull { connected(it) }
+                    ?: members.firstOrNull { it.accountId == preferred }
+                    ?: members.first()
+            Diag.note(TAG, "Merged chat ${chatId.value} sends through ${chosen.id.value}")
+            return chosen.id
+        }
+
+        private suspend fun sendTo(
+            chatId: ChatId,
+            text: String,
+            replyTo: Message?,
+            replyToName: String?,
+            forceSms: Boolean,
+            attachments: List<OutgoingAttachment>,
         ): Message {
             // A network that carries one picture per message gets one message per picture:
             // the text rides with the first (owner, 2026-10-05: Google Messages dropped the
@@ -99,8 +138,8 @@ class MessageActions
             val limit = connectorFor(chatId)?.capabilities?.attachmentsPerMessage ?: Int.MAX_VALUE
             if (attachments.size > limit) {
                 val pieces = attachments.chunked(limit)
-                val first = send(chatId, text, replyTo, replyToName, forceSms, pieces.first())
-                pieces.drop(1).forEach { send(chatId, "", null, null, forceSms, it) }
+                val first = sendTo(chatId, text, replyTo, replyToName, forceSms, pieces.first())
+                pieces.drop(1).forEach { sendTo(chatId, "", null, null, forceSms, it) }
                 return first
             }
             val network = networkOf(chatId)
@@ -223,7 +262,7 @@ class MessageActions
          * with a clock until then. [replacing] changes one already scheduled.
          */
         suspend fun schedule(
-            chatId: ChatId,
+            chat: ChatId,
             text: String,
             at: Instant,
             replyTo: Message? = null,
@@ -231,6 +270,7 @@ class MessageActions
             attachments: List<OutgoingAttachment> = emptyList(),
             replacing: Message? = null,
         ): Message {
+            val chatId = sendTarget(chat)
             val text = cleaned(text)
             val base =
                 replacing ?: pendingMessage(chatId, text, replyTo, replyToName, networkOf(chatId), forceSms = false)

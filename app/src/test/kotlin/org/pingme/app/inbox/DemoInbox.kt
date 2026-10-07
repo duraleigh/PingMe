@@ -138,6 +138,7 @@ class DemoInbox(
             settings,
             links,
             CountingPreviews(context),
+            merges,
         )
     val account =
         Account(
