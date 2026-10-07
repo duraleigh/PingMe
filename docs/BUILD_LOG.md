@@ -4170,3 +4170,7 @@ network's when it is connected, else the first connected member, else the defaul
 same for Send later. This is most likely the earlier shade-reply failure too (the chat the
 owner replied to from the shade was merged). Tested: a send to a merged chat lands on the
 default member and goes out on its network.
+
+Installed on the phone at 10:41 PM (the merged-chat routing). Waiting on the owner: a
+share to the same person, and a reply from the notification shade on a merged chat; the
+diagnostic file records both.
