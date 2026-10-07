@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
     override fun onKeyUp(
         keyCode: Int,
         event: KeyEvent,
-    ): Boolean = HardwareKeys.onKeyUp(keyCode) || super.onKeyUp(keyCode, event)
+    ): Boolean = HardwareKeys.onKeyUp(keyCode, event.isCanceled) || super.onKeyUp(keyCode, event)
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)

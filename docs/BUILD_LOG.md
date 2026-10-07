@@ -4139,3 +4139,15 @@ another app using the microphone?") instead of borrowing the voice note's notice
 note and a dictation let each other's microphone go when they start; and leaving the chat
 mid-hold closes the dictation recorder. The owner's next hold, with the diagnostic file,
 names the step.
+
+### 2026-10-06, 9:50 PM: the "too short" dictation, read off the phone's system log
+
+With the phone back, the system log for the two failed holds (9:05 and 9:07 PM) shows
+the same shape: PingMe's recorder started, the audio input opened, and the input was
+stopped 80 to 100 ms later, then a new recording started at once. Not a busy microphone:
+the hold was being ended while the thumb was still down, and begun again. The key events
+are the suspect: a key-up the app did not deserve. Android marks a key-up "cancelled" when
+the system takes a held key over for a long-press of its own; such an up now keeps the
+hold going instead of ending it, and every volume key down, up (with the cancelled mark),
+and the length of each hold go to the diagnostic file, so the next hold shows the pattern
+either way.

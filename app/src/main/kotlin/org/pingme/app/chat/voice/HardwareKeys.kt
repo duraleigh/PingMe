@@ -59,11 +59,17 @@ object HardwareKeys {
     ): Boolean {
         if (listeners.get() == 0) return false
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            if (repeatCount == 0) volumeUps.tryEmit(true)
+            if (repeatCount == 0) {
+                Diag.note(TAG, "Volume up down")
+                volumeUps.tryEmit(true)
+            }
             return true
         }
         if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && dictating.get() > 0) {
-            if (repeatCount == 0) volumeDowns.tryEmit(true)
+            if (repeatCount == 0) {
+                Diag.note(TAG, "Volume down down")
+                volumeDowns.tryEmit(true)
+            }
             return true
         }
         if (keyCode !in VOICE_KEYS) {
@@ -79,14 +85,23 @@ object HardwareKeys {
         return true
     }
 
-    /** The activity's key-up: the release of a held volume up ends the recording. */
-    fun onKeyUp(keyCode: Int): Boolean {
+    /**
+     * The activity's key-up: the release of a held volume key ends the recording. A key-up the
+     * system marks cancelled (it took the key over for a long-press of its own) is not the
+     * thumb lifting, so the hold goes on (owner, 2026-10-06: recordings stopped a tenth of a
+     * second after they began while the key was still held).
+     */
+    fun onKeyUp(
+        keyCode: Int,
+        cancelled: Boolean = false,
+    ): Boolean {
         if (listeners.get() == 0) return false
-        return when {
-            keyCode == KeyEvent.KEYCODE_VOLUME_UP -> volumeUps.tryEmit(false)
-            keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && dictating.get() > 0 -> volumeDowns.tryEmit(false)
-            else -> false
-        }
+        val volume =
+            keyCode == KeyEvent.KEYCODE_VOLUME_UP || (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && dictating.get() > 0)
+        if (!volume) return false
+        Diag.note(TAG, "${KeyEvent.keyCodeToString(keyCode)} up${if (cancelled) " (cancelled by the system)" else ""}")
+        if (cancelled) return true
+        return if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) volumeUps.tryEmit(false) else volumeDowns.tryEmit(false)
     }
 
     /**
@@ -248,7 +263,9 @@ private fun HeldKey(
                     haptic.bump()
                 }
             } else if (heldSince != 0L) {
-                when (volumeHoldEnded(System.currentTimeMillis() - heldSince)) {
+                val heldMs = System.currentTimeMillis() - heldSince
+                Diag.note("PingMeKeys", "Held for $heldMs ms")
+                when (volumeHoldEnded(heldMs)) {
                     VolumeHold.VOLUME -> {
                         drop()
                         nudgeVolume(context, direction)
