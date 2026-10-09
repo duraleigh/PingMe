@@ -10,6 +10,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.pingme.connectors.instagram.bridge.IgEvent
 import org.pingme.connectors.instagram.bridge.IgMessage
+import org.pingme.connectors.instagram.bridge.IgThread
+import org.pingme.connectors.instagram.bridge.IgUser
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.Credentials
 import org.pingme.core.model.Account
@@ -79,6 +81,71 @@ class IgThreadsTest {
             assertEquals(ChatFolder.GENERAL, chat.chat.folder)
             assertEquals("New Person", message.message.sender?.displayName)
             assertEquals(true, seen.indexOf(chat) < seen.indexOf(message))
+            job.cancel()
+        }
+
+    /**
+     * A thread fetched on its own says only system='INBOX'; the inbox's first page, where a
+     * thread with a brand-new message sits, says General (owner, 2026-10-09: Tony Wijaya).
+     */
+    @Test
+    fun aMessageForAThreadWithoutAFolderTakesItFromTheInboxFirstPage() =
+        runBlocking {
+            val bridge = FakeIgBridge()
+            bridge.network.alsoListed +=
+                IgThread(
+                    "888",
+                    longId = "888L",
+                    folder = "GENERAL",
+                    lastMessageAt = 1_759_300_000_000,
+                    users = listOf(IgUser("500", "5", "otherperson", "Other Person")),
+                )
+            val connector =
+                InstagramConnector(bridge, MemoryCredentialStore(), Files.createTempDirectory("ig").toFile())
+            val account =
+                Account(
+                    AccountId("ig"),
+                    NetworkId.INSTAGRAM,
+                    "Instagram",
+                    0,
+                    ConnectionState.Connected,
+                    true,
+                    NotificationMode.NORMAL,
+                    "instagram/100",
+                )
+            val events = Channel<ConnectorEvent>(Channel.UNLIMITED)
+            val flow =
+                connector.connect(
+                    account,
+                    Credentials(
+                        "instagram/100",
+                        """{"sessionid":"s","csrftoken":"c","ds_user_id":"100"}""".toByteArray(),
+                    ),
+                )
+            val job = launch(Dispatchers.Default) { flow.collect { events.send(it) } }
+            withTimeout(5000) { while (events.receive() !is ConnectorEvent.State) Unit }
+            bridge.network.sessions.forEach {
+                it.emit(IgEvent.Message(IgMessage("n2", "888", "500", 1_759_300_000_000, "text", "hello")))
+            }
+            val seen = ArrayList<ConnectorEvent>()
+            withTimeout(5000) {
+                while (seen.none {
+                        it is ConnectorEvent.NewMessage &&
+                            it.message.message.chatId.value.endsWith(
+                                "888",
+                            )
+                    }
+                ) {
+                    seen += events.receive()
+                }
+            }
+            val chat =
+                seen.filterIsInstance<ConnectorEvent.ChatUpdated>().first {
+                    it.chat.id.value
+                        .endsWith("888")
+                }
+            assertEquals("Other Person", chat.chat.title)
+            assertEquals(ChatFolder.GENERAL, chat.chat.folder)
             job.cancel()
         }
 

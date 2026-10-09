@@ -82,11 +82,12 @@ class IgTranslate(
     @Synchronized
     fun knows(thread: String) = thread in threads
 
-    /** Whether a thread's folder is known: a thread seen only through a message has none yet. */
+    /**
+     * Whether a thread's folder is known: a thread seen only through a message, or fetched on
+     * its own (system='INBOX' and nothing else), has none yet (owner, 2026-10-09: Tony Wijaya).
+     */
     @Synchronized
-    fun knowsFolder(thread: String): Boolean =
-        threads[thread]?.let { it.folder.isNotEmpty() || it.systemFolder.isNotEmpty() || it.folderTag.isNotEmpty() } ==
-            true
+    fun knowsFolder(thread: String): Boolean = threads[thread]?.let { folderOrUnknown(it) } != null
 
     /** Whether a sender has been seen in a thread listing, so they have a name. */
     @Synchronized

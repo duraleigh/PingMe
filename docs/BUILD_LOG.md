@@ -4263,3 +4263,32 @@ for it. Pushed again.
 
 Installed at 5:20 PM; the service was back and syncing within a minute. Both switches are
 on; the owner can turn either off under Settings, Storage and media, Voice notes.
+
+### 2026-10-09, 6:50 AM: a General chat first seen through a live message (owner report)
+
+The owner, with a screenshot at 5:44 AM: Tony Wijaya, a General folder sender, in PingMe's
+Instagram inbox with a 2:01 AM message. The diagnostic file shows the hole. Instagram's
+connection had stayed up since the 5:20 PM install on the 7th, and a full listing of the
+inbox only runs at connect, so nothing had listed the inbox for thirty-six hours. Tony's
+message came in live for a thread PingMe had never listed; the thread was fetched on its
+own, and a thread fetched on its own says system='INBOX' and nothing else, which since the
+7th counts as an unknown folder. The chat was stored with no folder, and the inbox shows a
+chat with no folder (every network without folders has them that way). "Unknown stays
+unknown" was right for a chat already placed; for a brand-new chat there was nothing to
+keep, and nothing came along to place it.
+
+Fixed: a message for a thread whose folder PingMe does not know now reads the inbox's
+first page, where a thread with a brand-new message always sits, with its folder field, and
+places the chat from that; the single-thread fetch is only the fallback for a thread not
+on that page. "Knows the folder" now means a real Primary, General, or Requests answer, not
+system='INBOX' alone, so a thread placed badly once is asked about again at its next
+message. Both ways go to the phone's diagnostic file ("found on the inbox's first page at a
+new message" or "fetched on its own"). Tony's chat moves to General at its next message or
+at the next connect, whichever comes first. Test: a thread the single fetch calls
+system='INBOX' and the first page calls General lands as General.
+
+Also: a thread already placed is read off the inbox's first page again at a new message
+once its answer is ten minutes old, so a chat the owner moves to General in the Instagram
+app follows here at its next message instead of waiting for the next connect. And a third
+lint "newer version available" check (Kotlin 2.4.21 came out overnight) joins the two
+made informational on the 7th.

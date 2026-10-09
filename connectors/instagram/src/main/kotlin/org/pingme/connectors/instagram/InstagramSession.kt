@@ -71,6 +71,9 @@ internal class InstagramSession(
         }
     private val connected = AtomicBoolean(false)
 
+    /** When each thread's folder was last read off the inbox's first page, by thread id. */
+    private val folderCheckedAt = HashMap<String, Long>()
+
     init {
         // Known before connecting on a pretend network; the real bridge says once the inbox loads.
         go.ownId = session.ownId()
@@ -233,22 +236,37 @@ internal class InstagramSession(
     }
 
     /**
-     * A message for a thread or from a sender PingMe has not been told about yet: ask
-     * Instagram for the thread first, so the chat lands with its name, its people, and its
-     * folder (General stays out of All) instead of a bare placeholder named by an id that
-     * only the next full sync would fix (owner, Gate G7).
+     * A message for a thread or from a sender PingMe has not been told about yet, or whose
+     * folder it does not know: ask Instagram first, so the chat lands with its name, its
+     * people, and its folder (General stays out of All) instead of a bare placeholder named
+     * by an id that only the next full sync would fix (owner, Gate G7).
+     *
+     * The folder comes from the inbox's first page, where a thread with a brand-new message
+     * sits: a thread fetched on its own says only system='INBOX', which tells Primary from
+     * General no better than nothing, and a chat first seen through a live message then sat
+     * in the inbox with an unknown folder until the next full listing, which the connection
+     * never ran while it stayed up (owner, 2026-10-09: "Tony Wijaya is a general folder
+     * sender"). The single fetch stays as the fallback for a thread not on that page.
+     *
+     * A placed thread is read off that page again at a new message once its answer is
+     * [FOLDER_RECHECK_MS] old: a chat the owner moves to General in the Instagram app would
+     * otherwise stay Primary here until the next connect, which can be days away.
      */
-
     private suspend fun ProducerScope<ConnectorEvent>.placeThread(msg: IgMessage) {
-        if (go.knows(msg.thread) && go.knowsPerson(msg.sender) && go.knowsFolder(msg.thread)) return
+        val now = System.currentTimeMillis()
+        val fresh = now - (folderCheckedAt[msg.thread] ?: 0L) < FOLDER_RECHECK_MS
+        val placed = go.knows(msg.thread) && go.knowsPerson(msg.sender) && go.knowsFolder(msg.thread)
+        if (placed && fresh) return
         try {
+            val listed = firstPage().firstOrNull { it.id == msg.thread }
+            if (listed != null) {
+                noteFolder(listed, "found on the inbox's first page at a new message")
+                send(ConnectorEvent.ChatUpdated(accountId, go.chat(listed)))
+                folderCheckedAt[msg.thread] = now
+            }
+            if (go.knowsFolder(msg.thread) && go.knowsPerson(msg.sender)) return
             val thread = go.threadJson(request { session.thread(msg.thread) })
-            // Which folder Instagram puts the thread in, for the phone's log (owner, 2026-10-04: General leaked).
-            Log.i(
-                TAG,
-                "Instagram thread fetched: folder='${thread.folder}' system='${thread.systemFolder}' " +
-                    "tag='${thread.folderTag}'",
-            )
+            noteFolder(thread, "fetched on its own at a new message (not on the inbox's first page)")
             send(ConnectorEvent.ChatUpdated(accountId, go.chat(thread)))
         } catch (e: CancellationException) {
             throw e
@@ -256,8 +274,23 @@ internal class InstagramSession(
             @Suppress("TooGenericExceptionCaught") e: Exception,
         ) {
             Log.w(TAG, "Could not fetch the thread ${msg.thread} a message came for", e)
+            org.pingme.core.connector.Diag
+                .note(TAG, "Could not place thread ${msg.thread} a message came for: ${e.message}")
         }
     }
+
+    /** The newest page of the inbox, folders and all; empty when Instagram will not list it. */
+    private suspend fun firstPage(): List<IgThread> =
+        try {
+            go.pageJson(request { session.listThreads(INBOX, "") }).threads
+        } catch (e: CancellationException) {
+            throw e
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            Log.w(TAG, "Could not list the inbox's first page", e)
+            emptyList()
+        }
 
     private fun ProducerScope<ConnectorEvent>.fetchPreviews(event: IgEvent) {
         when (event) {
@@ -613,6 +646,9 @@ internal class InstagramSession(
 
         /** How many listing pages are written out thread by thread. */
         const val DETAILED_PAGES = 2
+
+        /** How long a thread's folder, read off the inbox's first page, is trusted before a new message rereads it. */
+        const val FOLDER_RECHECK_MS = 10L * 60 * 1000
         const val TITLE_CHARS = 24
 
         /** Messages fetched to find one from before this start. */
