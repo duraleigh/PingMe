@@ -4292,3 +4292,9 @@ once its answer is ten minutes old, so a chat the owner moves to General in the 
 app follows here at its next message instead of waiting for the next connect. And a third
 lint "newer version available" check (Kotlin 2.4.21 came out overnight) joins the two
 made informational on the 7th.
+
+Installed at 7:11 AM. The service came back by itself and the first listing placed Tony
+Wijaya: "moves null to GENERAL" at 7:11:07 AM, with the thread listed as folder='GENERAL'.
+Two other chats with no folder, first seen through live messages the same way, moved to
+Primary at the same moment (Pam Gough, Curtis Brown Photography), which confirms the
+mechanism. Waiting on the next live message to a General chat for the first-page read.
