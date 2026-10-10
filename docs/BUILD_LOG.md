@@ -4298,3 +4298,30 @@ Wijaya: "moves null to GENERAL" at 7:11:07 AM, with the thread listed as folder=
 Two other chats with no folder, first seen through live messages the same way, moved to
 Primary at the same moment (Pam Gough, Curtis Brown Photography), which confirms the
 mechanism. Waiting on the next live message to a General chat for the first-page read.
+
+### 2026-10-10, 3:35 PM: the share picker lists by use, and no one twice (owner report)
+
+The owner, with a screenshot of the share picker: Parker Aiken on Google Messages listed
+twice, and the list ordered by latest message when it should be the chats most
+interacted with or most shared with.
+
+Twice: the picker listed every chat in the store, and a merged chat's members are chats
+in the store too, so a merged chat (Parker, sending through Google Messages) and its
+Google Messages member stood side by side with the same name and badge. The picker now
+leaves out any chat that is a member of a merged one; the merged chat stands for them and
+sends through the right member, as it does from the composer.
+
+Order: each chat scores its messages over the last month plus five per share sent to it
+from this picker (the picker now keeps a count per chat in the settings file, which the
+backup carries). Highest score first, the rest by recency, so a fresh install still lists
+newest first until there is something to go on. UI_DESIGN.md 5.8 says so. Tests: a merged
+chat is listed once and neither member beside it; a chat shared to rises to the top.
+
+The first check of this change died in the test process's native crash (the third time:
+the 7th twice, and now). The crash report says what it is: a background worker in the
+middle of a person upsert inside SQLite's native code, both times, while the test's
+in-memory database was being closed. A cancelled view model's write runs on to its end
+on Room's own thread, and the test inbox closed the database under it. The test inbox now
+takes the writer connection once before closing (which waits for whoever holds it, up to
+five seconds), so an in-flight write finishes first. The open item from the 7th is closed
+by this; it never touched the app on the phone, only the test process.

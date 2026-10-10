@@ -469,9 +469,12 @@ the Google Voice app.
 
 PingMe is in Android's share menu (owner, Gate G3): text, pictures, videos, sounds, and
 files shared from another app open a picker of chats, with people from the networks that
-can start a chat once a search is typed. Several can be picked; each gets its own
-message, one after the other, the way Google Messages does. One pick opens that chat;
-more go back to the inbox. A voice note, sound, or file in a chat also saves to the
+can start a chat once a search is typed. The chats are listed by use, not by their latest
+message (owner, 2026-10-10): the ones shared to from this picker and talked in most over
+the last month come first (a share counts for five messages), and the rest follow by
+recency. A merged chat stands for its members, which are not listed on their own, so no
+one appears twice. Several can be picked; each gets its own message, one after the
+other, the way Google Messages does. One pick opens that chat; more go back to the inbox. A voice note, sound, or file in a chat also saves to the
 phone's Downloads (a PingMe folder) from the hold menu's Save.
 
 The "+" button opens a bottom sheet: Camera, Gallery, File, Location, Contact. Images

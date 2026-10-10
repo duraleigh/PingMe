@@ -22,6 +22,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.pingme.app.inbox.DemoInbox
 import org.pingme.core.connector.chat
+import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
@@ -47,7 +48,8 @@ class ShareViewModelTest {
     fun setUp() {
         demo = DemoInbox(temp.root)
         demo.controls.update { it.copy(liveActivity = false) }
-        runBlocking { demo.seed() }
+        // No history: every chat then scores the same, so the order and the lift of a share are plain.
+        runBlocking { demo.seed(history = false) }
     }
 
     @After
@@ -66,7 +68,7 @@ class ShareViewModelTest {
         }
     }
 
-    private fun share(intent: Intent): ShareViewModel {
+    private fun picker(intent: Intent): ShareViewModel {
         val vm = demo.shareViewModel(intent)
         // The state only runs while something watches it, as the screen would.
         watching.launch { vm.state.collect {} }
@@ -76,11 +78,63 @@ class ShareViewModelTest {
             vm.state.value.chats
                 .isNotEmpty()
         }
+        return vm
+    }
+
+    private fun share(intent: Intent): ShareViewModel {
+        val vm = picker(intent)
         vm.toggle(
             vm.state.value.chats
                 .first { it.key == sam.value },
         )
         return vm
+    }
+
+    /** A merged chat stands for its members, so neither member is listed beside it (owner, 2026-10-10). */
+    @Test
+    fun aMergedChatIsListedOnceNotOncePerMember() {
+        val other = AccountId("demo-wa")
+        val samOnOther = other.chat("sam-wa")
+        val merged =
+            runBlocking {
+                demo.accounts.upsert(demo.account.copy(id = other))
+                val base = demo.chats.get(sam)!!
+                demo.chats.upsert(base.copy(id = samOnOther, accountId = other, isPinned = false, pinOrder = null))
+                demo.mergeService.merge(listOf(sam, samOnOther))
+            }
+        val vm = picker(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "hi"))
+        waitFor {
+            vm.state.value.chats
+                .any { it.key == merged.value }
+        }
+        val keys =
+            vm.state.value.chats
+                .map { it.key }
+        assertEquals(keys.size, keys.toSet().size)
+        assertTrue(sam.value !in keys && samOnOther.value !in keys)
+        assertEquals(1, keys.count { it == merged.value })
+    }
+
+    /** The chats shared to come first, not the ones with the latest message (owner, 2026-10-10). */
+    @Test
+    fun aChatSharedToRisesToTheTop() {
+        val vm = picker(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "https://example.com/story"))
+        val last =
+            vm.state.value.chats
+                .last()
+        assertTrue(
+            vm.state.value.chats
+                .first()
+                .key != last.key,
+        )
+        vm.toggle(last)
+        vm.send()
+        waitFor { finished.isNotEmpty() }
+        waitFor {
+            vm.state.value.chats
+                .first()
+                .key == last.key
+        }
     }
 
     @Test

@@ -87,6 +87,12 @@ data class LastMessageRow(
     val status: MessageStatus,
 )
 
+/** How many messages a chat holds since some time: how much it is talked in. */
+data class ChatCountRow(
+    val chatId: String,
+    val n: Int,
+)
+
 @Dao
 interface ChatDao {
     @Transaction
@@ -324,6 +330,10 @@ interface MessageDao {
     /** When the chat's newest stored message was sent: what "read" must reach (owner, Gate G7, round 3). */
     @Query("SELECT MAX(sentAt) FROM messages WHERE chatId = :chatId")
     suspend fun newestSentAt(chatId: String): Instant?
+
+    /** Messages per chat since [since], for ranking the share picker by use (UI_DESIGN.md 5.8). */
+    @Query("SELECT chatId AS chatId, COUNT(*) AS n FROM messages WHERE sentAt > :since GROUP BY chatId")
+    fun observeCountsSince(since: Instant): Flow<List<ChatCountRow>>
 
     /** The newest message of every chat, for inbox previews (UI_DESIGN.md 3.1). */
     @Query(

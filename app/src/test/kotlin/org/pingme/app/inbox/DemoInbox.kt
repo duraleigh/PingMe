@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
+import androidx.room.useWriterConnection
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -300,6 +301,8 @@ class DemoInbox(
             actions,
             messageActions,
             files,
+            messages,
+            settings,
         )
 
     fun settingsViewModel() =
@@ -382,7 +385,15 @@ class DemoInbox(
         // rather than blocking the main thread while waiting for them.
         viewModels.forEach { it.viewModelScope.cancel() }
         shadowOf(Looper.getMainLooper()).idle()
-        runBlocking { scope.coroutineContext.job.cancelAndJoin() }
+        runBlocking {
+            scope.coroutineContext.job.cancelAndJoin()
+            // A write still on its way from a cancelled view model (cancellation only lands at
+            // the next suspension, and a Room write runs to its end) must finish before the
+            // database closes under it: taking the writer connection waits for whoever holds
+            // it. Twice in a dozen runs the test process died in SQLite's native code on a
+            // person upsert (2026-10-07, 2026-10-10).
+            kotlinx.coroutines.withTimeoutOrNull(SETTLE_MS) { db.useWriterConnection { } }
+        }
         db.close()
     }
 
@@ -426,3 +437,6 @@ class CountingPreviews(
         requested += message
     }
 }
+
+/** How long [DemoInbox.close] waits for a write in flight before closing the database anyway. */
+private const val SETTLE_MS = 5_000L

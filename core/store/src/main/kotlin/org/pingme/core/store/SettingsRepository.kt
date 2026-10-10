@@ -9,8 +9,11 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import org.pingme.core.model.AppSettings
+import org.pingme.core.model.ChatId
 import org.pingme.core.model.KeywordRule
 import org.pingme.core.model.KeywordRuleId
 import org.pingme.core.store.db.PingMeDatabase
@@ -28,6 +31,21 @@ class SettingsRepository
         db: PingMeDatabase,
     ) {
         private val keywordDao = db.keywordRuleDao()
+
+        /** How many times the share picker has sent to each chat, by chat id (UI_DESIGN.md 5.8). */
+        val shareCounts: Flow<Map<String, Int>> = dataStore.data.map { decodeCounts(it[SHARE_COUNTS]) }
+
+        /** One more share to [chatId]. */
+        suspend fun noteShare(chatId: ChatId) {
+            dataStore.edit { prefs ->
+                val counts = decodeCounts(prefs[SHARE_COUNTS]).toMutableMap()
+                counts[chatId.value] = (counts[chatId.value] ?: 0) + 1
+                prefs[SHARE_COUNTS] = json.encodeToString(COUNTS, counts)
+            }
+        }
+
+        private fun decodeCounts(text: String?): Map<String, Int> =
+            text?.let { runCatching { json.decodeFromString(COUNTS, it) }.getOrNull() }.orEmpty()
 
         /** "Show General in inbox" for Instagram, on by default (UI_DESIGN.md 6.4). */
         val instagramShowGeneral: Flow<Boolean> = dataStore.data.map { it[INSTAGRAM_SHOW_GENERAL] ?: true }
@@ -118,6 +136,8 @@ class SettingsRepository
 
         private companion object {
             val INSTAGRAM_SHOW_GENERAL = booleanPreferencesKey("instagram_show_general")
+            val SHARE_COUNTS = stringPreferencesKey("share_counts")
+            private val COUNTS = MapSerializer(String.serializer(), Int.serializer())
             val APPEARANCE = stringPreferencesKey("appearance")
             val INBOX_BAR = stringPreferencesKey("inbox_bar")
             val QUICK_REACTIONS = stringPreferencesKey("quick_reactions")

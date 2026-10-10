@@ -30,7 +30,11 @@ import org.pingme.core.service.MessageActions
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
+import org.pingme.core.store.MessageRepository
+import org.pingme.core.store.SettingsRepository
 import javax.inject.Inject
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 
 /** Somewhere a share can go: a chat PingMe has, or a person a new chat can start with. */
 sealed interface ShareTarget {
@@ -84,6 +88,8 @@ class ShareViewModel
         private val chatActions: ChatActions,
         private val messageActions: MessageActions,
         private val files: OutgoingFiles,
+        messages: MessageRepository,
+        private val settings: SettingsRepository,
     ) : ViewModel() {
         private val payload = requests.take()
         private val form =
@@ -103,15 +109,19 @@ class ShareViewModel
         private val failures = Channel<String?>(Channel.BUFFERED)
         val failed = failures.receiveAsFlow()
 
+        /** How much each chat is used: messages in the last month, and shares from this picker. */
+        private val use =
+            combine(messages.activitySince(Clock.System.now() - RECENT), settings.shareCounts) { talked, shared ->
+                Use(talked, shared)
+            }
+
         @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
         val state: StateFlow<ShareUiState> =
-            combine(form, accounts.accounts(), chats.all()) { f, accountList, chatList ->
+            combine(form, accounts.accounts(), chats.all(), use) { f, accountList, chatList, use ->
                 val networks = accountList.associate { it.id to it.network }
                 val q = f.query.trim()
                 val rows =
-                    chatList
-                        .filter { !it.isArchived }
-                        .sortedByDescending { it.lastActivityAt }
+                    rank(chatList, use)
                         .mapNotNull { chat -> networks[chat.accountId]?.let { ShareTarget.ToChat(chat, it) } }
                         .filter { q.isEmpty() || it.title.contains(q, ignoreCase = true) }
                 Triple(f.copy(chats = rows), accountList, q)
@@ -122,6 +132,21 @@ class ShareViewModel
                     combine(flow, flowOf(f)) { people, st -> st.copy(people = people) }
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), form.value)
+
+        /**
+         * The chats most shared with and most talked in first, then the rest by recency
+         * (owner, 2026-10-10: "most frequently interacted with or most frequently shared with",
+         * not the latest messages). A merged chat stands for its members, which are left out,
+         * so no one is listed twice (owner, 2026-10-10: Parker Aiken twice).
+         */
+        private fun rank(
+            chatList: List<Chat>,
+            use: Use,
+        ): List<Chat> =
+            chatList
+                .filter { !it.isArchived && it.mergedInto == null }
+                .distinctBy { it.id }
+                .sortedWith(compareByDescending<Chat> { use.score(it.id) }.thenByDescending { it.lastActivityAt })
 
         private fun peopleOn(
             startable: List<Account>,
@@ -206,6 +231,7 @@ class ShareViewModel
                     val message = messageActions.send(chatId, share.text, attachments = attachments)
                     Diag.note(TAG, "Sent ${message.id.value} to ${chatId.value}: ${message.status}")
                     note.trim().takeIf { it.isNotEmpty() }?.let { messageActions.send(chatId, it) }
+                    settings.noteShare(chatId)
                     chatId
                 }
             } catch (e: CancellationException) {
@@ -224,8 +250,18 @@ class ShareViewModel
                 is ShareTarget.ToPerson -> chatActions.startChat(target.person.accountId, target.person.networkHandle)
             }
 
+        /** Messages in the last month and picker shares, by chat; a share counts as [SHARE_WEIGHT] messages. */
+        private class Use(
+            private val talked: Map<ChatId, Int>,
+            private val shared: Map<String, Int>,
+        ) {
+            fun score(id: ChatId): Int = (talked[id] ?: 0) + SHARE_WEIGHT * (shared[id.value] ?: 0)
+        }
+
         private companion object {
             const val STOP_AFTER = 5_000L
+            const val SHARE_WEIGHT = 5
+            val RECENT = 30.days
             const val MAX_PEOPLE = 30
             const val TAG = "PingMeShare"
 

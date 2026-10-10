@@ -56,6 +56,10 @@ class MessageRepository
                 }
             }
 
+        /** How many messages each chat holds since [since]; chats with none are absent. */
+        fun activitySince(since: Instant): Flow<Map<ChatId, Int>> =
+            dao.observeCountsSince(since).map { rows -> rows.associate { ChatId(it.chatId) to it.n } }
+
         /** Who "you" are in [chatId], known once you have sent anything there. */
         suspend fun selfIn(chatId: ChatId): PersonId? = dao.selfSenderId(chatId.value)?.let(::PersonId)
 
