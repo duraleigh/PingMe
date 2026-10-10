@@ -4325,3 +4325,6 @@ on Room's own thread, and the test inbox closed the database under it. The test 
 takes the writer connection once before closing (which waits for whoever holds it, up to
 five seconds), so an in-flight write finishes first. The open item from the 7th is closed
 by this; it never touched the app on the phone, only the test process.
+
+Installed at 4:12 PM. Waiting on the owner's next share for the new order and the single
+Parker Aiken row.
