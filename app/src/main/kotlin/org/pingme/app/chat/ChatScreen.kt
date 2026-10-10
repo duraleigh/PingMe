@@ -55,8 +55,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -79,6 +77,7 @@ import org.pingme.core.model.AccountId
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.ChatLook
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.theme.with
@@ -110,11 +109,8 @@ fun ChatRoute(
     val overrides by viewModel.overrides.collectAsStateWithLifecycle()
     val appSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val jump by viewModel.jumps.request.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val resources = LocalResources.current
-    val scope = rememberCoroutineScope()
-    val notice: (Int) -> Unit = { scope.launch { snackbar.showSnackbar(resources.getString(it)) } }
+    val notices = rememberChatNotices()
     // This chat's own look from Chat details, over the app's (UI_DESIGN.md 3.4).
     val app = PingMeTheme.appearance
     val look = remember(overrides.lookJson) { ChatLook.fromJson(overrides.lookJson) }
@@ -127,7 +123,7 @@ fun ChatRoute(
                 state = state,
                 actions =
                     ChatScreenActions(
-                        header = headerActions(viewModel, state, onBack, context, notice).copyWithDetails(onDetails),
+                        header = headerActions(viewModel, state, onBack, onDetails, context, notices),
                         onSend = { viewModel.send(it) },
                         onReply = viewModel::reply,
                         onRetry = viewModel::retry,
@@ -135,6 +131,7 @@ fun ChatRoute(
                         onLoadOlder = viewModel::loadOlder,
                         onNeed = viewModel::need,
                         onTyping = viewModel::typing,
+                        onSendVia = viewModel::sendVia,
                         menu = viewModel.menu,
                         onRememberEmoji = viewModel::rememberEmoji,
                         incoming = viewModel.incomingReactions,
@@ -144,11 +141,11 @@ fun ChatRoute(
                         settings = appSettings,
                         transcripts = viewModel.transcripts.takeIf { appSettings.media.transcribeVoice },
                         search = searchHooks(viewModel, searching, jump),
-                        composer = composerHooks(viewModel, state, notice),
+                        composer = composerHooks(viewModel, state, notices.notice),
                         cleanLink = { if (appSettings.privacy.cleanLinksReceived) viewModel.links.clean(it) else it },
                     ),
                 modifier = modifier,
-                snackbar = snackbar,
+                snackbar = notices.snackbar,
             )
         }
         org.pingme.app.chat.attach
@@ -173,7 +170,7 @@ fun ChatScreen(
     val highlight = remember { mutableStateMapOf<String, Boolean>() }
     val ui = remember { ChatUi() }
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val haptic = rememberHaptic()
     Notices(actions.menu, snackbar)
 
     fun jumpTo(id: String) {
@@ -228,6 +225,7 @@ internal fun rowContext(
     RowContext(
         state.account!!.network,
         state.chat!!.kind,
+        state.networkOf,
         state.names,
         actions.onRetry,
         actions.onNeed,
@@ -237,6 +235,7 @@ internal fun rowContext(
         actions.settings.media.gifsAutoplay,
         actions.transcripts,
         actions.cleanLink,
+        me = state.me,
     )
 
 @Composable
@@ -249,8 +248,7 @@ private fun MessageList(
     onJump: (String) -> Unit,
 ) {
     if (state.chat == null || state.account == null) return
-    val haptic = LocalHapticFeedback.current
-    val haptics = PingMeTheme.appearance.haptics
+    val haptic = rememberHaptic()
     val timestamps = PingMeTheme.appearance.timestamps
     val context = rowContext(state, actions, onJump)
     val obscured = state.chat.isObscured
@@ -283,7 +281,7 @@ private fun MessageList(
                         }
                     Entrance(item.message, ui, placement.background(tint)) {
                         MessageTouch(
-                            gestures = gesturesFor(item.message, state, actions, ui, haptic, haptics),
+                            gestures = gesturesFor(item.message, state, actions, ui, haptic),
                             wobble = ui.wobble[key] ?: 0,
                         ) {
                             HideAgain(key, ui.unblurred)
@@ -320,8 +318,7 @@ private fun gesturesFor(
     state: ChatUiState,
     actions: ChatScreenActions,
     ui: ChatUi,
-    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
-    haptics: org.pingme.core.ui.theme.Haptics,
+    haptic: org.pingme.core.ui.components.HapticPlayer,
 ): BubbleGestures {
     val selecting = state.selection.isNotEmpty()
     val key = message.id.value
@@ -344,7 +341,7 @@ private fun gesturesFor(
             live {
                 val prefs = state.reactions
                 val emoji = actions.menu?.doubleTapEmoji(prefs.doubleTap, prefs.quick, state.capabilities?.reactions)
-                if (emoji != null) ui.react(message, emoji, null, state, actions, haptic, haptics)
+                if (emoji != null) ui.react(message, emoji, null, state, actions, haptic)
             },
         onHold = live { if (selecting) actions.menu?.toggle(message) else ui.holding = message },
         onSwipeReply = live { actions.onReply(message) },

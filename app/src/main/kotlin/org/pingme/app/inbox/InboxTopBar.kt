@@ -37,6 +37,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
@@ -70,6 +73,7 @@ class MenuActions(
     val onSettings: (() -> Unit)? = null,
     val onNotifications: (() -> Unit)? = null,
     val onAccounts: (() -> Unit)? = null,
+    val onMergeSuggestions: (() -> Unit)? = null,
 )
 
 /**
@@ -134,7 +138,13 @@ private fun StatusPill(
             Health.ATTENTION -> c.errorContainer to c.onErrorContainer
             Health.NONE -> c.surfaceContainerHigh to c.onSurfaceVariant
         }
-    val name = account?.displayName.orEmpty()
+    // Every account in that state is named (owner, 2026-10-05: two were reconnecting, one was shown).
+    val name =
+        when (health) {
+            Health.ATTENTION -> accounts.filter { it.state is ConnectionState.ActionNeeded }
+            Health.WORKING -> accounts.filter { it.state is ConnectionState.Reconnecting }
+            else -> emptyList()
+        }.joinToString { it.displayName }.ifEmpty { account?.displayName.orEmpty() }
     val label =
         when (health) {
             Health.OK -> stringResource(R.string.status_connected)
@@ -186,10 +196,18 @@ fun HealthChip(
 ) {
     val worst = problems.firstOrNull() ?: return
     val attention = worst.state is ConnectionState.ActionNeeded
+    // Every account in the same state is named, not just the worst (owner, 2026-10-05:
+    // "the inbox only says Instagram is disconnected" while Google Messages was too).
+    val names =
+        problems
+            .filter { (it.state is ConnectionState.ActionNeeded) == attention }
+            .joinToString { it.displayName }
     val c = MaterialTheme.colorScheme
     Surface(
         onClick = { onFix(worst) },
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        // Spoken when it appears or changes, without stealing focus (Phase 8, P8.1).
+        modifier =
+            modifier.padding(horizontal = 16.dp, vertical = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
         shape = MaterialTheme.shapes.large,
         color = if (attention) c.errorContainer else c.tertiaryContainer,
         contentColor = if (attention) c.onErrorContainer else c.onTertiaryContainer,
@@ -203,7 +221,7 @@ fun HealthChip(
             Text(
                 stringResource(
                     if (attention) R.string.health_attention else R.string.health_reconnecting,
-                    worst.displayName,
+                    names,
                 ),
                 Modifier.padding(start = 8.dp),
                 style = MaterialTheme.typography.labelLarge,
@@ -290,6 +308,9 @@ private fun ColumnScope.AccountMenuContent(
             { go { actions.onList(ChatList.General) } },
             counts.general,
         )
+    }
+    actions.onMergeSuggestions?.let { open ->
+        MenuEntry(R.string.menu_merge_suggestions, UiR.drawable.ic_call_merge, { go(open) }, counts.suggestions)
     }
     counts.spaces.forEach { (space, unread) ->
         DropdownMenuItem(

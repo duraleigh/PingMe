@@ -48,6 +48,8 @@ data class SigMember(
     val name: String = "",
     val isMe: Boolean = false,
     val isAdmin: Boolean = false,
+    /** The avatar saved on this phone by the bridge, when there is one (owner, 2026-10-05). */
+    val avatar: String = "",
 )
 
 @Serializable

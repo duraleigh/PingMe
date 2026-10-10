@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -65,6 +66,8 @@ type Session struct {
 	cancelLink context.CancelFunc
 	names      map[uuid.UUID]Member
 	groups     map[string]*signalmeow.Group
+	// Profile pictures being fetched, so each is asked for once.
+	avatarFetches map[uuid.UUID]bool
 }
 
 // NewSession opens (or creates) the store at dbPath. A fresh store is not linked yet:
@@ -379,7 +382,7 @@ func (s *Session) handleEvent(raw events.SignalEvent) bool {
 		s.mu.Lock()
 		for _, c := range evt.Contacts {
 			if c != nil && c.ACI != uuid.Nil {
-				s.names[c.ACI] = memberOf(c, s.device.ACI)
+				s.names[c.ACI] = s.withAvatar(c, memberOf(c, s.device.ACI))
 			}
 		}
 		s.mu.Unlock()
@@ -450,6 +453,80 @@ func memberOf(r *types.Recipient, me uuid.UUID) Member {
 	return Member{ID: r.ACI.String(), Phone: r.E164, Name: name, IsMe: r.ACI == me}
 }
 
+// withAvatar adds the avatar file for a person (owner, 2026-10-05: Signal chats showed no
+// pictures): the contact list's picture is written out at once; a profile picture is
+// fetched and decrypted in the background, and "contacts" is reported again when done.
+func (s *Session) withAvatar(r *types.Recipient, m Member) Member {
+	if r == nil || r.ACI == uuid.Nil {
+		return m
+	}
+	path := filepath.Join(filepath.Dir(s.dbPath), "avatars", r.ACI.String()+".jpg")
+	if info, err := os.Stat(path); err == nil && info.Size() > 0 {
+		m.Avatar = path
+		return m
+	}
+	if len(r.ContactAvatar.Image) > 0 {
+		if writeFile(path, r.ContactAvatar.Image) == nil {
+			m.Avatar = path
+		}
+		return m
+	}
+	if r.Profile.AvatarPath != "" && !s.fetchingAvatar(r.ACI) {
+		go s.fetchProfileAvatar(r.ACI, r.Profile.AvatarPath, r.Profile.Key, path)
+	}
+	return m
+}
+
+func (s *Session) fetchingAvatar(aci uuid.UUID) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.avatarFetches == nil {
+		s.avatarFetches = map[uuid.UUID]bool{}
+	}
+	if s.avatarFetches[aci] {
+		return true
+	}
+	s.avatarFetches[aci] = true
+	return false
+}
+
+func (s *Session) fetchProfileAvatar(aci uuid.UUID, avatarPath string, key libsignalgo.ProfileKey, path string) {
+	s.mu.Lock()
+	client := s.client
+	s.mu.Unlock()
+	if client == nil {
+		return
+	}
+	ctx, cancel := s.ctx()
+	defer cancel()
+	data, err := client.DownloadUserAvatar(ctx, avatarPath, key)
+	if err != nil || len(data) == 0 {
+		s.log.Info().Err(err).Str("person", aci.String()).Msg("No Signal profile picture")
+		return
+	}
+	if writeFile(path, data) != nil {
+		return
+	}
+	s.mu.Lock()
+	if m, ok := s.names[aci]; ok {
+		m.Avatar = path
+		s.names[aci] = m
+	}
+	s.mu.Unlock()
+	s.emit(map[string]any{"type": "contacts"})
+}
+
+func writeFile(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	temp := path + ".part"
+	if err := os.WriteFile(temp, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(temp, path)
+}
+
 // member is what is known about a person: the contact list, the profile, the archive.
 func (s *Session) member(ctx context.Context, aci uuid.UUID) Member {
 	s.mu.Lock()
@@ -462,10 +539,10 @@ func (s *Session) member(ctx context.Context, aci uuid.UUID) Member {
 	m := Member{ID: aci.String(), IsMe: aci == s.device.ACI}
 	if client != nil {
 		if r, err := client.ContactByACI(ctx, aci); err == nil && r != nil {
-			m = memberOf(r, s.device.ACI)
+			m = s.withAvatar(r, memberOf(r, s.device.ACI))
 		}
 	} else if r, err := s.device.RecipientStore.LoadAndUpdateRecipient(ctx, aci, uuid.Nil, nil); err == nil && r != nil {
-		m = memberOf(r, s.device.ACI)
+		m = s.withAvatar(r, memberOf(r, s.device.ACI))
 	}
 	if m.Name != "" || m.Phone != "" {
 		s.mu.Lock()
@@ -494,7 +571,7 @@ func (s *Session) Contacts() (string, error) {
 		if r == nil || r.ACI == uuid.Nil || r.ACI == s.device.ACI {
 			continue
 		}
-		m := memberOf(r, s.device.ACI)
+		m := s.withAvatar(r, memberOf(r, s.device.ACI))
 		if m.Name == "" && m.Phone == "" {
 			continue
 		}

@@ -18,6 +18,7 @@
     <!-- Voice notes: hold the mic to record (UI_DESIGN.md 5.6). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Turns the screen off while a voice note plays at the ear. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Setup asks to keep the connection service alive (DESIGN.md 6.4). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -83,6 +84,18 @@
         </activity>
 
         <!-- One launcher entry per icon variant; AppIconSwitcher enables exactly one (UI_DESIGN.md 4.6). -->
+        <!-- The phone's side key, set to open PingMe, or Button Mapper firing this action: a
+             voice note in the open chat (owner, 2026-10-06). Not a launcher entry. -->
+        <activity-alias
+            android:name=".VoiceNote"
+            android:exported="true"
+            android:label="@string/voice_note_shortcut"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="org.pingme.action.VOICE_NOTE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
         <activity-alias
             android:name=".IconDefault"
             android:enabled="true"

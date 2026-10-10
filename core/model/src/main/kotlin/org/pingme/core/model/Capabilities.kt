@@ -31,6 +31,12 @@ data class Capabilities(
     val block: Boolean,
     val multiAccount: Boolean,
     val calls: CallRule,
+    /**
+     * How many pictures or files one message can carry. Google Messages keeps one per
+     * message and drops the rest (owner, 2026-10-05: two screenshots sent, one arrived), so
+     * the service sends a draft with more as that many messages.
+     */
+    val attachmentsPerMessage: Int = Int.MAX_VALUE,
 )
 
 /** How long after sending an action stays available. */
@@ -99,10 +105,13 @@ enum class CallMethod {
     /** The call entry the app registers in the phone's contacts (WhatsApp, Signal, Telegram). */
     CONTACT_APP_CALL,
 
-    /** Open the app to that person (Google Voice, Messenger). */
+    /** Dial the number immediately inside the service's own app (Google Voice). */
+    APP_DIALER,
+
+    /** Open the app to that person. */
     OPEN_APP,
 
-    /** Open the thread; the service exposes no call intent (Instagram). */
+    /** Open the chat in the app; the service lets no other app start its calls (Instagram, Messenger). */
     OPEN_THREAD,
     NONE,
 }

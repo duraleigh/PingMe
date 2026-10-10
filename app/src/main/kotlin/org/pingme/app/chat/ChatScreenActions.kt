@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import org.pingme.core.model.Attachment
 import org.pingme.core.model.Chat
+import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Message
 import org.pingme.core.model.NetworkId
@@ -19,6 +20,10 @@ class HeaderActions(
     val onCall: (video: Boolean) -> Unit,
     val onDetails: (() -> Unit)? = null,
     val onSearch: (() -> Unit)? = null,
+    /** A merged chat's header dropdown: one member's account, or null for all (owner, Phase 7). */
+    val onFilter: ((org.pingme.core.model.AccountId?) -> Unit)? = null,
+    /** The avatar opens the person's page on the network, where there is one (owner, 2026-10-05). */
+    val onProfile: (() -> Unit)? = null,
 )
 
 /** Everything the chat screen can ask its view model for. */
@@ -31,6 +36,8 @@ class ChatScreenActions(
     val onLoadOlder: () -> Unit,
     val onNeed: (Attachment) -> Unit,
     val onTyping: (String) -> Unit,
+    /** The composer chip in a merged chat: send through this member (UI_DESIGN.md 10.15). */
+    val onSendVia: (ChatId) -> Unit = {},
     /** Press and hold, double tap, delete, select; null in previews. */
     val menu: MessageMenu? = null,
     val onRememberEmoji: (String) -> Unit = {},
@@ -60,17 +67,31 @@ class ComposerHooks(
     /** Voice notes; null where the network cannot take them. */
     val voice: org.pingme.app.chat.voice.VoiceNotes? = null,
     val onVoiceTooShort: () -> Unit = {},
+    /** Holding volume up records (UI_DESIGN.md 5.6); the owner's switch in Settings, Voice notes. */
+    val volumeUpRecords: Boolean = true,
+    /** Dictation by volume down into the box (UI_DESIGN.md 5.6); null without a Groq key or with its switch off. */
+    val dictation: org.pingme.app.chat.voice.Dictation? = null,
     /** The GIF button's picker; null where the network cannot take GIFs. */
     val gifs: org.pingme.app.chat.gif.GifSearch? = null,
     val gifPicks: org.pingme.app.chat.gif.GifPicks? = null,
     /** Send later: the text and when (UI_DESIGN.md 10.13). */
     val onSchedule: ((String, kotlin.time.Instant) -> Unit)? = null,
+    /** The network the next message goes on, named in the box (owner, 2026-10-03). */
+    val network: NetworkId? = null,
+    /** A merged chat's members, offered by the badge in the box; one or none otherwise. */
+    val members: List<MemberChip> = emptyList(),
+    val sendVia: ChatId? = null,
+    val onSendVia: (ChatId) -> Unit = {},
+    /** The sending account is connected; false red-lines the badge and says so in the box. */
+    val connected: Boolean = true,
 )
 
 /** What a message row needs besides the message. */
 class RowContext(
     val network: NetworkId,
     val kind: ChatKind,
+    /** A merged chat: each message's network, for its colour and the badge beside the ticks. */
+    val networkOf: Map<ChatId, NetworkId> = emptyMap(),
     val names: Map<PersonId, String>,
     val onRetry: (Message) -> Unit,
     val onNeed: (Attachment) -> Unit,
@@ -83,7 +104,15 @@ class RowContext(
     val transcripts: org.pingme.app.chat.voice.Transcripts? = null,
     /** Incoming links shown cleaned when "Clean links I receive" is on (UI_DESIGN.md 10.11). */
     val cleanLink: (String) -> String = { it },
-)
+    /** The user's own person id here, so their own reactions read "You". */
+    val me: PersonId? = null,
+) {
+    /** The network a message went over: its own chat's in a merged chat (UI_DESIGN.md 10.15). */
+    fun networkFor(message: Message): NetworkId = networkOf[message.chatId] ?: network
+
+    /** Whether bubbles name their network beside the time and ticks (only in a merged chat). */
+    val marksNetwork: Boolean get() = networkOf.size > 1
+}
 
 /** One line of the action card. [enabled] false shows it greyed with [reason] (UI_DESIGN.md 1). */
 data class MessageAction(

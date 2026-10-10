@@ -3,6 +3,7 @@ package org.pingme.core.service
 
 import org.pingme.core.connector.ChatSnapshot
 import org.pingme.core.connector.ConnectorEvent
+import org.pingme.core.connector.Diag
 import org.pingme.core.connector.MessageSnapshot
 import org.pingme.core.connector.accountId
 import org.pingme.core.connector.remoteId
@@ -37,6 +38,7 @@ class EventApplier
         private val typing: TypingTracker,
         private val reactionFeed: ReactionFeed,
         private val tapbacks: Tapbacks,
+        private val people: PeopleApplier,
     ) {
         suspend fun apply(event: ConnectorEvent) {
             when (event) {
@@ -65,6 +67,9 @@ class EventApplier
                 }
 
                 is ConnectorEvent.ChatRemoved -> {
+                    // Written to the phone's log: chats vanishing is being chased (owner, 2026-10-04).
+                    android.util.Log.i(TAG, "Removed chat ${event.chatId.value} at the network's word")
+                    Diag.note(TAG, "Removed chat ${event.chatId.value} at the network's word")
                     chats.delete(event.chatId)
                 }
 
@@ -81,10 +86,7 @@ class EventApplier
                 }
 
                 is ConnectorEvent.PeopleUpdated -> {
-                    // Hidden-id rows an earlier build stored go once nothing lists them (owner, Gate G7).
-                    event.people.forEach { contacts.upsert(it) }
-                    contacts.deleteStray(event.accountId, HIDDEN_ID_SUFFIX)
-                    PLACEHOLDER_HANDLES.forEach { contacts.deleteStrayHandle(event.accountId, it) }
+                    people.apply(event)
                 }
 
                 else -> {
@@ -108,8 +110,12 @@ class EventApplier
                     // A reaction to a message the store never got (older than the history kept, or
                     // in a chat not listed) has nothing to sit on; the row would be refused anyway
                     // (owner, Gate G7: Messenger stuck on "reconnecting" over one such reaction).
-                    if (messages.get(event.messageId) == null) return
+                    val target = messages.get(event.messageId) ?: return
                     messages.addReaction(event.messageId, event.reaction)
+                    // A reaction is activity: the chat moves up as it does in the network's own app.
+                    chats.update(
+                        target.chatId,
+                    ) { it.copy(lastActivityAt = maxOf(it.lastActivityAt, event.reaction.at)) }
                     announceIfFromSomeoneElse(event)
                 }
             }
@@ -144,6 +150,10 @@ class EventApplier
          * what they refer to, which is now in the store (iPhone tapbacks over SMS; owner, Gate G3).
          */
         private suspend fun applyHistory(event: ConnectorEvent.HistoryBatch) {
+            // A chat deleted here has nothing stored, so a history fetch would rebuild it
+            // (owner, Gate G7, round 3: deleted chats came back): old pages are dropped.
+            val newest = event.messages.maxOfOrNull { it.message.sentAt }
+            if (newest != null && hiddenHere(event.chatId, newest)) return
             val (reactions, plain) = event.messages.partition { Tapbacks.parse(it.message.body.orEmpty()) != null }
             plain.forEach { saveMessage(it) }
             reactions.forEach { snapshot ->
@@ -159,10 +169,15 @@ class EventApplier
 
         private suspend fun applyChat(snapshot: ChatSnapshot) {
             if (hiddenHere(snapshot.id, snapshot.lastActivityAt)) return
-            snapshot.participants.forEach { contacts.upsert(it) }
+            snapshot.participants.forEach { people.remember(it) }
             val existing = chats.get(snapshot.id)
+            if (existing != null && snapshot.folder != null && existing.folder != snapshot.folder) {
+                val move = "Chat ${snapshot.id.value} moves ${existing.folder} to ${snapshot.folder}: ${snapshot.title}"
+                android.util.Log.i(TAG, move)
+                Diag.note(TAG, move)
+            }
             val merged = existing?.withSnapshot(snapshot) ?: snapshot.toNewChat()
-            chats.upsert(merged.copy(unreadCount = unreadFor(existing, snapshot)))
+            chats.upsert(merged.copy(title = people.titleFor(snapshot), unreadCount = unreadFor(existing, snapshot)))
         }
 
         /**
@@ -194,7 +209,11 @@ class EventApplier
             at: Instant,
         ): Boolean {
             val hiddenAt = chats.hiddenAt(chatId) ?: return false
-            if (at <= hiddenAt) return true
+            if (at <= hiddenAt) {
+                android.util.Log.i(TAG, "Dropped for chat ${chatId.value}: hidden here at $hiddenAt, this is from $at")
+                Diag.note(TAG, "Dropped for chat ${chatId.value}: hidden here at $hiddenAt, this is from $at")
+                return true
+            }
             chats.unhide(chatId)
             return false
         }
@@ -219,6 +238,8 @@ class EventApplier
                     unreadCount = target.unreadCount + old.unreadCount,
                     isPinned = target.isPinned || old.isPinned,
                     nameOverride = target.nameOverride ?: old.nameOverride,
+                    // A membership the old chat had carries over to the number's chat.
+                    mergedInto = target.mergedInto ?: old.mergedInto,
                 ),
             )
             messages.moveToChat(from, into)
@@ -292,9 +313,11 @@ class EventApplier
         }
 
         private suspend fun saveMessage(snapshot: MessageSnapshot) {
-            val message = withQuote(snapshot.message)
+            val message = withQuote(messages.keepingLocalFiles(messages.keepingHeldViewOnce(snapshot.message)))
             if (chats.get(message.chatId) == null && hiddenHere(message.chatId, message.sentAt)) return
-            snapshot.sender?.let { contacts.upsert(it) }
+            // Through the people step, or a message's sender would overwrite the person's
+            // downloaded picture with the network's link again (owner, 2026-10-04: photos gone).
+            snapshot.sender?.let { people.remember(it) }
             if (chats.get(message.chatId) == null) {
                 // A connector should announce a chat before its messages. If one arrives
                 // first, keep the message under a minimal chat until the chat's own
@@ -358,14 +381,18 @@ val PLACEHOLDER_HANDLES = listOf("0@s.whatsapp.net", "+0")
 const val YOU = "You"
 const val STAND_IN_PREFIX = "tmp/"
 
+// A listing never moves a chat earlier: Instagram re-sends a thread with a stale time after
+// a reaction or a folder change, and the chat sank to that old place in the list, which
+// looked like vanishing while search still found it (owner, 2026-10-04: Jake, Kameron).
 private fun Chat.withSnapshot(s: ChatSnapshot) =
     copy(
         kind = s.kind,
         title = s.title,
         participants = s.participants.map { it.id },
         unreadCount = s.unreadCount,
-        lastActivityAt = s.lastActivityAt,
-        folder = s.folder,
+        lastActivityAt = maxOf(lastActivityAt, s.lastActivityAt),
+        // A snapshot that does not know the folder leaves the chat where it is (Instagram, 2026-10-06).
+        folder = s.folder ?: folder,
         spaceId = s.spaceId,
         networkRemoteId = s.networkRemoteId,
     )
@@ -394,3 +421,47 @@ private fun ChatSnapshot.toNewChat() =
         defaultSendAccount = null,
         networkRemoteId = networkRemoteId,
     )
+
+private const val TAG = "PingMeApplier"
+
+/**
+ * A file PingMe already holds for a message stays with it. Google Messages hands a sent
+ * message back on every status change (sent, delivered, read), each time naming only the
+ * network's copy of the picture, and until this the stored copy lost its file at the second
+ * update, after the stand-in that first supplied it was gone: a blank bubble (owner,
+ * 2026-10-06: "photos sent in google messages are STILL disappearing"). The same holds for
+ * any network listing a message again after its file was fetched.
+ */
+private suspend fun MessageRepository.keepingLocalFiles(message: Message): Message {
+    if (message.attachments.none { it.localPath == null }) return message
+    val stored = get(message.id) ?: return message
+    if (stored.attachments.isEmpty()) return message
+    val byId = stored.attachments.associateBy { it.id }
+    var kept = 0
+    val merged =
+        message.attachments.mapIndexed { i, a ->
+            val held = byId[a.id]?.localPath ?: stored.attachments.getOrNull(i)?.localPath
+            if (a.localPath == null && held != null) {
+                kept++
+                a.copy(localPath = held)
+            } else {
+                a
+            }
+        }
+    if (kept > 0) Diag.note("PingMeApplier", "Kept $kept file(s) for ${message.id.value} listed again without them")
+    return message.copy(attachments = merged)
+}
+
+/**
+ * A view-once picture or video PingMe already holds stays held: when the network hands
+ * the same message back later without its file (Instagram lists a view-once message as
+ * gone once it has been fetched), the stored copy keeps its file, kind, and body instead
+ * of turning into "no longer shows" (owner, 2026-10-05; UI_DESIGN.md 10.16: ephemeral
+ * media is saved wherever the network delivers it).
+ */
+private suspend fun MessageRepository.keepingHeldViewOnce(message: Message): Message {
+    if (message.attachments.isNotEmpty()) return message
+    val stored = get(message.id) ?: return message
+    if (stored.attachments.none { it.isEphemeral }) return message
+    return message.copy(kind = stored.kind, body = stored.body, attachments = stored.attachments)
+}

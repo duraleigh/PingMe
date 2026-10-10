@@ -120,6 +120,8 @@ class ConnectorSupervisor
                 attempt++
                 val wait = retryDelays.delayFor(attempt)
                 accounts.updateState(account.id, ConnectionState.Reconnecting(attempt, clock.now() + wait))
+                org.pingme.core.connector.Diag
+                    .note(TAG, "${account.displayName} (${account.network}): $outcome, try $attempt in $wait")
                 // A network change cuts the wait short and starts the backoff over.
                 val networkCame = withTimeoutOrNull(wait) { networkChanges.first { it != seen } } != null
                 if (networkCame) attempt = 0
@@ -195,6 +197,8 @@ class ConnectorSupervisor
                     }
                     if (state == ConnectionState.Connected && !connected) {
                         connected = true
+                        org.pingme.core.connector.Diag
+                            .note(TAG, "${account.displayName} (${account.network}): connected")
                         onConnected()
                         val chats = connector.syncChats(account.id)
                         applier.applyChats(chats)
@@ -246,6 +250,8 @@ class ConnectorSupervisor
             deepLink: String?,
         ): Outcome {
             accounts.updateState(accountId, ConnectionState.ActionNeeded(reason, deepLink))
+            org.pingme.core.connector.Diag
+                .note(TAG, "$accountId needs attention: $reason")
             return Outcome.ActionNeeded
         }
 

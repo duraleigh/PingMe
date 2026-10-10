@@ -24,6 +24,11 @@ class PingMeApp :
 
     override fun onCreate() {
         super.onCreate()
+        // PingMe's own diagnostic file, read over wireless debugging when a fault needs chasing.
+        // It sits in the app's own folder under Android/data, which debugging can read and
+        // other apps cannot; private storage would need a debug build to read.
+        org.pingme.core.connector.Diag.dir =
+            getExternalFilesDir(null)?.let { java.io.File(it, "diag") } ?: java.io.File(filesDir, "diag")
         // With PingMe on screen a message makes its sound and nothing lands in the shade (owner, Gate G3).
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             object : DefaultLifecycleObserver {

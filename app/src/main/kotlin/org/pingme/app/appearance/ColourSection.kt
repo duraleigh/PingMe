@@ -4,14 +4,19 @@ package org.pingme.app.appearance
 import android.widget.ImageView
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -262,34 +267,54 @@ private fun NetworkColours(
         style = MaterialTheme.typography.bodyLarge,
     )
     NETWORK_ROWS.forEach { (network, name) ->
-        val bubble = palette.outgoing(network, org.pingme.core.model.Transport.NETWORK).container.toArgb()
+        val colours = palette.outgoing(network, org.pingme.core.model.Transport.NETWORK)
         val accent = palette.accent(network).toArgb()
+        // What is drawn, not a plain circle: the bubble in the current style (a gradient
+        // runs from the picked colour), and the badge as rows show it (owner, 2026-10-04).
+        val styled =
+            org.pingme.core.ui.components.styleBubble(
+                colors = colours,
+                style = appearance.bubbleStyle,
+                accent = Color(accent),
+                surface = MaterialTheme.colorScheme.surface,
+                onSurface = MaterialTheme.colorScheme.onSurface,
+                outgoing = true,
+            )
         ListItem(supportingContent = null, trailingContent = {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                ColorSwatch(
-                    Color(
-                        bubble,
-                    ),
-                    selected = false,
-                    description = "$name ${stringResource(
-                        R.string.appearance_bubble_colour,
-                    )}",
-                    onClick = {
-                        onPick(PickerTarget.NetworkBubble(network, appearance.networkColors[network] ?: accent))
-                    },
-                )
-                ColorSwatch(
-                    Color(
-                        accent,
-                    ),
-                    selected = false,
-                    description = "$name ${stringResource(
-                        R.string.appearance_accent_colour,
-                    )}",
-                    onClick = {
-                        onPick(PickerTarget.NetworkAccent(network, accent))
-                    },
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        Modifier
+                            .size(width = 56.dp, height = 28.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(styled.background)
+                            .then(
+                                styled.border?.let { Modifier.border(1.dp, it, RoundedCornerShape(14.dp)) } ?: Modifier,
+                            ).clickable(
+                                onClickLabel = "$name ${stringResource(R.string.appearance_bubble_colour)}",
+                                role = Role.Button,
+                            ) {
+                                onPick(PickerTarget.NetworkBubble(network, appearance.networkColors[network] ?: accent))
+                            }.semantics { contentDescription = "$name bubble" },
+                    )
+                    Text(stringResource(R.string.appearance_swatch_bubble), style = MaterialTheme.typography.labelSmall)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        Modifier
+                            .height(28.dp)
+                            .clickable(
+                                onClickLabel = "$name ${stringResource(R.string.appearance_accent_colour)}",
+                                role = Role.Button,
+                            ) {
+                                onPick(PickerTarget.NetworkAccent(network, accent))
+                            }.semantics { contentDescription = "$name badge" },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(Modifier.size(28.dp).clip(RoundedCornerShape(14.dp)).background(Color(accent)))
+                    }
+                    Text(stringResource(R.string.appearance_swatch_badge), style = MaterialTheme.typography.labelSmall)
+                }
             }
         }) { Text(name) }
     }

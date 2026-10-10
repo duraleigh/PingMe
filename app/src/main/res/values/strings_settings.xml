@@ -97,6 +97,12 @@
     <string name="storage_gif_autoplay">Play GIFs by themselves</string>
     <string name="storage_gif_autoplay_note">Off: a GIF stays still until you tap it.</string>
     <string name="storage_transcribe">Write out voice notes</string>
+    <string name="storage_volume_up">Volume up records a voice note</string>
+    <string name="storage_volume_up_note">Hold volume up in a chat to record; let go to send. Off: volume up is only volume.</string>
+    <string name="storage_volume_down">Volume down dictates</string>
+    <string name="storage_volume_down_note">Hold volume down in a chat to speak into the message box. Off: volume down is only volume.</string>
+    <string name="storage_dictation_key">Groq key for dictation</string>
+    <string name="storage_dictation_note">Hold volume down in a chat to dictate into the message box. The recording goes to Groq with this key, only while you hold it. Leave this empty to keep volume down as volume.</string>
     <string name="storage_transcribe_note">Shows the words under each voice note. It happens on your phone and needs Android 13 or newer.</string>
     <string name="storage_save_all">Save all incoming media</string>
     <string name="storage_save_all_note">Downloads every photo, video, and file as it arrives, including view-once media where the network sends it to linked devices.</string>
@@ -143,7 +149,13 @@
     <string name="spaces_bar">Bottom bar</string>
     <string name="spaces_bar_edit">Choose the bottom bar</string>
     <string name="spaces_bar_note">Up to five of All, networks, spaces, Unread, and Low priority. The inbox opens on the first.</string>
-    <string name="backup_note">A backup holds your chats and messages. Logins stay locked on this phone, so after restoring you log in to each network again. Photos and files download again when you open them.</string>
+    <string name="backup_note">A backup holds your chats, your settings, and the view-once pictures PingMe kept, locked with a passphrase only you know. Logins stay locked on this phone, so after restoring you log in to each network again. Other photos and files download again when you open them.</string>
+    <string name="backup_passphrase">Passphrase</string>
+    <string name="backup_passphrase_note">Locks the backup you save, and opens the one you restore. Nobody can recover it for you.</string>
+    <string name="backup_needs_passphrase">Type a passphrase first</string>
+    <string name="backup_show_passphrase">Show the passphrase</string>
+    <string name="backup_hide_passphrase">Hide the passphrase</string>
+    <string name="backup_wrong_passphrase">That passphrase does not open this backup.</string>
     <string name="backup_save">Save a backup</string>
     <string name="backup_save_note">Pick where the file goes</string>
     <string name="backup_restore">Restore from a backup</string>

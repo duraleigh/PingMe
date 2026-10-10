@@ -255,10 +255,34 @@ class WaTranslate(
             phoneNumber = digits.takeIf { it.isNotEmpty() }?.let { "+$it" },
             // The number is what a person goes by here; the raw id only when there is none.
             networkHandle = digits.takeIf { it.isNotEmpty() }?.let { "+$it" } ?: jid,
-            avatarPath = null,
+            // The profile picture's address once fetched (owner, 2026-10-05); the service saves it.
+            avatarPath = avatars[jid],
             contactId = null,
         )
     }
+
+    private val avatars = HashMap<String, String>()
+
+    /** Records a person's profile picture address; "" when they have none or hide it. */
+    @Synchronized
+    fun learnAvatar(
+        jid: String,
+        url: String,
+    ) {
+        if (url.isNotEmpty()) avatars[jid] = url
+    }
+
+    /** The one-to-one chat partners known so far, for fetching their pictures. */
+    @Synchronized
+    fun partners(): List<String> = chats.values.filter { !it.isGroup && !it.isCommunity }.map { it.id }
+
+    @Synchronized
+    fun hasAvatar(jid: String) = jid in avatars
+
+    /** The people named by [jids], as they read now. */
+    @Synchronized
+    fun peopleOf(jids: List<String>): List<Person> =
+        jids.filter { !isMe(it) && !isPlaceholder(it) }.map { person(it, "", phoneOf(it)) }
 
     // The address book's name, then what the chat says, then the push name, then the number.
     private fun displayName(

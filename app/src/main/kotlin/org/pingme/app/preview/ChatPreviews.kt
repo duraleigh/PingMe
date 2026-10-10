@@ -76,6 +76,8 @@ internal fun ChatDetailsPreview() =
                 {},
                 {},
                 ChatChoices({}, {}, {}, {}, {}, {}),
+                org.pingme.app.details
+                    .MergeChoices({}, {}, {}, {}, {}),
             ),
             onBack = {},
         )

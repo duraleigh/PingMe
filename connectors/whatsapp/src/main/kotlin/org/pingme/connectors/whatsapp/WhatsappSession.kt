@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.builtins.ListSerializer
@@ -105,6 +106,7 @@ internal class WhatsappSession(
             }
 
             is WaEvent.History -> {
+                Log.i(TAG, "WhatsApp history: ${event.syncType}, ${event.messages.size} messages for one chat")
                 // A page the history worker asked for goes back to it; everything else flows to the store.
                 val waiter = if (event.syncType == ON_DEMAND) historyWaiters.remove(event.chat.id) else null
                 if (waiter != null) waiter.complete(event) else go.translate(event).forEach { send(it) }
@@ -125,6 +127,8 @@ internal class WhatsappSession(
             }
 
             else -> {
+                // What arrives, by kind, so the phone's log shows whether WhatsApp delivers (owner, Gate G7).
+                Log.i(TAG, "WhatsApp event: ${event::class.simpleName}")
                 go.translate(event).forEach { send(it) }
             }
         }
@@ -167,11 +171,44 @@ internal class WhatsappSession(
 
     private fun loggedOut(reason: String) = ActionNeededException(reason, WHATSAPP_PACKAGE)
 
+    /**
+     * Profile pictures for the people in one-to-one chats, a few at a time, reported as
+     * they come so the service can save them (owner, 2026-10-05: WhatsApp chats showed no
+     * pictures). A person who hides their picture, or has none, is simply left as is.
+     */
+    private suspend fun ProducerScope<ConnectorEvent>.fetchPictures() {
+        val wanted = go.partners().filter { !go.hasAvatar(it) }.take(PICTURE_BATCH)
+        val got = ArrayList<String>()
+        wanted.forEach { jid ->
+            val url =
+                try {
+                    request { session.profilePictureUrl(jid) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
+                    Log.i(TAG, "No profile picture for $jid: ${e.message}")
+                    ""
+                }
+            go.learnAvatar(jid, url)
+            if (url.isNotEmpty()) got += jid
+            if (got.size >= PICTURE_FLUSH) {
+                send(ConnectorEvent.PeopleUpdated(accountId, go.peopleOf(got)))
+                got.clear()
+            }
+        }
+        if (got.isNotEmpty()) send(ConnectorEvent.PeopleUpdated(accountId, go.peopleOf(got)))
+    }
+
     private suspend fun ProducerScope<ConnectorEvent>.learnNames() {
         try {
             val contacts = go.participants(request { session.contacts() })
             go.learnNames(contacts)
             send(ConnectorEvent.PeopleUpdated(accountId, go.people(contacts)))
+            // Off the event loop, so the pictures never hold up the messages (2026-10-05: a
+            // contract test read an empty first page once this ran beside it).
+            launch(Dispatchers.IO) { fetchPictures() }
             // Chats an earlier build filed under a hidden id fold into the number's chat.
             go.idPairs(request { session.hiddenIdMap() }).forEach { pair ->
                 send(ConnectorEvent.ChatMerged(accountId, go.chatId(pair.lid), go.chatId(pair.phone)))
@@ -224,10 +261,11 @@ internal class WhatsappSession(
         val chat = chatId.remoteId
         val anchorId = before?.remoteId?.substringAfterLast('/')
         var remembered = go.recentPage(chat, anchorId, limit)
-        // Right after connecting, the history sync is still landing: a first page waits for it a little.
+        // Right after connecting, the history sync is still landing: a first page waits for it a
+        // little, on the real clock (a test clock would skip the wait and read an empty page).
         var waited = 0
         while (before == null && remembered.isNullOrEmpty() && waited < FIRST_PAGE_WAIT_MS) {
-            kotlinx.coroutines.delay(FIRST_PAGE_STEP_MS.toLong())
+            withContext(Dispatchers.Default) { kotlinx.coroutines.delay(FIRST_PAGE_STEP_MS.toLong()) }
             waited += FIRST_PAGE_STEP_MS
             remembered = go.recentPage(chat, null, limit)
         }
@@ -469,6 +507,8 @@ internal class WhatsappSession(
         }
 
     private companion object {
+        const val PICTURE_BATCH = 80
+        const val PICTURE_FLUSH = 10
         const val TAG = "PingMeWhatsapp"
         const val ON_DEMAND = "ON_DEMAND"
         const val MILLIS = 1000L

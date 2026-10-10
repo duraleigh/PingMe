@@ -187,7 +187,7 @@ class GvoiceConnector(
                 createGroup = false,
                 block = true,
                 multiAccount = true,
-                calls = CallRule(CallMethod.OPEN_APP, CallMethod.NONE),
+                calls = CallRule(CallMethod.APP_DIALER, CallMethod.NONE),
             )
     }
 }

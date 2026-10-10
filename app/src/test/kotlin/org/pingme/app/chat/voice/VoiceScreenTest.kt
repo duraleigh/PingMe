@@ -24,6 +24,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.chat.COMPOSER
 import org.pingme.app.chat.ChatRoute
 import org.pingme.app.chat.ChatViewModel
@@ -168,6 +169,8 @@ class VoiceScreenTest {
         compose.onNode(hasContentDescription("Pause recording")).performClick()
         waitFor { mic?.paused == true }
         compose.onNode(hasContentDescription("Play what you have recorded")).assertExists()
+        // The hands-free recording bar, paused, as a screen reader sees it (P8.1).
+        compose.assertAccessible()
         compose.onNode(hasContentDescription("Go on recording")).performClick()
         waitFor { mic?.paused == false }
         compose.onNode(hasContentDescription("Send")).performClick()

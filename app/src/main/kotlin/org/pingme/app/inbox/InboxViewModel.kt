@@ -54,8 +54,20 @@ class InboxViewModel
         private val saved: SavedStateHandle,
         private val settings: org.pingme.core.store.SettingsRepository,
         private val appearance: org.pingme.app.appearance.AppearanceRepository,
+        contacts: org.pingme.core.store.ContactRepository,
+        merges: org.pingme.core.service.merge.Merges,
+        memberships: org.pingme.core.store.MergeRepository,
+        suggestions: org.pingme.core.service.merge.MergeSuggestions,
     ) : ViewModel() {
-        private val rowActions = RowActions(viewModelScope, actions)
+        private val rowActions = RowActions(viewModelScope, actions, merges)
+
+        /** A pinned tile dragged to a new place (owner, 2026-10-05). */
+        fun movePin(
+            id: ChatId,
+            position: Int,
+        ) {
+            viewModelScope.launch { actions.movePin(id, position) }
+        }
 
         /** The one-time "turn off Google Messages' notifications" prompt is due (UI_DESIGN.md 6.3). */
         val gmessagesReminder: StateFlow<Boolean> =
@@ -75,16 +87,25 @@ class InboxViewModel
                 chats.lowPriority(),
                 messages.lastMessages(),
                 accounts.accounts(),
-                combine(typing.typing, chats.spaces(), rowActions.pendingDeletes, ::Triple),
-            ) { inbox, low, last, accountList, (typingNow, spaces, hidden) ->
+                combine(
+                    typing.typing,
+                    chats.spaces(),
+                    rowActions.pendingDeletes,
+                    contacts.inChats(),
+                    memberships.memberships(),
+                    ::Extras,
+                ),
+            ) { inbox, low, last, accountList, extras ->
                 InboxSource(
                     inbox,
                     low,
                     last,
                     accountList,
-                    typingNow.filterValues { it.isNotEmpty() }.keys,
-                    spaces,
-                    hidden,
+                    extras.typing.filterValues { it.isNotEmpty() }.keys,
+                    extras.spaces,
+                    extras.hidden,
+                    extras.people,
+                    extras.memberships,
                 )
             }
 
@@ -94,15 +115,16 @@ class InboxViewModel
                 chats.lowPriority(),
                 chats.folder(ChatFolder.REQUESTS),
                 chats.folder(ChatFolder.GENERAL),
-                combine(chats.spaces(), chats.unreadTotals(), accounts.accounts(), ::Triple),
-            ) { archived, low, requests, general, (spaces, totals, accountList) ->
+                combine(chats.spaces(), chats.unreadTotals(), accounts.accounts(), suggestions.suggestions, ::Quad),
+            ) { archived, low, requests, general, rest ->
                 MenuCounts(
                     archived = archived.size,
                     lowPriority = low.size,
                     requests = requests.size,
                     general = general.size,
-                    hasFolders = accountList.any { it.network == NetworkId.INSTAGRAM },
-                    spaces = spaces.map { it to (totals.bySpace[it.id] ?: 0) },
+                    hasFolders = rest.c.any { it.network == NetworkId.INSTAGRAM },
+                    spaces = rest.a.map { it to (rest.b.bySpace[it.id] ?: 0) },
+                    suggestions = rest.d.size,
                 )
             }
 
@@ -116,22 +138,29 @@ class InboxViewModel
             ) { src, saved, pick, totals, counts ->
                 val config = saved ?: defaultBar(src.accounts)
                 val now = clock.now()
+                // Everything the bar could hold; what it does not sits behind More (owner, 2026-10-03).
+                val options =
+                    listOf<InboxBarItem?>(null, InboxBarItem.Unread) +
+                        src.accounts
+                            .map { it.network }
+                            .distinct()
+                            .map { InboxBarItem.Network(it) } +
+                        src.spaces.map { InboxBarItem.Space(it.id) } +
+                        InboxBarItem.LowPriority
+                val rest = options.filter { it !in config.buttons }
                 // With All removed, the inbox opens on the first button (UI_DESIGN.md 10.4).
                 val first = config.items.firstOrNull()?.takeIf { !config.showAll }
-                val current = pick?.takeIf { it in config.items } ?: first
+                val current = pick?.takeIf { it in config.items || it in rest } ?: first
                 val (pinned, rows) = src.select(current, config.narrowings, now)
+                val entryOf = { item: InboxBarItem? ->
+                    if (item == null) BarEntry(null, src.allBadge(totals, now)) else entry(item, config, src, totals)
+                }
                 InboxUiState(
                     loading = false,
                     pinned = pinned,
                     rows = rows,
-                    bar =
-                        config.buttons.map { item ->
-                            if (item == null) {
-                                BarEntry(null, src.allBadge(totals, now))
-                            } else {
-                                entry(item, config, src, totals)
-                            }
-                        },
+                    bar = config.buttons.map(entryOf),
+                    more = rest.map(entryOf),
                     selected = current,
                     accounts = src.accounts,
                     menu = counts,
@@ -251,6 +280,21 @@ class InboxViewModel
             runCatching {
                 JSON.decodeFromString(InboxBarItem.serializer(), json)
             }.getOrNull()
+
+        private data class Extras(
+            val typing: Map<ChatId, Set<org.pingme.core.model.PersonId>>,
+            val spaces: List<org.pingme.core.model.Space>,
+            val hidden: Set<ChatId>,
+            val people: Map<org.pingme.core.model.PersonId, org.pingme.core.model.Person>,
+            val memberships: Map<ChatId, ChatId>,
+        )
+
+        private data class Quad<A, B, C, D>(
+            val a: A,
+            val b: B,
+            val c: C,
+            val d: D,
+        )
 
         private companion object {
             const val SELECTED = "selected"

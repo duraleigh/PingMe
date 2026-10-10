@@ -209,6 +209,8 @@ class GmessagesConnector(
                 block = false,
                 multiAccount = false,
                 calls = CallRule(CallMethod.DIALER, CallMethod.MEET),
+                // One picture per message, as the Messages app itself sends them.
+                attachmentsPerMessage = 1,
             )
     }
 }

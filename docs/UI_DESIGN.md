@@ -85,7 +85,8 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 ```
 
 - **Pinned row**: horizontally scrolling tiles of the user's pinned chats, drawn with the
-  chosen shape family. Long-press to reorder or unpin.
+  chosen shape family. Press and hold a tile and drag it to a new place to reorder
+  (owner, 2026-10-05); let go without moving and the chat's action sheet opens.
   Users can choose a grid, a row, or "pinned at top of list" style. Up to 12 pins.
   In the grid, one or two pins sit centred, three to five share the width evenly, and
   more wrap at five a line (owner, Gate G2). An unread tile must shout as loudly as an
@@ -113,7 +114,15 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   avatar and a tap on any row adds or removes it. A bar above the list says how many
   and offers mark read, mark unread, mute, archive, low priority, and delete (with one
   confirmation) for all of them at once (owner, Gate G3).
-- **Bottom bar**: its items are spaced evenly and centred across the full width.
+- **Bottom bar**: its items are spaced evenly and centred across the full width. It holds
+  five positions: four chosen as section 10.4 describes, and a fixed fifth, **More**, which
+  opens a list of every filter and space not in the bar (owner, 2026-10-03). Unread is
+  said by the label's colour, not a dot (owner, 2026-10-05): a network with unread
+  messages shows its name in that network's bubble colour from Appearance ("Google
+  Messages" in the Google Messages colour, "WhatsApp" in WhatsApp's, and so on); All,
+  Unread, a space, or Low priority with unread messages shows its name in the theme's
+  primary colour; and **More** shows in the theme's primary colour when anything behind it
+  is unread. The list behind More colours its entries the same way.
 - **Swipe actions**: left and right swipes are user-assignable from Pin or unpin, Archive,
   Mute or unmute, Mark read or unread, Low priority, Delete. Each direction can be
   set independently, and either can be turned off.
@@ -125,7 +134,9 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   system status bar height, 24 dp on most phones, and nothing more.
 - **Filters**: the bottom bar, section 3.1 above, and section 10.4 for spaces.
 - **FAB menu**: expands into New chat and New group. (Scan QR was removed by the
-  owner, 2026-09-30.)
+  owner, 2026-09-30.) New chat and New group always start on Google Messages, with
+  its chip first, whatever was picked last time (owner, 2026-10-05). Under each
+  person's name is their number or username, never a network's raw id.
 - **Connection health chip**: when any connector is not Connected, a slim chip appears
   under the app bar: "RCS reconnecting" or "RCS needs attention, tap to fix". This is
   the single place connection state surfaces on the home screen.
@@ -157,6 +168,10 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
 | [+] [GIF] [ Message...              ] [🎤/➤] |   composer
 +----------------------------------------------+
 ```
+
+Tapping the reaction chips opens a sheet that lists every reaction with who placed it
+and when, newest first; the user's own read "You" (owner, 2026-10-05: a thumbs up in a
+group chat with no way to see whose it was).
 
 - **Bubbles**: incoming bubbles are Material 3 tonal surfaces (surface container
   high) on every network. Outgoing bubbles take the colour of the network the message
@@ -256,7 +271,9 @@ them.
 - Shape family: Round, Soft, Sharp, or Expressive (cookie, clover, sunny, and other
   Material 3 Expressive shapes for avatars and pins).
 - Bubble corner radius slider, bubble tails on or off.
-- Bubble style: Tonal (default), Outlined, Filled, Gradient, Pill.
+- Bubble style: Tonal (default), Outlined, Filled, Gradient (from the network's bubble colour to
+  its gradient-end colour, the two swatches in Appearance; owner, 2026-10-04), Pill. The
+  network badge is drawn in the bubble colour.
 
 ### 4.3 Layout and density
 
@@ -281,8 +298,17 @@ them.
 
 - Animation intensity: Off, Subtle, Full, Extra. Governs reactions, bubble entrance,
   and transitions. "Off" also selects the standard motion scheme.
-- Haptics: Off, Light, Strong.
+- Haptics: Off, Light, Strong. PingMe drives the phone's vibrator itself rather than
+  relying on the system's touch feedback, which was never felt (owner, 2026-10-05). A
+  tick marks a swipe crossing its threshold, a long press on a bar button or the send
+  button, and a voice note locking; a bump marks a reaction landing, a recording
+  starting, and a pinned tile lifting to be dragged; two quick ticks mark a cancelled
+  recording. Light and Strong use different effects; Off plays none. Picking a
+  per-chat vibration pattern in Chat details plays that pattern once.
 - Respects the system reduce-motion setting regardless of the in-app choice.
+- Every drawer that slides up from the bottom opens fully rather than stopping halfway,
+  and keeps its content clear of the keyboard: a picker with a search box or a hex code
+  field rises above the keyboard on its own (owner, 2026-10-05).
 
 ### 4.6 Icon and shortcuts
 
@@ -388,6 +414,33 @@ library. Intensity Subtle keeps only Pick and Land. Off disables all of it.
     paused, the recording so far can be played back; Resume carries on recording.
   - **Hold** the mic: it records while held. Release to send, slide left to cancel,
     slide up to lock into the same recording bar as a tap.
+- **Volume up, held** (owner, 2026-10-06: "press and hold the volume up button to record and
+  release it to stop recording"): inside an open chat, holding volume up records and letting
+  go sends, exactly like holding the mic. A short press is still a volume press: the sliver
+  recorded is dropped and the volume goes up with the usual slider. Volume down is never
+  touched, and outside a chat both keys are the phone's. The switch "Volume up records a
+  voice note" under Settings, Storage and media, Voice notes turns this off at any time
+  (owner, 2026-10-07); it is on from the start.
+- **Volume down, held: dictation** (owner, 2026-10-06). The phone's own speech recogniser
+  hears nothing on the owner's phone, so dictation goes to Groq's Whisper endpoint with
+  the owner's own key, entered under Settings, Storage and media, Voice notes. Inside an
+  open chat, holding volume down records with the phone's microphone; letting go sends
+  the recording to Groq and the words land at the cursor in the message box, with a space
+  before them when the box already has text. A line above the box says "Listening…",
+  "Writing it out…", or what went wrong. A short press is still a volume press. Without a
+  key, volume down is never taken. The switch "Volume down dictates" beside the key turns
+  it off at any time, independently of volume up (owner, 2026-10-07); it is on from the
+  start.
+- **The phone's side key** (the razr's dedicated key) works inside an open chat as a further
+  way to record (owner, 2026-10-06: "I would only ever use this key while I am in the app
+  and directly in a specific chat"). One press starts a hands-free recording in that chat,
+  exactly as a tap on the mic does; a second press sends it. The key is taken only while a
+  chat is on screen, so everywhere else it keeps the job the phone gives it. Holding the
+  key counts as one press. The key never has to work in the background. On the owner's
+  razr the phone's own key service takes the key before any app sees it, so the key is
+  set, in the phone's settings, to open PingMe: PingMe opened again while it is already
+  in front and in a chat is the press. Button Mapper, or anything else, can fire the
+  `org.pingme.action.VOICE_NOTE` intent for the same effect from any button it can see.
 - **As a reply**: pick Reply (or swipe) on a message, then hold the mic. The voice
   note carries the reply quote just like a text reply. There is also a direct "Voice
   reply" action in the long-press action sheet that opens the reply strip and starts
@@ -416,9 +469,12 @@ the Google Voice app.
 
 PingMe is in Android's share menu (owner, Gate G3): text, pictures, videos, sounds, and
 files shared from another app open a picker of chats, with people from the networks that
-can start a chat once a search is typed. Several can be picked; each gets its own
-message, one after the other, the way Google Messages does. One pick opens that chat;
-more go back to the inbox. A voice note, sound, or file in a chat also saves to the
+can start a chat once a search is typed. The chats are listed by use, not by their latest
+message (owner, 2026-10-10): the ones shared to from this picker and talked in most over
+the last month come first (a share counts for five messages), and the rest follow by
+recency. A merged chat stands for its members, which are not listed on their own, so no
+one appears twice. Several can be picked; each gets its own message, one after the
+other, the way Google Messages does. One pick opens that chat; more go back to the inbox. A voice note, sound, or file in a chat also saves to the
 phone's Downloads (a PingMe folder) from the hold menu's Save.
 
 The "+" button opens a bottom sheet: Camera, Gallery, File, Location, Contact. Images
@@ -585,8 +641,10 @@ send button is disabled with that reason rather than failing after the fact.
 
 ## 7. Accessibility
 
-- Every custom bubble style and colour choice is checked against a 4.5:1 contrast
-  minimum in the Appearance studio, with a warning when a combination fails.
+- The Appearance studio shows no contrast warning. The live preview at the top is the
+  check: the owner judges how a colour reads by eye (owner, 2026-10-05: "I know what I
+  can see or not see using my own eyes"). Text on a picked colour is black or white,
+  whichever reads better, and that is the only automatic help.
 - Full TalkBack labelling, including reactions ("2 heart reactions, from Sam and Dad")
   and voice note state.
 - Font size honours the system scale in addition to the in-app slider.
@@ -629,7 +687,10 @@ Each network has a signature colour. Outgoing bubbles use a light tonal tint of 
 light mode with dark text, and a deeper tone in dark mode with light text, so the
 4.5:1 contrast rule holds. The greens and the blues are deliberately far apart in
 lightness and hue so they stay distinguishable side by side, and every colour also
-has a network badge next to it.
+has a network badge next to it. A colour the user picks for a network is used exactly
+as picked, in light and dark mode alike, with black or white text, whichever reads
+better on it (owner, 2026-10-04: keeping only the hue of a pick made picks look
+ignored); there is no contrast warning (owner, 2026-10-05).
 
 | Network | Signature | Light-mode bubble | Note |
 |---|---|---|---|
@@ -674,7 +735,9 @@ A **space** is a named group of chats that PingMe shows as one unit.
 
 Spaces appear in the avatar menu and can be promoted into the bottom bar, which
 becomes user-configurable: any mix of All, Unread, network filters, spaces, and Low
-priority, up to five items. All is the default first item but can be removed (owner,
+priority, up to four items; the fifth position is always "More", which surfaces every
+space and filter not chosen (owner, 2026-10-03, so the bar can keep growing without
+crowding). All is the default first item but can be removed (owner,
 Gate G1); with All removed, the first item in the bar is where the inbox opens. Decided. Inside a space the inbox shows only that space's chats, with the same
 pinned grid and list. Unread counts for a space follow the counting rule in section
 6.4.
@@ -785,16 +848,29 @@ pulse. Global search on the inbox uses the same index across all chats.
 
 Chats with the same person on different networks can be merged into one thread.
 - A merged chat shows every message from its underlying chats in one timeline, each
-  bubble carrying its network colour (section 10.1) and badge.
-- The composer shows a network chip on the left of the text field with the current
-  service. Tap it to switch for the next messages. The chip is red-lined when that
-  service is disconnected.
+  bubble carrying only its network colour (section 10.1). The network badge appears
+  beside the time and ticks when a bubble is tapped, and nowhere else on the bubble
+  (owner, 2026-10-03).
+- The header badge of a merged chat is tappable: a dropdown offers "All networks" and
+  each member network. One network narrows the bubbles to it and sets the composer to
+  it; "All" shows everything and sets the composer to the default service. A merged
+  chat opens narrowed to the one network its unread messages came from; with unread
+  from more than one network, or none, it opens on its default network, never on "All"
+  (owner, 2026-10-03).
+- The composer's text box carries a small network badge inside its left edge and a
+  placeholder naming the network ("Send a WhatsApp message", "Send an Instagram DM").
+  In a merged chat, tapping the badge opens the network menu to switch for the next
+  messages (owner, 2026-10-03). The GIF picker lives in the + menu so the box is wide.
 - Each person has a default service, set in the merged chat's details, and the chip
   starts there.
-- PingMe suggests merges when phone numbers match across RCS, SMS, WhatsApp, Signal,
-  Telegram, and Google Voice. It never merges on its own; the user confirms. Instagram
-  and Messenger identities are linked by hand.
-- Merged chats can be split again from Chat details.
+- PingMe suggests merges when people share a phone contact, a phone number, or a name
+  or username that reads the same across networks. It never merges on its own; the
+  user confirms, and every suggestion can be edited first: any proposed chat removed,
+  any other one-to-one chat added, or the suggestion dismissed (owner, 2026-10-03).
+- Any one-to-one chats on any networks can be merged by hand: Merge in the inbox's
+  selection bar, or "Merge with…" in Chat details.
+- Merged chats can be split again from Chat details: "Remove" on one member, labelled
+  in words, or "Unmerge all" to dissolve the whole merge (owner, 2026-10-04).
 - Group chats are never merged.
 - Pins, low priority, mute, obscure, and notification settings apply to the merged
   chat as a whole.
@@ -830,32 +906,52 @@ it does not, PingMe cannot save what it never receives. Current state per networ
 ### 10.17 Chat header: name, info, calls
 
 - **Tapping the name** opens Chat details (section 3.4).
+- **Tapping the avatar** in an Instagram chat opens the person's Instagram profile page,
+  in the Instagram app where it is installed (owner, 2026-10-05). A person PingMe knows
+  only by a numeric id has no page, and the avatar does nothing.
 - **An info button** in Chat details opens the person's card in the phone's contacts
   app, via the contact lookup Android provides, for anyone matched to a contact.
   Unmatched people get "Add to contacts".
 - **Phone icon and video icon** sit beside the overflow menu. Each places a call on
-  the service the chat is currently using and, where Android allows it, starts the
-  call immediately rather than opening a dial screen:
+  the service the chat is currently using (in a merged chat, the network the composer is
+  set to) and, where Android allows it, starts the call immediately rather than opening
+  a dial screen. What each app answers was read off the owner's phone on 2026-10-06, from
+  the apps' intent filters and the call rows they add to the phone's contacts:
 
 | Service | Audio | Video |
 |---|---|---|
-| Google Messages, SMS, merged chat on those | Dials the number immediately in the default dialer (needs the phone-call permission, asked once) | Opens Google Meet calling to that number, immediately where Meet exposes it |
-| WhatsApp | Starts a WhatsApp call immediately, using the call entry WhatsApp registers in the phone's contacts | Same, video |
-| Signal | Same mechanism, immediate | Same, video |
+| Google Messages, SMS, merged chat on those | Dials the number immediately in the default dialer. Needs the phone-call permission, asked once at the first tap; refused, the dialer opens with the number filled in | Starts a Google Meet call to that number at once, through Meet's own call action (Meet ignores a plain view of a number) |
+| WhatsApp | Starts a WhatsApp call immediately through the call row WhatsApp adds to the person's contact | Same, video |
+| Signal | Same mechanism, immediate; the video row is Signal's own video-call row | Same, video |
 | Telegram | Same mechanism, immediate | Same, video |
-| Google Voice | Opens Google Voice to that person; whether it can dial immediately is an open question | Not offered |
-| Instagram | Opens the Instagram thread; Instagram exposes no call intent | Same |
-| Messenger | Opens the Messenger thread; immediate calling is an open question | Same |
+| Google Voice | Dials the number at once inside Google Voice, which answers the call action itself (phone-call permission, as above) | Not offered |
+| Instagram | Opens that chat in the Instagram app, where the call buttons are. Instagram lets no other app start its calls | Same |
+| Messenger | Opens that chat in the Messenger app, where the call buttons are. Messenger lets no other app start its calls | Same |
 
-The immediate WhatsApp, Signal, and Telegram calls depend on the person being in the
-phone's contacts with that app's contact sync on. When they are not, the icon opens
-the app to that person instead, and the button's long-press explains why.
+The immediate WhatsApp, Signal, and Telegram calls depend on the app having been let at
+the phone's contacts, which is when it adds its call rows. When the row is missing, the
+icon opens the app to that person (wa.me, signal.me, t.me) and a notice says to let the
+app see the contacts and try again. Every icon's long-press says what the tap does on this
+network, and a notice after the tap says what happened whenever the call did not simply
+start.
 
-Decided behaviour for the rest: the icon always does the most direct thing the
-service allows. For Google Voice, Messenger, and Meet that is "dial immediately" if
-device testing finds an intent for it, otherwise "open the app to that person". For
-Instagram it is "open the thread", which is all Instagram allows, and the icon
-carries that as its long-press explanation.
+Decided behaviour: the icon always does the most direct thing the service allows. On
+the owner's phone (2026-10-06) that is "dial at once" for the dialer, Meet, Google Voice,
+WhatsApp, Signal, and Telegram, and "open the chat in the app" for Instagram and
+Messenger, whose installed versions register no call entry point for other apps.
+
+### 10.18a Backup and restore
+
+Settings > Backup saves everything that lives only in PingMe to one file, and brings it
+back. The file is locked with a passphrase the owner types on the page, used both to save
+and to restore; nobody can recover it. It holds the database (chats, messages, merges,
+pins, names, folders, reactions, keyword rules, spaces), the settings file (appearance,
+the bottom bar, quick reactions, notification choices, the Groq key), and the view-once
+pictures and videos PingMe kept, which no network can hand back (10.16). Logins stay in
+the phone's keystore and are not in it: after a restore each network is logged in again.
+Other photos and files download again when shown. Restoring replaces everything on the
+phone and restarts PingMe. A plain database file saved by an older PingMe still restores.
+The wrong passphrase is told apart from a damaged file.
 
 ### 10.18 Avatars from Google Contacts
 
@@ -881,8 +977,9 @@ refresh when the contact changes.
    open-source-friendly alternative would be preferable if one is reliable.
 4. Should the reaction particle layer be capped on low-end devices automatically
    (based on frame timing) rather than only by the user's intensity setting?
-5. Whether Google Voice, Messenger, and Google Meet expose intents that start a call
-   immediately, or only open the app to the person. Needs testing on a device.
+5. Settled on the owner's phone (2026-10-06): Google Voice and Google Meet answer a call
+   action and dial at once; Messenger and Instagram expose no call entry point, so the icon
+   opens the chat in the app. Revisit if a later Messenger or Instagram version adds one.
 6. Whether Instagram's hidden requests (the ones Meta filters out of the Requests
    tab) are reachable through the endpoints the connector uses, or only the visible
    ones.

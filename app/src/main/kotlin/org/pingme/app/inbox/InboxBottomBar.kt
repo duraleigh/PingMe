@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -20,7 +18,6 @@ import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
@@ -36,9 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -53,10 +48,15 @@ import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Space
 import org.pingme.core.model.SpaceIcon
+import org.pingme.core.ui.components.PingMeSheet
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
 
-/** The bottom bar on phones (UI_DESIGN.md 3.1, 3.7): All, then the user's picks, with unread badges. */
+/**
+ * The bottom bar on phones (UI_DESIGN.md 3.1, 3.7): All, then the user's picks, with unread
+ * badges, and a fixed fifth button, More, that lists everything else (owner, 2026-10-03).
+ */
 @Composable
 fun InboxBottomBar(
     bar: List<BarEntry>,
@@ -64,6 +64,7 @@ fun InboxBottomBar(
     accounts: List<Account>,
     actions: BarActions,
     modifier: Modifier = Modifier,
+    more: List<BarEntry> = emptyList(),
 ) {
     ShortNavigationBar(modifier.testTag(INBOX_BAR)) {
         bar.forEach { entry ->
@@ -72,10 +73,18 @@ fun InboxBottomBar(
                     selected = entry.item == selected,
                     onClick = { actions.onSelect(entry.item) },
                     icon = { BarIcon(entry) },
-                    label = { Text(barLabel(entry, accounts), maxLines = 1) },
+                    label = { BarLabel(barLabel(entry, accounts), unreadColour(entry)) },
                     modifier = narrowMenu,
                 )
             }
+        }
+        MoreButton(more, selected, accounts, actions) { open, inMore ->
+            ShortNavigationBarItem(
+                selected = inMore,
+                onClick = open,
+                icon = { MoreIcon() },
+                label = { BarLabel(stringResource(R.string.bar_more), moreColour(more)) },
+            )
         }
     }
 }
@@ -89,6 +98,7 @@ fun InboxRail(
     actions: BarActions,
     modifier: Modifier = Modifier,
     header: @Composable () -> Unit = {},
+    more: List<BarEntry> = emptyList(),
 ) {
     WideNavigationRail(modifier, header = header) {
         bar.forEach { entry ->
@@ -97,11 +107,20 @@ fun InboxRail(
                     selected = entry.item == selected,
                     onClick = { actions.onSelect(entry.item) },
                     icon = { BarIcon(entry) },
-                    label = { Text(barLabel(entry, accounts), maxLines = 1) },
+                    label = { BarLabel(barLabel(entry, accounts), unreadColour(entry)) },
                     railExpanded = false,
                     modifier = narrowMenu,
                 )
             }
+        }
+        MoreButton(more, selected, accounts, actions) { open, inMore ->
+            WideNavigationRailItem(
+                selected = inMore,
+                onClick = open,
+                icon = { MoreIcon() },
+                label = { BarLabel(stringResource(R.string.bar_more), moreColour(more)) },
+                railExpanded = false,
+            )
         }
     }
 }
@@ -119,7 +138,7 @@ private fun BarButton(
 ) {
     val item = entry.item as? InboxBarItem.Network
     var open by remember { mutableStateOf(false) }
-    val haptics = LocalHapticFeedback.current
+    val haptics = rememberHaptic()
     val narrowable = item != null && entry.narrowOptions.isNotEmpty()
     val narrowed = entry.narrowedTo?.let { narrowingLabel(it, accounts) }
     // The button fills the slot the bar gives it, so its icon sits in the middle (UI_DESIGN.md 3.1).
@@ -132,7 +151,7 @@ private fun BarButton(
                         Modifier.pointerInput(entry) {
                             detectTapGestures(
                                 onLongPress = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    haptics.tick()
                                     open = true
                                 },
                                 onTap = { actions.onSelect(entry.item) },
@@ -204,17 +223,16 @@ private fun narrowingLabel(
         }
     }
 
-// Unread shows as a small dot, not a count (owner, Gate G3: the numbers were loud).
+// Unread is said by the label's colour, not a dot or a count (owner, 2026-10-05; Gate G3:
+// the numbers were loud): see [unreadColour].
 @Composable
-private fun BarIcon(entry: BarEntry) {
-    BadgedBox(badge = { if (entry.badge > 0) Badge(Modifier.size(UNREAD_DOT)) }) {
-        when (val item = entry.item) {
-            null -> Icon(painterResource(UiR.drawable.ic_forum), null)
-            InboxBarItem.Unread -> Icon(painterResource(UiR.drawable.ic_mark_chat_unread), null)
-            is InboxBarItem.Network -> NetworkDot(item.network)
-            is InboxBarItem.Space -> Icon(painterResource((entry.spaceIcon ?: SpaceIcon.SPACE).drawable()), null)
-            InboxBarItem.LowPriority -> Icon(painterResource(UiR.drawable.ic_low_priority), null)
-        }
+internal fun BarIcon(entry: BarEntry) {
+    when (val item = entry.item) {
+        null -> Icon(painterResource(UiR.drawable.ic_forum), null)
+        InboxBarItem.Unread -> Icon(painterResource(UiR.drawable.ic_mark_chat_unread), null)
+        is InboxBarItem.Network -> Icon(painterResource(item.network.lineIcon()), null)
+        is InboxBarItem.Space -> Icon(painterResource((entry.spaceIcon ?: SpaceIcon.SPACE).drawable()), null)
+        InboxBarItem.LowPriority -> Icon(painterResource(UiR.drawable.ic_low_priority), null)
     }
 }
 
@@ -267,12 +285,12 @@ fun barLabel(
     }
 
 /**
- * Picks the bar's items (UI_DESIGN.md 10.4): Unread, each network you have, each space, and
- * Low priority, up to four after All, in the order ticked.
+ * Picks the bar's four buttons (UI_DESIGN.md 10.4): All, Unread, each network you have, each
+ * space, and Low priority, in the order ticked. Everything left over sits behind More.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditBarSheet(
+internal fun EditBarSheet(
     current: List<InboxBarItem?>,
     accounts: List<Account>,
     spaces: List<Space>,
@@ -286,7 +304,7 @@ fun EditBarSheet(
             accounts.map { it.network }.distinct().map { InboxBarItem.Network(it) } +
             spaces.map { InboxBarItem.Space(it.id) } +
             InboxBarItem.LowPriority
-    ModalBottomSheet(onDismissRequest = {
+    PingMeSheet(onDismiss = {
         onSave(picked)
         onDismiss()
     }) {
@@ -378,7 +396,6 @@ fun NewMenu(
     }
 }
 
-private val UNREAD_DOT = 7.dp
 private const val HALF = 0.5f
 
 const val INBOX_BAR = "inbox-bar"

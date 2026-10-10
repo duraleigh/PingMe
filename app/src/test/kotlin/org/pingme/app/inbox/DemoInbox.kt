@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
+import androidx.room.useWriterConnection
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +75,15 @@ class DemoInbox(
             reactions,
             org.pingme.core.service
                 .Tapbacks(messages),
+            org.pingme.core.service
+                .PeopleApplier(
+                    chats,
+                    contacts,
+                    org.pingme.core.service.people
+                        .PeopleLinker(org.pingme.core.connector.AddressBook.None, contacts, chats),
+                    org.pingme.core.service.people
+                        .ProfilePhotos(context, contacts, scope),
+                ),
         )
     val controls = DemoControls()
     val demo = DemoConnector(controls, MemoryCredentials(), dir.resolve("media"), Clock.System)
@@ -98,7 +108,16 @@ class DemoInbox(
             presence,
             Clock.System,
         )
-    val actions = ChatActions(chats, messages, accounts, registry, applier, settings, router)
+    val merges =
+        org.pingme.core.store
+            .MergeRepository(db)
+    val actions = ChatActions(chats, messages, accounts, registry, applier, settings, router, merges)
+    val mergeService =
+        org.pingme.core.service.merge
+            .Merges(chats, merges, contacts)
+    val contactChats =
+        org.pingme.core.service.merge
+            .ContactChats(org.pingme.core.connector.AddressBook.None, accounts, contacts, actions, chats)
     val pins = PinnedMessageRepository(db)
     val scheduledSends =
         org.pingme.core.store
@@ -120,6 +139,7 @@ class DemoInbox(
             settings,
             links,
             CountingPreviews(context),
+            merges,
         )
     val account =
         Account(
@@ -162,6 +182,11 @@ class DemoInbox(
             settings,
             org.pingme.app.appearance
                 .AppearanceRepository(context, settings),
+            contacts,
+            mergeService,
+            merges,
+            org.pingme.core.service.merge
+                .MergeSuggestions(chats, contacts, settings, contactChats),
         ).tracked()
 
     fun listViewModel(route: ChatListRoute) =
@@ -206,9 +231,12 @@ class DemoInbox(
         org.pingme.core.store
             .ChatOverridesRepository(db)
 
-    fun chatViewModel(remote: String) =
+    fun chatViewModel(remote: String) = chatViewModelFor(account.id.chat(remote))
+
+    /** A chat screen's view model for any chat id, a merged chat's included. */
+    fun chatViewModelFor(id: org.pingme.core.model.ChatId) =
         ChatViewModel(
-            account.id.chat(remote).value,
+            id.value,
             chats,
             messages,
             pins,
@@ -223,6 +251,9 @@ class DemoInbox(
             reactions,
             files,
             recorder,
+            recorder,
+            org.pingme.app.chat.voice
+                .GroqTranscriber(),
             gifStore,
             chatSearch,
             requests,
@@ -230,6 +261,7 @@ class DemoInbox(
             transcriber,
             presence,
             links,
+            merges,
         ).tracked()
 
     fun detailsViewModel(remote: String) =
@@ -251,7 +283,27 @@ class DemoInbox(
                 messageActions,
                 Clock.System,
                 requests,
+                mergeService,
+                contactChats,
+                merges,
             ).tracked()
+
+    /** The share picker, as if [intent] had come in through Android's share sheet. */
+    fun shareViewModel(intent: android.content.Intent) =
+        org.pingme.app.share.ShareViewModel(
+            org.pingme.app.share
+                .ShareRequests()
+                .apply { fromIntent(intent) },
+            chats,
+            accounts,
+            contacts,
+            registry,
+            actions,
+            messageActions,
+            files,
+            messages,
+            settings,
+        )
 
     fun settingsViewModel() =
         org.pingme.app.settings
@@ -293,7 +345,8 @@ class DemoInbox(
             ),
         ).tracked()
 
-    fun searchViewModel() = SearchViewModel(chats, messages, Clock.System, SavedStateHandle()).tracked()
+    fun searchViewModel() =
+        SearchViewModel(chats, messages, Clock.System, SavedStateHandle(), accounts, contacts).tracked()
 
     fun newChatViewModel(group: Boolean) =
         NewChatViewModel(
@@ -302,6 +355,12 @@ class DemoInbox(
             ConnectorRegistry(mapOf(NetworkId.DEMO to demo)),
             actions,
             SavedStateHandle(mapOf("group" to group)),
+            org.pingme.core.service.people.ContactsWatcher(
+                context,
+                org.pingme.core.service.people
+                    .PeopleLinker(org.pingme.core.connector.AddressBook.None, contacts, chats),
+                scope,
+            ),
         ).tracked()
 
     private fun ChatListRoute.toSavedState() =
@@ -326,7 +385,15 @@ class DemoInbox(
         // rather than blocking the main thread while waiting for them.
         viewModels.forEach { it.viewModelScope.cancel() }
         shadowOf(Looper.getMainLooper()).idle()
-        runBlocking { scope.coroutineContext.job.cancelAndJoin() }
+        runBlocking {
+            scope.coroutineContext.job.cancelAndJoin()
+            // A write still on its way from a cancelled view model (cancellation only lands at
+            // the next suspension, and a Room write runs to its end) must finish before the
+            // database closes under it: taking the writer connection waits for whoever holds
+            // it. Twice in a dozen runs the test process died in SQLite's native code on a
+            // person upsert (2026-10-07, 2026-10-10).
+            kotlinx.coroutines.withTimeoutOrNull(SETTLE_MS) { db.useWriterConnection { } }
+        }
         db.close()
     }
 
@@ -370,3 +437,6 @@ class CountingPreviews(
         requested += message
     }
 }
+
+/** How long [DemoInbox.close] waits for a write in flight before closing the database anyway. */
+private const val SETTLE_MS = 5_000L

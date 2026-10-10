@@ -54,6 +54,12 @@ class ChatSearchRepository
         /** How many messages in [message]'s chat are newer than it. */
         suspend fun countNewer(message: Message): Int = dao.countNewer(message.chatId.value, message.sentAt)
 
+        /** The same across several chats: a merged chat's one timeline. */
+        suspend fun countNewerIn(
+            chatIds: List<ChatId>,
+            sentAt: kotlin.time.Instant,
+        ): Int = dao.countNewerIn(chatIds.map { it.value }, sentAt)
+
         /** The first message in a chat on or after [from]. */
         suspend fun firstFrom(
             chatId: ChatId,

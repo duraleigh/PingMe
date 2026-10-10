@@ -4,6 +4,9 @@ package org.pingme.app.chat
 import android.widget.MediaController
 import android.widget.VideoView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -13,9 +16,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -48,12 +59,7 @@ internal fun MediaViewer(
             if (attachment.kind == AttachmentKind.VIDEO) {
                 Video(path, Modifier.fillMaxSize())
             } else {
-                AsyncImage(
-                    model = File(path),
-                    contentDescription = attachment.fileName ?: stringResource(R.string.kind_image),
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                ZoomablePicture(path, attachment.fileName ?: stringResource(R.string.kind_image))
             }
             IconButton(onClose, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(4.dp)) {
                 Icon(painterResource(UiR.drawable.ic_close), stringResource(R.string.back), tint = Color.White)
@@ -87,6 +93,51 @@ internal fun MediaViewer(
         }
     }
 }
+
+/**
+ * The picture, pinched to zoom and dragged to pan (owner, Gate G2 and 2026-10-04): two
+ * fingers scale it between fit-to-screen and five times that, one finger moves it while
+ * zoomed, and a double tap toggles between fit and twice the size.
+ */
+@Composable
+private fun ZoomablePicture(
+    path: String,
+    description: String,
+) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    val transform =
+        rememberTransformableState { zoom, pan, _ ->
+            scale = (scale * zoom).coerceIn(MIN_ZOOM, MAX_ZOOM)
+            offset = if (scale > 1f) offset + pan else Offset.Zero
+        }
+    AsyncImage(
+        model = File(path),
+        contentDescription = description,
+        contentScale = ContentScale.Fit,
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            scale = if (scale > 1f) 1f else DOUBLE_TAP_ZOOM
+                            offset = Offset.Zero
+                        },
+                    )
+                }.transformable(transform)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = offset.x
+                    translationY = offset.y
+                },
+    )
+}
+
+private const val MIN_ZOOM = 1f
+private const val MAX_ZOOM = 5f
+private const val DOUBLE_TAP_ZOOM = 2f
 
 // The platform's own player: local files only, with play, pause, and seeking.
 @Composable

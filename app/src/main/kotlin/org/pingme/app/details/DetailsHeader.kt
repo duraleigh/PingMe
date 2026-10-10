@@ -55,14 +55,37 @@ fun DetailsHeader(
     val name = chat.nameOverride ?: chat.title
     var renaming by remember { mutableStateOf(false) }
     Column(modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Avatar(name, size = AVATAR)
+        val everyone = state.people.associateBy { it.id }
+        val faces =
+            org.pingme.app.inbox
+                .facesFor(chat, everyone)
+        if (faces.isEmpty()) {
+            Avatar(
+                name,
+                size = AVATAR,
+                photo =
+                    org.pingme.app.inbox
+                        .photoFor(chat, everyone),
+            )
+        } else {
+            org.pingme.core.ui.components
+                .GroupAvatar(faces, name, size = AVATAR)
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(name, style = MaterialTheme.typography.headlineSmallEmphasized, textAlign = TextAlign.Center)
             IconButton(
                 { renaming = true },
             ) { Icon(painterResource(UiR.drawable.ic_edit), stringResource(R.string.details_rename)) }
         }
-        state.account?.let { Text(it.network.displayName, style = MaterialTheme.typography.labelLarge) }
+        // A merged chat names every network it spans (UI_DESIGN.md 10.15).
+        val networks =
+            state.members
+                .map { it.network }
+                .distinct()
+                .ifEmpty { listOfNotNull(state.account?.network) }
+        if (networks.isNotEmpty()) {
+            Text(networks.joinToString(" · ") { it.displayName }, style = MaterialTheme.typography.labelLarge)
+        }
         ContactButton(state.person, Modifier.padding(top = 8.dp))
         Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalButton(buttons.onSearch) { Text(stringResource(R.string.details_search)) }

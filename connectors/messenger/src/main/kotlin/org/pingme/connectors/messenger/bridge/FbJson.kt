@@ -104,6 +104,14 @@ sealed interface FbEvent {
         val cookies: String = "",
     ) : FbEvent
 
+    /** The encrypted channel's state: "connected", or "failed" with why. */
+    @Serializable
+    @SerialName("e2ee")
+    data class E2ee(
+        val state: String,
+        val error: String = "",
+    ) : FbEvent
+
     /** The live connection is up. */
     @Serializable
     @SerialName("live")

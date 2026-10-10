@@ -12,7 +12,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
 import org.pingme.core.ui.components.Avatar
+import org.pingme.core.ui.components.PingMeSheet
 import org.pingme.core.ui.R as UiR
 
 /**
@@ -31,20 +31,25 @@ import org.pingme.core.ui.R as UiR
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatActionSheet(
+internal fun ChatActionSheet(
     row: ChatRow,
     onAction: (ChatAction) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val chat = row.chat
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
             Row(
                 Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Avatar(row.title, size = 40.dp)
+                if (row.faces.isEmpty()) {
+                    Avatar(row.title, size = 40.dp, photo = row.photo)
+                } else {
+                    org.pingme.core.ui.components
+                        .GroupAvatar(row.faces, row.title, size = 40.dp)
+                }
                 Column {
                     Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                     Text(

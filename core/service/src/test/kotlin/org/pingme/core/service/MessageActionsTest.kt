@@ -14,6 +14,7 @@ import org.pingme.core.connector.OutgoingMessage
 import org.pingme.core.connector.SendResult
 import org.pingme.core.connector.chat
 import org.pingme.core.connector.message
+import org.pingme.core.connector.person
 import org.pingme.core.model.AttachmentKind
 import org.pingme.core.model.MessageKind
 import org.pingme.core.model.MessageStatus
@@ -44,7 +45,12 @@ class MessageActionsTest : ServiceTest() {
                 .CleanLinks
                 .fromAssets(context),
             QuietPreviews(context),
+            merged,
         )
+    }
+    private val merged by lazy {
+        org.pingme.core.store
+            .MergeRepository(db)
     }
     private val scheduledSends by lazy {
         org.pingme.core.store
@@ -64,6 +70,59 @@ class MessageActionsTest : ServiceTest() {
         accounts.upsert(account())
         applier.applyChats(listOf(chatSnapshot(unread = 2)))
     }
+
+    @Test
+    fun aMessageToAMergedChatGoesThroughAConnectedMember() =
+        runTest {
+            // The share picker and the notification shade name the merged chat itself (owner,
+            // 2026-10-06: a share to one failed with "This network is not connected").
+            val other =
+                org.pingme.core.model
+                    .AccountId("wa")
+            accounts.upsert(account())
+            accounts.upsert(
+                org.pingme.core.model.Account(
+                    other,
+                    NetworkId.DEMO,
+                    "WhatsApp",
+                    0,
+                    org.pingme.core.model.ConnectionState.Connected,
+                    true,
+                    org.pingme.core.model.NotificationMode.NORMAL,
+                    "cred",
+                ),
+            )
+            applier.applyChats(listOf(chatSnapshot("c1")))
+            val samOnWa = sam().copy(id = other.person("sam"), accountId = other, displayName = "+15555550123")
+            applier.applyChats(
+                listOf(
+                    chatSnapshot("w1", title = "+15555550123").copy(
+                        id = other.chat("w1"),
+                        accountId = other,
+                        participants = listOf(samOnWa),
+                    ),
+                ),
+            )
+            val mergedId =
+                org.pingme.core.service.merge
+                    .Merges(chats, merged, contacts)
+                    .merge(listOf(accountId.chat("c1"), other.chat("w1")))
+            connector.sendResult = { draft ->
+                SendResult.Sent(messageSnapshot("net-m", body = draft.body!!, outgoing = true))
+            }
+            val sent = actions.send(mergedId, "Through a member")
+            assertTrue("sent on a member's network, not the merged row", sent.chatId != mergedId)
+            assertTrue(sent.chatId == accountId.chat("c1") || sent.chatId == other.chat("w1"))
+            assertFalse("the member's connector took it", sent.status is MessageStatus.Failed)
+            assertEquals(
+                "Through a member",
+                messages
+                    .latest(sent.chatId, 5)
+                    .first()
+                    .first()
+                    .body,
+            )
+        }
 
     @Test
     fun aSentMessageReplacesItsPendingBubble() =
@@ -123,6 +182,32 @@ class MessageActionsTest : ServiceTest() {
             connector.sendResult = { SendResult.Sent(messageSnapshot("net-2", body = "Hello", outgoing = true)) }
             actions.retry(failed)
             assertEquals(listOf("net-2"), messages.latest(chatId, 10).first().map { it.id.value.substringAfter('/') })
+        }
+
+    @Test
+    fun aNetworkThatCarriesOnePictureAMessageGetsOneMessagePerPicture() =
+        runTest {
+            // Google Messages keeps one picture per message and drops the rest (owner,
+            // 2026-10-05: two screenshots sent, one arrived).
+            seed()
+            connector.capabilities = connector.capabilities.copy(attachmentsPerMessage = 1)
+            val one = File.createTempFile("one", ".jpg").apply { writeBytes(ByteArray(PHOTO_BYTES)) }
+            val two = File.createTempFile("two", ".jpg").apply { writeBytes(ByteArray(PHOTO_BYTES)) }
+            val files =
+                listOf(one, two).map { OutgoingAttachment(it.path, "image/jpeg", AttachmentKind.IMAGE, it.name, null) }
+            val drafts = mutableListOf<OutgoingMessage>()
+            connector.sendResult = { draft ->
+                drafts += draft
+                SendResult.Failed("No signal", retryable = true)
+            }
+            val first = actions.send(chatId, "two options", attachments = files)
+            assertEquals(2, drafts.size)
+            assertEquals("two options", drafts[0].body)
+            assertEquals(listOf(files[0]), drafts[0].attachments)
+            assertEquals(null, drafts[1].body)
+            assertEquals(listOf(files[1]), drafts[1].attachments)
+            assertEquals("two options", first.body)
+            assertEquals(1, first.attachments.size)
         }
 
     @Test

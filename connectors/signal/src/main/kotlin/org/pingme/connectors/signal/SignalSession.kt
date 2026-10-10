@@ -142,6 +142,7 @@ internal class SignalSession(
         try {
             val contacts = go.membersJson(request { session.contacts() })
             go.learnNames(contacts)
+            go.learnAvatars(contacts)
             send(ConnectorEvent.PeopleUpdated(accountId, go.people(contacts)))
         } catch (e: CancellationException) {
             throw e
@@ -303,6 +304,7 @@ internal class SignalSession(
         val found = go.lookupsJson(request { session.lookupNumbers(json) })
         val members = found.map { SigMember(it.id, it.phone, byNumber[it.phone].orEmpty()) }
         go.learnNames(members)
+        go.learnAvatars(members)
         events.trySend(ConnectorEvent.PeopleUpdated(accountId, go.people(members)))
     }
 

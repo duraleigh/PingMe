@@ -50,11 +50,12 @@ internal class MessengerSession(
     cookiesJson: String,
     private val credentialRef: String,
     private val credentials: CredentialStore,
+    storePath: String = "",
 ) {
     private val events = Channel<Any>(Channel.UNLIMITED)
     val go = FbTranslate(accountId)
     private val session: FbSession =
-        bridge.newSession(cookiesJson) { json ->
+        bridge.newSession(cookiesJson, storePath) { json ->
             try {
                 events.trySend(go.parse(json))
             } catch (
@@ -94,6 +95,7 @@ internal class MessengerSession(
         when (event) {
             is FbEvent.Connected -> {
                 go.ownId = event.id.ifEmpty { go.ownId }
+                Log.i(TAG, "Messenger signed in as ${go.ownId}")
                 if (event.cookies.isNotEmpty()) credentials.save(credentialRef, event.cookies.toByteArray())
             }
 
@@ -115,6 +117,10 @@ internal class MessengerSession(
 
             is FbEvent.Live -> {
                 Unit
+            }
+
+            is FbEvent.E2ee -> {
+                Log.i(TAG, "Messenger encrypted channel: ${event.state} ${event.error}".trimEnd())
             }
 
             else -> {
@@ -141,7 +147,9 @@ internal class MessengerSession(
             pages++
             if (!more) break
         }
-        return go.threadsJson(request { session.threads() }).map { go.chat(it) }
+        val chats = go.threadsJson(request { session.threads() }).map { go.chat(it) }
+        Log.i(TAG, "Messenger listed ${chats.size} chats after $pages pages")
+        return chats
     }
 
     /** Up to [limit] messages older than [before] (the newest when null), newest first. */
@@ -153,6 +161,7 @@ internal class MessengerSession(
         val thread = chatId.remoteId
         val anchor = before?.remoteId?.substringAfter('/').orEmpty()
         val page = go.messagesJson(request { session.messages(thread, anchor) })
+        if (anchor.isEmpty()) Log.i(TAG, "Messenger history for $thread: ${page.size} messages on the first page")
         return page
             .filter { it.kind != "system" && it.id != anchor }
             .sortedByDescending { it.timestamp }

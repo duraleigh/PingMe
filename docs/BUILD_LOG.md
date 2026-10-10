@@ -2856,3 +2856,1475 @@ silence and names (the hidden-id mapping is the lead), Instagram read marks, Mes
 
 Answered, no change: note 21 (RCS pictures): the blur before 0.6.0 was PingMe's own
 thumbnail; any remaining softening is Google Messages compressing outgoing RCS pictures.
+
+### Gate G7 fixes, round 2 (2026-10-03, evening)
+
+The owner installed 0.7.1 at 8:04 PM and found two things at once.
+
+- **WhatsApp chats still titled by number.** The phone's log showed the contact list
+  does arrive now (998 names, two seconds after connecting), and the bridge keeps it
+  across restarts. The real cause was elsewhere: WhatsApp never lists one-to-one chats
+  again after pairing (only groups), so a chat PingMe stored under 0.7.0, before any
+  names existed, kept its number as its title for good; the people list carried the
+  names, but nothing went back to the stored chats. Fixed in the store, for every
+  network: when an account's people list arrives, each one-to-one chat still titled by a
+  bare number or raw id takes that person's name. The round-1 note that blamed the
+  missing contact-list request was only half the story.
+- **Chats read under 0.7.0 came back unread, and chats deleted under 0.7.0 came back.**
+  Round 1 added "read here" and "deleted here" records, but the upgrade creates both
+  empty, so the first sync after the install believed Google Messages' unread marks
+  again, and the deleted code chats had no deletion record to hold them back. The
+  schema is now version 6, whose upgrade stamps every chat already showing as read as
+  read at its last activity. Deletions made under 0.7.0 cannot be recovered after the
+  fact; a chat deleted once more under 0.7.1 or later stays gone.
+- The stale **"+0" chat** (WhatsApp's "nobody" placeholder, stored by an earlier build)
+  is removed with the next people list and is not listed again. The **"You"** chat is
+  WhatsApp's own message-yourself chat, which WhatsApp also labels "You"; it stays.
+
+## Phase 7: people, merging, calls, spaces
+
+Started 2026-10-03, 8:30 PM, on the owner's OK, with these owner requirements on top of the
+plan: merge suggestions by phone number and by similar name or username; manual merge of
+any chats across any networks (a bulk "Merge" in the inbox's multi-select, "Merge with…"
+in Chat details, split per member); every suggestion editable (remove a proposed member,
+add a chat that was not suggested, dismiss); a merged chat's bubbles keep only their
+network colour, with the network badge beside the time and ticks when a bubble is tapped;
+the merged chat's header badge opens a dropdown ("All" or one network) that filters the
+bubbles and sets the composer chip; a merged chat opens on the network of its unread
+messages when they are all from one network, otherwise on All; the bottom bar holds four
+chosen buttons and a fixed fifth "More" button listing everything else. Phase 8 waits for
+the owner's word.
+
+### Gate G7 fixes, round 3 (2026-10-03, 9 PM)
+
+- The round-2 renaming never reached a WhatsApp chat made from your own outgoing message
+  (such a chat lists no participant), so names stayed numbers. A person's chats are now
+  also found by the chat whose address is the person's and by a title that is the number.
+- That fix then named almost every WhatsApp chat "Terry Sanford": the owner's own number
+  is on a contact card of that name, every WhatsApp chat lists "you", and the contact
+  matcher linked "you" to that card and renamed every chat you are in. Your own entry is
+  now never matched to a contact and never renames anything, and on the next start every
+  chat wrongly carrying that name takes the other person's own name or number back.
+  The owner's words: the chats "must be named correctly", whatever the card says.
+
+- **Eric, Tracy, and the deleted code chats back again, on the round-3 build.** Two
+  causes, both read from the code: a deleted chat holds no messages, so the "fetch
+  history for chats with nothing stored" step fetched its old pages and rebuilt it past
+  the "deleted here" record; and "read" was stamped at the chat's reported time, which
+  Google Messages can report older than the chat's newest message, so that message
+  counted as unread on every sync (chats whose last message was yours were unaffected,
+  which was the pattern). Now history pages for a chat deleted here are dropped, "read"
+  reaches the newest stored message, and the upgrade (schema 8) restamps chats already
+  showing as read. Eric and Tracy, unread at the time of the upgrade, need one more
+  "mark read"; after that it holds.
+- **Photos missing for many people** (owner): not yet explained; the log of a full connect
+  is needed (fetch failures are logged). The photo file is now handed to the image loader
+  as a file, not a bare path, removing one possible cause.
+
+### P7.1 Contacts
+
+- People are matched to the phone's contacts by phone number: the address book is read
+  (name, numbers in international form, lookup key, photo address) when contacts are
+  allowed, and every person with a number that is in it carries the contact's lookup key,
+  name, and photo. The match uses the digits, and the last ten digits for a number written
+  without its country, so "(555) 555-0123" and "+15555550123" meet.
+- A one-to-one chat still titled by a bare number or raw id takes the contact's name; a
+  network's own title is kept otherwise (WhatsApp's names already are the phone's).
+- The phone's contacts are watched; a change matches everyone again after it settles.
+  Allowing contacts from the new-chat screen does the same at once.
+- Avatars show the contact's photo, then the network's profile photo, then the initials
+  tile, in the inbox, pinned tiles, the chat header, Chat details, the new-chat list, and
+  notifications (the sender's picture). Someone known only by a number gets a plain
+  person mark instead of digits (owner).
+- Instagram and Messenger profile pictures now reach PingMe (owner, 2026-10-03: "grab
+  profile pictures from IG"): the networks give short-lived links, which the service
+  fetches once into app storage (`files/avatars`) and keeps. WhatsApp, Telegram, and
+  Signal profile photos are not fetched yet: each needs a request per person or a
+  decrypt, and is listed for a later step.
+- Deviations from the plan: numbers are normalised with Android's own PhoneNumberUtils
+  (the phone's copy of libphonenumber) and the contacts provider's normalised column,
+  not a bundled libphonenumber; contact photos are shown from the contacts provider's
+  own address rather than copied into app storage, so a changed photo shows without a
+  copy going stale. Schema version 7 adds the contact name and photo to a person.
+
+### P7.2 Merged chats, the store and the service
+
+- A merged chat is a chat row of its own (id `merged/<random>`, so no connector is ever
+  asked about it); its members point at it. Members leave the inbox list; the merged row
+  carries their summed unread count and newest activity, kept in step on every write, and
+  pins, mute, archive, low priority, obscure, and notification settings live on it.
+- Unread badges count the members on their own networks (so a merged chat's unread shows
+  under the right network filter), under the merged chat's mute, archive, and low-priority
+  settings; the merged row itself never counts twice.
+- Reading the merged chat reads every member on its network (read markers go out per
+  member). Deleting it deletes the members. Splitting the last pair, or deleting a member
+  of a pair, dissolves the merged chat and the remaining chat returns to the inbox.
+- Merging accepts chats, members (which bring their whole merged chat), and merged chats;
+  the result lands in the merged chat named (or the first one among them), or a new one
+  titled by the contact's name when any member has one. Groups are refused with a plain
+  reason. A member whose person has no contact link takes the link the others have, so an
+  Instagram or Messenger person merged with a phone contact gets that contact's name and
+  photo.
+- A member's new message notifies as the merged chat: its settings, its name, its screen.
+- WhatsApp's own hidden-id fold (round 1) carries a membership over to the number's chat.
+- Deviation from the plan: the plan's `MergeLink` (person to contact) is not what holds a
+  merge together; membership is on the chat (`mergedInto`), which is what every screen and
+  the unread rule need. The person-to-contact link lives on the person (P7.1).
+
+### P7.3 Merge suggestions
+
+- Two or more one-to-one chats on different accounts are proposed as one person when
+  their people share a phone contact, a phone number (digits compared, the last ten for a
+  number written without its country), or a name or username that reads the same: case,
+  accents, punctuation, emoji, and tag lines after "|" or in brackets are dropped, and
+  dots, underscores, and dashes read as spaces, so "sam.ortiz", "SAM_ORTIZ", and "Sam
+  Ortiz 🌟" meet. Two chats on the same account never make a suggestion on their own.
+- Dismissing a suggestion hides exactly that set of chats; a new chat joining the set
+  brings it back. Nothing merges on its own.
+
+### P7.4 Merging on screen
+
+- **Suggestions**: a card at the top of the inbox ("2 people appear on more than one
+  network · Review") and an avatar-menu entry open the suggestions screen. Each card
+  names why (same contact, same number, same name), lists the proposed chats with their
+  network badges, lets you leave any chat out, add any other one-to-one chat from any
+  network (a picker with search), dismiss, or merge (owner, Phase 7).
+- **Bulk Merge**: hold an avatar in the inbox, pick any chats, tap Merge. A group among
+  them is refused with its name.
+- **Chat details**: an ordinary one-to-one chat offers "Merge with…"; a merged chat lists
+  its networks, with the one the composer starts on (tap to change), a split button per
+  member, and "Add a chat…". Splitting the last pair dissolves the merged chat and the
+  screen closes. The header names every network the chat spans.
+- **Inbox rows** for a merged chat carry a badge per network, preview the newest message
+  across the members, show typing from any member, and appear under every network
+  filter they have a member on.
+
+### P7.5 The merged chat on screen
+
+- One timeline: a merged chat shows every member's messages in time order. Each bubble
+  keeps only its own network's colour; when a bubble is tapped and its time and ticks
+  appear, a small network badge sits beside them, and nowhere else (owner, Phase 7).
+- The header's badge becomes a dropdown: "All networks" or one member, with the current
+  choice ticked. One network narrows the bubbles to it and sets the composer to it; "All"
+  shows everything and sets the composer to the chat's default account. The chip can
+  still be changed by hand; the next dropdown choice moves it again.
+- Opening: unread messages all from one network open the chat narrowed to that network;
+  unread from two or more networks, or none, open on "All".
+- Composer chips, one per member, above the composer: the filled one is where the next
+  message, typing notice, and scheduled send go; a disconnected account's chip is outlined
+  in the error colour and says "Not connected" to a screen reader. The attach, GIF, and
+  voice offers follow the chosen member's network, as do the call buttons.
+- Search in chat and "jump to date" cover every member; older history is asked of every
+  member's network.
+- Reading, pins, and typing come from all members. The chat's people span accounts.
+
+### P7.6 Calls
+
+- The chat header's phone and video buttons were built in Phase 2 (each does the most
+  direct thing its service allows: the dialer, Google Meet, or the call entry WhatsApp,
+  Signal, and Telegram register in the phone's contacts; otherwise the app opens). In a
+  merged chat they now call on the network the composer is set to, with that member's
+  number.
+- Chat details of a merged chat show a phone and a video button on each member that can
+  take one, so any of the person's networks can be called from one place.
+- What each button actually does on the owner's phone is recorded at Gate G11 (the plan
+  asks for it); it cannot be known from here.
+
+### P7.7 Spaces and the bottom bar
+
+- Spaces from the networks and spaces the user makes (Settings > Spaces, built at Gate G1)
+  already list and filter; this step changes the bar as the owner decided on 2026-10-03:
+  the bottom bar holds four chosen buttons, picked exactly as before through the same
+  editor, and a fixed fifth button, **More**, that lists every filter and space not in the
+  bar, each with its unread dot. Picking one opens the inbox on it and More reads as
+  selected while it shows. Anyone who had five picked keeps the first four; the fifth moves
+  into More. The rail on wide screens does the same.
+- UI_DESIGN.md 3.1 and 10.4 and the decisions log carry the change.
+
+### Owner notes on the first Phase 7 build (2026-10-03, 9:53 PM)
+
+- **The merge banner** in the inbox is gone. Merging lives under Settings > Merge chats:
+  "Merge chats you pick" (any one-to-one chats from any networks) and "Suggestions" (with
+  the count). The avatar menu keeps its "Merge suggestions" line.
+- **Six buttons in the bar** where five were agreed: the saved bar still held five picks
+  from before the More button, and the four-button limit was applied only on edit, not
+  on load. A saved bar now loads as four plus More.
+- **The coloured network circles** in the bar were gaudy next to the line icons. Each
+  network now has a plain line icon in the same style (Material Symbols that say what the
+  network is for: a text bubble for Google Messages and SMS, a handset for WhatsApp, a
+  paper plane for Telegram, a padlock for Signal, a voice mark for Google Voice, a camera
+  for Instagram, a chat bubble for Messenger, a briefcase for a Facebook Page). No brand
+  logos are bundled, as before. The same icons mark the account chips on the new-chat
+  screen.
+- **Group chat avatars** are made of the members' avatars, not counting you: two side by
+  side, three in a triangle, and so on round to nine in a nonagon; ten or more become a
+  multicoloured asterisk with one arm per member (owner, 2026-10-03).
+- **Profile photo fetches** now run four at a time; a first sync started hundreds at once
+  and many timed out, leaving photos missing at random.
+
+### Owner notes on the suggestions screen (2026-10-03, 9:52 PM)
+
+- Each suggestion card now lets you pick which member the merged chat **sends from** (a
+  radio per member) and which **picture** stands for it (tap a member's picture; "Use the
+  contact photo" when a contact has one), and every member and every picker row shows the
+  **number** it goes by, or the username on a network without numbers, so two chats with
+  one person on one network can be told apart. Chat details show the same under each
+  member of a merged chat.
+- Instagram chats were missing from the picker because PingMe only listed the newest
+  four pages of the Instagram inbox, about eighty chats. It now lists the inbox newest
+  first and stops once a page holds nothing from the last thirty days (owner: recent
+  Primary chats, not the whole inbox; General chats inside the thirty days come along and
+  stay out of All as before). The request queue stays one page.
+
+### Owner note on the network filters (2026-10-03, 10:16 PM)
+
+- A merged chat was listed under every network it had a member on, placed by its newest
+  message on any network, so WhatsApp's list led with people the owner has never spoken
+  to on WhatsApp. Under a network filter a merged chat now stands for its member on that
+  network alone: it appears only when that member holds a message, and is placed and
+  previewed by that member's newest message. The same rule for every network.
+
+### Owner note on merged rows (2026-10-03, 10:30 PM)
+
+- A merged chat's row carries no network badges. It is marked instead by a thin ring in
+  the theme's accent colour orbiting the avatar: the avatar's own shape, a little larger,
+  with a gap between ring and avatar. The ring is drawn outside the avatar's bounds, so
+  every avatar stays the same size, merged or not, and rows keep their layout. Pinned
+  tiles ring the same way, outside the unread ring. Single-network rows keep their badge
+  and have no ring.
+
+### Owner note on the merged composer (2026-10-03, 10:35 PM)
+
+- The row of network chips above the composer is gone (too much room, and a scroll to
+  find a network). The GIF button moved into the + menu, the text box widened into its
+  place, and a small colour-coded network badge sits inside the box on the left with a
+  placeholder that names the network: "Send a Google Message", "Send a WhatsApp message",
+  "Send an Instagram DM", "Send a Signal", "Send a Telegram", "Send a Facebook Message",
+  "Send with Google Voice". In a merged chat the badge opens the same network menu as the
+  header's. Every + menu option is now tappable on its label as well as its button.
+- Gone with the chips: the red-lined "not connected" mark on a member. The badge does not
+  show connection state yet; the connection chip under the inbox's app bar still does.
+- UI_DESIGN.md 10.15 should read "a badge inside the box" rather than "a chip left of the
+  field"; updated.
+
+### Owner note on opening a merged chat (2026-10-03, 11 PM)
+
+- A merged chat opens, header, bubbles, and box alike, on the one network its unread
+  messages came from; with no unread, or unread from several networks, on its default
+  network. "All" is a choice in the header menu, never the opening state.
+
+### Owner notes on the first full Phase 7 build (2026-10-04, 12:03 AM)
+
+Confirmed by the owner on the phone: Eric and Tracy stay read, the deleted code chats stay
+deleted, and the WhatsApp chats are named correctly.
+
+- **Bottom bar labels** wrap to a second line ("Low priority", "Google Messages").
+- **The orbiting ring is now the unread mark**, not the merged mark (owner: "I like the
+  orbiting ring so much"): an unread row or pinned tile shows the ring in the accent
+  colour (outline colour when muted) around its avatar, the row keeps its soft tint, and
+  the dots on rows and tiles are gone. Merged chats carry no mark for now; the owner will
+  choose one later. They still carry no network badges.
+- **Search results** show each chat's network badge and its number or username, and the
+  person's photo, so three "Quiana Parler" rows read apart.
+- **Missing Instagram pictures**: found in the code. A message's sender was written to the
+  store directly, bypassing the photo step, so every new Instagram message overwrote the
+  person's downloaded picture with the network's web link, which the app cannot show.
+  Exactly the people with recent messages lost their pictures. Senders now go through the
+  same step as everyone else.
+- **Chats still named after your own card** (an "Ali Aksahin" chat under a hidden id was
+  still "Terry Sanford"): the repair now runs on every start, from the card that holds
+  your number, and a chat whose own person PingMe cannot name falls back to its address
+  rather than keep a wrong name.
+- **Missing WhatsApp chats** (Gina Orr, Quiana Parler, among others, present in
+  WhatsApp's own list but not PingMe's WhatsApp filter): not yet explained. The build now
+  logs every inbound WhatsApp event by kind, so the next capture shows whether WhatsApp
+  delivers them at all; the filter rule above also hides a merged chat whose WhatsApp
+  member holds no stored message, which may be part of it.
+
+### Owner notes of 2026-10-04, morning (five)
+
+1. **Instagram General chats in the inbox** (Michael Robbins in All; Chris Rushton's
+   General message not seen). A message for a thread PingMe knew only from earlier
+   messages, never from a listing, carried no folder, so it counted as Primary. The
+   thread-first fetch now also runs for a known thread whose folder PingMe never learned,
+   and the folder Instagram reports is written to the phone's log. Chris Rushton's message
+   most likely did arrive and sits under General (hidden from All by the switch); to be
+   confirmed on the phone.
+2. **The box badge switched only where the message would go.** It now moves the whole
+   chat, header and bubbles included, exactly as the header's menu does.
+3. **"A view-once photo or video that Instagram no longer shows" on a kept video.**
+   Instagram sends a photo or video taken in the chat in one of three modes: view once,
+   allow replay, or keep in chat. PingMe treated all three as ephemeral and called any one
+   without an address "gone". Now only a viewed or replayed one is gone; a kept one is an
+   ordinary photo or video, not ephemeral, and when the live event carries no address the
+   file is fetched by its id from the thread's recent messages when wanted (the way the
+   reference bridge refreshes media). View-once media that does arrive with an address is
+   kept, as the design says.
+4. **Quiana's merged chat opened on Instagram with no unread, not her default.** The chat
+   screen's state outlives one visit (it is kept while the inbox is on the back stack), so
+   the opening rule ran only the first time. It now runs every time the chat is shown.
+5. **No notifications in the shade overnight.** Not swiped by me. The likely cause is my
+   own doing: I started PingMe on the phone at 12:43 AM for a log capture and it stayed in
+   the foreground all night (the phone's "stay awake while charging" keeps the screen on),
+   and by the Gate G3 rule a message arriving while PingMe is on screen makes its sound
+   and puts nothing in the shade. Not a code change; noted so the owner can decide whether
+   that rule should also require the screen to be in use.
+
+- **Pictures were not pinchable** in the full-screen viewer (owner, 2026-10-04): the viewer
+  only ever showed a picture fitted to the screen. It now zooms with two fingers between
+  fit and five times, pans with one finger while zoomed, and a double tap toggles between
+  fit and twice the size.
+
+- **Network colours "did nothing"** (owner, 2026-10-04, Instagram). Tried on the emulator:
+  the pick is saved and both swatches change, so the mechanism works. What misled was the
+  swatches themselves: the bubble swatch showed the flat base colour while the chat draws
+  the gradient style from it (so it looked orange-red, not maroon), the badge swatch showed
+  the full colour while rows draw the badge as a faint tint of it, and neither said which
+  was which. The two circles are now a small real bubble in the current style and the real
+  badge, labelled "Bubble" and "Badge". The picker sheet scrolls, so Done is reachable on
+  any screen. Note: a bubble colour also sets the badge colour unless the badge has its
+  own; that is by design and now visible.
+
+- **Gradient and badge colours** (owner, 2026-10-04): the gradient bubble now runs from
+  the bubble colour to the badge colour, the two swatches in Appearance, with no hidden hue
+  shift (it used to turn forty degrees toward orange, which is why an Instagram bubble read
+  as orange-red while its swatch was wine red). Badges are drawn in the first swatch's colour, the
+  bubble colour, with readable text on it, not a faint tint; the second swatch is the
+  gradient's end and the header accent.
+
+### Owner note on Messenger (2026-10-04, 12:04 PM)
+
+**No Messenger chats in PingMe at all**; the Messenger filter held one stray chat, "Clay
+Rhodes, Messenger user", with no messages. From last night's phone log: Messenger signed
+in and handed over fifteen conversations on the first page, yet none reached PingMe. The
+Go bridge's own log said nothing more, and the Kotlin side logs only failures, so the
+cause was found by reading: when Facebook re-sends the inbox it puts a "delete this
+thread" row and a "here is this thread" row for the same conversation in one batch. The
+reference bridge ignores the delete in that case ("Ignoring LSDeleteThread for thread that
+has active upserts in the same sync"); PingMe's bridge did the opposite, honoured the
+delete, skipped the insert, and told the app the chat was gone, so every conversation
+Facebook listed that way vanished before it was ever stored. The one chat that survived
+was simply one Facebook had not re-sent. Fixed in the bridge: a delete row for a thread
+the same batch also upserts is not a deletion; a lone delete still is. A bridge test
+reproduces the batch. The bridge now logs, per batch, how many thread rows it saw, how
+many were deletions, and how many were re-insertions, and the connector logs who it
+signed in as and how many chats it listed, so the next phone log settles it instead of
+reasoning. Still to confirm on the phone: that the chats appear with names, and who
+"Clay Rhodes" is (its members and the account's own id will be in the log).
+
+Also seen in that log and not fixed: Messenger's thread rows no longer match the
+library's table layout from column 39 on (the library warns "Failed to set" seventeen
+times per thread). The columns PingMe reads (time, name, picture, key, type, folder) sit
+before the break, and the newest library release and its main branch carry the same
+layout, so there is nothing to update to; noted in case a later field is wanted.
+
+**Confirmed on the phone (2026-10-04, 2:03 PM)**: the first batch after sign-in carried
+29 conversations, every one as a delete-plus-insert pair; the old bridge had dropped all
+29. The Messenger list now shows the same people as the Messenger app (Brett Parker, Toni
+Botting, Don Aiken, Cara Orr Amos, ...), 45 chats after two pages. Two further findings,
+not fixed, waiting on the owner:
+
+1. **Every Messenger chat says "No messages yet", and one-to-one names carry an extra
+   "Messenger user".** Facebook has moved personal one-to-one Messenger chats to
+   end-to-end encryption carried over the WhatsApp protocol. The web inbox still lists
+   each chat (which is what PingMe reads), but under a thread key that is no longer the
+   other person's id (hence the phantom member), and the messages themselves never pass
+   through the web inbox at all: they travel on a separate encrypted channel. The
+   reference bridge registers an encryption device with Meta on first use, keeps the
+   keys in a whatsmeow store on disk, runs a second whatsmeow client against Messenger's
+   servers for those chats, and maps each inbox thread key to its encrypted-channel id
+   through the mapping rows Facebook sends. PingMe's bridge does none of that, so it
+   gets names but no messages, and could not send to those chats either. Groups that
+   are not encrypted still work the old way. Building the encrypted channel is the
+   reference's path, roughly 1,300 lines there (device registration, the client, the
+   message conversion); PingMe already carries whatsmeow and a device store for
+   WhatsApp, so the shape exists. Estimate: one long session. This is a change in the
+   network since Phase 6 was built, not a Phase 7 item; the owner decides whether to do
+   it now or after Gate G11. **Owner's decision (2026-10-04, 2:20 PM): after Gate G11.**
+   It is the first item of work once the gate passes, before Phase 8.
+2. **A chat titled with the owner's own name** ("Clay Aiken") is most likely Messenger's
+   message-yourself thread (the reference bridge treats a one-to-one thread with
+   yourself as "note to self"). "Clay Rhodes" from the morning no longer shows on the
+   first screen; to be checked once names are right.
+
+### Owner notes at Gate G11 (2026-10-04, 2:10 PM): colours and unmerging
+
+1. **"Changing the per-network colours still does nothing."** Reproduced on the phone
+   with the screen under my control: picking the teal quick swatch for Instagram and
+   pressing Done did save, and the bubble swatch did change, but to a dark greyed teal
+   rather than the teal picked. The palette kept only the hue of a pick and replaced its
+   lightness and colourfulness with the theme's fixed tones (tone 30 for a dark-mode
+   bubble, tone 80 for a badge), so a pick near the network's own hue, or a change of
+   lightness alone, showed nothing at all. Now a pick is used exactly, in light and dark
+   mode alike, for the bubble and for the badge; the text on it is black or white,
+   whichever reads better. The test pick was reset afterwards. Seen while there and not
+   touched: the studio's contrast warning lists every network at about 1.4 to 1, which
+   cannot be right for the bubbles on screen; to look at next.
+2. **Unmerging.** Chat details already had a split button per member, but as a bare
+   icon beside the call buttons, and the owner did not find it. Each member now has a
+   labelled "Remove", and an "Unmerge all" button beside "Add a chat…" dissolves the
+   whole merge and returns to the chat list.
+3. **A merged chat opened on Google Messages from the WhatsApp list though its unread
+   message was on WhatsApp** (2:40 PM; from All it opened right). Not the list's doing:
+   a race on the first visit to a chat since the app started. The screen marks the chat
+   read as soon as it shows, and that marking fans out to every member; the opening rule
+   waited for the member list flow to load before looking at the members' unread counts,
+   and on a first visit the marking won, so every count was zero and the rule fell back to
+   the default network. On a later visit the view model was still alive with the members
+   loaded, so the rule won, which is why All "worked". The rule now asks the store for the
+   members directly, and the read marking waits until the rule has decided. A test opens
+   a merged chat for the first time with one unread member and checks the network chosen
+   and that the members are marked read only afterwards. (Its first version reported the
+   chat visible twice, itself and through the screen, so the rule ran again after the
+   marking and failed on GitHub; the screen alone reports it now, three local runs green.)
+
+### Owner note at Gate G11 (2026-10-04, 3:15 PM): colour numbers "do not stick"
+
+The owner set every network's bubble to colourfulness 65 and lightness 30, and every
+gradient end to 50 and 60, and found the numbers different on reopening. Measured with
+the colour library rather than guessed: lightness holds everywhere; colourfulness 65 at
+lightness 30 is more colour than a phone screen can show for the green and blue hues, so
+the strongest displayable colour is kept and the slider reopens at it: WhatsApp 42,
+Google Voice 30, Signal 55, Telegram 35 (Messenger and Instagram reach 65). The gradient
+end holds at 50 for all but Google Voice (46). Nothing was lost in saving; the picker
+was silent about the limit. Now the colourfulness slider stops at what the screen can
+show for the current hue and lightness and says so ("42 of 42 the screen can show
+here"), so the number set is the number kept.
+
+### Messenger's encrypted one-to-one chats (2026-10-04, afternoon; owner: "Do it now")
+
+Built ahead of the gate at the owner's word. Messenger moved personal one-to-one chats to
+end-to-end encryption carried over the WhatsApp protocol. The bridge now does what the
+reference bridge does:
+
+- **A device registered with Meta once.** On the first connect after this build the
+  bridge registers the phone as an encrypted-chat device (the web page's crypto token
+  signs the request) and keeps the keys in a store at `files/messenger-keys/<account>.db`,
+  opened with the same SQLite driver as WhatsApp's. If Messenger later forgets the device
+  (connect failures 401, 415, 418), the bridge deletes it and registers again, twice at
+  most, then reports the failure in the log.
+- **A second client against Messenger's servers**, started once the web socket is up,
+  through the library's own `PrepareE2EEClient`. Its messages, reactions, edits, unsends,
+  read receipts, and typing become the same events the web tables give, so the Kotlin
+  side is unchanged apart from the key store path and an "e2ee" state event for the log.
+- **Thread identity.** The web listing shows an encrypted chat under a thread key that is
+  not the other person's id; a mapping row ties that key to the chat's id on the channel
+  (the other person's id for a one-to-one chat). The chat is now shown under that id, so
+  the member is the person and the phantom "Messenger user" is gone. The old web-key chat
+  is reported gone, which also clears the empty rows from before this build. A message
+  for a chat the listing has not named yet makes the chat on the spot, and the mapping
+  folds it in when it arrives.
+- **Sending** on an encrypted chat goes over the channel: text and replies, pictures,
+  videos, GIFs (as a video that plays as one, as Messenger wants), voice notes, files,
+  stickers, reactions, edits, unsends, read marks (by sender, as the channel wants, plus
+  the web read mark so the inbox agrees), and typing.
+- **Receiving:** text, pictures, videos, voice notes, files, stickers, places (as a map
+  link), shared links and cards, and view-once media as ordinary media. Attachments are
+  fetched and decrypted on demand through the bridge by a handle in the media address.
+  A contact card, a picture set, and a view-once card on Messenger's own wrapping show
+  as "open it in Messenger".
+- **No history.** Encrypted chats have no history on the server; only what arrives after
+  connecting is seen, and the chat says it has nothing older. Not a choice: the protocol.
+
+Bridge tests cover the mapping, a channel message under the mapped thread, a chat made
+before its listing and folded in, reactions, edits, unsends, and media wrapping.
+
+**On the phone (4:31 PM):** the registration went through on the first start ("ICDC
+registration successful", device 833141165:76), the channel authenticated and connected
+within ten seconds of sign-in, and the Messenger list shows plain names (Brett Parker,
+Toni Botting, Don Aiken, ...) with no "Messenger user" and none of the old empty rows.
+Every chat says "No messages yet". Sending and receiving on the channel wait for the
+owner's test: a message in from someone, and one out from PingMe.
+
+**Owner, 7:03 PM: "You haven't put the Messenger messages into the chats"**, with the
+Messenger app showing unread messages in those same chats. Those messages were encrypted
+for the devices the account had when they were sent; PingMe's device did not exist until
+4:31 PM, so the server has nothing for it (the channel delivered zero waiting messages on
+connect, and the web tables carried no message rows for those threads). That is what
+end-to-end encryption means, and it covers the current unread ones too. One thing left
+to try, added here: when an encrypted chat is opened, the bridge asks the web side once
+for its history under both of its ids (web key and channel id), as the reference bridge
+does, and logs how many messages came back. If Facebook still serves the messages from
+before the chat went encrypted, they appear; if not, the only route left is Messenger's
+"secure storage" backup (PIN), which neither the library nor the reference bridge reads.
+
+- **The box's placeholder** ("Send a Google Message") wrapped to two lines and grew the
+  box (owner, 3:38 PM). It is one line now and shrinks to fit, down to 11sp.
+
+**Owner note (3:40 PM), queued after this:** merge suggestions should treat a phone
+contact with a number as a Google Messages chat to merge with, even when no chat with
+that number exists yet.
+
+### Owner notes of 2026-10-04, evening (Instagram chats vanishing; contacts as text chats)
+
+1. **Instagram chats vanish from the inbox** (7:03 PM: Jake, Grégory Ellis, theevandiaries;
+   7:08 PM: Kameron Michaels, right after the owner reacted to a message there; Jake's
+   and Grégory's last events were reactions too). The phone's log buffer for those
+   minutes held no PingMe lines, and the live capture started at 7:08 PM caught nothing
+   either: the removal path logs nothing yet. Read through: nothing on the reaction path
+   deletes a chat, so the chat must be leaving the inbox query another way (a folder
+   move to General or Requests, a merge, an archive, or a removal the network asked
+   for). This build writes each of those to the log: every chat removed at a network's
+   word, every folder change on a listing, every message dropped for a hidden chat, and
+   every Instagram folder-move or thread-gone event. The next vanishing names its cause.
+   **Then the owner searched: "Jake" was found, so the chat was stored and not deleted.**
+   Found by reading with that in hand: when a network re-lists a thread, the stored
+   chat took the listing's time as its own, and Instagram re-sends a thread with a stale
+   time after a reaction or a folder change; the chat sank to that old place in the list,
+   far below the fold, which reads as vanishing. A listing now never moves a chat
+   earlier than it already is, and a reaction lifts the chat to the reaction's time, as
+   Instagram's own list does ("Liked a message · 6m" sits at the top there). Test added.
+2. **Contacts as Google Messages chats to merge** (3:40 PM; "fix everything", 7:05 PM).
+   A phone contact with a number now counts as a Google Messages chat before any text
+   has been sent to it. Suggestions: a chat, or a cluster, with no Google Messages member
+   gets the contact whose card is the person's, or whose name reads the same, offered as
+   its text chat; a chat on its own gets such a suggestion too. The two pickers (Settings
+   > Merge chats, and Chat details) list every contact number as a Google Messages chat.
+   On merge the real chat is started first (the Google Messages connector opens a
+   conversation to the number), then merged. Offers are read from the address book with a
+   one-minute cache. Tests cover offers by card and by name, and none where a text chat
+   already exists.
+
+### Owner note (2026-10-04, 7:29 PM): a nameless Messenger chat after a story reply
+
+The owner replied to a story from Messenger itself; PingMe showed a chat with no name, a
+plain person mark, and two bubbles carrying "You replied to Joshua's story". Two faults
+in the new channel code: a chat the channel started before the web listing named it was
+filed under nobody when the first message was the owner's own (only the sender was
+looked at), and a story reply was shown as its card alone. Now a one-to-one chat made
+from the channel always has the other person as its member (the chat's id on the channel
+is their id), named from the contact rows, or fetched from the web by id and announced
+again; and a story reply shows the reply's own text with "Reply to a story" as the card.
+Tests cover the naming.
+
+**On the phone (7:56 PM build):** the channel reconnected with the registered device in
+six seconds; the nameless chat became "Joshua Raifman" from the web listing; his reply
+"Thank you clay :)" arrived over the channel under his name (the first message received
+on it); and his chat shows "Happy birthday" from April 2022, so the web listing does
+still carry the messages from before a chat went encrypted, and the mapping folds them
+in. The web history request itself never fired: it sat on the "older messages" path,
+which only runs when scrolling up, not on the first page. Moved to the first page, so
+every encrypted chat asks once when opened or backfilled. Also seen: Grégory Ellis's
+Instagram chat "moves GENERAL -> PRIMARY" on the listing, so General misfiling was a
+second way chats left the list; the folder-event log line will name what filed it there
+the next time. The Telegram lines "Removed chat ... at the network's word" at start are
+the old "joined Telegram" notice-only chats being cleared, by design.
+
+### The 7:56 PM build froze the app (owner, 8:20 PM: "No accounts. No messages. Keeps crashing")
+
+No crash: "PingMe isn't responding", first at 7:57 PM, one minute after that build
+started, then on every touch. The contact-offer matching ran on the main thread and
+compared every chat against every contact with the name normalisation done afresh for
+each pair, on every change of the chat list; with hundreds of chats and a thousand
+contacts the main thread never came back, so the screen showed the empty first state
+("No accounts"). Put the 4:31 PM build back on the phone at 8:22 PM so it works again;
+killed the pending build that carried the same code. Fix: the offers are indexed once by
+contact card and by name key, so each chat's lookup is a map read, and the suggestion
+flow runs off the main thread. The next build carries everything from the evening plus
+this. Lesson written down: anything that scales with the address book runs off the main
+thread and is indexed, never nested.
+
+### The 8:25 PM build on the phone (2026-10-05, 4:33 AM)
+
+Installed once wireless debugging came back; started by me, with PingMe brought to the
+front and looked at: Connected, every network listed, chats and messages present, no
+"not responding" in its first minutes. The freeze is gone. What could not be read: the
+Messenger history answers, because the phone's log buffer is 256 KB and the Messenger
+library's column warnings (seventeen per thread, hundreds per listing) fill it and make
+the log client drop lines ("liblog: 44" in the log is 44 dropped). Brett Parker's and
+Toni Botting's chats still show nothing after opening. Two changes for the next build:
+the library's own log goes out at error level only (PingMe's lines stay at info), and the
+connector logs how many messages the first page of each Messenger chat returned. The
+phone's log buffer was also raised to 8 MB for the session (until reboot).
+
+**The 4:42 AM build (5:05 AM): the history question settled.** With a readable log, the
+bridge asked the web side for the history of every encrypted Messenger chat under both
+of its ids, 52 requests; every one answered zero messages, none refused. The three
+Messenger chats with messages are the ones whose listing carried them. So the messages
+sent before PingMe's device existed cannot be fetched by any route PingMe has; only
+Messenger's "secure storage" backup (PIN) holds them, and no library reads it. New
+messages on those chats arrive and replies go out. Also confirmed on that start: no hang,
+the channel up in seven seconds, PingMe's own lines all present in the log.
+
+### Owner notes of 2026-10-05, 5:17 AM: Instagram reactions refused, reads not marked
+
+Both from one cause. The Instagram connector keeps an in-memory note of every message it
+has seen since the app started, and used it to find a message's thread (for a reaction,
+unsend, or edit) and its time (for a read mark). After a restart that memory is empty,
+so reacting to any message from before the start was refused with "Wait for the message
+to finish sending", and a read mark for such a message was dropped without a word, so
+Instagram kept the chat unread. Every build today restarted the app, so every older
+message hit this. Now a message id carries its thread, so reactions, unsends, and edits
+need nothing remembered; and a read mark for a message not seen this session fetches a
+page of its thread to learn its time (falling back to now). WhatsApp and Signal share the
+refusal wording but repopulate their memory from the history the network sends on
+connect; left alone until seen on the phone.
+
+**6:06 AM build on the phone:** reactions on older Instagram messages go through (owner
+confirmed). Read marks still do not reach Instagram. The log of the minutes spent
+reading shows no read-marker line at all, neither a failure nor a refusal, and the mark
+call matches the library's shape, so most likely no mark was sent: the one thing that
+stops it before sending is PingMe's own "Send read receipts" switch, which was off for
+Instagram at Gate G7. Asked the owner to check Settings > Privacy. The next build logs
+each read marker sent, and each held back by the switch, so the log names it.
+**Owner: the switch has always been on.** Then the path is the only other one: PingMe
+told the network about a read only when the chat still counted as unread in PingMe. A
+chat PingMe had already read before this morning's fix, when Instagram's marks were
+being dropped, was never told again, so Instagram kept it unread for good. Now opening
+a chat tells its network it is read whether or not PingMe still counts it unread (a
+merged chat tells each member's network); the unread case keeps its existing path.
+**On the phone (6:50 AM build):** opening a chat logs "Read marker sent to INSTAGRAM for
+..." with no failure. **Owner, 7:30 AM: typed messages now read in Instagram; a reaction
+to one of the owner's messages does not.** The mark named the newest message and its
+own time as the watermark, and a reaction that came after it sits past that time. The
+watermark is now the time of reading, so whatever came before the open counts.
+The hex box build (6:46 AM push) installed on the phone at about 7:25 AM.
+
+### Owner note (2026-10-05, 6:25 AM): hex codes for any colour
+
+Every colour picker in Appearance (seed, manual palette, network bubble and badge, chat
+wallpaper, and the per-chat bubble colour, which all share the one sheet) has a "Hex
+code" box above the sliders. A typed #RRGGBB (with or without the #) sets the colour
+exactly and is kept exactly on Done; the sliders move to its nearest hue, colourfulness,
+and lightness; moving a slider or tapping a quick swatch takes over from the typed code.
+The box shows the current colour's code at all times and marks itself when the text is
+not a code yet. Test: a typed code for WhatsApp's bubble is stored exactly.
+
+### Gate G11: the owner's checklist
+
+Built on the `phase-7` branch. Rewritten 2026-10-04, 2:30 PM, to match what is built
+after the owner's rounds of notes (the first version named a banner and chips that no
+longer exist). Please check, in this order:
+
+1. **Contacts.** Allow contacts if asked. Chats with people in your address book show
+   their contact name and photo: inbox rows, pinned tiles, the chat header, Chat
+   details, the new-chat list, and the sender's picture on a notification. A one-to-one
+   chat that was titled by a bare number takes the contact's name. Someone known only
+   by a number shows a plain person mark, not digits. Your own number never names a chat.
+2. **Pictures.** Instagram and Messenger chats show the person's profile picture. A
+   group's avatar is built from its members' pictures: two side by side, three in a
+   triangle, up to nine in a ring, ten or more as the multicoloured asterisk, you left out.
+3. **Unread and merged rows.** An unread chat has the orbiting ring, on rows and on
+   pinned tiles, with the row tint; no dot anywhere. A merged row shows no network
+   badges. Avatars are the same size everywhere, merged or not.
+4. **Settings > Merge chats.** "Merge chats you pick" opens a picker of one-to-one chats
+   with each person's number or username; pick two or more on different networks and
+   merge. "Suggestions" shows the count and opens the suggestions screen. On a card: the
+   reason is named (same contact, same number, or similar name); leaving a chat out,
+   adding any chat from the picker, and dismissing each do what they say; you can pick
+   which network sends by default and which picture the merged chat uses; Merge makes
+   one chat. A dismissed suggestion stays gone. Nothing about merging appears in the
+   inbox uninvited.
+5. **Merge from the inbox.** Hold an avatar, pick chats on different networks, tap Merge
+   in the toolbar. One row appears with the newest message across all of them. Mark it
+   read: every network is read. Mute, archive, pin, and delete act on the whole. In Chat
+   details of an ordinary chat, "Merge with…" offers the other one-to-one chats.
+6. **Network filters.** Under a network's button a merged chat appears only if it has a
+   message on that network, placed by that message's time, and shows that network's
+   newest message. Under All it is placed by its newest message anywhere.
+7. **The merged chat.** Bubbles keep their network colour only; tap one and the network
+   badge sits beside the time and ticks. The header badge opens a dropdown: All or one
+   network. One network narrows the bubbles and sets the box; All brings everything
+   back. The badge inside the box does the same thing as the header. The box says "Send
+   a WhatsApp message", "Send an Instagram DM", and so on. Send on each network and
+   confirm it arrives there. GIFs are in the + menu. Opening rule: unread messages all
+   from one network open the chat on that network; otherwise it opens on the default
+   network, never on All.
+8. **Chat details of a merged chat.** The member chats are listed with their number or
+   username; tapping one sets the default network; the split button returns that chat
+   to the inbox on its own; "Add a chat…" works; the phone and video buttons on each
+   member call on that network (say what each one did: dialled at once, opened the
+   app, or nothing).
+9. **Bottom bar.** Four chosen buttons and More, line icons, long labels wrapping to two
+   lines. More lists the rest with unread dots; picking one opens the inbox on it. The
+   editor allows four.
+10. **Appearance.** Each network's row shows the real bubble and the real badge. The
+    first swatch is the bubble and badge colour; the second is the gradient's end and
+    the header accent. Changing a colour changes the chat.
+11. **Pictures full screen.** Pinch to zoom, drag while zoomed, double tap to toggle.
+12. **Instagram.** Only the last 30 days of Primary are listed. General folder chats
+    stay out of All and under the General list. A video taken in the chat and kept
+    plays as an ordinary video.
+
+Known gaps, not hidden: Messenger one-to-one chats hold no past messages (the encrypted
+channel is built; Messenger keeps that history only in its own secure backup); how a
+merged row is marked is still the owner's call; the demo network cannot show a merge on
+the emulator; whether Google Voice, Messenger, and Meet dial at once or open the app is
+an open question until tried on the phone.
+
+### Owner notes of 2026-10-05, 8:40 AM: photos, the box badge, the diagnostic file, the merge tap
+
+The owner: "The Whatsapp, telegram, and signal profile photos.... that's your
+responsibility. Why have you not already done it?" Done in this step, all three:
+
+- **WhatsApp.** After the contact list arrives, the session asks WhatsApp for the profile
+  picture of each one-to-one chat partner that has none yet (up to 80 a connection, one
+  request at a time, the small preview size) and reports the people again with the
+  picture's address every ten found. People who hide their picture are simply left as
+  they were. Pictures are kept by the app's avatar saver like Instagram's.
+- **Telegram.** Each user Telegram tells the session about has their small profile photo
+  downloaded once (two at a time), copied beside the account's other files under
+  `avatars/<user id>.jpg`, and the person reported again with the path. Telegram's own
+  store keeps the original.
+- **Signal.** The Go bridge writes the contact list's picture for each person beside
+  the account's store under `avatars/<id>.jpg`, and when a person has only a profile
+  picture it fetches and decrypts that in the background, then reports the contact
+  list again. Members carry an `avatar` field the Kotlin side keeps.
+
+"The box badge marking a disconnected account.... I don't even know what that means."
+It is the rule in UI_DESIGN.md 10.15: in a merged chat the badge inside the box names
+the network the message goes on, and when that account is disconnected the badge gets
+a red ring and the box says "WA is not connected; the message will wait". Built now,
+for merged and plain chats alike.
+
+"The Instagram general misfiring is something you were supposed to fix yourself
+already." The fault has not shown itself while the log was being read, and the phone's
+log is gone by the time debugging is on. So PingMe now keeps its own small diagnostic
+file on the phone: `Android/data/org.pingme.app/files/diag/pingme.log`, half a
+megabyte and the one before it,
+holding chat removals, folder moves, dropped messages, read markers, and Instagram's
+folder and thread-gone events. Nothing leaves the phone (DESIGN.md 6.5). When the
+misfiling happens again, the owner turns wireless debugging on at any later time and
+the file says which event moved the chat. Added as `Diag` in the connector API module
+so every connector can write to it.
+
+"When I accept a merge suggestion by tapping 'merge' I get the error 'pick at least two
+chats to merge'... go back to tap 'merge' again, it goes through fine." A contact-only
+suggestion starts a Google Messages chat for the number first, and the merge ran before
+the chat row was stored. The merge now waits for the row (up to five seconds) before
+joining, so the first tap goes through.
+
+Test on the phone: pictures appear on WhatsApp, Telegram, and Signal rows within a
+minute of connecting (people with hidden pictures keep their initials); a merge
+suggestion merges on the first tap; turning Wi-Fi off and opening a chat shows the red
+ring and the "not connected" hint in the box.
+
+### Owner notes of 2026-10-05, 8:29 and 8:41 AM: unviewed view-once photos shown as gone; no Instagram typing
+
+"These are all ephemeral photos that are still unviewed in Instagram. PingMe has not
+populated them at all... And it obviously has not made them permanent as it's supposed
+to." Four view-once photos from one person read "A view-once photo or video that
+Instagram no longer shows" while Instagram still had them unviewed.
+
+What the code says: the bridge calls a view-once message gone whenever Instagram's copy
+of it carries no attachment, which is also how the reference bridge (mautrix-meta
+v0.2609.0) reads it. Two things were wrong on PingMe's side and are fixed here:
+
+- **A held file was being thrown away.** When Instagram hands the same message back
+  later without its attachment (the start-up listing, or the page fetched to mark the
+  chat read), the service overwrote the stored message wholesale: the picture PingMe
+  had already fetched, and its kind, were replaced by the "no longer shows" line. Now
+  a message that already holds a view-once file keeps its file, kind, and body when a
+  copy without attachments arrives.
+- **Nothing recorded what Instagram actually sent.** The library's "unknown fields" map
+  turned out to stay empty (its tag is not one the JSON parser honours), so the bridge
+  now keeps the whole live event (up to 6,000 characters) on a file-less view-once
+  message, and the connector writes it, and the message's content type, to the
+  diagnostic file: "View-once without a file (live|listed) thread=… id=…: …". If
+  Instagram delivers the bytes some other way for an unviewed photo, the next one will
+  show it, and the bridge can be taught to fetch it. If the record shows nothing but
+  the view mode, Instagram is not giving the web client the file, and the design table
+  in UI_DESIGN.md 10.16 will be corrected to say so.
+
+"Instagram is also not showing typing indicators in PingMe, even though they do show in
+the Instagram app itself." The typing stream names the thread by its long id (the
+24-digit one), while PingMe's chats go by the short thread id, so every typing event
+landed on a chat that does not exist. The bridge now maps a known long id to its short
+one before reporting typing. A typing event for a thread PingMe still does not know is
+written to the diagnostic file so the cause is visible if it is something else.
+
+Test on the phone: someone typing in an Instagram chat shows the dots in PingMe; a new
+view-once photo either shows (and stays) or leaves a "View-once without a file" line in
+the diagnostic file for me to read (`adb pull
+/sdcard/Android/data/org.pingme.app/files/diag/pingme.log`; the 8:45 AM build wrote it
+to private storage, which debugging cannot read, so this build moves it).
+
+### Owner notes of 2026-10-05, 9:07 and 9:09 AM: "pin up to 12" with eight pinned; the contrast warning
+
+"Attempting to pin another conversation to the top of the inbox gave me this error"
+(with eight pinned tiles on screen). The pin limit counted every chat row with the pin
+flag, including rows that show nowhere: a chat folded into a merged chat keeps its flag
+(the merged chat takes the pin), and a chat in Requests or General is not in the grid.
+Four or more such rows filled the twelve. Now only pins that show in the grid count.
+
+"Get rid of this big ass warning. I know what I can see or not see using my own eyes."
+The red "Some text will be hard to read" card in Appearance is gone, and UI_DESIGN.md
+7 and 10.1 now say the preview is the check and there is no contrast warning. The
+contrast arithmetic stays in the theme module (black-or-white text on a picked colour
+still uses it); only the card is removed.
+
+### Owner note of 2026-10-05, 9:14 AM: unread on the bottom bar by label colour
+
+"Instead of placing that little dot on an icon when a network has an unread message...
+make the font of the title of that network display in the color assigned to the network
+in appearance settings... If there are unread messages in one of the networks/spaces
+that overflow into the More section, print the word 'More' in the current color of the
+phone's theme." Done: the dots are gone from the bar, the rail, and the list behind
+More. A network's label takes its bubble colour from Appearance while it has unread
+messages; All, Unread, a space, and Low priority take the theme's primary colour (a
+space has no network colour, so it takes the theme's, the same as More); More takes the
+theme's primary colour when anything behind it is unread. UI_DESIGN.md 3.1 updated.
+
+### Builds on the phone (2026-10-05)
+
+- 8:45 AM: profile pictures, the box badge, the diagnostic file (private storage), the
+  merge first tap.
+- 9:32 AM: the held view-once file, Instagram typing by short thread id, the diagnostic
+  file under Android/data.
+- 9:55 AM: bar labels coloured by network when unread, the pin limit counting only
+  visible pins, the Appearance contrast warning removed.
+
+Next: the owner's Gate G11 checklist (above) plus these: typing dots in an Instagram
+chat; a new view-once photo (shows and stays, or leaves a "View-once without a file"
+record for me to pull); pinning a ninth chat; the bar's coloured labels; the merged-row
+mark is still the owner's call. Phase 8 waits for the gate.
+
+### Owner note of 2026-10-05, 10:15 AM: chats missing from the Instagram inbox
+
+"Why are there still messages missing from the Instagram inbox?" Five of Instagram's
+top rows (Daniel Waynick, ericbellmoves, Thayne Jasperson, Kevin Wiltz, parker) were not
+in PingMe's Instagram list while the rows around them were.
+
+From the diagnostic file (first pull, 10:15 AM) and the code: at start-up the bridge
+hands over the first mailbox page with each thread's newest messages; every later page
+is listed through the sync as bare chats, and their messages were thrown away. So a
+chat whose last messages arrived while PingMe was closed had no stored message at all.
+A plain chat still shows (with "No messages yet"), but a merged chat is shown under a
+network filter only when its member on that network holds a message, so the merged
+ones vanished from the Instagram list. The rows that did show all had messages from
+live events or the owner's own sends. Fixed: every listed page now carries its threads'
+newest messages into the store.
+
+The same pull showed six chats moving Requests to General one after another during the
+inbox listing (Kris Wojciechowski, Britt Pauline, Yoshi's, Justin Hammond, Tracie, Kayla
+Edie Mora), which is the General misfiling the owner has been reporting. The request
+listing files them as Requests; a later listing files them as General. The diagnostic
+file now records, for every thread not filed as Primary, the three folder fields
+Instagram sent and where the thread came from, so the next pull names the field that
+flips. Not yet fixed: the fix needs those fields.
+
+Also seen: one view-once video listed with nothing but "RAVEN_VIDEO" as its content
+type and no message id; the live form is still to be caught.
+
+### Owner note of 2026-10-05, 10:45 AM: who placed a reaction in a group chat
+
+"Someone else in the group chat reacted to Terry's message with a thumbs up. But I can't
+see who reacted... Probably something like tapping on the reactions area to reveal all
+reactions and who placed them." Done: the reaction chips under a bubble are a button
+("See who reacted"); a tap opens a sheet listing every reaction with the emoji, the
+person's name, and the time, newest first. The owner's own reactions read "You";
+someone PingMe has no name for reads "Someone". UI_DESIGN.md 3.2 updated.
+
+### CI, 2026-10-05, 11:03 AM: the WhatsApp contract test read an empty first page
+
+The reactions build failed one CI run (the other passed) on the WhatsApp contract test
+that pages history backwards: the first page came back empty. Right after connecting,
+the session waits up to ten seconds for the history sync to land before answering a
+first page, but that wait ran on the test clock, which skips delays, so the page was
+read before the fake's history had been processed. The profile-picture fetch added this
+morning runs beside the event loop and widened that window. The wait now runs on the
+real clock, and the picture fetch runs on its own thread pool. Three local runs of the
+WhatsApp tests in a row pass.
+
+### Owner notes of 2026-10-05, 11:00 to 11:20 AM: haptics, drawers under the keyboard, pin reordering
+
+"Nothing about haptics is working. None of the haptics settings do anything. None of
+the per-chat haptics do anything." In-app haptics went through the framework's touch
+feedback, which the owner's phone never turned into anything felt. PingMe now drives the
+vibrator itself (`HapticPlayer` in the theme module; VIBRATE permission added): a tick
+for a swipe threshold, a long press on a bar button or the send button, and a voice
+note locking; a bump for a reaction landing, a recording starting, and a pinned tile
+lifting; two quick ticks for a cancelled recording. Light and Strong use different
+effects; Off plays none. The per-chat "haptics" are the notification vibration
+patterns in Chat details; those go through the chat's notification channel, which is
+rebuilt with a new version whenever the pattern changes (checked: the version bumps).
+Picking a pattern now plays it once so the choice is felt immediately. If notifications
+still do not vibrate after this build, the phone's own "vibrate for notifications"
+setting is the next thing to check, since Android applies it above every channel.
+
+"If the keyboard opens over top of these drawers... the drawer should automatically
+slide up itself so it's still visible above the keyboard." Every drawer now goes
+through one `PingMeSheet`: it opens fully (no half stop) and its content pads itself
+above the keyboard. Applied to all thirteen drawers (GIF, emoji, colour picker, attach,
+send later, forward, chat actions, chat picker, bar editor, account picker, delete,
+info, reactions). UI_DESIGN.md 4.5 updated.
+
+"Allow me to press and hold the pinned chats at the top of the screen so I can reorder
+the pinned ones." Press and hold a tile: it lifts with a bump, follows the finger, and
+the other tiles make room as it crosses their slots; letting go saves the new order.
+Letting go without moving opens the chat's action sheet as before. Works in the grid and
+the row styles. UI_DESIGN.md 3.1 updated.
+
+### Owner notes of 2026-10-05, 11:27 AM: "GM is not connected", the cut-off notice, one name on the chip
+
+The phone's log says what happened at 11:27: the network blipped (Instagram re-subscribed
+its live socket at 11:27:24, Signal's directory answered 429 at 11:27:28), and a Google
+Messages request to Google's server then sat with no answer until it timed out at
+11:31:30. Google Messages sent and received normally up to 11:27:52. Both accounts went
+to "Reconnecting" and the supervisor's backoff took over; nothing in PingMe dropped them.
+From this build the supervisor writes every reconnect (which account, why, which try,
+how long until the next) and every return to Connected or "needs attention" to the
+diagnostic file, so the next one explains itself without a log dump.
+
+"I can not read that entire message in the text input box because it cut off. It
+should wrap." The "<network> is not connected; the message will wait" line is a notice,
+not a prompt, so it now wraps; the ordinary "Send a WhatsApp message" prompts still
+shrink to one line as the owner asked on 2026-10-04.
+
+"The inbox screen only says Instagram is disconnected. But the accounts screen shows
+both IG and GM are reconnecting." The chip under the bar and the pill in the bar now
+name every account in that state ("Instagram, Google Messages reconnecting"); a tap
+still goes to the worst one.
+
+### Owner note of 2026-10-05, 11:41 AM: two pictures sent in Google Messages, one arrived
+
+"I attached two images... according to the recipient only one of them came through."
+The phone's log: PingMe sent one message carrying two pictures (11:39:41, media=2); the
+copy Google handed back had one (11:40:36, media=1). Google Messages keeps one picture
+per message and drops the rest, which is why the Messages app itself sends each picture
+as its own message. The stand-in bubble showed both; the network's copy then replaced
+it with one picture that had no file on the phone, hence the empty box.
+
+Fixed: a connector now says how many attachments one message can carry (Google
+Messages: one), and the service sends a draft with more as that many messages, the
+text riding with the first. Each gets its own stand-in and its own echo, so the bubbles
+match what was sent.
+
+### Owner note of 2026-10-05, 12:00 PM: a reply from the notification shade sent nothing
+
+"Tapping send does dismiss the notification... But it did not. The reply didn't get sent
+and it's not in the chat." The receiver behind the shade's Reply button sends the text
+through the same path as the message box and then marks the chat read, which takes the
+notification down. The phone's log held nothing from the attempt (the log buffer on
+this phone turns over in minutes), so the receiver now writes every step to the
+diagnostic file: the action and chat it got, how many characters, the message it made
+and its status, or the error. The next attempt will say which step failed. Nothing is
+changed in the send itself until that is known.
+
+CI, 12:00 PM: one run failed on the Facebook Page contract test that disconnects while
+the poll loop is running: the loop tried to send after the stream had closed. The loop
+now treats that as the end of the stream.
+
+### Owner note of 2026-10-05, 2:30 PM: the avatar in an Instagram chat opens the profile
+
+"When in an Instagram network chat, touching the contact's avatar in the top bar should
+open up their Instagram profile page." Done: in a direct Instagram chat (or a merged chat
+sending on Instagram) the header's avatar opens instagram.com/<username>, which the
+Instagram app takes over; the name still opens Chat details. A person known only by a
+numeric id has no page. UI_DESIGN.md 10.17 updated.
+
+### Builds on the phone (2026-10-05, afternoon)
+
+- 10:56 AM: every listed Instagram page stores its messages; folder fields recorded.
+- 3:55 PM (one build, after the phone was off debugging from 12:20 to 3:50): one picture
+  per Google Messages message; vibrator haptics; drawers above the keyboard; pinned
+  reorder; who-reacted sheet; status chip naming every account; wrapping notice;
+  Instagram profile from the avatar; shade reply steps and reconnects in the diagnostic
+  file.
+
+Next: the owner tries a shade reply, then the diagnostic file names the failing step;
+Gate G11 checklist; the merged-row mark is still the owner's call.
+
+### Owner note of 2026-10-05, 7:24 PM: New chat should always start on Google Messages
+
+"When starting a new chat... The picker should ALWAYS default to Google Messages."
+Done: the Google Messages chip comes first and is picked whenever the screen opens.
+The screenshot also showed WhatsApp's raw ids under names ("12024137187@s.whatsapp.net",
+"...@lid") and the same person twice (once by number, once by hidden id); the second
+line is now the number or a username and never a raw id, and a hidden-id twin of
+someone already listed is left out. UI_DESIGN.md 3.1 updated.
+
+### 2026-10-05, 8:40 PM: the Instagram avatar tap, tested on the phone
+
+With the owner's leave, PingMe was driven on the phone: Instagram filter, Jeff
+Brackett's chat, a tap on the header avatar. The profile page opened, but in Chrome,
+not the Instagram app, because the phone does not hand instagram.com links to the app.
+The page is now sent to the Instagram app by name when it is installed, with the
+browser as the fallback. The owner's earlier tap was on the build before the feature.
+
+Installed 9:10 PM and tested again on the phone: the avatar tap now lands in the
+Instagram app on the person's profile. Also on the phone since 8:33 PM: New chat on
+Google Messages with clean second lines. Still to test by the owner: a reply from the
+notification shade (the diagnostic file records each step).
+
+### 2026-10-05, 10:15 PM: three more tests on the phone, with the owner's leave
+
+- New chat opens on Google Messages, chip first and selected; the list shows numbers,
+  no raw ids. Passed.
+- Full Team group: a tap on the thumbs-up chip opens the Reactions sheet with the
+  emoji, the name, and the time. Passed. The sheet names Terry Anzaldo for the reaction
+  on Terry's own message; PingMe names whoever Google's reaction record lists, so the
+  owner is asked to compare with the Messages app.
+- GIF picker with the keyboard up: the sheet's handle sits at the top of the screen and
+  the search box is well above the keyboard. Passed.
+The shade reply stays with the owner: a test would send a real message from the
+owner's account.
+
+### 2026-10-06: the call buttons, checked against the apps on the phone
+
+The owner restated what the header's phone and video buttons must do on each network
+(dialer and Google Meet for Google Messages; the app's own audio and video call for
+WhatsApp, Signal, Instagram, Telegram, and Messenger; Google Voice for Google Voice, with
+no video button). With the phone online, the installed apps' intent filters and the call
+rows they add to the phone's contacts were read (read-only, no screen control). Findings
+and fixes:
+
+- **Google Meet** does not answer a plain view of a tel: number, so the video button had
+  been opening Meet's front page. It now uses Meet's own call action and starts the call.
+- **Google Voice** answers the system call action itself, so the button now dials the
+  number at once inside Google Voice instead of opening the app.
+- **Phone-call permission** was declared but never asked for. The first tap on a dialer
+  button asks once; refused, the dialer opens with the number filled in and a notice says
+  why.
+- **Signal video** used Signal's audio-call row; it now uses the video-call row Signal
+  adds.
+- **WhatsApp** has put no call rows on the owner's contacts at all (Signal and Telegram
+  have, for about 230 to 240 people each), so both WhatsApp buttons had been opening
+  WhatsApp's front page. Without the row the button now opens the person's WhatsApp chat
+  and a notice says to let WhatsApp see the contacts, then try again. Once WhatsApp has
+  contacts access and syncs, the buttons call at once. This is the one thing the owner
+  has to do on the phone.
+- **Instagram and Messenger** register no call entry point for other apps on the
+  installed versions (Instagram 439, Messenger 581), so no app can start their calls.
+  The design asked for calls; the nearest thing is built: the button opens that exact
+  chat in the app (instagram.com/direct/t and messenger.com/t links, sent to the app),
+  where the call buttons are at the top, and a notice says so. Before it opened only the
+  app's front page.
+- Each button's long-press now says what the tap will do on this network, as 10.17 asked.
+- Chat details of a merged chat use the same placer, so its per-member buttons gain all
+  of the above.
+
+UI_DESIGN.md 10.17 and open question 5 are updated with what the phone showed. Tests
+cover the Meet action, Google Voice dialing, the permission ask, Signal's video row, the
+WhatsApp fallback, the Instagram and Messenger links, and the notices.
+
+Installed on the phone at 4:51 AM (build 4f8e33b, GitHub's build of 4:17 AM). The owner
+granted WhatsApp the Contacts permission on the phone; within minutes WhatsApp had put its
+call, video-call, and profile entries on 1,005 contacts, so the WhatsApp call buttons now
+have their direct route. Current WhatsApp has no separate "sync contacts" switch; the
+permission alone is what it needed. Also of note for later sessions: after this computer's
+working session restarted, `adb start-server` hung for good; running `adb nodaemon server`
+in the background restored the phone link.
+
+### 2026-10-06: the side key records a voice note
+
+The owner asked for one of the phone's hardware keys to trigger a voice note, only while
+inside a chat, recording into that chat. The phone's buttons were read off the kernel
+(read-only): power, volume up, volume down, and the dedicated side key, which reports as
+KEY_SEARCH; Motorola's "My key" feature currently gives a single press of it to the camera
+and a double press to Moto Journal. Built: the activity hands every key-down to
+`HardwareKeys`; while a chat's composer is on screen, the search or assistant key codes
+start a hands-free recording (the same path as "Voice reply", so the microphone permission
+is checked first) and a second press sends. Any other unusual key code that reaches an open
+chat is written to the diagnostic file, so if Motorola delivers the side key under another
+code it can be added. Not yet known from here: whether Motorola's key service lets the press
+reach PingMe at all while "My key" is set to open the camera. The owner's first press in a
+chat, and the diagnostic file afterwards, will tell; if it does not arrive, the My key
+setting has to be changed to no action, which the owner does in the phone's settings.
+UI_DESIGN.md 5.6 updated. Tests cover taking the key only while a chat listens, one press
+for a held key, and start-then-send.
+
+Installed on the phone at 6:03 AM (build 9463ff0, GitHub's build of 5:35 AM; the phone was
+off wireless debugging from about 5:40 until 6:03). Waiting on the owner's first press of
+the side key in a chat; the diagnostic file will say whether the press reached PingMe and
+under which key code.
+
+### 2026-10-06, 6:10 AM: the side key never reaches PingMe; the way round it
+
+The owner pressed the side key several times in a chat on the 6:03 AM build. PingMe's
+diagnostic file has no key entry at all: the press never reached the activity. The phone
+shows why: Motorola's key service (`com.motorola.mykey`, running inside the system server)
+takes the key and runs the owner's chosen action for it (a single press opens the camera,
+a double press opens Moto Journal). No app can get in front of that. A capture of the
+kernel's key events was inconclusive (the tool buffers its output when not on a terminal).
+
+Built instead: the phone's setting for that key can open an app of the owner's choosing,
+and PingMe opened again while it is already in front, resumed, and in a chat can only be
+that, so it now counts as the press (start a hands-free recording; press again to send).
+The activity is single-top, so the relaunch arrives as a new intent. A Voice note activity
+alias also answers `org.pingme.action.VOICE_NOTE` so Button Mapper (the owner asked about
+its adb setup script) can fire it from any button it can see. The owner's step: set the
+side key's single press to open PingMe in the phone's settings. The in-app key path stays,
+in case a later Motorola update lets the key through. UI_DESIGN.md 5.6 updated; tests cover
+the relaunch rule and the intent.
+
+### 2026-10-06, 6:45 AM: hold volume up to record
+
+The side key on the owner's phone produces no press at all at the button driver, with or
+without Button Mapper (the owner uninstalled it), and the only thing left able to switch a
+key off at that level is Motorola's own software (Moto Unplugged is an active device
+admin; Motorola's key app carries a "disabled by your enterprise admin" dialog). The owner
+is trying a restart; if the key stays dead it is hardware, and the relaunch handling from
+6:14 AM is ready for whenever it comes back.
+
+Built in the meantime, at the owner's request: volume up held in an open chat records, and
+letting go sends, like holding the mic; a short press cancels the sliver recorded and raises
+the volume by hand with the system slider, so volume still works while reading a chat.
+Volume down is untouched. The activity hands key-ups to `HardwareKeys` too. Tests cover the
+down/up events being taken only while a chat listens, volume down left alone, and the
+short-press/held split. UI_DESIGN.md 5.6 updated.
+
+Installed on the phone at 7:09 AM (build 69a462b, GitHub's build of 7:08 AM). Waiting on
+the owner's first hold of volume up in a chat.
+
+### 2026-10-06, 7:30 AM: dictation by volume down, through Groq
+
+The owner's phone's built-in speech recogniser hears nothing (Gemini, Gboard, Chrome all
+deaf; third-party apps hear fine), so PingMe's on-device transcription path is no use to
+them; they use Dictate keyboard with a Groq key. Driving that keyboard's mic button is
+impossible for another app (only a keyboard can switch keyboards). Built instead, at the
+owner's suggestion: volume down held in a chat records with the microphone, and on release
+the recording goes to Groq's Whisper endpoint (whisper-large-v3-turbo, plain-text answer)
+with the owner's key from Settings; the words land at the cursor. A short press stays a
+volume press; without a key volume down is never taken. This is a deliberate exception to
+the no-other-network-calls rule, recorded in DESIGN.md 6.5: it happens only with the
+owner's own key and only while they hold the key. The key is stored in the app's settings
+on the phone, never in the code or CI. Tests cover the multipart body, the dictation state
+machine with a fake recorder and a fake Groq, and volume down taken only with dictation on.
+
+### 2026-10-06, 11:50 AM: the dictation build is 541 MB; the NDK was missing on a cache hit
+
+GitHub's build of the dictation commit (d638b17) came out at 541 MB against 366 MB for the
+one before. The Go bridge library inside grew from 78 MB to 127 MB although the bridge was
+a cache hit and unchanged: the build log says "Unable to strip the following libraries,
+packaging them as they are: libgojni.so". The NDK, which does the stripping, was installed
+only inside the bridge-build step, which runs on a cache miss; on a hit there was no NDK.
+The workflow now installs the NDK with the other SDK packages every time. The 541 MB build
+works and installs; the next build is back to size.
+
+### 2026-10-06, 12:50 PM: the Google Messages call button rang the owner's own number
+
+The owner: "Tapping the phone icon in the header of google messages chats opens the
+dialer, but it doesn't call the contact's phone number, it calls my phone number!!!"
+Google Messages lists the owner among every chat's participants (named "You"), and the
+header took the first participant with a number. The number now comes from a function
+that drops the owner by id and by that name and takes the other person's number; tested
+with the owner first in the list, with and without the owner's id known.
+
+### 2026-10-06, 2:15 PM: sent pictures in Google Messages still went blank
+
+The owner: "photos sent in google messages are STILL disappearing from the chat!!! You
+were supposed to have fixed this!!" (a sent picture shown as an empty purple bubble). The
+Gate G7 fix carried the stand-in's file over to the network's first copy of the message.
+What it missed: Google Messages hands the message back again on every status change
+(sent, delivered, read), each copy naming only the network's file, with no download
+reference while the phone's upload is still pending. The second copy arrived after the
+stand-in had been retired, found nothing to take the file from, and overwrote the stored
+copy: no file, nothing to fetch, blank bubble. Now any copy of a message that arrives
+without a file keeps the file the store already holds for that attachment (by id, else by
+position), on every network, and the diagnostic file notes each time it does. Tested: a
+sent picture listed again twice without its file keeps it.
+
+### 2026-10-06, 2:55 PM: a General chat jumped to Primary at its next message
+
+The owner: "Carrie is in the general folder!! She should NOT be showing up in my pingme
+instagram chats." Instagram's live thread update that carries a new message does not
+carry the folder fields, and the translator replaced its memory of the thread with that
+bare copy; with every folder field empty, the folder came out as Primary and the chat
+moved. Now a thread handed over without folder fields keeps the folder it was listed
+with, and a chat snapshot that does not know its folder says so (null) and the store keeps
+the folder it has. Tested: a thread listed as General, then handed over bare, stays
+General; a snapshot without a folder leaves a stored General chat in General.
+
+Installed on the phone at 6:07 PM (build 23a6bf4, GitHub's build of 3:15 PM; the phone was
+off wireless debugging from about 11:00 AM to 6:05 PM). On it: the call and video buttons
+dialling the other person, sent pictures keeping their file, Instagram chats keeping their
+folder, hold-volume-down dictation through Groq, and the stripped bridge library. The
+owner reported Nini Cre moved out of General at 4:27 PM on the old build, the same cause
+as Carrie. The diagnostic file had rotated by the time it was pulled, so those moves are
+not on record; the next one would be.
+
+## Gate G11 passed; Phase 8 begins (2026-10-06, 6:15 PM)
+
+The owner: "Go ahead with phase 8." Phase 7 is signed off with today's build (23a6bf4)
+on the phone. Still the owner's call, carried forward: the merged-row mark, and which
+Google account Meet calls from (set inside Meet). Phase 8 steps, in the plan's order:
+
+- **P8.1 Accessibility pass.** The automated accessibility checks in the Compose test
+  library on every screen test, a sweep of every control for a spoken name, then
+  TalkBack on the phone (with the owner's leave for each screen driven). The Appearance
+  contrast warning stays out, by the owner's decision of 2026-10-05.
+- **P8.2 Backup and restore**, proven on the emulator and the demo network: back up,
+  wipe, restore, compare; then a backup from the phone restored on the emulator.
+- **P8.3 Battery review** from the phone's battery statistics after a day of use.
+- **P8.4 A crash-free week** on the phone.
+- **P8.5 Tag v1.0.0**; CI attaches the APK to the release.
+
+### P8.1 Accessibility pass, part one: the automated sweep (2026-10-06, 7:40 PM)
+
+An audit in the test suite walks the semantics tree of every window on screen (the
+screen, plus any sheet, menu, or dialog) and reports two things a screen reader user hits
+first: a control with no spoken name, and a tap target under 48 dp; it also proves it saw
+controls at all. It runs on every screen test (inbox, chat, message actions, obscured
+chat, chat details, appearance, settings, login, setup) and inside the tests that open
+the account menu, the chat action sheet, the message action bar and card, the Reactions
+sheet, the selection toolbar, the attach sheet, the GIF picker, search results, the paused
+recording bar, Requests, Archived, New chat, New group, the Send later sheet, and every
+settings page.
+
+Found and fixed: each attach option was a named tappable column with a second, unnamed
+button inside it (the round icon), so a screen reader met an unnamed button beside every
+option; the circle is now only the look. Everything else passed. Also added for screen
+readers: settings section titles are headings (jump by heading), and the inbox's
+connection chip is a polite live region, spoken when it appears or changes. Part two,
+TalkBack on the phone itself, needs the owner's leave for each screen driven, or the
+owner's own pass with TalkBack on.
+
+### P8.2 Backup and restore (2026-10-06, evening)
+
+The Phase 2 backup was the bare database file, unlocked, without settings. Now, as the
+plan asks: one file locked with a passphrase, holding the database, the settings file,
+and the kept view-once pictures. The lock is AES-256-GCM under a PBKDF2 key, applied in
+megabyte chunks so a backup of any size streams in and out without sitting in memory;
+an empty sealed chunk ends the file so a cut-off copy is caught, and a wrong passphrase
+is told apart from damage. Restore unpacks the database to a temporary file, checks it
+as before (version, tables), points the kept pictures at where they landed in app
+storage, clears paths of media that is not here, swaps the settings file, replaces the
+database, and the app restarts. A plain database file from the older backup still
+restores. The Backup page has the passphrase field with a show/hide toggle; Save waits
+for a passphrase. Tests: the lock's round trip across chunks, empty input, wrong
+passphrase against damage; the store's round trip of database, settings, and a kept
+picture (with ordinary media left to download again), the wrong passphrase refusing with
+nothing changed, the old plain backup, and junk refused. UI_DESIGN.md 10.18a added. Still
+to do for P8.2: the end-to-end proof on the emulator with the demo network.
+
+### 2026-10-06, 7:30 PM: the APK is still 541 MB; the NDK must be named by version
+
+The run with the NDK installed among the SDK packages still said "Unable to strip":
+AGP looks for the NDK by its own default version unless the project names one, and the
+version installed was not that one. The earlier 366 MB builds had rebuilt the Go bridge,
+whose step exported ANDROID_NDK_HOME, which AGP also honours; the cache-hit path had
+neither. `ndkVersion` is now set in the app module to the version CI installs (the same
+one is installed here). Also added: `-Ppingme.abi=x86_64` builds a one-processor debug
+APK for the emulator, since the all-types debug APK is 966 MB and the emulator link
+here moves under half a megabyte a second.
+
+### P8.2, the emulator proof: blocked by the emulator tonight (2026-10-06, 8:40 PM)
+
+The end-to-end proof (back up, wipe, restore, compare on the emulator with the demo
+network) could not be run: the emulator here is reached over a slow link (a shell
+round trip of four to seven seconds, a 165 MB one-type install took 18 minutes) and
+after that install its system process stopped responding ("Process system isn't
+responding"), with the package service answering "Broken pipe" and a reboot not curing
+it. What is proven so far is in the tests, on real files: the locked file's round trip
+across chunks, the store's round trip of database, settings file, and a kept picture,
+the wrong passphrase refused with nothing changed, the old plain backup, junk refused,
+and the Backup page saving a locked file. The emulator proof stays open on the P8.2
+list and is tried again when the emulator is responsive; a round trip on the phone
+itself (save, then restore the same file, no wipe) is the other proof, with the owner's
+leave.
+
+### 2026-10-06, 9:00 PM: sharing into PingMe sends nothing (owner report)
+
+The owner: "The share sheet opens. The recipient is chosen. Send gets pressed. But
+nothing gets sent as a message." The phone was off wireless debugging, so no diagnostic
+file yet. What the code allowed: when every shared file failed to copy and there was no
+text, the send loop skipped the target silently and the picker closed as if it had
+worked; and when a send threw, the failure notice was raised a moment before the picker
+closed, so it was never seen. Now every step of a share is written to the diagnostic file
+(targets, files readable, the message sent and its status, any failure), an unreadable
+share says so, and the picker stays open with the reason whenever nothing went. The
+owner's next attempt, with the diagnostic file, names the failing step.
+
+### 2026-10-06, 9:20 PM: "Too short to send" after twenty seconds of dictation (owner report)
+
+The owner holds volume down, "Listening…" shows, they talk for twenty seconds, let go,
+and the voice note's "Too short to send" notice appears. So the recorder started and the
+rejection came at release: Android's stop call reporting no audio captured (which it does
+when something else holds the microphone), or the single part failing to join. No log yet:
+the phone has been off wireless debugging. Now the recorder notes every recording's
+length, parts, and whether it joined and was kept, and every stretch whose stop call
+refused; dictation that ends with nothing says so on its own line ("nothing was heard. Is
+another app using the microphone?") instead of borrowing the voice note's notice; a voice
+note and a dictation let each other's microphone go when they start; and leaving the chat
+mid-hold closes the dictation recorder. The owner's next hold, with the diagnostic file,
+names the step.
+
+### 2026-10-06, 9:50 PM: the "too short" dictation, read off the phone's system log
+
+With the phone back, the system log for the two failed holds (9:05 and 9:07 PM) shows
+the same shape: PingMe's recorder started, the audio input opened, and the input was
+stopped 80 to 100 ms later, then a new recording started at once. Not a busy microphone:
+the hold was being ended while the thumb was still down, and begun again. The key events
+are the suspect: a key-up the app did not deserve. Android marks a key-up "cancelled" when
+the system takes a held key over for a long-press of its own; such an up now keeps the
+hold going instead of ending it, and every volume key down, up (with the cancelled mark),
+and the length of each hold go to the diagnostic file, so the next hold shows the pattern
+either way.
+
+Installed at 10:05 PM (build 1e0e0a4 equivalent: the key logging). The owner's hold at
+10:06 PM worked: volume down, release 3.2 s later with no cancelled mark, 3,267 ms
+recorded and joined, 56 characters back from Groq. Whether the cancelled-release guard,
+the microphone hand-off, or circumstances (the keyboard closed) cured the 9 PM failures
+is not settled; the key and recorder notes stay on, so a recurrence will name itself.
+
+### 2026-10-06, 10:20 PM: the share that sent nothing was a share to a merged chat
+
+The owner shared text into PingMe on the 10:05 PM build and it failed again; the
+diagnostic file names the step: one target, 117 characters of text, sent to
+`merged/…`, status Failed("This network is not connected"). A merged chat has no
+network of its own; the chat screen picks a member to send through, but the share picker
+and a reply from the notification shade name the merged chat itself, and the send then
+found no connector. Now a message to a merged chat goes through one member: the default
+network's when it is connected, else the first connected member, else the default's; the
+same for Send later. This is most likely the earlier shade-reply failure too (the chat the
+owner replied to from the shade was merged). Tested: a send to a merged chat lands on the
+default member and goes out on its network.
+
+Installed on the phone at 10:41 PM (the merged-chat routing). Waiting on the owner: a
+share to the same person, and a reply from the notification shade on a merged chat; the
+diagnostic file records both.
+
+2:16 AM, 2026-10-07: the owner's share to the same merged chat went through. The
+diagnostic file shows the path: one target, 126 characters, merged chat resolved to its
+Google Messages member, message stored and sent on that network.
+
+### 2026-10-07, 2:30 AM: a message sent from the Instagram app never showed; the service was down
+
+The owner sent a message from the Instagram app itself and it did not appear in PingMe.
+The phone's system log explains the evening: the 10:41 PM install force-stopped PingMe,
+and from then until the owner opened it at 2:12 AM every PingMe process was an "empty"
+one, with no connection service, frozen by Motorola's battery manager and killed by
+Android as empty at 11:17 PM, 11:59 PM, 1:23 AM, and 2:09 AM. Nothing live could arrive
+in that window. The connection service was started only when the app was opened; at boot
+only the scheduled-send alarm was re-armed. Now a receiver starts the service after a
+restart and after every update (both broadcasts Android allows a foreground service to
+start from), and the service no longer stops itself on a momentarily empty account list.
+Whether the owner's Instagram message fell in that window, or was missed with the
+service up, waits on the time and the contact.
+
+### 2026-10-07, 2:50 AM: the 2:12 AM resync did not bring the 2:10 AM message either
+
+The owner's message to Nate from the Instagram app at 2:10 AM (inside the dead window) is
+still not in PingMe after the 2:12 AM resync, which listed the inbox's newest threads with
+the messages each carried. Two things are built for it. First, diagnostics: the first two
+listing pages are written out thread by thread (id, title, the newest message carried,
+its time and sender), and every history fetch notes what came back, so the next sync and
+the next opening of Nate's chat show what Instagram hands over. Second, a catch-up: opening
+a chat now fetches the newest page from the network and merges it, on every network, so
+anything that arrived while PingMe had no live connection is picked up on the first look.
+
+Installed at 3:10 AM (service restart and catch-up). Proven at once: the install's own
+MY_PACKAGE_REPLACED broadcast started the connection service, and every account was
+connected by 3:10:33 without the owner opening PingMe. Waiting on the owner opening Nate's
+chat, for the catch-up fetch and the listing notes.
+
+### 2026-10-07, 4:25 AM: the message is in; the listing hands over shares without an id
+
+The owner opened Nate's chat on the 3:10 AM build and the 2:10 AM message is there. The
+diagnostic file shows how: the catch-up fetch on opening brought 20 messages with proper
+ids, the newest the 2:10 AM share. And it shows why the resyncs had missed it: in every
+listing, Nate's thread carried five messages whose newest, the share, had an empty id
+(the same for other threads whose newest message is a share), so the listing's copy of it
+could not be stored under a usable id. The catch-up covers it from now on; the listing
+itself is fixed next so a shared post or reel is stored at sync time too.
+
+Installed at 4:52 AM (the Instagram id fix). Proven on the first sync: five listed
+threads carried a message without an id, Nate's among them, and each had its newest
+messages fetched with ids before storing. The connection service came up by itself after
+the install again. Nothing is waiting on the owner.
+
+### 2026-10-07, 9:40 AM: General chats moved to Primary at every new message (owner report)
+
+The owner, with the Instagram app's inbox beside PingMe's: three General chats in PingMe's
+Instagram inbox this morning. The diagnostic file: "Chat … moves GENERAL to PRIMARY: Kelly
+DeMattia" at 5:19 AM, and the thread fetched for that message carried folder='',
+system='INBOX', tag=''. The 2:55 PM fix yesterday read "any folder field present" as
+knowing the folder, and system='INBOX' alone then came out as Primary. The system field
+only tells a request from everything else; the folder field (or a tag) tells Primary from
+General. A thread with system='INBOX' and nothing else now has an unknown folder and the
+store keeps what the listing said. The chats moved this morning go back to General at
+the next listing, which their new messages put on its first pages.
+
+Installed at 10:04 AM. The first listing after it moved MariaW, Jessica Sheker, Kelly
+DeMattia, and Denise Halladay Koch back from Primary to General, and the service came
+up by itself after the install. Open from this morning: the test process's intermittent
+native crash ("double free", twice in about a dozen runs; the voice tests alone pass
+twice in a row), to be chased on its own.
+
+### 2026-10-07, 4:05 PM: switches for the volume keys (owner request)
+
+The owner: the volume-up voice note and the volume-down dictation are to stay exactly as
+they are, but each needs its own switch in Settings so it can be turned off at any time,
+both on from the start. Two switches now sit under Settings, Storage and media, Voice
+notes: "Volume up records a voice note" and "Volume down dictates", above the Groq key.
+Each is on by default (a settings file saved before this build reads as on, since the new
+fields take their defaults). With a switch off, that key is only volume inside a chat,
+the way it already was outside one; the side key is not touched by either. Also tidied on
+the way: a chat on a network that cannot take voice notes no longer swallows volume up
+with nothing to show for it. UI_DESIGN.md 5.6 names both switches.
+
+GitHub's build of the switches failed at 4:36 PM on something else: Gradle 9.8.1 and
+Material 3 1.5.0-beta01 were published this afternoon, and the lint check "a newer
+version is available", counted as an error, failed the build on the spot (the check here
+had run offline and not noticed). That check is now a note rather than an error, so a
+release landing somewhere never breaks a build again; versions move when a step calls
+for it. Pushed again.
+
+Installed at 5:20 PM; the service was back and syncing within a minute. Both switches are
+on; the owner can turn either off under Settings, Storage and media, Voice notes.
+
+### 2026-10-09, 6:50 AM: a General chat first seen through a live message (owner report)
+
+The owner, with a screenshot at 5:44 AM: Tony Wijaya, a General folder sender, in PingMe's
+Instagram inbox with a 2:01 AM message. The diagnostic file shows the hole. Instagram's
+connection had stayed up since the 5:20 PM install on the 7th, and a full listing of the
+inbox only runs at connect, so nothing had listed the inbox for thirty-six hours. Tony's
+message came in live for a thread PingMe had never listed; the thread was fetched on its
+own, and a thread fetched on its own says system='INBOX' and nothing else, which since the
+7th counts as an unknown folder. The chat was stored with no folder, and the inbox shows a
+chat with no folder (every network without folders has them that way). "Unknown stays
+unknown" was right for a chat already placed; for a brand-new chat there was nothing to
+keep, and nothing came along to place it.
+
+Fixed: a message for a thread whose folder PingMe does not know now reads the inbox's
+first page, where a thread with a brand-new message always sits, with its folder field, and
+places the chat from that; the single-thread fetch is only the fallback for a thread not
+on that page. "Knows the folder" now means a real Primary, General, or Requests answer, not
+system='INBOX' alone, so a thread placed badly once is asked about again at its next
+message. Both ways go to the phone's diagnostic file ("found on the inbox's first page at a
+new message" or "fetched on its own"). Tony's chat moves to General at its next message or
+at the next connect, whichever comes first. Test: a thread the single fetch calls
+system='INBOX' and the first page calls General lands as General.
+
+Also: a thread already placed is read off the inbox's first page again at a new message
+once its answer is ten minutes old, so a chat the owner moves to General in the Instagram
+app follows here at its next message instead of waiting for the next connect. And a third
+lint "newer version available" check (Kotlin 2.4.21 came out overnight) joins the two
+made informational on the 7th.
+
+Installed at 7:11 AM. The service came back by itself and the first listing placed Tony
+Wijaya: "moves null to GENERAL" at 7:11:07 AM, with the thread listed as folder='GENERAL'.
+Two other chats with no folder, first seen through live messages the same way, moved to
+Primary at the same moment (Pam Gough, Curtis Brown Photography), which confirms the
+mechanism. Waiting on the next live message to a General chat for the first-page read.
+
+### 2026-10-10, 3:35 PM: the share picker lists by use, and no one twice (owner report)
+
+The owner, with a screenshot of the share picker: Parker Aiken on Google Messages listed
+twice, and the list ordered by latest message when it should be the chats most
+interacted with or most shared with.
+
+Twice: the picker listed every chat in the store, and a merged chat's members are chats
+in the store too, so a merged chat (Parker, sending through Google Messages) and its
+Google Messages member stood side by side with the same name and badge. The picker now
+leaves out any chat that is a member of a merged one; the merged chat stands for them and
+sends through the right member, as it does from the composer.
+
+Order: each chat scores its messages over the last month plus five per share sent to it
+from this picker (the picker now keeps a count per chat in the settings file, which the
+backup carries). Highest score first, the rest by recency, so a fresh install still lists
+newest first until there is something to go on. UI_DESIGN.md 5.8 says so. Tests: a merged
+chat is listed once and neither member beside it; a chat shared to rises to the top.
+
+The first check of this change died in the test process's native crash (the third time:
+the 7th twice, and now). The crash report says what it is: a background worker in the
+middle of a person upsert inside SQLite's native code, both times, while the test's
+in-memory database was being closed. A cancelled view model's write runs on to its end
+on Room's own thread, and the test inbox closed the database under it. The test inbox now
+takes the writer connection once before closing (which waits for whoever holds it, up to
+five seconds), so an in-flight write finishes first. The open item from the 7th is closed
+by this; it never touched the app on the phone, only the test process.
+
+Installed at 4:12 PM. Waiting on the owner's next share for the new order and the single
+Parker Aiken row.

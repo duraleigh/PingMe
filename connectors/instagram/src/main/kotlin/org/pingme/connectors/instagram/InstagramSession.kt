@@ -18,6 +18,7 @@ import org.pingme.connectors.instagram.bridge.IgEvent
 import org.pingme.connectors.instagram.bridge.IgMedia
 import org.pingme.connectors.instagram.bridge.IgMessage
 import org.pingme.connectors.instagram.bridge.IgSession
+import org.pingme.connectors.instagram.bridge.IgThread
 import org.pingme.connectors.instagram.bridge.IgTranslate
 import org.pingme.connectors.instagram.bridge.igJson
 import org.pingme.core.connector.ActionNeededException
@@ -69,6 +70,9 @@ internal class InstagramSession(
             }
         }
     private val connected = AtomicBoolean(false)
+
+    /** When each thread's folder was last read off the inbox's first page, by thread id. */
+    private val folderCheckedAt = HashMap<String, Long>()
 
     init {
         // Known before connecting on a pretend network; the real bridge says once the inbox loads.
@@ -129,22 +133,140 @@ internal class InstagramSession(
 
             else -> {
                 if (event is IgEvent.Message) placeThread(event.message)
-                go.translate(event).forEach { send(it) }
+                translated(event).forEach { send(it) }
                 fetchPreviews(event)
             }
         }
     }
 
+    /** Folder moves and thread removals go to the phone's log (owner, 2026-10-04: chats vanished). */
+    private fun translated(event: IgEvent): List<ConnectorEvent> {
+        if (event is IgEvent.Folder || event is IgEvent.ThreadGone) {
+            Log.i(TAG, "Instagram $event")
+            org.pingme.core.connector.Diag
+                .note(TAG, "Instagram $event")
+        }
+        when (event) {
+            is IgEvent.Message -> {
+                noteViewOnce(event.message, "live")
+            }
+
+            is IgEvent.Thread -> {
+                event.thread.messages.forEach { noteViewOnce(it, "listed") }
+                if (notPrimary(event.thread)) {
+                    noteFolder(event.thread, "as an event")
+                }
+            }
+
+            // Typing for a thread PingMe has no chat for would show nowhere (owner, 2026-10-05).
+            is IgEvent.Typing -> {
+                if (!go.knows(event.thread)) {
+                    org.pingme.core.connector.Diag
+                        .note(TAG, "Typing for an unknown thread ${event.thread} from ${event.sender}")
+                }
+            }
+
+            else -> {
+                Unit
+            }
+        }
+        return go.translate(event)
+    }
+
     /**
-     * A message for a thread or from a sender PingMe has not been told about yet: ask
-     * Instagram for the thread first, so the chat lands with its name, its people, and its
-     * folder (General stays out of All) instead of a bare placeholder named by an id that
-     * only the next full sync would fix (owner, Gate G7).
+     * What a listing page held, and the folder fields of every thread not filed as Primary,
+     * for the phone's diagnostic file (owner, 2026-10-05: chats moved Requests to General
+     * for no visible reason, and chats were missing from the Instagram list).
+     */
+    private fun noteListing(
+        folder: String,
+        page: Int,
+        threads: List<IgThread>,
+    ) {
+        val withMessages = threads.count { it.messages.isNotEmpty() }
+        org.pingme.core.connector.Diag
+            .note(TAG, "Listed $folder page $page: ${threads.size} threads, $withMessages with messages")
+        // The newest threads in detail: which messages a listing carries (owner, 2026-10-07: a
+        // message sent from the Instagram app at 2:10 AM was not in the 2:12 AM listing).
+        if (page < DETAILED_PAGES) {
+            threads.forEach { t ->
+                val newest = t.messages.maxByOrNull { it.timestamp }
+                org.pingme.core.connector.Diag.note(
+                    TAG,
+                    "  ${t.id} '${t.title.take(TITLE_CHARS)}' last=${t.lastMessageAt} carries ${t.messages.size}: " +
+                        "newest ${newest?.id} at ${newest?.timestamp} from ${newest?.sender} kind=${newest?.kind}",
+                )
+            }
+        }
+        threads
+            .filter {
+                notPrimary(it)
+            }.forEach { noteFolder(it, "listed from $folder") }
+    }
+
+    private fun notPrimary(thread: IgThread) =
+        go.folderOrUnknown(thread).let { it != null && it != org.pingme.core.model.ChatFolder.PRIMARY }
+
+    private fun noteFolder(
+        thread: IgThread,
+        how: String,
+    ) {
+        org.pingme.core.connector.Diag.note(
+            TAG,
+            "Thread ${thread.id} '${thread.title}' $how: folder='${thread.folder}' system='${thread.systemFolder}' " +
+                "tag='${thread.folderTag}' -> ${go.folderOf(thread)}",
+        )
+    }
+
+    /**
+     * A view-once message that came without its file goes to the phone's diagnostic file
+     * with everything else Instagram said about it (owner, 2026-10-05: unviewed view-once
+     * photos showed as gone), so the next one tells us what Instagram sends.
+     */
+    private fun noteViewOnce(
+        msg: IgMessage,
+        how: String,
+    ) {
+        if (msg.viewOnceGone.isEmpty()) return
+        org.pingme.core.connector.Diag
+            .note(
+                TAG,
+                "View-once without a file ($how) thread=${msg.thread} id=${msg.id} ${msg.viewOnceGone}: ${msg.raw}",
+            )
+    }
+
+    /**
+     * A message for a thread or from a sender PingMe has not been told about yet, or whose
+     * folder it does not know: ask Instagram first, so the chat lands with its name, its
+     * people, and its folder (General stays out of All) instead of a bare placeholder named
+     * by an id that only the next full sync would fix (owner, Gate G7).
+     *
+     * The folder comes from the inbox's first page, where a thread with a brand-new message
+     * sits: a thread fetched on its own says only system='INBOX', which tells Primary from
+     * General no better than nothing, and a chat first seen through a live message then sat
+     * in the inbox with an unknown folder until the next full listing, which the connection
+     * never ran while it stayed up (owner, 2026-10-09: "Tony Wijaya is a general folder
+     * sender"). The single fetch stays as the fallback for a thread not on that page.
+     *
+     * A placed thread is read off that page again at a new message once its answer is
+     * [FOLDER_RECHECK_MS] old: a chat the owner moves to General in the Instagram app would
+     * otherwise stay Primary here until the next connect, which can be days away.
      */
     private suspend fun ProducerScope<ConnectorEvent>.placeThread(msg: IgMessage) {
-        if (go.knows(msg.thread) && go.knowsPerson(msg.sender)) return
+        val now = System.currentTimeMillis()
+        val fresh = now - (folderCheckedAt[msg.thread] ?: 0L) < FOLDER_RECHECK_MS
+        val placed = go.knows(msg.thread) && go.knowsPerson(msg.sender) && go.knowsFolder(msg.thread)
+        if (placed && fresh) return
         try {
+            val listed = firstPage().firstOrNull { it.id == msg.thread }
+            if (listed != null) {
+                noteFolder(listed, "found on the inbox's first page at a new message")
+                send(ConnectorEvent.ChatUpdated(accountId, go.chat(listed)))
+                folderCheckedAt[msg.thread] = now
+            }
+            if (go.knowsFolder(msg.thread) && go.knowsPerson(msg.sender)) return
             val thread = go.threadJson(request { session.thread(msg.thread) })
+            noteFolder(thread, "fetched on its own at a new message (not on the inbox's first page)")
             send(ConnectorEvent.ChatUpdated(accountId, go.chat(thread)))
         } catch (e: CancellationException) {
             throw e
@@ -152,8 +274,23 @@ internal class InstagramSession(
             @Suppress("TooGenericExceptionCaught") e: Exception,
         ) {
             Log.w(TAG, "Could not fetch the thread ${msg.thread} a message came for", e)
+            org.pingme.core.connector.Diag
+                .note(TAG, "Could not place thread ${msg.thread} a message came for: ${e.message}")
         }
     }
+
+    /** The newest page of the inbox, folders and all; empty when Instagram will not list it. */
+    private suspend fun firstPage(): List<IgThread> =
+        try {
+            go.pageJson(request { session.listThreads(INBOX, "") }).threads
+        } catch (e: CancellationException) {
+            throw e
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            Log.w(TAG, "Could not list the inbox's first page", e)
+            emptyList()
+        }
 
     private fun ProducerScope<ConnectorEvent>.fetchPreviews(event: IgEvent) {
         when (event) {
@@ -209,9 +346,14 @@ internal class InstagramSession(
             emptyList()
         }
 
-    /** The inbox and the request queue, every page. */
+    /**
+     * The inbox and the request queue. The inbox is listed newest first, and listing stops
+     * once a page holds nothing from the last thirty days: the owner wants recent Primary
+     * chats, not the whole inbox (owner, 2026-10-03). The request queue is one page.
+     */
     suspend fun syncChats(): List<ChatSnapshot> {
         val found = ArrayList<ChatSnapshot>()
+        val cutoff = System.currentTimeMillis() - RECENT_MS
         for (folder in listOf(INBOX, PENDING)) {
             var cursor = ""
             var pages = 0
@@ -228,11 +370,40 @@ internal class InstagramSession(
                         break
                     }
                 page.threads.mapTo(found) { go.chat(it) }
+                // Each listed thread carries its newest messages: they go into the store too,
+                // or every chat past the first page sat empty until a message arrived live, and
+                // a merged chat's Instagram side was left out of the Instagram list (owner,
+                // 2026-10-05: five chats missing from the Instagram inbox).
+                page.threads.filter { it.messages.isNotEmpty() }.forEach { events.trySend(IgEvent.Thread(withIds(it))) }
+                noteListing(folder, pages, page.threads)
                 cursor = page.nextCursor
                 pages++
-            } while (cursor.isNotEmpty() && pages < MAX_PAGES)
+                val recent = folder == INBOX && page.threads.any { it.lastMessageAt >= cutoff }
+            } while (cursor.isNotEmpty() && pages < MAX_PAGES && recent)
         }
         return found
+    }
+
+    /**
+     * A listing hands a shared post or reel over without its id (owner, 2026-10-07: the
+     * message sent from the Instagram app at 2:10 AM was in every listing, unusable). Such a
+     * thread's newest messages are fetched properly, with ids, before they are stored.
+     */
+    private suspend fun withIds(thread: IgThread): IgThread {
+        if (thread.messages.none { it.id.isBlank() }) return thread
+        return try {
+            val fetched = go.messagesJson(request { session.messages(thread.id, "", thread.messages.size) })
+            org.pingme.core.connector.Diag
+                .note(TAG, "Listed thread ${thread.id} had a message without an id; fetched ${fetched.size} with ids")
+            thread.copy(messages = fetched)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            Log.w(TAG, "Could not fetch ids for the listed thread ${thread.id}", e)
+            thread
+        }
     }
 
     /** Up to [limit] messages older than [before] (the newest when null), newest first. */
@@ -244,6 +415,12 @@ internal class InstagramSession(
         val thread = chatId.remoteId
         val anchor = before?.remoteId?.substringAfterLast('/').orEmpty()
         val page = go.messagesJson(request { session.messages(thread, anchor, limit) })
+        org.pingme.core.connector.Diag.note(
+            TAG,
+            "Fetched $thread before='$anchor': ${page.size} message(s), newest ${page.maxByOrNull {
+                it.timestamp
+            }?.let { "${it.id} at ${it.timestamp} from ${it.sender}" }}",
+        )
         val messages =
             page
                 .filter {
@@ -331,35 +508,62 @@ internal class InstagramSession(
         return copy(message = message.copy(attachments = listOf(kept), kind = messageKindOf(file.kind)))
     }
 
+    // A message id names its thread ("<thread>/<id>"), so reactions, unsends, and edits need
+    // nothing the session remembers: after a restart the session knew nothing of older
+    // messages and refused to react to them (owner, 2026-10-05: "wait for the message to
+    // finish sending" on a message received long before).
+    private fun threadOf(id: MessageId) = id.remoteId.substringBeforeLast('/')
+
+    private fun idOf(id: MessageId) = id.remoteId.substringAfterLast('/')
+
     suspend fun react(
         messageId: MessageId,
         emoji: String?,
         remove: Boolean,
     ) {
-        val seen = go.seen(messageId) ?: throw UnsupportedCapabilityException("Wait for the message to finish sending")
-        val id = messageId.remoteId.substringAfterLast('/')
-        request { session.sendReaction(seen.thread, id, emoji ?: seen.let { "" }, remove) }
+        request { session.sendReaction(threadOf(messageId), idOf(messageId), emoji ?: "", remove) }
     }
 
     suspend fun unsend(messageId: MessageId) {
-        val seen = go.seen(messageId) ?: throw UnsupportedCapabilityException("This message cannot be unsent")
-        request { session.unsend(seen.thread, messageId.remoteId.substringAfterLast('/')) }
+        request { session.unsend(threadOf(messageId), idOf(messageId)) }
     }
 
     suspend fun edit(
         messageId: MessageId,
         text: String,
     ) {
-        val seen = go.seen(messageId) ?: throw UnsupportedCapabilityException("This message cannot be edited")
-        request { session.edit(seen.thread, messageId.remoteId.substringAfterLast('/'), text) }
+        request { session.edit(threadOf(messageId), idOf(messageId), text) }
     }
 
+    /**
+     * Tells Instagram the chat is read up to [upTo]. The mark needs the message's time; a
+     * message from before this start is looked up in a page of the thread (the session
+     * dropped read marks for such messages, so Instagram kept them unread; owner, 2026-10-05).
+     */
     suspend fun markRead(
         chatId: ChatId,
         upTo: MessageId,
     ) {
-        val seen = go.seen(upTo) ?: return
-        request { session.markRead(chatId.remoteId, upTo.remoteId.substringAfterLast('/'), seen.timestamp) }
+        val at = go.seen(upTo)?.timestamp ?: recalled(upTo)?.timestamp ?: System.currentTimeMillis()
+        request { session.markRead(chatId.remoteId, idOf(upTo), at) }
+    }
+
+    /** Brings a message from before this start back into the session's memory, from a page of its thread. */
+    private suspend fun recalled(id: MessageId): IgTranslate.Seen? {
+        val thread = threadOf(id)
+        val page =
+            try {
+                go.messagesJson(request { session.messages(thread, "", RECALL) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                Log.w(TAG, "Could not recall the thread $thread for a read mark", e)
+                return null
+            }
+        page.forEach { go.message(it.copy(thread = it.thread.ifEmpty { thread })) }
+        return go.seen(id)
     }
 
     suspend fun typing(
@@ -383,7 +587,9 @@ internal class InstagramSession(
                 IgMedia.serializer(),
                 requireNotNull(attachment.remoteRef) { "nothing to fetch" },
             )
-        request { session.download(media.url, target.absolutePath) }
+        // A kept photo or video can arrive without an address; Instagram gives one by id.
+        val url = media.url.ifEmpty { request { session.mediaUrl(media.thread, media.id) } }
+        request { session.download(url, target.absolutePath) }
         return target
     }
 
@@ -434,7 +640,22 @@ internal class InstagramSession(
         const val TAG = "PingMeInstagram"
         const val INBOX = "INBOX"
         const val PENDING = "PENDING"
-        const val MAX_PAGES = 4
+
+        /** A safety cap on pages of about twenty threads; the thirty-day rule normally stops sooner. */
+        const val MAX_PAGES = 60
+
+        /** How many listing pages are written out thread by thread. */
+        const val DETAILED_PAGES = 2
+
+        /** How long a thread's folder, read off the inbox's first page, is trusted before a new message rereads it. */
+        const val FOLDER_RECHECK_MS = 10L * 60 * 1000
+        const val TITLE_CHARS = 24
+
+        /** Messages fetched to find one from before this start. */
+        const val RECALL = 50
+
+        /** How far back the inbox listing reaches (owner, 2026-10-03: the last thirty days of Primary). */
+        const val RECENT_MS = 30L * 24 * 60 * 60 * 1000
         const val INSTAGRAM_PACKAGE = "package:com.instagram.android"
         const val PREVIEW_FETCHES = 2
     }

@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+package org.pingme.app.inbox
+
+import org.pingme.core.model.AvatarSource
+import org.pingme.core.model.Chat
+import org.pingme.core.model.ChatKind
+import org.pingme.core.model.Person
+import org.pingme.core.model.PersonId
+
+/**
+ * The photo that stands for a one-to-one chat (UI_DESIGN.md 10.18): the other person's
+ * contact photo first, then their network profile photo, as the chat's avatar source says.
+ * Groups and people with neither get the initials tile.
+ */
+fun photoFor(
+    chat: Chat,
+    people: Map<PersonId, Person>,
+): String? {
+    if (chat.kind != ChatKind.DIRECT) return null
+    // A merged chat lists the person once per network; the source says whose picture counts.
+    val others = chat.participants.mapNotNull { people[it] }.filter { it.displayName != YOU }
+    val other = others.firstOrNull() ?: return null
+    return when (val source = chat.avatarSource) {
+        AvatarSource.Contacts -> {
+            others.firstNotNullOfOrNull { it.contactPhoto }
+                ?: others.firstNotNullOfOrNull { it.avatarPath }
+        }
+
+        is AvatarSource.Network -> {
+            val onNetwork = others.firstOrNull { it.accountId == source.accountId } ?: other
+            onNetwork.avatarPath ?: onNetwork.contactPhoto
+        }
+
+        AvatarSource.Initials -> {
+            null
+        }
+    }
+}
+
+/** A group's members, not counting you, as faces for its composite avatar (owner, 2026-10-03). */
+fun facesFor(
+    chat: Chat,
+    people: Map<PersonId, Person>,
+): List<org.pingme.core.ui.components.Face> {
+    if (chat.kind != ChatKind.GROUP) return emptyList()
+    return chat.participants
+        .mapNotNull { people[it] }
+        .filter { it.displayName != YOU }
+        .map {
+            org.pingme.core.ui.components
+                .Face(it.name, it.photo)
+        }
+}
+
+private const val YOU = "You"

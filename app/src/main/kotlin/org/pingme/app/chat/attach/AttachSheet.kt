@@ -13,18 +13,20 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,12 +39,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.core.util.Consumer
 import org.pingme.app.R
+import org.pingme.core.ui.components.PingMeSheet
 import java.io.File
 import org.pingme.core.ui.R as UiR
 
@@ -56,11 +60,13 @@ enum class AttachProblem { NO_LOCATION, NO_CAMERA }
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AttachSheet(
+internal fun AttachSheet(
     pick: AttachLaunchers,
     onDismiss: () -> Unit,
+    /** Opens the GIF picker; null where the network cannot take GIFs (owner, 2026-10-03: GIFs live here). */
+    onGif: (() -> Unit)? = null,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         FlowRow(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 24.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -75,6 +81,13 @@ fun AttachSheet(
             AttachOption(R.string.attach_file, UiR.drawable.ic_description) { choose(pick.file) }
             AttachOption(R.string.attach_location, UiR.drawable.ic_location_on) { choose(pick.location) }
             AttachOption(R.string.attach_contact, UiR.drawable.ic_contacts) { choose(pick.contact) }
+            // The GIF picker replaces this sheet: close first, then open it.
+            onGif?.let { open ->
+                AttachOption(R.string.gif, UiR.drawable.ic_gif_box) {
+                    onDismiss()
+                    open()
+                }
+            }
         }
     }
 }
@@ -85,8 +98,21 @@ private fun AttachOption(
     @DrawableRes icon: Int,
     onClick: () -> Unit,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(OPTION_WIDTH)) {
-        FilledTonalIconButton(onClick, Modifier.size(OPTION_SIZE)) { Icon(painterResource(icon), null) }
+    // The label is part of the target: the whole option takes the tap. The circle is only
+    // the look, not a second button: a screen reader found an unnamed button beside each
+    // named option (P8.1).
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(OPTION_WIDTH).clickable(role = Role.Button, onClick = onClick),
+    ) {
+        Surface(
+            Modifier.size(OPTION_SIZE),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) { Icon(painterResource(icon), null) }
+        }
         Text(
             stringResource(label),
             Modifier.padding(top = 6.dp),

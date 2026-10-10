@@ -108,6 +108,7 @@ class NewChatViewModel
         private val registry: ConnectorRegistry,
         private val actions: ChatActions,
         saved: SavedStateHandle,
+        private val contactsWatcher: org.pingme.core.service.people.ContactsWatcher,
     ) : ViewModel() {
         val group = saved.toRoute<NewChatRoute>().group
         private val form = MutableStateFlow(NewChatUiState())
@@ -122,10 +123,13 @@ class NewChatViewModel
 
         private val usable =
             combine(accounts.accounts(), flowOf(registry)) { all, reg ->
-                all.filter { account ->
-                    val caps = reg[account.network]?.capabilities
-                    caps != null && if (group) caps.createGroup else caps.startConversation
-                }
+                all
+                    .filter { account ->
+                        val caps = reg[account.network]?.capabilities
+                        caps != null && if (group) caps.createGroup else caps.startConversation
+                    }
+                    // Google Messages first and picked by default, every time (owner, 2026-10-05).
+                    .sortedBy { if (it.network == NetworkId.GMESSAGES) 0 else 1 }
             }
 
         val state: StateFlow<NewChatUiState> =
@@ -133,7 +137,9 @@ class NewChatViewModel
                 f.copy(
                     accounts = list,
                     account =
-                        f.account?.takeIf { id -> list.any { it.id == id } } ?: list.firstOrNull()?.id,
+                        f.account?.takeIf { id -> list.any { it.id == id } }
+                            ?: list.firstOrNull { it.network == NetworkId.GMESSAGES }?.id
+                            ?: list.firstOrNull()?.id,
                 )
             }.flatMapLatest { s ->
                 val id = s.account ?: return@flatMapLatest flowOf(s)
@@ -146,8 +152,10 @@ class NewChatViewModel
                 st.copy(
                     suggestions =
                         people
+                            // WhatsApp's hidden-id twin of a person already listed by number says nothing new.
+                            .filter { p -> !hiddenTwin(p, people) }
                             .filter { p ->
-                                q.isEmpty() || p.displayName.contains(q, true) ||
+                                q.isEmpty() || p.name.contains(q, true) ||
                                     p.networkHandle.contains(q, true)
                             }.filter { p -> p.networkHandle !in st.members }
                             .take(MAX_SUGGESTIONS),
@@ -158,6 +166,8 @@ class NewChatViewModel
 
         /** Asks the picked account's network for its people again (Signal: the contacts on Signal). */
         fun refreshPeople() {
+            // Contacts just allowed, or opened again: everyone matches against the address book too.
+            contactsWatcher.refreshSoon()
             val picked = state.value.account ?: return
             val network =
                 state.value.accounts
@@ -336,9 +346,10 @@ fun NewChatScreen(
                 ListItem(
                     onClick = { actions.onChoose(person.networkHandle) },
                     enabled = !state.working,
-                    leadingContent = { Avatar(person.displayName, size = 40.dp) },
-                    supportingContent = { Text(person.networkHandle) },
-                ) { Text(person.displayName) }
+                    leadingContent = { Avatar(person.name, size = 40.dp, photo = person.photo) },
+                    // The number or username, never a network's raw id (owner, 2026-10-05: "@lid").
+                    supportingContent = secondLine(person)?.let { line -> { Text(line) } },
+                ) { Text(person.name) }
             }
         }
     }
@@ -392,7 +403,7 @@ private fun NewChatForm(
                         selected = account.id == state.account,
                         onClick = { actions.onAccount(account.id) },
                         label = { Text(label) },
-                        leadingIcon = { NetworkDot(account.network) },
+                        leadingIcon = { Icon(painterResource(account.network.lineIcon()), null) },
                     )
                 }
             }
@@ -440,3 +451,16 @@ private fun NewChatForm(
 }
 
 private const val TAG = "PingMeNewChat"
+
+/** What to show under a person's name: their number, or a username; a raw network id is nothing to read. */
+internal fun secondLine(person: Person): String? =
+    person.phoneNumber?.takeIf { it.isNotBlank() }
+        ?: person.networkHandle.takeIf { it.isNotBlank() && '@' !in it && it != person.name }
+
+private const val HIDDEN_ID = "@lid"
+
+/** A person known by WhatsApp's hidden id while the same name is listed by number. */
+private fun hiddenTwin(
+    person: Person,
+    people: List<Person>,
+): Boolean = person.networkHandle.endsWith(HIDDEN_ID) && people.any { it !== person && it.name == person.name }

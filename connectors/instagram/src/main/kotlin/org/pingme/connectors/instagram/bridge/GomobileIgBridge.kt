@@ -39,6 +39,11 @@ private class GomobileSession(
 
     override fun thread(fbid: String): String = session.thread(fbid)
 
+    override fun mediaUrl(
+        fbid: String,
+        attachmentId: String,
+    ): String = session.mediaURL(fbid, attachmentId)
+
     override fun messages(
         fbid: String,
         olderThan: String,

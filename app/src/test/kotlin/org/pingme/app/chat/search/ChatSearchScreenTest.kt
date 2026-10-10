@@ -22,6 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.chat.ChatRoute
 import org.pingme.app.chat.ChatViewModel
 import org.pingme.app.inbox.DemoInbox
@@ -84,6 +85,8 @@ class ChatSearchScreenTest {
         compose.onNode(hasTestTag(SEARCH_FIELD)).performTextInput("standup")
         waitFor { vm.search.state.value.results.size == 1 }
         compose.onNode(hasTestTag(SEARCH_RESULTS)).assertExists()
+        // Search open with results, as a screen reader sees it (P8.1).
+        compose.assertAccessible()
         compose
             .onNode(
                 hasText("Standup moved to 10", substring = true) and hasAnyAncestor(hasTestTag(SEARCH_RESULTS)),

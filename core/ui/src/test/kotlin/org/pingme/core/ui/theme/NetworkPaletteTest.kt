@@ -94,8 +94,31 @@ class NetworkPaletteTest {
         val scheme = seedScheme(Color(ThemePreset.PINGME.seed), dark = false, amoled = false, ContrastLevel.STANDARD)
         val orange = 0xFFFF8800.toInt()
         val palette = NetworkPalette(scheme, false, ContrastLevel.STANDARD, mapOf(NetworkId.WHATSAPP to orange))
-        val hue = Hct.fromInt(palette.outgoing(NetworkId.WHATSAPP, Transport.NETWORK).container.toArgb()).hue
-        assertEquals(Hct.fromInt(orange).hue, hue, 8.0)
+        assertEquals(Color(orange), palette.outgoing(NetworkId.WHATSAPP, Transport.NETWORK).container)
         assertEquals(Color(orange), palette.accent(NetworkId.WHATSAPP))
+    }
+
+    // Owner, 2026-10-04: picks "did nothing" on the phone in dark mode, because only the hue
+    // of a pick was kept. A pick is the colour, in every mode, with readable text on it.
+    @Test
+    fun aPickedColourIsUsedExactlyInDarkModeToo() {
+        val scheme = seedScheme(Color(ThemePreset.PINGME.seed), dark = true, amoled = false, ContrastLevel.STANDARD)
+        val wine = 0xFF7A1F3D.toInt()
+        val orange = 0xFFFF8800.toInt()
+        val palette =
+            NetworkPalette(
+                scheme,
+                true,
+                ContrastLevel.STANDARD,
+                mapOf(NetworkId.INSTAGRAM to wine),
+                mapOf(NetworkId.INSTAGRAM to orange),
+            )
+        val bubble = palette.outgoing(NetworkId.INSTAGRAM, Transport.NETWORK)
+        assertEquals(Color(wine), bubble.container)
+        assertTrue(contrastRatio(bubble.container, bubble.content) >= MIN_TEXT_CONTRAST)
+        assertEquals(Color(orange), palette.accent(NetworkId.INSTAGRAM))
+        // Without a badge colour of its own, the badge takes the bubble colour, exactly.
+        val bubbleOnly = NetworkPalette(scheme, true, ContrastLevel.STANDARD, mapOf(NetworkId.INSTAGRAM to wine))
+        assertEquals(Color(wine), bubbleOnly.accent(NetworkId.INSTAGRAM))
     }
 }

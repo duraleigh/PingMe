@@ -29,6 +29,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.inbox.DemoInbox
 import org.pingme.core.connector.chat
 import org.pingme.core.model.Message
@@ -137,8 +138,16 @@ class MessageActionsScreenTest {
             "Info",
             "Delete",
         ).forEach { compose.onNodeWithText(it).assertExists() }
+        // The reaction bar and the action card, as a screen reader sees them (P8.1).
+        compose.assertAccessible()
         compose.onNode(hasContentDescription("React with 😂")).performClick()
         waitFor { stored(message)!!.reactions.any { it.emoji == "😂" } }
+        // Tapping the chips names who reacted (owner, 2026-10-05): the user's own reads "You".
+        waitFor { compose.onAllNodesWithText("😂").fetchSemanticsNodes().size == 1 }
+        compose.onNodeWithText("😂").performClick()
+        waitForText("Reactions")
+        assertTrue(compose.onAllNodesWithText("You").fetchSemanticsNodes().isNotEmpty())
+        compose.assertAccessible()
     }
 
     // Holds [text]'s bubble, checks the bar, the bubble and the card are on screen and apart
@@ -250,6 +259,7 @@ class MessageActionsScreenTest {
         compose.onNodeWithText(message.body!!).performTouchInput { longClick() }
         compose.onNodeWithText("Select").performClick()
         waitForText("1 selected")
+        compose.assertAccessible()
         compose.onNode(hasContentDescription("Copy")).performClick()
         waitFor {
             vm.state.value.selection
@@ -275,5 +285,10 @@ class MessageActionsScreenTest {
 
         // The screen this test runs on (its @Config).
         val SCREEN_HEIGHT = 891.dp
+    }
+
+    @Test
+    fun everyControlHasASpokenNameAndIsBigEnough() {
+        compose.assertAccessible()
     }
 }

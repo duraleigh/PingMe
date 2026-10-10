@@ -34,6 +34,8 @@ class ConnectionService : Service() {
 
     @Inject lateinit var accounts: AccountRepository
 
+    @Inject lateinit var contactsWatcher: org.pingme.core.service.people.ContactsWatcher
+
     @Inject @ApplicationScope
     lateinit var scope: CoroutineScope
 
@@ -70,11 +72,13 @@ class ConnectionService : Service() {
             }
         ServiceCompat.startForeground(this, NOTIFICATION_ID, connectedNotification(), type)
         supervisor.start()
+        contactsWatcher.start()
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
         accountWatch =
             scope.launch {
                 accounts.accounts().collect { all ->
-                    if (all.none { it.state.wantsConnection() }) stopSelf()
+                    // An empty list is the store reopening, not every account gone: keep running.
+                    if (all.isNotEmpty() && all.none { it.state.wantsConnection() }) stopSelf()
                 }
             }
     }
@@ -89,6 +93,7 @@ class ConnectionService : Service() {
         accountWatch?.cancel()
         getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback)
         supervisor.stop()
+        contactsWatcher.stop()
         super.onDestroy()
     }
 
