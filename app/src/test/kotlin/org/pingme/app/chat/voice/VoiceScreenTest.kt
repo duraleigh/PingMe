@@ -4,7 +4,9 @@ package org.pingme.app.chat.voice
 import android.Manifest
 import android.app.Application
 import android.os.Looper
+import android.view.KeyEvent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -13,6 +15,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
@@ -20,6 +23,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -153,6 +158,48 @@ class VoiceScreenTest {
         press { up() }
     }
 
+    /** Mid-sentence in the wrong chat: the trash stops it, and the key coming up sends nothing (owner, 2026-10-15). */
+    @Test
+    fun theTrashStopsAHeldVolumeUpRecordingAndTheReleaseSendsNothing() {
+        open("sam")
+        // The composer listens for the key only once it has its mic, a moment after the chat shows.
+        waitFor { compose.onAllNodes(hasTestTag(MIC)).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(HardwareKeys.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 0))
+        waitFor { mic != null }
+        assertEquals("held, not hands-free", false, mic?.locked)
+        // The held bar, as a screen reader sees it (P8.1): its one control is the trash.
+        compose.assertAccessible()
+        // Past the short-press limit: letting go now would send.
+        Thread.sleep(RECORD_MS)
+        compose.onNode(hasContentDescription(STOP)).performClick()
+        waitFor { vm.voice.state.value == MicState.Idle }
+        assertTrue(HardwareKeys.onKeyUp(KeyEvent.KEYCODE_VOLUME_UP))
+        waitFor { compose.onAllNodes(hasTestTag(COMPOSER)).fetchSemanticsNodes().isNotEmpty() }
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(SETTLE_MS))
+        assertEquals(1, demo.recorder.cancelled)
+        assertFalse("the release after a stop on screen is not a short hold", hasText(TOO_SHORT))
+        assertFalse(voiceSent())
+    }
+
+    @Test
+    fun theTrashStopsAHeldMicRecordingAndLettingGoSendsNothing() {
+        open("sam")
+        press { down(center) }
+        waitFor { mic != null }
+        Thread.sleep(RECORD_MS)
+        // A second finger on the trash while the first is still on the mic.
+        compose.onNode(hasContentDescription(STOP)).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor { vm.voice.state.value == MicState.Idle }
+        press {
+            advanceEventTime(RECORD_MS)
+            up()
+        }
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(SETTLE_MS))
+        assertEquals(1, demo.recorder.cancelled)
+        assertFalse(hasText(TOO_SHORT))
+        assertFalse(voiceSent())
+    }
+
     @Test
     fun slidingUpLocksThenItPausesPlaysBackGoesOnAndSends() {
         open("sam")
@@ -224,6 +271,9 @@ class VoiceScreenTest {
     private companion object {
         const val TIMEOUT = 15_000L
         const val RECORD_MS = 800L
+        const val SETTLE_MS = 500L
+        const val STOP = "Stop without sending"
+        const val TOO_SHORT = "Too short to send. Tap the mic to record hands-free, or hold it and talk"
 
         // Far enough to cancel or lock (120 and 90 dp) on this screen.
         const val SLIDE = 500f

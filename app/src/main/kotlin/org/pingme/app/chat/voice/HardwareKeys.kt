@@ -183,16 +183,20 @@ fun voiceKeyPressed(voice: VoiceNotes): Boolean {
     return true
 }
 
-/** How a held volume up ended: let go quickly, so it was a volume press, or held, so it sends. */
-enum class VolumeHold { VOLUME, SEND }
+/**
+ * How a held volume key ended: already stopped on screen (the trash in the recording bar), so
+ * nothing; let go quickly, so it was a volume press; or held, so it finishes.
+ */
+enum class VolumeHold { NOTHING, VOLUME, SEND }
 
-fun volumeHoldEnded(heldMs: Long): VolumeHold =
-    if (heldMs <
-        HardwareKeys.HOLD_MS
-    ) {
-        VolumeHold.VOLUME
-    } else {
-        VolumeHold.SEND
+fun volumeHoldEnded(
+    heldMs: Long,
+    live: Boolean,
+): VolumeHold =
+    when {
+        !live -> VolumeHold.NOTHING
+        heldMs < HardwareKeys.HOLD_MS -> VolumeHold.VOLUME
+        else -> VolumeHold.SEND
     }
 
 /**
@@ -229,6 +233,7 @@ fun VoiceKeyListener(
                 dictation?.cancel()
                 voice.state.value !is MicState.Recording && voice.start()
             },
+            live = { voice.state.value is MicState.Recording },
             cancel = voice::cancel,
             finish = { if (!voice.send()) tooShort() },
         )
@@ -241,6 +246,7 @@ fun VoiceKeyListener(
                 voice?.cancel()
                 dictation.start()
             },
+            live = { dictation.state.value == DictationState.Listening },
             cancel = dictation::cancel,
             // Nothing heard shows on the dictation line itself, not as the voice note's notice.
             finish = { dictation.stop() },
@@ -250,13 +256,15 @@ fun VoiceKeyListener(
 
 /**
  * One volume key held: [start] on the way down (after the microphone is allowed), then on
- * release either [cancel] and a volume nudge in [direction] for a short press, or [finish].
+ * release either [cancel] and a volume nudge in [direction] for a short press, or [finish];
+ * or nothing at all when [live] says the recording was already stopped on screen.
  */
 @Composable
 private fun HeldKey(
     moves: SharedFlow<Boolean>,
     direction: Int,
     start: () -> Boolean,
+    live: () -> Boolean,
     cancel: () -> Unit,
     finish: () -> Unit,
 ) {
@@ -264,6 +272,7 @@ private fun HeldKey(
     val haptic = rememberHaptic()
     val ask = rememberMicPermission { }
     val begin by rememberUpdatedState(start)
+    val still by rememberUpdatedState(live)
     val drop by rememberUpdatedState(cancel)
     val end by rememberUpdatedState(finish)
     LaunchedEffect(moves) {
@@ -279,7 +288,11 @@ private fun HeldKey(
             } else if (heldSince != 0L) {
                 val heldMs = System.currentTimeMillis() - heldSince
                 Diag.note("PingMeKeys", "Held for $heldMs ms")
-                when (volumeHoldEnded(heldMs)) {
+                when (volumeHoldEnded(heldMs, still())) {
+                    VolumeHold.NOTHING -> {
+                        Diag.note("PingMeKeys", "Stopped on screen before the key came up")
+                    }
+
                     VolumeHold.VOLUME -> {
                         drop()
                         nudgeVolume(context, direction)

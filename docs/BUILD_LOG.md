@@ -4328,3 +4328,22 @@ by this; it never touched the app on the phone, only the test process.
 
 Installed at 4:12 PM. Waiting on the owner's next share for the new order and the single
 Parker Aiken row.
+
+### 2026-10-15, 2:25 PM: stop a held recording without sending (owner request)
+
+The owner: holding volume up to record and letting go to send is right nine times in ten,
+but mid-sentence they sometimes find they are in the wrong chat, and the only way to stop
+was to let go, which sent. They asked for an on-screen way to stop without sending.
+
+The recording bar shown while the key (or the mic) is held now has a trash button at its
+left, "Stop without sending", where the hands-free bar already has its delete. Tapping it
+throws the recording away and the composer comes back; the key is still held, and letting
+go of it afterwards does nothing: until now the release ran regardless, found nothing
+recording, and showed "Too short to send" (or, under 400 ms, turned the volume up). The
+release now asks whether the recording is still live first, and does nothing when it is
+not; the same for a finger lifted off the mic after the trash. The "Slide to cancel"
+words made room for the button (there is nothing to slide during a volume-up hold); sliding
+left on the mic still cancels. Tests: the release decision (nothing, volume, send); a
+volume-up hold stopped by the trash sends nothing and shows no notice, with the held bar
+passing the accessibility audit; a mic hold stopped by a second finger likewise. UI_DESIGN.md
+5.6 names the button.

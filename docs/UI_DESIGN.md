@@ -413,10 +413,14 @@ library. Intensity Subtle keeps only Pick and Land. Off disables all of it.
     timer, a live waveform, a delete (trash) button, Pause/Resume, and Send. While
     paused, the recording so far can be played back; Resume carries on recording.
   - **Hold** the mic: it records while held. Release to send, slide left to cancel,
-    slide up to lock into the same recording bar as a tap.
+    slide up to lock into the same recording bar as a tap. The held bar shows a trash
+    button (owner, 2026-10-15): tapping it stops without sending, and letting go
+    afterwards sends nothing.
 - **Volume up, held** (owner, 2026-10-06: "press and hold the volume up button to record and
   release it to stop recording"): inside an open chat, holding volume up records and letting
-  go sends, exactly like holding the mic. A short press is still a volume press: the sliver
+  go sends, exactly like holding the mic. To change your mind mid-sentence, tap the trash in
+  the recording bar; the key coming up then does nothing, not a send and not a volume press
+  (owner, 2026-10-15). A short press is still a volume press: the sliver
   recorded is dropped and the volume goes up with the usual slider. Volume down is never
   touched, and outside a chat both keys are the phone's. The switch "Volume up records a
   voice note" under Settings, Storage and media, Voice notes turns this off at any time

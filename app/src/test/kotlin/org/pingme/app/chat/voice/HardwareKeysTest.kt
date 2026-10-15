@@ -173,10 +173,13 @@ class HardwareKeysTest {
         }
 
     @Test
-    fun aShortVolumePressIsVolumeAHeldOneSends() {
-        assertEquals(VolumeHold.VOLUME, volumeHoldEnded(150))
-        assertEquals(VolumeHold.SEND, volumeHoldEnded(HardwareKeys.HOLD_MS))
-        assertEquals(VolumeHold.SEND, volumeHoldEnded(5_000))
+    fun aShortVolumePressIsVolumeAHeldOneSendsAndNeitherOnceStoppedOnScreen() {
+        assertEquals(VolumeHold.VOLUME, volumeHoldEnded(150, live = true))
+        assertEquals(VolumeHold.SEND, volumeHoldEnded(HardwareKeys.HOLD_MS, live = true))
+        assertEquals(VolumeHold.SEND, volumeHoldEnded(5_000, live = true))
+        // The trash in the recording bar was tapped first: the key coming up is nothing.
+        assertEquals(VolumeHold.NOTHING, volumeHoldEnded(150, live = false))
+        assertEquals(VolumeHold.NOTHING, volumeHoldEnded(5_000, live = false))
     }
 
     @Test
