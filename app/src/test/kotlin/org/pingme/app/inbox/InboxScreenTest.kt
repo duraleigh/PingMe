@@ -22,6 +22,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -34,6 +37,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.pingme.app.assertAccessible
 import org.pingme.core.connector.chat
+import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.NetworkId
@@ -76,6 +80,8 @@ class InboxScreenTest {
     fun tearDown() = demo.close()
 
     private fun show(vm: InboxViewModel = demo.inboxViewModel()) {
+        // The demo has unread chats, so a fresh inbox opens on Unread; these tests look at All.
+        vm.select(null)
         compose.setContent {
             PingMeTheme(appearance) {
                 InboxRoute(
@@ -135,6 +141,39 @@ class InboxScreenTest {
             val centre = (item.left + item.right) / 2
             val expected = bar.left + (bar.right - bar.left) * ((i + 0.5f) / labels.size)
             assertTrue("$label centred at $centre, expected $expected", abs((centre - expected).value) < 2f)
+        }
+    }
+
+    /** Opens on Unread while anything is; with everything read, on Google Messages (owner, 2026-10-16). */
+    @Test
+    fun theInboxOpensOnUnreadAndOnceEverythingIsReadOnGoogleMessages() {
+        val first = demo.inboxViewModel()
+        val watching = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
+        try {
+            watching.launch { first.state.collect {} }
+            waitFor { !first.state.value.loading }
+            assertEquals(InboxBarItem.Unread, first.state.value.selected)
+            runBlocking {
+                demo.chats
+                    .all()
+                    .first()
+                    .forEach { demo.actions.setRead(it.id, read = true) }
+                demo.accounts.upsert(demo.account.copy(id = AccountId("gm"), network = NetworkId.GMESSAGES))
+            }
+            waitFor {
+                runBlocking {
+                    demo.chats
+                        .unreadTotals()
+                        .first()
+                        .total == 0
+                }
+            }
+            val second = demo.inboxViewModel()
+            watching.launch { second.state.collect {} }
+            waitFor { !second.state.value.loading }
+            assertEquals(InboxBarItem.Network(NetworkId.GMESSAGES), second.state.value.selected)
+        } finally {
+            watching.cancel()
         }
     }
 

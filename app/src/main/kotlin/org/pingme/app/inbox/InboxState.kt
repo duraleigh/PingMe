@@ -221,6 +221,21 @@ fun InboxSource.allBadge(
     return (totals.total - left).coerceAtLeast(0)
 }
 
+/**
+ * Where the inbox opens (owner, 2026-10-16): on Unread when anything is unread, else on
+ * Google Messages when there is such an account. Null leaves it to the bar: All, or its
+ * first button with All removed (UI_DESIGN.md 10.4).
+ */
+fun openingItem(
+    totals: UnreadTotals,
+    accounts: List<Account>,
+): InboxBarItem? =
+    when {
+        totals.total > 0 -> InboxBarItem.Unread
+        accounts.any { it.network == NetworkId.GMESSAGES } -> InboxBarItem.Network(NetworkId.GMESSAGES)
+        else -> null
+    }
+
 /** Unread badges for the bar, from the one counting rule (UI_DESIGN.md 6.4). */
 fun badgeFor(
     item: InboxBarItem?,

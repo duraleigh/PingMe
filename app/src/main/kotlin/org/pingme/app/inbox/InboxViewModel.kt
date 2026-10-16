@@ -79,7 +79,17 @@ class InboxViewModel
             viewModelScope.launch { settings.updateApp { it.copy(gmessagesNotificationsReminderShown = true) } }
         }
 
-        private val selected = saved.getStateFlow<String?>(SELECTED, null).map { it?.let(::decodeItem) }
+        /** The user's pick this session: All, or a button; null until they pick (then the opening rule holds). */
+        private val selected = saved.getStateFlow<String?>(SELECTED, null).map { it?.let(::decodePick) }
+
+        /** Where this inbox opened, decided once from the first look at what is unread (owner, 2026-10-16). */
+        private var opening: InboxBarItem? = null
+        private var opened = false
+
+        init {
+            // A fresh inbox opens by the rule, not where it was last left (owner, 2026-10-16).
+            saved[SELECTED] = null
+        }
 
         private val source =
             combine(
@@ -148,9 +158,15 @@ class InboxViewModel
                         src.spaces.map { InboxBarItem.Space(it.id) } +
                         InboxBarItem.LowPriority
                 val rest = options.filter { it !in config.buttons }
-                // With All removed, the inbox opens on the first button (UI_DESIGN.md 10.4).
+                if (!opened) {
+                    opened = true
+                    opening = openingItem(totals, src.accounts)
+                }
+                // Unread if anything is, else Google Messages (owner, 2026-10-16); otherwise the bar's
+                // own start: All, or with All removed its first button (UI_DESIGN.md 10.4).
                 val first = config.items.firstOrNull()?.takeIf { !config.showAll }
-                val current = pick?.takeIf { it in config.items || it in rest } ?: first
+                val offered = { item: InboxBarItem? -> item?.takeIf { it in config.items || it in rest } }
+                val current = if (pick != null) offered(pick.item) ?: first else offered(opening) ?: first
                 val (pinned, rows) = src.select(current, config.narrowings, now)
                 val entryOf = { item: InboxBarItem? ->
                     if (item == null) BarEntry(null, src.allBadge(totals, now)) else entry(item, config, src, totals)
@@ -180,7 +196,7 @@ class InboxViewModel
         val messages = rowActions.messages
 
         fun select(item: InboxBarItem?) {
-            saved[SELECTED] = item?.let { JSON.encodeToString(InboxBarItem.serializer(), it) }
+            saved[SELECTED] = item?.let { JSON.encodeToString(InboxBarItem.serializer(), it) } ?: ALL
         }
 
         /** A long-press choice on a network button; null shows every account and folder again. */
@@ -276,6 +292,13 @@ class InboxViewModel
 
         private fun defaultBar(accountList: List<Account>) = InboxBarConfig.default(accountList.map { it.network })
 
+        /** A pick made this session: [item] null is All. */
+        private class Pick(
+            val item: InboxBarItem?,
+        )
+
+        private fun decodePick(json: String) = Pick(if (json == ALL) null else decodeItem(json))
+
         private fun decodeItem(json: String): InboxBarItem? =
             runCatching {
                 JSON.decodeFromString(InboxBarItem.serializer(), json)
@@ -298,6 +321,9 @@ class InboxViewModel
 
         private companion object {
             const val SELECTED = "selected"
+
+            /** The saved pick that means All (a bar item is saved as its JSON). */
+            const val ALL = "all"
             const val STOP_AFTER = 5_000L
             val DEMO_RETRY = 30.seconds
             val JSON = Json { ignoreUnknownKeys = true }

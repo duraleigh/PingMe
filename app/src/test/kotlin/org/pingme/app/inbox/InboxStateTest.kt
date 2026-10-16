@@ -241,6 +241,16 @@ class InboxStateTest {
         )
     }
 
+    /** The inbox opens on Unread, else Google Messages, else where the bar says (owner, 2026-10-16). */
+    @Test
+    fun theInboxOpensOnUnreadElseGoogleMessagesElseWhereTheBarSays() {
+        val some = UnreadTotals(1, emptyMap(), emptyMap(), emptyMap())
+        assertEquals(InboxBarItem.Unread, openingItem(some, listOf(rcs, ig)))
+        assertEquals(InboxBarItem.Unread, openingItem(some, listOf(ig)))
+        assertEquals(InboxBarItem.Network(NetworkId.GMESSAGES), openingItem(UnreadTotals.NONE, listOf(ig, rcs)))
+        assertEquals(null, openingItem(UnreadTotals.NONE, listOf(ig, page)))
+    }
+
     @Test
     fun theDefaultBarIsUnreadThenYourNetworksUpToFourButtons() {
         val bar =

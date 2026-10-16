@@ -742,7 +742,10 @@ becomes user-configurable: any mix of All, Unread, network filters, spaces, and 
 priority, up to four items; the fifth position is always "More", which surfaces every
 space and filter not chosen (owner, 2026-10-03, so the bar can keep growing without
 crowding). All is the default first item but can be removed (owner,
-Gate G1); with All removed, the first item in the bar is where the inbox opens. Decided. Inside a space the inbox shows only that space's chats, with the same
+Gate G1). Where the inbox opens (owner, 2026-10-16): on Unread when anything is unread,
+else on Google Messages; without a Google Messages account, on All, or with All removed on
+the first item in the bar. The choice is made each time the inbox starts afresh; a filter
+the user then picks stays until they leave the app. Decided. Inside a space the inbox shows only that space's chats, with the same
 pinned grid and list. Unread counts for a space follow the counting rule in section
 6.4.
 

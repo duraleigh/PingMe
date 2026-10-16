@@ -4347,3 +4347,17 @@ left on the mic still cancels. Tests: the release decision (nothing, volume, sen
 volume-up hold stopped by the trash sends nothing and shows no notice, with the held bar
 passing the accessibility audit; a mic hold stopped by a second finger likewise. UI_DESIGN.md
 5.6 names the button.
+
+### 2026-10-16: the inbox opens on Unread, else Google Messages (owner request)
+
+The owner: "app should always open in the unread inbox. If there are no unread messages,
+app should open in the Google Messages inbox." Until now the inbox opened on All (or the
+bar's first button with All removed) and remembered the last filter across a restart.
+
+The inbox now decides where to open from its first look at what is unread, once per fresh
+start: Unread when the unread total (the one counting rule) is above zero, else the Google
+Messages filter when there is such an account, else the bar's own start as before. A filter
+the owner picks after that stays while the app is open; the remembered last filter is no
+longer restored at a fresh start, since the rule decides. UI_DESIGN.md 10.4 says so. Tests:
+the rule itself; a fresh inbox on the demo (which has unread chats) opens on Unread, and
+with everything read and a Google Messages account present, a fresh inbox opens there.
