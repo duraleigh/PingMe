@@ -4361,3 +4361,8 @@ the owner picks after that stays while the app is open; the remembered last filt
 longer restored at a fresh start, since the rule decides. UI_DESIGN.md 10.4 says so. Tests:
 the rule itself; a fresh inbox on the demo (which has unread chats) opens on Unread, and
 with everything read and a Google Messages account present, a fresh inbox opens there.
+
+Installed at 11:53 AM on the 16th (this and the "Stop without sending" button of the 15th
+together; the phone had been off wireless debugging in between). The service came back by
+itself. Waiting on the owner: the inbox opening on Unread, and the trash during a held
+recording.
