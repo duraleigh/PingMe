@@ -59,11 +59,19 @@ abstract class PingMeDatabase : RoomDatabase() {
         const val NAME = "pingme.db"
 
         /** The schema version. Bump it with a migration in [MIGRATIONS] and an exported schema. */
-        const val VERSION = 5
+        const val VERSION = 8
 
         /** Schema migrations, oldest first (BUILD_PLAN.md P1.6). MigrationTest checks every one. */
         val MIGRATIONS: Array<Migration> =
-            arrayOf(PinnedMessages, ChatOverridesTable, SpaceIconAndAll, ReadUpToAndTombstones)
+            arrayOf(
+                PinnedMessages,
+                ChatOverridesTable,
+                SpaceIconAndAll,
+                ReadUpToAndTombstones,
+                ReadBackfill,
+                ContactLinks,
+                ReadReachesNewest,
+            )
 
         /** Applies the settings every PingMe database needs, on-disk or in-memory. */
         fun configure(builder: Builder<PingMeDatabase>): PingMeDatabase =
@@ -118,12 +126,52 @@ private object SpaceIconAndAll : Migration(VERSION_3, VERSION_4) {
 /** 4 to 5 (Gate G7): when a chat was last read here, and chats deleted here (not undone by a sync). */
 private const val VERSION_4 = 4
 
-private object ReadUpToAndTombstones : Migration(VERSION_4, PingMeDatabase.VERSION) {
+private const val VERSION_5 = 5
+
+private object ReadUpToAndTombstones : Migration(VERSION_4, VERSION_5) {
     override fun migrate(connection: SQLiteConnection) {
         connection.execSQL("ALTER TABLE `chats` ADD COLUMN `readUpTo` INTEGER")
         connection.execSQL(
             "CREATE TABLE IF NOT EXISTS `chat_tombstones` (`chatId` TEXT NOT NULL, `hiddenAt` INTEGER NOT NULL, " +
                 "PRIMARY KEY(`chatId`))",
+        )
+    }
+}
+
+/**
+ * 5 to 6 (Gate G7, round 2): a chat that showed as read before "read here" existed is
+ * stamped as read, so the first sync after the upgrade cannot bring it back unread
+ * (owner: Google Messages chats read under 0.7.0 came back unread in 0.7.1).
+ */
+private const val VERSION_6 = 6
+
+private object ReadBackfill : Migration(VERSION_5, VERSION_6) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "UPDATE `chats` SET `readUpTo` = `lastActivityAt` WHERE `unreadCount` = 0 AND `readUpTo` IS NULL",
+        )
+    }
+}
+
+/** 6 to 7 (P7.1): the matched contact's name and photo on a person (UI_DESIGN.md 10.18). */
+private const val VERSION_7 = 7
+
+private object ContactLinks : Migration(VERSION_6, VERSION_7) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `persons` ADD COLUMN `contactName` TEXT")
+        connection.execSQL("ALTER TABLE `persons` ADD COLUMN `contactPhoto` TEXT")
+    }
+}
+
+/**
+ * 7 to 8 (Gate G7, round 3): a chat showing as read is stamped read at its newest stored
+ * message, not the network's chat time, which could be older (Google Messages).
+ */
+private object ReadReachesNewest : Migration(VERSION_7, PingMeDatabase.VERSION) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "UPDATE `chats` SET `readUpTo` = MAX(`readUpTo`, COALESCE((SELECT MAX(m.`sentAt`) FROM `messages` m " +
+                "WHERE m.`chatId` = `chats`.`id`), `readUpTo`)) WHERE `unreadCount` = 0 AND `readUpTo` IS NOT NULL",
         )
     }
 }

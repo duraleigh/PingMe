@@ -86,10 +86,11 @@ fun MessageRow(
             Spacer(Modifier.width(8.dp))
         }
         Column(bubbleModifier, horizontalAlignment = if (outgoing) Alignment.End else Alignment.Start) {
+            val network = context.networkFor(message)
             MessageBubble(
                 text = bodyText(message, context.cleanLink),
                 outgoing = outgoing,
-                network = context.network,
+                network = network,
                 transport = message.transport,
                 lastInGroup = item.lastInGroup,
                 header = { BubbleTop(item, context, sender) },
@@ -98,11 +99,11 @@ fun MessageRow(
                     if (showTime || message.status is MessageStatus.Failed ||
                         message.status is MessageStatus.Scheduled
                     ) {
-                        Footer(message, context.network)
+                        Footer(message, network, context.marksNetwork)
                     }
                 },
             )
-            if (message.reactions.isNotEmpty()) Reactions(message)
+            if (message.reactions.isNotEmpty()) Reactions(message, context)
             (message.status as? MessageStatus.Failed)?.let { FailedRow(it.reason) { context.onRetry(message) } }
         }
     }
@@ -161,6 +162,7 @@ private fun bodyText(
 private fun Footer(
     message: Message,
     network: NetworkId,
+    badge: Boolean,
 ) {
     val deleted = message.deletedForEveryone || message.kind == MessageKind.DELETED
     Row(
@@ -186,6 +188,11 @@ private fun Footer(
             style = MaterialTheme.typography.labelSmall,
             color = LocalContentColor.current.copy(alpha = FADED),
         )
+        // In a merged chat the network sits beside the time and ticks, nowhere else (owner, Phase 7).
+        if (badge) {
+            org.pingme.app.inbox
+                .NetworkBadge(network)
+        }
         val oldWay = network == NetworkId.GMESSAGES && message.transport != Transport.RCS
         when {
             message.status is MessageStatus.Failed || message.status is MessageStatus.Scheduled -> {

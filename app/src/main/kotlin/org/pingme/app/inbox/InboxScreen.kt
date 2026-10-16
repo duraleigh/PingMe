@@ -66,6 +66,8 @@ class InboxNavigation(
     val onNewGroup: () -> Unit,
     val onFix: (Account) -> Unit,
     val menu: MenuActions,
+    /** The merge suggestions screen (owner, Phase 7). */
+    val onMergeSuggestions: () -> Unit = {},
 )
 
 /** The inbox with its view model. */
@@ -98,6 +100,7 @@ fun InboxRoute(
                 },
                 bar = BarActions(viewModel::select, viewModel::narrow),
                 onSaveBar = viewModel::setBarItems,
+                onMovePin = viewModel::movePin,
             ),
         navigation = navigation,
         reactions = viewModel.reactions,
@@ -135,6 +138,8 @@ class InboxCallbacks(
     val onSaveBar: (List<InboxBarItem?>) -> Unit,
     /** One action on every selected row (owner, Gate G3). */
     val onBulk: (List<ChatRow>, BulkAction) -> Unit = { _, _ -> },
+    /** A pinned tile dragged to a new place (owner, 2026-10-05). */
+    val onMovePin: (ChatId, Int) -> Unit = { _, _ -> },
 )
 
 /**
@@ -163,7 +168,7 @@ fun InboxScreen(
     val wide = isWide()
     val menu = navigation.menu.withEditBar { editingBar = true }
     Row(modifier.fillMaxSize()) {
-        if (wide) InboxRail(state.bar, state.selected, state.accounts, callbacks.bar)
+        if (wide) InboxRail(state.bar, state.selected, state.accounts, callbacks.bar, more = state.more)
         Scaffold(
             topBar = {
                 InboxTop(state, callbacks, navigation, menu, selectedRows, selection::clear) { action ->
@@ -175,7 +180,9 @@ fun InboxScreen(
                     }
                 }
             },
-            bottomBar = { if (!wide) InboxBottomBar(state.bar, state.selected, state.accounts, callbacks.bar) },
+            bottomBar = {
+                if (!wide) InboxBottomBar(state.bar, state.selected, state.accounts, callbacks.bar, more = state.more)
+            },
             floatingActionButton = { NewMenu(fabOpen, { fabOpen = it }, navigation.onNewChat, navigation.onNewGroup) },
             snackbarHost = { SnackbarHost(snackbar) },
         ) { padding ->
@@ -185,6 +192,7 @@ fun InboxScreen(
                 onOpen = { navigation.onOpenChat(it.id) },
                 onHold = { holding = it },
                 onSwipe = callbacks.onSwipe,
+                onMovePin = callbacks.onMovePin,
                 onFlipEnd = { flips.remove(it) },
                 contentPadding = padding,
                 selected = selection.ids,
@@ -241,7 +249,7 @@ private fun isWide() =
     currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
 private fun MenuActions.withEditBar(onEdit: () -> Unit) =
-    MenuActions(onAppearance, onList, onEdit, onSettings, onNotifications, onAccounts)
+    MenuActions(onAppearance, onList, onEdit, onSettings, onNotifications, onAccounts, onMergeSuggestions)
 
 /** Callbacks shared by the bottom bar and the rail. */
 class BarActions(
@@ -321,6 +329,7 @@ private fun SelectionBar(
                 BulkButton(BulkAction.MUTE, UiR.drawable.ic_notifications_off, R.string.action_mute, onAct)
                 BulkButton(BulkAction.ARCHIVE, UiR.drawable.ic_archive, R.string.action_archive, onAct)
                 BulkButton(BulkAction.LOW_PRIORITY, UiR.drawable.ic_low_priority, R.string.action_low_priority, onAct)
+                BulkButton(BulkAction.MERGE, UiR.drawable.ic_call_merge, R.string.action_merge, onAct)
                 BulkButton(BulkAction.DELETE, UiR.drawable.ic_delete, R.string.action_delete, onAct)
             }
         }
@@ -348,6 +357,7 @@ private fun ChatListBody(
     contentPadding: PaddingValues,
     selected: Set<ChatId> = emptySet(),
     onSelect: (ChatRow) -> Unit = {},
+    onMovePin: (ChatId, Int) -> Unit = { _, _ -> },
 ) {
     val style = PingMeTheme.appearance.pinnedStyle
     // "Top of list" shows pinned chats as ordinary rows above the rest (UI_DESIGN.md 4.3).
@@ -362,9 +372,9 @@ private fun ChatListBody(
             item(key = "pinned") {
                 Column {
                     if (style == PinnedStyle.GRID) {
-                        PinnedGrid(state.pinned, onOpen, onHold)
+                        PinnedGrid(state.pinned, onOpen, onHold, onMove = onMovePin)
                     } else {
-                        PinnedRow(state.pinned, onOpen, onHold)
+                        PinnedRow(state.pinned, onOpen, onHold, onMove = onMovePin)
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
                 }

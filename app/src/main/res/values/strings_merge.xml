@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <string name="merge_suggestions_title">Same person, more than one network</string>
+    <string name="merge_suggestions_note">PingMe found chats that look like the same person. Nothing is merged until you say so. Take out any chat that does not belong, add any that do, then merge.</string>
+    <string name="merge_suggestions_empty">No suggestions right now. You can merge any chats yourself: hold an avatar in the inbox, pick the chats, and tap Merge.</string>
+    <string name="merge_reason_contact">Same contact</string>
+    <string name="merge_reason_number">Same phone number</string>
+    <string name="merge_reason_name">Same name</string>
+    <string name="merge_remove">Leave this chat out</string>
+    <string name="merge_card_hint">The filled circle is where the merged chat sends from. Tap a picture to use it.</string>
+    <string name="merge_photo_contact">Use the contact photo</string>
+    <string name="merge_photo_pick">Use this picture</string>
+    <string name="merge_add_chat">Add a chat…</string>
+    <string name="merge_dismiss">Dismiss</string>
+    <string name="merge_confirm">Merge</string>
+    <string name="merge_done">Merged into one chat</string>
+    <string name="merge_pick_title">Pick chats to merge</string>
+    <string name="merge_pick_hint">Search chats</string>
+    <string name="merge_pick_add">Add</string>
+    <string name="merge_with">Merge with…</string>
+    <string name="merge_members">Networks in this chat</string>
+    <string name="merge_default">Send from here unless you pick another</string>
+    <string name="merge_member_remove">Remove</string>
+    <string name="merge_unmerge">Unmerge all</string>
+    <string name="action_merge">Merge</string>
+    <string name="inbox_bulk_merged">Merged %1$s chats into one</string>
+    <string name="menu_merge_suggestions">Merge suggestions</string>
+    <string name="settings_merge">Merge chats</string>
+    <string name="settings_merge_summary">Join one person\'s chats across networks, or review suggestions</string>
+    <string name="settings_merge_pick">Merge chats you pick</string>
+    <string name="settings_merge_pick_note">Choose any one-to-one chats from any networks. They become one chat.</string>
+    <string name="settings_merge_suggestions">Suggestions</string>
+    <plurals name="settings_merge_suggestions_count">
+        <item quantity="one">%d person looks the same on more than one network</item>
+        <item quantity="other">%d people look the same on more than one network</item>
+    </plurals>
+    <string name="settings_merge_none">None right now</string>
+    <string name="chat_networks_all">All networks</string>
+    <string name="chat_pick_network">Show one network</string>
+    <string name="chat_pick_send_network">Pick the network to send on</string>
+    <string name="send_hint_gmessages">Send a Google Message</string>
+    <string name="send_hint_sms">Send a text</string>
+    <string name="send_hint_whatsapp">Send a WhatsApp message</string>
+    <string name="send_hint_disconnected">%1$s is not connected; the message will wait</string>
+    <string name="send_hint_instagram">Send an Instagram DM</string>
+    <string name="send_hint_signal">Send a Signal</string>
+    <string name="send_hint_telegram">Send a Telegram</string>
+    <string name="send_hint_messenger">Send a Facebook Message</string>
+    <string name="send_hint_fbpage">Send as your Page</string>
+    <string name="send_hint_gvoice">Send with Google Voice</string>
+</resources>

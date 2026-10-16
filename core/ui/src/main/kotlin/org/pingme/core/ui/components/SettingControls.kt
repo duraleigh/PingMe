@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -49,9 +50,10 @@ fun SettingsSectionHeader(
     title: String,
     modifier: Modifier = Modifier,
 ) {
+    // A heading, so a screen reader can jump from section to section (Phase 8, P8.1).
     Text(
         title,
-        modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+        modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp).semantics { heading() },
         style = MaterialTheme.typography.titleSmallEmphasized,
         color = MaterialTheme.colorScheme.primary,
     )

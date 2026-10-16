@@ -48,6 +48,7 @@ enum class SettingsPage(
     MOTION(R.string.settings_motion, R.string.settings_motion_summary, UiR.drawable.ic_animation),
     STORAGE(R.string.settings_storage, R.string.settings_storage_summary, UiR.drawable.ic_download),
     SPACES(R.string.settings_spaces, R.string.settings_spaces_summary, UiR.drawable.ic_apps),
+    MERGE(R.string.settings_merge, R.string.settings_merge_summary, UiR.drawable.ic_call_merge),
     BACKUP(R.string.settings_backup, R.string.settings_backup_summary, UiR.drawable.ic_upload),
     ACCOUNT(R.string.settings_accounts),
 }
@@ -62,6 +63,8 @@ class SettingsNavigation(
     val onRestart: () -> Unit,
     /** A network's login: a new account, or [AccountId] logging in again. */
     val onLogin: (NetworkId, AccountId?) -> Unit,
+    /** The merge suggestions screen (owner, 2026-10-03: from Settings, not a banner). */
+    val onMergeSuggestions: () -> Unit = {},
 )
 
 /** A Settings page with the shared view model (BUILD_PLAN.md P2.6). */
@@ -160,6 +163,13 @@ private fun LazyListScope.pageItems(
 
         SettingsPage.SPACES -> {
             item { SpacesPage(state, spaces) }
+        }
+
+        SettingsPage.MERGE -> {
+            item {
+                org.pingme.app.merge
+                    .MergePage(navigation.onMergeSuggestions)
+            }
         }
 
         SettingsPage.BACKUP -> {

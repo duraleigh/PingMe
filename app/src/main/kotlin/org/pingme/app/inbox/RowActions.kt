@@ -19,7 +19,7 @@ import org.pingme.core.ui.theme.SwipeAction
 enum class ChatAction { PIN, READ, MUTE, ARCHIVE, LOW_PRIORITY, OBSCURE, DELETE }
 
 /** What the selection bar does to every selected chat at once (owner, Gate G3). */
-enum class BulkAction { READ, UNREAD, MUTE, ARCHIVE, LOW_PRIORITY, DELETE }
+enum class BulkAction { READ, UNREAD, MUTE, ARCHIVE, LOW_PRIORITY, MERGE, DELETE }
 
 /** A snackbar to show, with what Undo does (if anything) and what happens when it goes away. */
 class InboxMessage(
@@ -27,6 +27,8 @@ class InboxMessage(
     val chatTitle: String?,
     val undo: (() -> Unit)? = null,
     val onGone: () -> Unit = {},
+    /** Words that are not a resource: a network's or the merge's own reason. */
+    val plain: String? = null,
 )
 
 /**
@@ -37,6 +39,7 @@ class InboxMessage(
 class RowActions(
     private val scope: CoroutineScope,
     private val actions: ChatActions,
+    private val merges: org.pingme.core.service.merge.Merges? = null,
 ) {
     private val pending = MutableStateFlow<Set<ChatId>>(emptySet())
 
@@ -123,6 +126,7 @@ class RowActions(
         action: BulkAction,
     ) {
         if (rows.isEmpty()) return
+        if (action == BulkAction.MERGE) return mergeAll(rows)
         scope.launch {
             rows.forEach { row ->
                 val id = row.chat.id
@@ -133,9 +137,23 @@ class RowActions(
                     BulkAction.ARCHIVE -> actions.setArchived(id, true)
                     BulkAction.LOW_PRIORITY -> actions.setLowPriority(id, true)
                     BulkAction.DELETE -> actions.delete(id)
+                    BulkAction.MERGE -> Unit
                 }
             }
             channel.send(InboxMessage(bulkDone(action), rows.size.toString()))
+        }
+    }
+
+    // Any one-to-one chats, any networks, into one merged chat (owner, Phase 7); a refusal is said plainly.
+    private fun mergeAll(rows: List<ChatRow>) {
+        val merge = merges ?: return
+        scope.launch {
+            try {
+                merge.merge(rows.map { it.chat.id })
+                channel.send(InboxMessage(R.string.inbox_bulk_merged, rows.size.toString()))
+            } catch (e: org.pingme.core.service.merge.MergeRefusedException) {
+                channel.send(InboxMessage(R.string.inbox_bulk_merged, null, plain = e.message))
+            }
         }
     }
 
@@ -147,6 +165,7 @@ class RowActions(
             BulkAction.MUTE -> R.string.inbox_bulk_muted
             BulkAction.ARCHIVE -> R.string.inbox_bulk_archived
             BulkAction.LOW_PRIORITY -> R.string.inbox_bulk_low_priority
+            BulkAction.MERGE -> R.string.inbox_bulk_merged
             BulkAction.DELETE -> R.string.inbox_bulk_deleted
         }
 

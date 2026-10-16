@@ -118,11 +118,20 @@ internal fun composerHooks(
     outbox = viewModel.outbox,
     voice = viewModel.voice.takeIf { state.capabilities?.voiceNote?.let { it != MediaRule.UNSUPPORTED } == true },
     onVoiceTooShort = { onNotice(R.string.voice_too_short) },
+    volumeUpRecords = viewModel.appSettings.value.media.volumeUpRecords,
+    dictation = viewModel.dictation.takeIf { it.ready },
     gifs = viewModel.gifs.takeIf { state.capabilities?.gif?.let { it != MediaRule.UNSUPPORTED } == true },
     gifPicks =
         org.pingme.app.chat.gif
             .GifPicks(viewModel::sendGif, viewModel::sendFavourite),
     onSchedule = viewModel::schedule,
+    network = state.sendNetwork,
+    members = state.members,
+    sendVia = state.sendVia,
+    onSendVia = viewModel::sendVia,
+    connected =
+        state.members.firstOrNull { it.chatId == state.sendVia }?.connected
+            ?: (state.account?.state is org.pingme.core.model.ConnectionState.Connected),
     onProblem = { problem ->
         onNotice(
             when (problem) {

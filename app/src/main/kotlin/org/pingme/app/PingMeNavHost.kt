@@ -105,6 +105,10 @@ data class ChatDetails(
 @Serializable
 object ShareDest
 
+/** Merge suggestions (UI_DESIGN.md 10.15; owner, Phase 7). */
+@Serializable
+object MergeSuggestionsDest
+
 // One chat, and a network's own page opened inside PingMe from a link card (owner, Gate G7).
 private fun NavGraphBuilder.chatAndPages(nav: NavController) {
     composable<OpenChat> { entry ->
@@ -115,6 +119,10 @@ private fun NavGraphBuilder.chatAndPages(nav: NavController) {
             onDetails = { nav.navigate(ChatDetails(id.value)) },
             onOpenPage = { url, account -> nav.navigate(WebPageDest(url, account.value)) },
         )
+    }
+    composable<MergeSuggestionsDest> {
+        org.pingme.app.merge
+            .MergeSuggestionsRoute(onBack = { nav.popBackStack() })
     }
     composable<WebPageDest> { entry ->
         WebPageRoute(
@@ -171,6 +179,10 @@ fun PingMeNavHost(
                     onBackToChat = { nav.popBackStack() },
                     // Blocked or deleted: the chat behind is gone too.
                     onLeft = { nav.popBackStack(Home, inclusive = false) },
+                    onMerged = { merged ->
+                        nav.popBackStack(Home, inclusive = false)
+                        nav.navigate(OpenChat(merged.value))
+                    },
                 ),
             )
         }
@@ -193,6 +205,7 @@ fun PingMeNavHost(
                             .restartApp(context)
                     },
                     onLogin = { network, account -> nav.navigate(LoginDest(network.name, account?.value)) },
+                    onMergeSuggestions = { nav.navigate(MergeSuggestionsDest) },
                 ),
                 account = entry.arguments?.getString("account")?.let(::AccountId),
             )
@@ -271,6 +284,7 @@ private fun InboxHome(nav: NavController) {
                         onNewChat = { nav.navigate(NewChatRoute(group = false)) },
                         onNewGroup = { nav.navigate(NewChatRoute(group = true)) },
                         onFix = { account -> fix(context, account) },
+                        onMergeSuggestions = { nav.navigate(MergeSuggestionsDest) },
                         menu =
                             MenuActions(
                                 onAppearance = { nav.navigate(AppearanceStudio) },
@@ -278,6 +292,7 @@ private fun InboxHome(nav: NavController) {
                                 onEditBar = {},
                                 onSettings = { nav.navigate(SettingsDest()) },
                                 onAccounts = { nav.navigate(SettingsDest(SettingsPage.ACCOUNTS.name)) },
+                                onMergeSuggestions = { nav.navigate(MergeSuggestionsDest) },
                             ),
                     ),
                 )

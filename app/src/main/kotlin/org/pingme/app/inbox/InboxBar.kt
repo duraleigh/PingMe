@@ -60,9 +60,10 @@ sealed interface Narrowing {
 }
 
 /**
- * The bar (UI_DESIGN.md 10.4): All first unless the user removed it, then their picks, five
- * buttons at most. With All removed the inbox opens on the first button. Narrowings are
- * remembered per network until changed.
+ * The bar (UI_DESIGN.md 10.4): All first unless the user removed it, then their picks, four
+ * buttons at most; a fixed fifth "More" button holds everything else (owner, 2026-10-03).
+ * With All removed the inbox opens on the first button. Narrowings are remembered per
+ * network until changed.
  */
 @Serializable
 data class InboxBarConfig(
@@ -73,7 +74,7 @@ data class InboxBarConfig(
     /** The buttons in order, null standing for All. */
     val buttons: List<InboxBarItem?> get() = (if (showAll) listOf(null) else emptyList()) + items
 
-    /** Keeps to five buttons and never leaves the bar empty: with nothing else, All comes back. */
+    /** Keeps to four buttons and never leaves the bar empty: with nothing else, All comes back. */
     fun tidy(): InboxBarConfig {
         val picks = items.distinct()
         val all = showAll || picks.isEmpty()
@@ -85,7 +86,8 @@ data class InboxBarConfig(
         copy(items = buttons.filterNotNull(), showAll = null in buttons).tidy()
 
     companion object {
-        const val MAX_BUTTONS = 5
+        /** The chosen positions; the fifth is always More. */
+        const val MAX_BUTTONS = 4
 
         /** Before the user sets anything: All, Unread, then the networks they have, in order of adding. */
         fun default(networks: List<NetworkId>) =
@@ -103,7 +105,8 @@ class InboxBarRepository
     constructor(
         private val settings: SettingsRepository,
     ) {
-        val config: Flow<InboxBarConfig?> = settings.inboxBarJson.map { decode(it) }
+        /** A bar saved with five picks before the More button existed loads as four (owner, 2026-10-03). */
+        val config: Flow<InboxBarConfig?> = settings.inboxBarJson.map { decode(it)?.tidy() }
 
         /** [change] gets the current bar, or the default when none is saved yet. */
         suspend fun update(

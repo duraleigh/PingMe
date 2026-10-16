@@ -46,6 +46,9 @@ class FakeInstagram {
     val unsent = CopyOnWriteArraySet<String>()
     val accepted = CopyOnWriteArraySet<String>()
     val sessions = CopyOnWriteArrayList<FakeIgSession>()
+
+    /** Threads the inbox's first page lists besides Sam's, with their folder fields as Instagram sends them. */
+    val alsoListed = CopyOnWriteArrayList<IgThread>()
     private val clock = AtomicLong(1_759_310_000_000)
     private val counter = AtomicLong(100)
 
@@ -117,15 +120,33 @@ class FakeIgSession(
     ): String =
         igJson.encodeToString(
             IgThreadPage.serializer(),
-            IgThreadPage(if (folder == "PENDING") listOf(requestThread()) else listOf(samThread())),
+            IgThreadPage(
+                if (folder ==
+                    "PENDING"
+                ) {
+                    listOf(requestThread())
+                } else {
+                    listOf(samThread()) + network.alsoListed
+                },
+            ),
         )
 
     /** Any thread asked for exists: Sam's for his id, a General thread with a named stranger for any other. */
+    var mediaUrls: Map<String, String> = emptyMap()
+
+    override fun mediaUrl(
+        fbid: String,
+        attachmentId: String,
+    ): String = mediaUrls[attachmentId] ?: throw IllegalStateException("no address for $attachmentId")
+
     override fun thread(fbid: String): String =
         igJson.encodeToString(
             IgThread.serializer(),
             if (fbid == FakeInstagram.THREAD) {
                 samThread()
+            } else if (network.alsoListed.any { it.id == fbid }) {
+                // Fetched on its own, Instagram says system='INBOX' and nothing about the folder.
+                network.alsoListed.first { it.id == fbid }.copy(folder = "", systemFolder = "INBOX", folderTag = "")
             } else {
                 IgThread(
                     fbid,

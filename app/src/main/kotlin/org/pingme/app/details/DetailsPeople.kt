@@ -104,9 +104,9 @@ fun DetailsMembers(
         SettingsSectionHeader(stringResource(R.string.details_members))
         state.people.forEach { person ->
             ListItem(
-                headlineContent = { Text(person.displayName) },
+                headlineContent = { Text(person.name) },
                 supportingContent = { Text(person.phoneNumber ?: person.networkHandle) },
-                leadingContent = { Avatar(person.displayName, size = 40.dp) },
+                leadingContent = { Avatar(person.name, size = 40.dp, photo = person.photo) },
             )
         }
     }

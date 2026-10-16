@@ -2,15 +2,18 @@
 package org.pingme.app
 
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import org.pingme.app.chat.voice.HardwareKeys
 import org.pingme.core.service.ConnectionService
 import org.pingme.core.service.notify.NotificationTaps
 import org.pingme.core.store.AccountRepository
@@ -46,9 +49,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** The side key records a voice note in the open chat (owner, 2026-10-06); see HardwareKeys. */
+    override fun onKeyDown(
+        keyCode: Int,
+        event: KeyEvent,
+    ): Boolean = HardwareKeys.onKeyDown(keyCode, event.repeatCount) || super.onKeyDown(keyCode, event)
+
+    override fun onKeyUp(
+        keyCode: Int,
+        event: KeyEvent,
+    ): Boolean = HardwareKeys.onKeyUp(keyCode, event.isCanceled) || super.onKeyUp(keyCode, event)
+
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        // Opened again while already in front: the side key's "open PingMe" (see HardwareKeys).
+        if (HardwareKeys.fromIntent(intent, lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))) return
         taps.fromIntent(intent)
         shares.fromIntent(intent)
     }

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.inbox
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -51,6 +54,7 @@ import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
+import org.pingme.core.model.NetworkId
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.MessageRepository
 import org.pingme.core.ui.components.Avatar
@@ -65,6 +69,15 @@ data class SearchResults(
     val chats: List<Chat> = emptyList(),
     val messages: List<Pair<Message, Chat>> = emptyList(),
     val now: Instant = Instant.DISTANT_PAST,
+    /** Each chat's network and the number or username it goes by (owner, 2026-10-04). */
+    val tags: Map<ChatId, SearchTag> = emptyMap(),
+)
+
+/** What tells two chats with one name apart: the network, and the number or username. */
+data class SearchTag(
+    val network: NetworkId,
+    val detail: String?,
+    val photo: String?,
 )
 
 /**
@@ -80,6 +93,8 @@ class SearchViewModel
         messages: MessageRepository,
         clock: Clock,
         private val saved: SavedStateHandle,
+        accounts: org.pingme.core.store.AccountRepository,
+        contacts: org.pingme.core.store.ContactRepository,
     ) : ViewModel() {
         val query: StateFlow<String> = saved.getStateFlow(QUERY, "")
 
@@ -91,18 +106,33 @@ class SearchViewModel
                     if (q.isEmpty()) {
                         flowOf(SearchResults())
                     } else {
-                        combine(chats.all(), messages.search(q)) { all, found ->
+                        combine(chats.all(), messages.search(q), accounts.accounts(), contacts.inChats()) {
+                            all,
+                            found,
+                            accountList,
+                            people,
+                            ->
                             // Message requests stay out of search, as they stay out of the inbox.
                             val visible = all.filter { it.folder != ChatFolder.REQUESTS }
                             val byId = visible.associateBy { it.id }
+                            val networkOf = accountList.associate { it.id to it.network }
+                            val shown = visible.filter { (it.nameOverride ?: it.title).contains(q, ignoreCase = true) }
+                            val hits =
+                                found
+                                    .mapNotNull { m ->
+                                        byId[m.chatId]?.let { m to it }
+                                    }.filterNot { (_, c) -> c.isObscured }
                             SearchResults(
-                                chats = visible.filter { (it.nameOverride ?: it.title).contains(q, ignoreCase = true) },
-                                messages =
-                                    found
-                                        .mapNotNull { m ->
-                                            byId[m.chatId]?.let { m to it }
-                                        }.filterNot { (_, c) -> c.isObscured },
+                                chats = shown,
+                                messages = hits,
                                 now = clock.now(),
+                                tags =
+                                    (shown + hits.map { it.second }).distinctBy { it.id }.associate { chat ->
+                                        val pick =
+                                            org.pingme.app.merge.PickableChat
+                                                .of(chat, networkOf[chat.accountId] ?: NetworkId.DEMO, people)
+                                        chat.id to SearchTag(pick.network, pick.detail, pick.photo)
+                                    },
                             )
                         }
                     }
@@ -186,23 +216,29 @@ private fun Results(
         if (results.chats.isNotEmpty()) item { SectionLabel(stringResource(R.string.search_chats)) }
         items(results.chats, key = { "c" + it.id.value }) { chat ->
             val name = chat.nameOverride ?: chat.title
+            val tag = results.tags[chat.id]
             ListItem(
                 onClick = { onOpenChat(chat.id) },
-                leadingContent = { Avatar(name, size = 40.dp) },
+                leadingContent = { Avatar(name, size = 40.dp, photo = tag?.photo) },
+                supportingContent = { tag?.let { TagLine(it) } },
             ) { Text(name) }
         }
         if (results.messages.isNotEmpty()) item { SectionLabel(stringResource(R.string.search_messages)) }
         items(results.messages, key = { "m" + it.first.id.value }) { (message, chat) ->
             val name = chat.nameOverride ?: chat.title
+            val tag = results.tags[chat.id]
             ListItem(
                 onClick = { onOpenChat(chat.id) },
-                leadingContent = { Avatar(name, size = 40.dp) },
+                leadingContent = { Avatar(name, size = 40.dp, photo = tag?.photo) },
                 supportingContent = {
-                    Text(
-                        message.body.orEmpty(),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Column {
+                        tag?.let { TagLine(it) }
+                        Text(
+                            message.body.orEmpty(),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 },
                 trailingContent = {
                     Text(
@@ -235,4 +271,13 @@ fun SectionLabel(
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
     )
+}
+
+// The network badge and the number or username, so three chats with one name read apart.
+@Composable
+private fun TagLine(tag: SearchTag) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (tag.network != NetworkId.GMESSAGES) NetworkBadge(tag.network)
+        tag.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    }
 }

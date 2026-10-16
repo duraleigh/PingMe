@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/rs/zerolog"
+	waLog "go.mau.fi/whatsmeow/util/log"
 
 	"pingme.org/gobridge/alog"
 )
@@ -35,4 +36,8 @@ func newLogger(component string) zerolog.Logger {
 	logLock.RUnlock()
 	writer := zerolog.ConsoleWriter{Out: alog.Writer(), NoColor: true, TimeFormat: "15:04:05"}
 	return zerolog.New(writer).Level(level).With().Timestamp().Str("component", component).Logger()
+}
+
+func waLogger(component string) waLog.Logger {
+	return waLog.Zerolog(newLogger(component))
 }

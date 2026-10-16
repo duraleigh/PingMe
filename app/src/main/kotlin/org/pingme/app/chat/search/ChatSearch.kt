@@ -54,39 +54,23 @@ data class ChatSearchState(
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatSearch(
     scope: CoroutineScope,
-    private val chatId: ChatId,
+    /** The chats searched: a merged chat's members, or the chat itself (UI_DESIGN.md 10.15). */
+    private val chatIds: StateFlow<List<ChatId>>,
     messages: MessageRepository,
     search: ChatSearchRepository,
 ) {
     private val asked = MutableStateFlow(ChatSearchState())
 
     val state: StateFlow<ChatSearchState> =
-        asked
-            .flatMapLatest { ask ->
+        combine(asked, chatIds, ::Pair)
+            .flatMapLatest { (ask, ids) ->
                 val found =
-                    when {
-                        !ask.open -> {
-                            flowOf(emptyList())
-                        }
-
-                        // With a sender picked and no words, everything that person sent.
-                        ask.type == SearchType.TEXT && ask.query.isBlank() && ask.sender != null -> {
-                            search.from(
-                                chatId,
-                                ask.sender,
-                            )
-                        }
-
-                        ask.type == SearchType.TEXT -> {
-                            messages.search(ask.query, chatId)
-                        }
-
-                        ask.type == SearchType.LINKS -> {
-                            search.withLinks(chatId)
-                        }
-
-                        else -> {
-                            search.ofKinds(chatId, ask.type.kinds)
+                    if (!ask.open) {
+                        flowOf(emptyList())
+                    } else {
+                        // Each member chat is searched on its own; the results read as one list.
+                        combine(ids.map { id -> findIn(id, ask, messages, search) }) { lists ->
+                            lists.flatMap { it }.sortedByDescending { it.sentAt }
                         }
                     }
                 combine(flowOf(ask), found) { a, list ->
@@ -99,6 +83,31 @@ class ChatSearch(
                     )
                 }
             }.stateIn(scope, SharingStarted.Eagerly, ChatSearchState())
+
+    private fun findIn(
+        chatId: ChatId,
+        ask: ChatSearchState,
+        messages: MessageRepository,
+        search: ChatSearchRepository,
+    ): kotlinx.coroutines.flow.Flow<List<Message>> =
+        when {
+            // With a sender picked and no words, everything that person sent.
+            ask.type == SearchType.TEXT && ask.query.isBlank() && ask.sender != null -> {
+                search.from(chatId, ask.sender)
+            }
+
+            ask.type == SearchType.TEXT -> {
+                messages.search(ask.query, chatId)
+            }
+
+            ask.type == SearchType.LINKS -> {
+                search.withLinks(chatId)
+            }
+
+            else -> {
+                search.ofKinds(chatId, ask.type.kinds)
+            }
+        }
 
     /**
      * What is in the search box. Held in Compose state, which the text box reads at once:

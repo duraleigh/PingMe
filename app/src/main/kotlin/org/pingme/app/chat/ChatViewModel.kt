@@ -28,8 +28,10 @@ import kotlinx.coroutines.launch
 import org.pingme.app.chat.voice.VoiceNotes
 import org.pingme.app.chat.voice.VoiceRecorder
 import org.pingme.app.chat.voice.asAttachment
+import org.pingme.app.inbox.displayName
 import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.connector.OutgoingAttachment
+import org.pingme.core.connector.accountId
 import org.pingme.core.model.Account
 import org.pingme.core.model.AttachmentId
 import org.pingme.core.model.AttachmentKind
@@ -38,6 +40,7 @@ import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.MediaRule
 import org.pingme.core.model.Message
+import org.pingme.core.model.NetworkId
 import org.pingme.core.model.PersonId
 import org.pingme.core.service.ChatActions
 import org.pingme.core.service.MessageActions
@@ -73,6 +76,22 @@ data class ChatUiState(
     val pinned: List<Message> = emptyList(),
     /** The other person's number in a one-to-one chat, for the call icons. */
     val phone: String? = null,
+    /** The other person's Instagram profile page, in an Instagram chat (owner, 2026-10-05). */
+    val profileUrl: String? = null,
+    /** The contact's or network's photo for the header (UI_DESIGN.md 10.18). */
+    val photo: String? = null,
+    /** A group's members for the header's composite avatar (owner, 2026-10-03). */
+    val faces: List<org.pingme.core.ui.components.Face> = emptyList(),
+    /** A merged chat's members, one chip each (UI_DESIGN.md 10.15); empty for an ordinary chat. */
+    val members: List<MemberChip> = emptyList(),
+    /** Which member's bubbles are shown: an account, or null for all (owner, Phase 7). */
+    val filter: org.pingme.core.model.AccountId? = null,
+    /** The member the composer sends through; null outside a merged chat. */
+    val sendVia: ChatId? = null,
+    /** The network the next message goes out on: the chosen member's, or the chat's own. */
+    val sendNetwork: NetworkId? = null,
+    /** Each member chat's network, for bubble colours and the badge beside the ticks. */
+    val networkOf: Map<ChatId, NetworkId> = emptyMap(),
     val reactions: ReactionPrefs = ReactionPrefs(),
     /** Messages picked in multi-select; empty when not selecting. */
     val selection: Set<org.pingme.core.model.MessageId> = emptySet(),
@@ -85,6 +104,18 @@ data class ChatUiState(
 ) {
     val title: String get() = chat?.let { it.nameOverride ?: it.title }.orEmpty()
 }
+
+/** One member of a merged chat as the header dropdown and the composer chips show it. */
+data class MemberChip(
+    val chatId: ChatId,
+    val accountId: org.pingme.core.model.AccountId,
+    val network: NetworkId,
+    /** The account's own name, for two accounts on one network. */
+    val label: String,
+    /** Red-lined when the account is not connected (UI_DESIGN.md 10.15). */
+    val connected: Boolean,
+    val isDefault: Boolean,
+)
 
 /** A message held back by the MMS size warning (UI_DESIGN.md 5.5, 5.6). */
 data class HeldBack(
@@ -112,6 +143,8 @@ data class ReactionPrefs(
 /** One chat (UI_DESIGN.md 3.2, BUILD_PLAN.md P2.4). */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel(assistedFactory = ChatViewModel.Factory::class)
+// One function per thing the chat screen can ask for; the list reads as one (as ChatActions).
+@Suppress("TooManyFunctions")
 class ChatViewModel
     @AssistedInject
     constructor(
@@ -130,6 +163,8 @@ class ChatViewModel
         reactionFeed: org.pingme.core.service.ReactionFeed,
         files: org.pingme.app.chat.attach.OutgoingFiles,
         recorder: VoiceRecorder,
+        dictationRecorder: VoiceRecorder,
+        groq: org.pingme.app.chat.voice.GroqTranscriber,
         gifStore: org.pingme.app.chat.gif.GifStore,
         private val searchRepo: org.pingme.core.store.ChatSearchRepository,
         requests: ChatRequests,
@@ -138,6 +173,7 @@ class ChatViewModel
         private val presence: org.pingme.core.service.notify.ChatPresence,
         /** The ClearURLs rules, for links shown cleaned (UI_DESIGN.md 10.11). */
         val links: org.pingme.core.service.links.CleanLinks,
+        private val mergeRepo: org.pingme.core.store.MergeRepository,
     ) : ViewModel() {
         private val onScreen = MutableStateFlow(false)
 
@@ -150,10 +186,45 @@ class ChatViewModel
             onScreen.value = on
             if (on) {
                 presence.visible = chatId
+                // The view model outlives one visit: the opening rule runs on every showing,
+                // and nothing marks the chat read until it has decided.
+                decided.value = false
+                viewModelScope.launch {
+                    openOn()
+                    // Opening a chat tells its network it is read, unread here or not.
+                    runCatching { chatActions.tellNetworkRead(chatId) }
+                    // And fetches the newest page, for anything missed without a live connection.
+                    runCatching { messageActions.catchUp(chatId) }
+                }
             } else if (presence.visible == chatId) {
                 presence.visible = null
             }
         }
+
+        /**
+         * A merged chat opens, header, bubbles, and box alike, on the one network its unread
+         * messages came from; with none, or several, on its default network. "All" stays a
+         * choice in the header menu (owner, 2026-10-03).
+         */
+        private suspend fun openOn() {
+            try {
+                if (!isMergedId(chatId)) return
+                // Asked of the store directly: on a first visit the member flow has not
+                // loaded yet, and waiting for it let the read marking zero the counts first,
+                // so the chat opened on its default network (owner, 2026-10-04).
+                val list = mergeRepo.members(chatId)
+                if (list.isEmpty()) return
+                val unreadAccounts = list.filter { it.unreadCount > 0 }.map { it.accountId }.distinct()
+                val fallback = chats.get(chatId)?.defaultSendAccount ?: list.first().accountId
+                filter.value = unreadAccounts.singleOrNull() ?: fallback
+                chosenVia.value = null
+            } finally {
+                decided.value = true
+            }
+        }
+
+        /** True once the opening rule has run for this showing; read marking waits for it. */
+        private val decided = MutableStateFlow(false)
 
         /** Voice-note transcripts, when Settings turns them on (UI_DESIGN.md 5.6). */
         val transcripts =
@@ -196,14 +267,46 @@ class ChatViewModel
                     .AppSettings(),
             )
 
-        /** Search in this chat (UI_DESIGN.md 10.14). */
+        /** Volume down held: dictation into the box through Groq with the owner's key (UI_DESIGN.md 5.6). */
+        val dictation =
+            org.pingme.app.chat.voice.Dictation(
+                viewModelScope,
+                dictationRecorder,
+                Clock.System,
+                {
+                    appSettings.value.media.groqKey
+                        .trim()
+                },
+                groq::transcribe,
+                { appSettings.value.media.volumeDownDictates },
+            )
+
+        /** A merged chat's members (UI_DESIGN.md 10.15); empty for an ordinary chat. */
+        private val members =
+            mergeRepo
+                .observeMembers(chatId)
+                .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+        /** The chats whose messages make this screen: the members, or the chat itself. */
+        private val sources: StateFlow<List<ChatId>> =
+            members
+                .map { list -> list.map { it.id }.ifEmpty { listOf(chatId) } }
+                .stateIn(viewModelScope, SharingStarted.Eagerly, listOf(chatId))
+
+        /** Bubbles shown: one member's account, or all (owner, Phase 7). */
+        private val filter = MutableStateFlow<org.pingme.core.model.AccountId?>(null)
+
+        /** The member the composer sends through, when the user picked one by hand. */
+        private val chosenVia = MutableStateFlow<ChatId?>(null)
+
+        /** Search in this chat (UI_DESIGN.md 10.14), across a merged chat's members. */
         val search =
             org.pingme.app.chat.search
-                .ChatSearch(viewModelScope, chatId, messages, searchRepo)
+                .ChatSearch(viewModelScope, sources, messages, searchRepo)
 
         /** Scrolling to a search result or a date, loading history back to it first. */
         val jumps =
-            org.pingme.app.chat.search.Jumps(viewModelScope, chatId, messages, searchRepo) { needed ->
+            org.pingme.app.chat.search.Jumps(viewModelScope, sources, messages, searchRepo) { needed ->
                 limit.update { maxOf(it, needed) }
             }
 
@@ -252,14 +355,43 @@ class ChatViewModel
 
         private val chat = chats.chat(chatId)
         private val account = chat.filterNotNull().flatMapLatest { accounts.account(it.accountId) }
-        private val people = chat.filterNotNull().flatMapLatest { contacts.people(it.accountId) }
+
+        // Everyone any chat lists: a merged chat's people span accounts (UI_DESIGN.md 10.15).
+        private val people = contacts.inChats().map { it.values.toList() }
+
+        /** Members with their accounts, and what the composer sends through (UI_DESIGN.md 10.15). */
+        private val merged =
+            combine(chat, members, accounts.accounts(), filter, chosenVia) { c, list, all, shown, chosen ->
+                val byAccount = all.associateBy { it.id }
+                val twins = all.groupBy { it.network }.filterValues { it.size > 1 }.keys
+                val chips =
+                    list.map { m ->
+                        val a = byAccount[m.accountId]
+                        MemberChip(
+                            m.id,
+                            m.accountId,
+                            a?.network ?: NetworkId.DEMO,
+                            a?.let { if (it.network in twins) it.displayName else it.network.displayName }.orEmpty(),
+                            a?.state == org.pingme.core.model.ConnectionState.Connected,
+                            isDefault = m.accountId == c?.defaultSendAccount,
+                        )
+                    }
+                val via =
+                    chips.firstOrNull { it.chatId == chosen }
+                        ?: shown?.let { chips.firstOrNull { chip -> chip.accountId == it } }
+                        ?: chips.firstOrNull { it.isDefault }
+                        ?: chips.firstOrNull()
+                Merged(chips, shown, via?.chatId, chips.associate { it.chatId to it.network })
+            }
 
         val state: StateFlow<ChatUiState> =
             combine(
-                combine(chat, account, ::Pair),
-                limit.flatMapLatest { messages.latest(chatId, it) },
-                combine(people, typing.typing.map { it[chatId].orEmpty() }, ::Pair),
-                combine(pins.pinned(chatId), replyTo, moreHistory, unreadAtOpen, ::Quad),
+                combine(chat, account, merged, ::Triple),
+                combine(limit, sources) { n, ids -> n to ids }.flatMapLatest { (n, ids) ->
+                    if (ids.size == 1) messages.latest(ids.single(), n) else messages.latestIn(ids, n)
+                },
+                combine(people, typing.typing.map { t -> sources.value.flatMap { t[it].orEmpty() }.toSet() }, ::Pair),
+                combine(sources.flatMapLatest { pins.pinnedIn(it) }, replyTo, moreHistory, unreadAtOpen, ::Quad),
                 combine(
                     combine(
                         // This chat's own quick reactions from Chat details win over the app's (UI_DESIGN.md 3.4).
@@ -273,20 +405,31 @@ class ChatViewModel
                     menu.hidden,
                     ::Quad,
                 ),
-            ) { (c, a), all, (everyone, typers), extra, menuState ->
+            ) { (c, a, m), all, (everyone, typers), extra, menuState ->
                 val (prefs, picked, edit) = menuState
                 val hidden = menuState.d
-                val newestFirst = all.filter { it.id !in hidden }
+                // In a merged chat the dropdown can narrow the bubbles to one network (owner, Phase 7).
+                val newestFirst =
+                    all.filter {
+                        it.id !in hidden && (m.filter == null || it.chatId.accountId == m.filter)
+                    }
                 // "You" are whoever sent your messages here; before you have sent any, the account's own id.
                 val me = all.firstOrNull { it.isOutgoing }?.senderId ?: c?.accountId?.let { SelfId.of(it) }
                 val (pins, reply, more) = extra
                 val unread = extra.d
-                val nameMap = everyone.associate { it.id to it.displayName }
+                val nameMap = everyone.associate { it.id to it.name }
+                val sending = m.chips.firstOrNull { it.chatId == m.sendVia }
+                val sendNetwork = sending?.network ?: a?.network
                 ChatUiState(
                     loading = false,
                     chat = c,
                     account = a,
-                    capabilities = a?.let { registry[it.network]?.capabilities },
+                    capabilities = sendNetwork?.let { registry[it]?.capabilities },
+                    members = m.chips,
+                    filter = m.filter,
+                    sendVia = m.sendVia,
+                    sendNetwork = sendNetwork,
+                    networkOf = m.networkOf,
                     items =
                         chatItems(newestFirst, unread?.let { firstUnread(newestFirst, it) }) {
                             messageActions.shownAs(it.id).value
@@ -294,13 +437,29 @@ class ChatViewModel
                     names = nameMap,
                     typing = typers.mapNotNull { nameMap[it] },
                     pinned = pins,
-                    phone =
+                    phone = c?.let { callNumber(it.kind, it.participants, sending?.accountId, me, everyone) },
+                    profileUrl =
+                        c?.let {
+                            instagramProfileUrl(
+                                it.kind,
+                                it.participants,
+                                sendNetwork,
+                                sending?.accountId ?: a?.id,
+                                me,
+                                everyone,
+                            )
+                        },
+                    photo =
+                        c?.let {
+                            org.pingme.app.inbox
+                                .photoFor(it, everyone.associateBy { p -> p.id })
+                        },
+                    faces =
                         c
-                            ?.takeIf { it.kind == org.pingme.core.model.ChatKind.DIRECT }
-                            ?.participants
-                            ?.firstNotNullOfOrNull { id ->
-                                everyone.find { it.id == id }?.phoneNumber
-                            },
+                            ?.let {
+                                org.pingme.app.inbox
+                                    .facesFor(it, everyone.associateBy { p -> p.id })
+                            }.orEmpty(),
                     replyTo = reply,
                     moreHistory = more,
                     reactions = prefs,
@@ -336,9 +495,31 @@ class ChatViewModel
                 combine(chat.filterNotNull(), onScreen, ::Pair).collect { (c, shown) ->
                     if (!shown) return@collect
                     chatActions.opened(chatId)
-                    if (c.unreadCount > 0) chatActions.setRead(chatId, read = true)
+                    if (c.unreadCount > 0) {
+                        decided.first { it }
+                        chatActions.setRead(chatId, read = true)
+                    }
                 }
             }
+        }
+
+        /** The member chat a send, a typing notice, or a history request goes to. */
+        private val target: ChatId get() = state.value.sendVia ?: chatId
+
+        /** The header dropdown: one member's bubbles, or all; the composer follows (owner, Phase 7). */
+        fun setFilter(account: org.pingme.core.model.AccountId?) {
+            filter.value = account
+            chosenVia.value = null
+        }
+
+        /** The box badge moves the whole chat to this member's network, as the header menu does (owner). */
+        fun sendVia(member: ChatId) {
+            val account =
+                state.value.members
+                    .firstOrNull { it.chatId == member }
+                    ?.accountId
+            if (account != null) filter.value = account
+            chosenVia.value = member
         }
 
         /** Sends the text with whatever is waiting in the outbox; [forceSms] is "Send as SMS". */
@@ -362,7 +543,7 @@ class ChatViewModel
             stopTyping()
             viewModelScope.launch {
                 val name = reply?.let { state.value.names[it.senderId] ?: youOr(it) }
-                messageActions.schedule(chatId, body, at, reply, name, files)
+                messageActions.schedule(target, body, at, reply, name, files)
             }
         }
 
@@ -431,7 +612,7 @@ class ChatViewModel
             stopTyping()
             viewModelScope.launch {
                 val name = reply?.let { state.value.names[it.senderId] ?: youOr(it) }
-                messageActions.send(chatId, body, reply, name, forceSms, files)
+                messageActions.send(target, body, reply, name, forceSms, files)
             }
         }
 
@@ -480,8 +661,12 @@ class ChatViewModel
             val shown = limit.value
             limit.update { it + MessageActions.PAGE }
             viewModelScope.launch {
-                val stored = messages.latest(chatId, shown + MessageActions.PAGE).first().size
-                if (stored < shown + MessageActions.PAGE) moreHistory.value = messageActions.loadOlder(chatId)
+                val ids = sources.value
+                val stored = messages.latestIn(ids, shown + MessageActions.PAGE).first().size
+                // A merged chat asks every member's network; more remains while any has more.
+                if (stored < shown + MessageActions.PAGE) {
+                    moreHistory.value = ids.map { messageActions.loadOlder(it) }.any { it }
+                }
             }
         }
 
@@ -495,24 +680,37 @@ class ChatViewModel
         /** The composer changed: tell the other side, and stop telling them after a pause. */
         fun typing(text: String) {
             if (text.isBlank()) return stopTyping()
-            if (typingJob?.isActive != true) viewModelScope.launch { messageActions.setTyping(chatId, true) }
+            val to = target
+            if (typingJob?.isActive != true) viewModelScope.launch { messageActions.setTyping(to, true) }
             typingJob?.cancel()
             typingJob =
                 viewModelScope.launch {
                     delay(TYPING_PAUSE)
-                    messageActions.setTyping(chatId, false)
+                    messageActions.setTyping(to, false)
                 }
         }
 
         private fun stopTyping() {
             if (typingJob?.isActive == true) {
                 typingJob?.cancel()
-                viewModelScope.launch { messageActions.setTyping(chatId, false) }
+                val to = target
+                viewModelScope.launch { messageActions.setTyping(to, false) }
             }
             typingJob = null
         }
 
         private fun youOr(message: Message) = if (message.isOutgoing) YOU else ""
+
+        private data class Merged(
+            val chips: List<MemberChip>,
+            val filter: org.pingme.core.model.AccountId?,
+            val sendVia: ChatId?,
+            val networkOf: Map<ChatId, NetworkId>,
+        )
+
+        private fun isMergedId(id: ChatId) =
+            org.pingme.core.service.merge.Merges
+                .isMergedId(id)
 
         private data class Quad<A, B, C, D>(
             val a: A,
@@ -530,3 +728,69 @@ class ChatViewModel
             val TYPING_PAUSE = 5.seconds
         }
     }
+
+/**
+ * The number the call icons dial in a one-to-one chat: the other person's, never the owner's
+ * own. Google Messages lists the owner among a chat's participants, as "You", and the first
+ * participant with a number was the owner (owner, 2026-10-06: "it calls my phone number!!!").
+ */
+internal fun callNumber(
+    kind: org.pingme.core.model.ChatKind,
+    participants: List<PersonId>,
+    accountId: org.pingme.core.model.AccountId?,
+    me: PersonId?,
+    everyone: List<org.pingme.core.model.Person>,
+): String? {
+    if (kind != org.pingme.core.model.ChatKind.DIRECT) return null
+    return participants
+        .filter { (accountId == null || it.accountId == accountId) && it != me }
+        .mapNotNull { id -> everyone.find { it.id == id } }
+        .filterNot { it.displayName == YOU }
+        .firstNotNullOfOrNull { it.phoneNumber }
+}
+
+private const val YOU = "You"
+
+/**
+ * The Instagram profile page of the one other person in a direct Instagram chat, or null:
+ * tapping the avatar in the header opens it (owner, 2026-10-05). A person known only by a
+ * numeric id has no page to open.
+ */
+
+internal fun instagramProfileUrl(
+    kind: org.pingme.core.model.ChatKind,
+    participants: List<PersonId>,
+    network: NetworkId?,
+    accountId: org.pingme.core.model.AccountId?,
+    me: PersonId?,
+    everyone: List<org.pingme.core.model.Person>,
+): String? {
+    if (kind != org.pingme.core.model.ChatKind.DIRECT || network != NetworkId.INSTAGRAM ||
+        accountId == null
+    ) {
+        return null
+    }
+    val others = participants.filter { it.accountId == accountId && it != me }
+    val handle =
+        others
+            .firstNotNullOfOrNull { id -> everyone.find { it.id == id }?.networkHandle }
+            ?.takeIf { it.isNotEmpty() && !it.all(Char::isDigit) }
+    if (handle == null) noteNoProfile(participants, me, others, everyone)
+    return handle?.let { "https://www.instagram.com/$it/" }
+}
+
+private val notedProfiles = java.util.Collections.synchronizedSet(HashSet<String>())
+
+/** Why an Instagram chat has no profile page, once per chat, for the diagnostic file (owner, 2026-10-05). */
+private fun noteNoProfile(
+    participants: List<PersonId>,
+    me: PersonId?,
+    others: List<PersonId>,
+    everyone: List<org.pingme.core.model.Person>,
+) {
+    val key = participants.joinToString { it.value }
+    if (!notedProfiles.add(key)) return
+    val handles = others.map { id -> "${id.value}=${everyone.find { it.id == id }?.networkHandle}" }
+    org.pingme.core.connector.Diag
+        .note("PingMeChat", "No Instagram profile: me=${me?.value} participants=$key others=$handles")
+}

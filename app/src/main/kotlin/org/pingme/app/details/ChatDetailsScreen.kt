@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import org.pingme.app.R
 import org.pingme.app.chat.search.SearchType
 import org.pingme.core.model.ChatId
@@ -35,6 +36,8 @@ class DetailsNavigation(
     val onBackToChat: () -> Unit,
     /** The chat was blocked or deleted, so back past it. */
     val onLeft: () -> Unit,
+    /** This chat was merged into [ChatId]: open the merged chat instead (UI_DESIGN.md 10.15). */
+    val onMerged: (ChatId) -> Unit = {},
 )
 
 /** Chat details with its view model (UI_DESIGN.md 3.4). */
@@ -51,6 +54,10 @@ fun ChatDetailsRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) { viewModel.notices.collect { snackbar.showSnackbar(it) } }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val placeCall =
+        org.pingme.app.chat
+            .rememberCallPlacer { text -> scope.launch { snackbar.showSnackbar(text) } }
     val toChat = { ask: () -> Unit ->
         ask()
         navigation.onBackToChat()
@@ -74,6 +81,15 @@ fun ChatDetailsRoute(
                 onReactions = viewModel::setReactions,
                 onUnpin = viewModel::unpin,
                 onPhoto = viewModel::setAvatar,
+                merge =
+                    MergeChoices(
+                        onMergeWith = { others -> viewModel.mergeWith(others, navigation.onMerged) },
+                        onAddMembers = viewModel::addMembers,
+                        onSplit = { member -> viewModel.split(member, navigation.onLeft) },
+                        onUnmerge = { viewModel.unmerge(navigation.onLeft) },
+                        onDefault = viewModel::setDefault,
+                        onCall = placeCall,
+                    ),
                 chat =
                     ChatChoices(
                         onObscured = viewModel::setObscured,
@@ -101,6 +117,7 @@ class DetailsSections(
     val onUnpin: (org.pingme.core.model.Message) -> Unit,
     val onPhoto: (org.pingme.core.model.AvatarSource) -> Unit,
     val chat: ChatChoices,
+    val merge: MergeChoices,
 )
 
 /**
@@ -139,6 +156,7 @@ fun ChatDetailsScreen(
             item { DetailsLook(state, sections.look) }
             item { DetailsReactions(state, sections.onReactions) }
             item { DetailsMembers(state) }
+            item { DetailsMerge(state, sections.merge) }
             item { DetailsPinned(state, sections.onOpen, sections.onUnpin) }
             item { DetailsPhoto(state, sections.onPhoto) }
             item { DetailsPrivacy(state, sections.chat) }

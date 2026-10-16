@@ -19,8 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -28,7 +26,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
-import org.pingme.core.ui.theme.Haptics
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
 
@@ -48,8 +46,7 @@ fun SendButton(
     val moreLabel = stringResource(R.string.chat_send_options)
     val more = onSendLater != null
     var open by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
-    val haptics = PingMeTheme.appearance.haptics
+    val haptic = rememberHaptic()
     val colours = IconButtonDefaults.filledIconButtonColors()
     Box(modifier) {
         Box(
@@ -65,7 +62,7 @@ fun SendButton(
                     onLongClick =
                         if (more) {
                             {
-                                if (haptics != Haptics.OFF) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                haptic.tick()
                                 open = true
                             }
                         } else {

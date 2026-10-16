@@ -12,6 +12,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -65,15 +66,25 @@ type Session struct {
 	cancel   context.CancelFunc
 	live     bool
 	lastMin  int64
+	// The encrypted channel, and the mapping between a web thread key and the chat's id
+	// on the channel (see e2ee.go).
+	e2ee  e2ee
+	jidOf map[int64]int64
+	keyOf map[int64]int64
 }
 
 type place struct {
 	thread    int64
 	timestamp int64
+	// For messages on the encrypted channel: who sent it, and the chat's id there.
+	sender int64
+	fromMe bool
+	jid    int64
 }
 
-// NewSession takes the facebook.com cookies as a JSON object of name to value.
-func NewSession(cookiesJSON string, sink EventSink) (*Session, error) {
+// NewSession takes the facebook.com cookies as a JSON object of name to value, and the
+// path of the key store for encrypted chats (empty: no encrypted channel).
+func NewSession(cookiesJSON, dbPath string, sink EventSink) (*Session, error) {
 	var raw map[string]string
 	if err := json.Unmarshal([]byte(cookiesJSON), &raw); err != nil {
 		return nil, fmt.Errorf("cookies are not a JSON object: %w", err)
@@ -96,10 +107,98 @@ func NewSession(cookiesJSON string, sink EventSink) (*Session, error) {
 		people:   map[int64]*User{},
 		messages: map[string]place{},
 		emojis:   map[string]string{},
+		jidOf:    map[int64]int64{},
+		keyOf:    map[int64]int64{},
 	}
-	s.client = messagix.NewClient(jar, s.log, &messagix.Config{ClientSettings: exhttp.SensibleClientSettings})
+	// The library's own log goes out at error level only: its table parser warns seventeen
+	// times per thread about columns Messenger moved, which filled the phone's small log
+	// buffer and pushed PingMe's own lines out (2026-10-05). Our lines stay at info.
+	quiet := s.log.Level(zerolog.ErrorLevel)
+	s.client = messagix.NewClient(jar, quiet, &messagix.Config{ClientSettings: exhttp.SensibleClientSettings})
 	s.client.SetEventHandler(s.handleEvent)
+	if err := s.openStore(dbPath); err != nil {
+		return nil, err
+	}
 	return s, nil
+}
+
+// keyFor is the key a thread is kept under: the web thread key, also for a chat named by
+// its id on the encrypted channel.
+func (s *Session) keyFor(threadID string) (int64, error) {
+	n, err := parseID(threadID)
+	if err != nil {
+		return 0, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if key, mapped := s.keyOf[n]; mapped {
+		return key, nil
+	}
+	return n, nil
+}
+
+// threadAt is the thread under a key, or nil.
+func (s *Session) threadAt(key int64) *Thread {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.threads[key]
+}
+
+// threadByJID finds a chat by its id on the encrypted channel (caller holds the lock).
+func (s *Session) threadByJID(jid int64) *Thread {
+	if key, mapped := s.keyOf[jid]; mapped {
+		if t := s.threads[key]; t != nil {
+			return t
+		}
+	}
+	return s.threads[jid]
+}
+
+// publicID is the id a thread is shown under (caller holds the lock): its id on the
+// encrypted channel once known, else the web thread key.
+func (s *Session) publicID(key int64) string {
+	if t := s.threads[key]; t != nil && t.jid != 0 {
+		return id(t.jid)
+	}
+	if jid := s.jidOf[key]; jid != 0 {
+		return id(jid)
+	}
+	return id(key)
+}
+
+// learnMapping ties a web thread key to the chat's id on the encrypted channel (caller
+// holds the lock). The chat is announced again under its channel id, and a chat the
+// channel started before the web listing named it is folded in.
+func (s *Session) learnMapping(key, jid int64, touched map[int64]bool) (gone []string) {
+	if key == 0 || jid == 0 || s.jidOf[key] == jid {
+		return nil
+	}
+	s.jidOf[key] = jid
+	s.keyOf[jid] = key
+	// The chat was shown under the web key before (this run or an earlier one): that
+	// one goes, and it comes back under the channel id.
+	gone = append(gone, id(key))
+	t := s.threads[key]
+	if t != nil {
+		t.jid = jid
+	}
+	if orphan := s.threads[jid]; orphan != nil && orphan.fbKey == 0 && key != jid {
+		if t == nil {
+			orphan.fbKey = key
+			s.threads[key] = orphan
+		} else {
+			t.addMessages(orphan.Messages)
+			t.waUnread = append(t.waUnread, orphan.waUnread...)
+			if t.LastAt < orphan.LastAt {
+				t.LastAt = orphan.LastAt
+			}
+		}
+		delete(s.threads, jid)
+	}
+	if s.threads[key] != nil {
+		touched[key] = true
+	}
+	return gone
 }
 
 // CookiesJSON is the cookies as they stand now, to save after Messenger refreshed them.
@@ -147,6 +246,7 @@ func (s *Session) Connect() error {
 		}
 	}
 	s.mu.Unlock()
+	s.log.Info().Str("own_id", s.OwnID()).Msg("Messenger page loaded")
 	s.emit(map[string]any{"type": "connected", "id": s.OwnID(), "cookies": s.CookiesJSON()})
 	if initial != nil {
 		s.applyTable(initial, true)
@@ -177,6 +277,8 @@ func (s *Session) Disconnect() {
 	s.live = false
 	s.mu.Unlock()
 	s.client.Disconnect()
+	s.stopE2EE()
+	s.closeStore()
 }
 
 // MoreThreads asks Messenger for the next page of older conversations (each arrives as a
@@ -220,7 +322,7 @@ func (s *Session) Threads() (string, error) {
 
 // Thread is one conversation as known so far.
 func (s *Session) Thread(threadID string) (string, error) {
-	key, err := parseID(threadID)
+	key, err := s.keyFor(threadID)
 	if err != nil {
 		return "", err
 	}
@@ -236,11 +338,17 @@ func (s *Session) Thread(threadID string) (string, error) {
 // Messages returns messages older than olderThan (the newest Messenger has handed over
 // when empty), newest first, as a JSON array of Message.
 func (s *Session) Messages(threadID, olderThan string) (string, error) {
-	key, err := parseID(threadID)
+	key, err := s.keyFor(threadID)
 	if err != nil {
 		return "", err
 	}
 	if olderThan == "" {
+		// An encrypted chat has no history on the channel; the web side is asked once,
+		// under both of the chat's ids, in case it still holds the messages from before
+		// the chat went encrypted (the reference bridge asks the same way).
+		if t := s.threadAt(key); t != nil && t.jid != 0 {
+			return marshal(s.askWebOnce(t, key))
+		}
 		s.mu.Lock()
 		t := s.threads[key]
 		var known []Message
@@ -252,6 +360,9 @@ func (s *Session) Messages(threadID, olderThan string) (string, error) {
 			known = []Message{}
 		}
 		return marshal(known)
+	}
+	if t := s.threadAt(key); t != nil && t.jid != 0 {
+		return marshal([]Message{})
 	}
 	if !s.isLive() {
 		return "", ErrNotConnected
@@ -303,9 +414,12 @@ func (s *Session) Messages(threadID, olderThan string) (string, error) {
 
 // SendText sends text, as a reply when replyTo names a message. Returns the Message as sent.
 func (s *Session) SendText(threadID, text, replyTo string) (string, error) {
-	key, err := parseID(threadID)
+	key, err := s.keyFor(threadID)
 	if err != nil {
 		return "", err
+	}
+	if t := s.threadAt(key); t != nil && t.jid != 0 {
+		return marshalSent(s.sendE2EEText(t, threadID, text, replyTo))
 	}
 	task := s.sendTask(key, replyTo)
 	task.Text = text
@@ -319,9 +433,12 @@ func (s *Session) SendText(threadID, text, replyTo string) (string, error) {
 // SendMedia uploads a file and sends it with text (which may be empty); kind is "image",
 // "video", "gif", "voice", or "file".
 func (s *Session) SendMedia(threadID, path, mime, kind, fileName, text, replyTo string) (string, error) {
-	key, err := parseID(threadID)
+	key, err := s.keyFor(threadID)
 	if err != nil {
 		return "", err
+	}
+	if t := s.threadAt(key); t != nil && t.jid != 0 {
+		return marshalSent(s.sendE2EEMedia(t, threadID, path, mime, kind, fileName, text, replyTo))
 	}
 	if !s.isLive() {
 		return "", ErrNotConnected
@@ -435,7 +552,7 @@ func (s *Session) execute(task *socket.SendMessageTask, threadID, kind, text str
 
 // SendReaction puts emoji on a message, or takes yours away when remove is set.
 func (s *Session) SendReaction(threadID, messageID, emoji string, remove bool) error {
-	key, err := parseID(threadID)
+	key, err := s.keyFor(threadID)
 	if err != nil {
 		return err
 	}
@@ -444,6 +561,9 @@ func (s *Session) SendReaction(threadID, messageID, emoji string, remove bool) e
 	}
 	if remove {
 		emoji = ""
+	}
+	if t := s.threadAt(key); t != nil && t.jid != 0 {
+		return s.sendE2EEReaction(t, messageID, emoji)
 	}
 	ctx, cancel := s.ctx()
 	defer cancel()
@@ -461,6 +581,9 @@ func (s *Session) SendReaction(threadID, messageID, emoji string, remove bool) e
 
 // Unsend deletes one of your messages for everyone.
 func (s *Session) Unsend(messageID string) error {
+	if t := s.channelThreadOf(messageID); t != nil {
+		return s.sendE2EEUnsend(t, messageID)
+	}
 	if !s.isLive() {
 		return ErrNotConnected
 	}
@@ -472,6 +595,9 @@ func (s *Session) Unsend(messageID string) error {
 
 // Edit changes the text of one of your messages.
 func (s *Session) Edit(messageID, text string) error {
+	if t := s.channelThreadOf(messageID); t != nil {
+		return s.sendE2EEEdit(t, messageID, text)
+	}
 	if !s.isLive() {
 		return ErrNotConnected
 	}
@@ -483,9 +609,16 @@ func (s *Session) Edit(messageID, text string) error {
 
 // MarkRead marks the thread read up to a time.
 func (s *Session) MarkRead(threadID string, timestamp int64) error {
-	key, err := parseID(threadID)
+	key, err := s.keyFor(threadID)
 	if err != nil {
 		return err
+	}
+	t := s.threadAt(key)
+	if t != nil && t.jid != 0 {
+		s.markReadE2EE(t, timestamp)
+		if t.fbKey == 0 {
+			return nil
+		}
 	}
 	if !s.isLive() {
 		return ErrNotConnected
@@ -505,9 +638,12 @@ func (s *Session) MarkRead(threadID string, timestamp int64) error {
 
 // SetTyping tells the thread you are typing, or that you stopped.
 func (s *Session) SetTyping(threadID string, typing bool) error {
-	key, err := parseID(threadID)
+	key, err := s.keyFor(threadID)
 	if err != nil {
 		return err
+	}
+	if t := s.threadAt(key); t != nil && t.jid != 0 {
+		return s.setTypingE2EE(t, typing)
 	}
 	if !s.isLive() {
 		return ErrNotConnected
@@ -535,7 +671,7 @@ func (s *Session) SetTyping(threadID string, typing bool) error {
 
 // AcceptRequest moves a message request into the inbox.
 func (s *Session) AcceptRequest(threadID string) error {
-	key, err := parseID(threadID)
+	key, err := s.keyFor(threadID)
 	if err != nil {
 		return err
 	}
@@ -561,7 +697,7 @@ func (s *Session) AcceptRequest(threadID string) error {
 
 // DeleteThread removes a conversation for this account (declining a request, or leaving it behind).
 func (s *Session) DeleteThread(threadID string) error {
-	key, err := parseID(threadID)
+	key, err := s.keyFor(threadID)
 	if err != nil {
 		return err
 	}
@@ -583,6 +719,9 @@ func (s *Session) DeleteThread(threadID string) error {
 // Download fetches a media address (a signed CDN link) into destPath, with the headers
 // Messenger's CDN expects from a browser.
 func (s *Session) Download(url, mime, destPath string) error {
+	if strings.HasPrefix(url, e2eePrefix) {
+		return s.downloadE2EE(url, destPath)
+	}
 	ctx, cancel := context.WithTimeout(s.log.WithContext(context.Background()), 5*time.Minute)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -698,6 +837,7 @@ func (s *Session) handleEvent(_ context.Context, raw any) {
 		s.live = true
 		s.mu.Unlock()
 		s.emit(map[string]any{"type": "live"})
+		go s.startE2EE()
 	case *messagix.TransientDisconnectEvent:
 		s.mu.Lock()
 		s.live = false
@@ -734,39 +874,73 @@ func (s *Session) applyTable(tbl *table.LSTable, initial bool) {
 func (s *Session) fold(tbl *table.LSTable) []map[string]any {
 	var events []map[string]any
 	touched := map[int64]bool{}
+	for _, row := range tbl.LSVerifyHybridThreadExists {
+		for _, old := range s.learnMapping(row.ThreadKey, row.ThreadJID, touched) {
+			events = append(events, map[string]any{"type": "threadGone", "thread": old})
+		}
+	}
+	for _, row := range tbl.LSUpdateThreadAuthorityAndMappingWithOTIDFromJID {
+		for _, old := range s.learnMapping(row.ThreadKey, row.ThreadJID, touched) {
+			events = append(events, map[string]any{"type": "threadGone", "thread": old})
+		}
+	}
 	for _, c := range tbl.LSDeleteThenInsertContact {
 		s.learn(c.Id, c.Name, c.ProfilePictureUrl)
 	}
 	for _, c := range tbl.LSVerifyContactRowExists {
 		s.learn(c.ContactId, c.Name, c.ProfilePictureUrl)
 	}
+	// Facebook deletes and re-inserts a thread in the same batch when it re-sends the
+	// inbox; a delete row for a thread the batch also upserts is that, not a deletion
+	// (the reference bridge ignores it the same way). Honouring it dropped every chat.
+	upserted := map[int64]bool{}
+	for _, row := range tbl.LSDeleteThenInsertThread {
+		upserted[row.ThreadKey] = true
+	}
+	for _, row := range tbl.LSUpdateOrInsertThread {
+		upserted[row.ThreadKey] = true
+	}
 	gone := map[int64]bool{}
+	reinserted := 0
+	mark := func(key int64) {
+		if upserted[key] {
+			reinserted++
+		} else {
+			gone[key] = true
+		}
+	}
 	for _, row := range tbl.LSDeleteThread {
-		gone[row.ThreadKey] = true
+		mark(row.ThreadKey)
 	}
 	for _, row := range tbl.LSDeletePartialThread {
-		gone[row.ThreadKey] = true
+		mark(row.ThreadKey)
 	}
 	for _, row := range tbl.LSDeleteMessageRequest {
-		gone[row.ThreadKey] = true
+		mark(row.ThreadKey)
 	}
 	for _, row := range tbl.LSRemoveParticipantFromThread {
 		if row.ParticipantId == s.own {
-			gone[row.ThreadKey] = true
+			mark(row.ThreadKey)
 		} else if t := s.threads[row.ThreadKey]; t != nil {
 			delete(t.members, row.ParticipantId)
 			touched[row.ThreadKey] = true
 		}
 	}
 	for key := range gone {
+		shown := s.publicID(key)
 		delete(s.threads, key)
-		events = append(events, map[string]any{"type": "threadGone", "thread": id(key)})
+		events = append(events, map[string]any{"type": "threadGone", "thread": shown})
+	}
+	if len(upserted)+len(gone)+reinserted > 0 {
+		s.log.Info().Int("threads", len(upserted)).Int("gone", len(gone)).Int("reinserted", reinserted).
+			Int("known", len(s.threads)).Msg("Thread rows in this batch")
 	}
 	for _, row := range tbl.LSDeleteThenInsertThread {
 		if gone[row.ThreadKey] {
 			continue
 		}
 		t := threadFrom(row)
+		t.fbKey, t.jid = row.ThreadKey, s.jidOf[row.ThreadKey]
 		t.merge(s.threads[row.ThreadKey])
 		s.threads[row.ThreadKey] = t
 		touched[row.ThreadKey] = true
@@ -776,6 +950,7 @@ func (s *Session) fold(tbl *table.LSTable) []map[string]any {
 			continue
 		}
 		t := threadFromUpdate(row)
+		t.fbKey, t.jid = row.ThreadKey, s.jidOf[row.ThreadKey]
 		t.merge(s.threads[row.ThreadKey])
 		s.threads[row.ThreadKey] = t
 		touched[row.ThreadKey] = true
@@ -816,6 +991,7 @@ func (s *Session) fold(tbl *table.LSTable) []map[string]any {
 		converted := make([]Message, 0, len(batch.Messages))
 		for _, m := range batch.Messages {
 			c := convertMessage(m)
+			c.Thread = s.publicID(key)
 			s.remember(c)
 			converted = append(converted, c)
 		}
@@ -845,6 +1021,7 @@ func (s *Session) fold(tbl *table.LSTable) []map[string]any {
 	}
 	for _, m := range insert {
 		c := convertMessage(m)
+		c.Thread = s.publicID(m.ThreadKey)
 		s.remember(c)
 		if t := s.threads[m.ThreadKey]; t != nil {
 			t.addMessages([]Message{c})
@@ -856,39 +1033,39 @@ func (s *Session) fold(tbl *table.LSTable) []map[string]any {
 	}
 	for _, row := range tbl.LSEditMessage {
 		at := s.messages[row.MessageID]
-		events = append(events, map[string]any{"type": "edit", "thread": id(at.thread), "message": row.MessageID,
+		events = append(events, map[string]any{"type": "edit", "thread": s.publicID(at.thread), "message": row.MessageID,
 			"text": row.Text, "timestamp": time.Now().UnixMilli()})
 	}
 	for _, row := range tbl.LSDeleteMessage {
-		events = append(events, map[string]any{"type": "unsent", "thread": id(row.ThreadKey), "message": row.MessageId})
+		events = append(events, map[string]any{"type": "unsent", "thread": s.publicID(row.ThreadKey), "message": row.MessageId})
 	}
 	for _, row := range tbl.LSDeleteThenInsertMessage {
 		// Messenger replaces an unsent message with this row; anything else here is noise.
 		if row.IsUnsent {
-			events = append(events, map[string]any{"type": "unsent", "thread": id(row.ThreadKey), "message": row.MessageId})
+			events = append(events, map[string]any{"type": "unsent", "thread": s.publicID(row.ThreadKey), "message": row.MessageId})
 		}
 	}
 	for _, row := range tbl.LSUpsertReaction {
 		s.emojis[row.MessageId+"|"+id(row.ActorId)] = row.Reaction
-		events = append(events, map[string]any{"type": "reaction", "thread": id(row.ThreadKey), "message": row.MessageId,
+		events = append(events, map[string]any{"type": "reaction", "thread": s.publicID(row.ThreadKey), "message": row.MessageId,
 			"removed": false, "reaction": Reaction{Emoji: row.Reaction, Sender: id(row.ActorId), Timestamp: row.TimestampMs}})
 	}
 	for _, row := range tbl.LSDeleteReaction {
 		emoji := s.emojis[row.MessageId+"|"+id(row.ActorId)]
 		delete(s.emojis, row.MessageId+"|"+id(row.ActorId))
-		events = append(events, map[string]any{"type": "reaction", "thread": id(row.ThreadKey), "message": row.MessageId,
+		events = append(events, map[string]any{"type": "reaction", "thread": s.publicID(row.ThreadKey), "message": row.MessageId,
 			"removed": true, "reaction": Reaction{Emoji: emoji, Sender: id(row.ActorId), Timestamp: time.Now().UnixMilli()}})
 	}
 	for _, row := range tbl.LSUpdateReadReceipt {
-		events = append(events, map[string]any{"type": "readReceipt", "thread": id(row.ThreadKey),
+		events = append(events, map[string]any{"type": "readReceipt", "thread": s.publicID(row.ThreadKey),
 			"sender": id(row.ContactId), "timestamp": row.ReadWatermarkTimestampMs})
 	}
 	for _, row := range tbl.LSMarkThreadReadV2 {
-		events = append(events, map[string]any{"type": "readByMe", "thread": id(row.ThreadKey),
+		events = append(events, map[string]any{"type": "readByMe", "thread": s.publicID(row.ThreadKey),
 			"timestamp": row.LastReadWatermarkTimestampMs})
 	}
 	for _, row := range tbl.LSUpdateTypingIndicator {
-		events = append(events, map[string]any{"type": "typing", "thread": id(row.ThreadKey),
+		events = append(events, map[string]any{"type": "typing", "thread": s.publicID(row.ThreadKey),
 			"sender": id(row.SenderId), "typing": row.IsTyping})
 	}
 	return events
@@ -999,3 +1176,69 @@ const (
 	folderInbox        = "inbox"
 	folderPending      = "pending"
 )
+
+// channelThreadOf is the encrypted chat a message belongs to, or nil for a web message.
+func (s *Session) channelThreadOf(messageID string) *Thread {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, known := s.messages[messageID]
+	if !known || p.jid == 0 {
+		return nil
+	}
+	return s.threadByJID(p.jid)
+}
+
+func marshalSent(sent Message, err error) (string, error) {
+	if err != nil {
+		return "", err
+	}
+	return marshal(sent)
+}
+
+// askWebOnce fetches an encrypted chat's history from the web side under its web key and
+// its channel id, once, and returns what it knows afterwards (newest first).
+func (s *Session) askWebOnce(t *Thread, key int64) []Message {
+	s.mu.Lock()
+	asked := t.askedWeb
+	t.askedWeb = true
+	jid, fbKey, lastAt := t.jid, t.fbKey, t.LastAt
+	s.mu.Unlock()
+	if !asked && s.isLive() {
+		if lastAt == 0 {
+			lastAt = time.Now().UnixMilli()
+		}
+		for _, ask := range []int64{fbKey, jid} {
+			if ask == 0 {
+				continue
+			}
+			ctx, cancel := s.ctx()
+			resp, err := s.client.ExecuteTasks(ctx, &socket.FetchMessagesTask{
+				ThreadKey: ask, Direction: 0, ReferenceTimestampMs: lastAt + 1, SyncGroup: syncGroup, Cursor: s.client.GetCursor(syncGroup),
+			})
+			cancel()
+			if err != nil {
+				s.log.Warn().Err(err).Int64("asked", ask).Msg("Encrypted chat: web history refused")
+				continue
+			}
+			count := 0
+			if resp != nil {
+				upsert, _ := resp.WrapMessages()
+				s.mu.Lock()
+				for _, batch := range upsert {
+					for _, m := range batch.Messages {
+						c := convertMessage(m)
+						c.Thread = id(jid)
+						s.remember(c)
+						t.addMessages([]Message{c})
+						count++
+					}
+				}
+				s.mu.Unlock()
+			}
+			s.log.Info().Int64("asked", ask).Int("messages", count).Msg("Encrypted chat: web history answered")
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]Message{}, t.Messages...)
+}

@@ -26,6 +26,7 @@ import org.pingme.core.model.Capabilities
 import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
+import org.pingme.core.model.ChatKind
 import org.pingme.core.model.ChatOverrides
 import org.pingme.core.model.Message
 import org.pingme.core.model.MessageKind
@@ -61,6 +62,10 @@ data class ChatDetailsState(
     val appearance: Appearance = Appearance(),
     val appReactions: List<String> = emptyList(),
     val self: PersonId? = null,
+    /** A merged chat's members, in order of activity (UI_DESIGN.md 10.15). */
+    val members: List<MemberRow> = emptyList(),
+    /** One-to-one chats that could be merged with this one. */
+    val candidates: List<org.pingme.app.merge.PickableChat> = emptyList(),
 ) {
     val look: ChatLook get() = ChatLook.fromJson(overrides?.lookJson)
 
@@ -75,9 +80,23 @@ data class ChatDetailsState(
             ?.let { people.firstOrNull { p -> p.id != self && p.displayName != YOU } ?: people.firstOrNull() }
 }
 
+/** One member of a merged chat as Chat details shows it. */
+data class MemberRow(
+    val chat: Chat,
+    val network: org.pingme.core.model.NetworkId,
+    val person: Person?,
+    val photo: String?,
+    /** The composer starts on this member (UI_DESIGN.md 10.15). */
+    val isDefault: Boolean,
+    /** What the phone and video buttons do on this member's network (UI_DESIGN.md 10.17). */
+    val calls: org.pingme.core.model.CallRule? = null,
+)
+
 /** Chat details for one chat (UI_DESIGN.md 3.4, BUILD_PLAN.md P2.5). */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel(assistedFactory = ChatDetailsViewModel.Factory::class)
+// One function per thing Chat details can do; the list reads as one (as ChatActions).
+@Suppress("TooManyFunctions")
 class ChatDetailsViewModel
     @AssistedInject
     constructor(
@@ -96,6 +115,9 @@ class ChatDetailsViewModel
         private val messageActions: MessageActions,
         private val clock: Clock,
         private val requests: org.pingme.app.chat.ChatRequests,
+        private val merges: org.pingme.core.service.merge.Merges,
+        private val contactChats: org.pingme.core.service.merge.ContactChats,
+        mergeRepo: org.pingme.core.store.MergeRepository,
     ) : ViewModel() {
         /** Takes the chat id as text: Hilt cannot generate factories for value classes. */
         @AssistedFactory
@@ -112,11 +134,11 @@ class ChatDetailsViewModel
         private val chat = chats.chat(chatId)
         private val account = chat.filterNotNull().flatMapLatest { accounts.account(it.accountId) }
 
-        // The chat's people in the order the chat lists them; group members include everyone else.
-        private val people =
-            chat.filterNotNull().flatMapLatest { c ->
-                contacts.people(c.accountId)
-            }
+        // Everyone any chat lists: a merged chat's people span accounts (UI_DESIGN.md 10.15).
+        private val people = contacts.inChats()
+
+        private val merging =
+            combine(mergeRepo.observeMembers(chatId), chats.all(), accounts.accounts(), ::Triple)
 
         private val media =
             combine(
@@ -132,13 +154,15 @@ class ChatDetailsViewModel
 
         val state: StateFlow<ChatDetailsState> =
             combine(
-                combine(chat, account, ::Pair),
+                combine(chat, account, merging, ::Triple),
                 combine(people, pins.pinned(chatId), ::Pair),
                 media,
                 overridesRepo.overrides(chatId),
                 combine(appearanceRepo.appearance, settings.quickReactions, ::Pair),
-            ) { (c, a), (everyone, pinned), (pictures, links, files), overrides, (look, reactions) ->
-                val members = c?.participants.orEmpty().mapNotNull { id -> everyone.firstOrNull { it.id == id } }
+            ) { (c, a, merge), (everyone, pinned), (pictures, links, files), overrides, (look, reactions) ->
+                val members = c?.participants.orEmpty().mapNotNull { everyone[it] }
+                val (memberChats, allChats, accountList) = merge
+                val networkOf = accountList.associate { it.id to it.network }
                 ChatDetailsState(
                     chat = c,
                     account = a,
@@ -152,6 +176,36 @@ class ChatDetailsViewModel
                     appearance = look,
                     appReactions = reactions,
                     self = messages.selfIn(chatId),
+                    members =
+                        memberChats.map { m ->
+                            val person =
+                                m.participants
+                                    .mapNotNull {
+                                        everyone[it]
+                                    }.firstOrNull { it.displayName != YOU }
+                            val network = networkOf[m.accountId] ?: org.pingme.core.model.NetworkId.DEMO
+                            MemberRow(
+                                m,
+                                network,
+                                person,
+                                org.pingme.app.inbox
+                                    .photoFor(m, everyone),
+                                isDefault = m.accountId == c?.defaultSendAccount,
+                                calls = registry[network]?.capabilities?.calls,
+                            )
+                        },
+                    candidates =
+                        allChats
+                            .filter { it.id != chatId && it.kind == ChatKind.DIRECT && it.mergedInto == null }
+                            .filter { other -> allChats.none { it.mergedInto == other.id } }
+                            .map { other ->
+                                org.pingme.app.merge.PickableChat
+                                    .of(
+                                        other,
+                                        networkOf[other.accountId] ?: org.pingme.core.model.NetworkId.DEMO,
+                                        everyone,
+                                    )
+                            } + contactOffers(),
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), ChatDetailsState())
 
@@ -226,6 +280,54 @@ class ChatDetailsViewModel
 
         /** Deletes the chat from this phone; the network keeps its copy. */
         fun delete(then: () -> Unit) = act(then) { chatActions.delete(chatId) }
+
+        /** Merges this chat with [others]; [then] gets the merged chat to open (UI_DESIGN.md 10.15). */
+        fun mergeWith(
+            others: List<ChatId>,
+            then: (ChatId) -> Unit,
+        ) {
+            viewModelScope.launch {
+                runCatching { merges.merge(listOf(chatId) + contactChats.resolve(others)) }
+                    .onSuccess { then(it) }
+                    .onFailure { problems.trySend(it.message ?: it.javaClass.simpleName) }
+            }
+        }
+
+        /** Adds [others] to this merged chat. */
+        fun addMembers(others: List<ChatId>) =
+            act { merges.merge(contactChats.resolve(others) + chatId, into = chatId) }
+
+        /** Phone contacts with a number, as the text chats they would become (owner, 2026-10-04). */
+        private suspend fun contactOffers(): List<org.pingme.app.merge.PickableChat> {
+            val offers = contactChats.offers()
+            return offers.list.map {
+                org.pingme.app.merge.PickableChat
+                    .ofContact(it, offers.account)
+            }
+        }
+
+        /** Takes [member] out; if that dissolves the merged chat, [gone] leaves the screen. */
+        fun split(
+            member: ChatId,
+            gone: () -> Unit,
+        ) {
+            viewModelScope.launch {
+                runCatching { merges.split(member) }
+                    .onSuccess { if (chats.get(chatId) == null) gone() }
+                    .onFailure { problems.trySend(it.message ?: it.javaClass.simpleName) }
+            }
+        }
+
+        /** Takes every member out so each chat stands alone again; [gone] leaves the screen. */
+        fun unmerge(gone: () -> Unit) {
+            viewModelScope.launch {
+                runCatching { merges.unmerge(chatId) }
+                    .onSuccess { gone() }
+                    .onFailure { problems.trySend(it.message ?: it.javaClass.simpleName) }
+            }
+        }
+
+        fun setDefault(account: org.pingme.core.model.AccountId) = act { merges.setDefault(chatId, account) }
 
         // Runs a change; a network's refusal goes to the snackbar instead of crashing the screen.
         private fun act(

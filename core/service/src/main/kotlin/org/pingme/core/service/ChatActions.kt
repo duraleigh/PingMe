@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import org.pingme.core.connector.Connector
 import org.pingme.core.connector.ConnectorRegistry
+import org.pingme.core.connector.Diag
 import org.pingme.core.connector.UnsupportedCapabilityException
 import org.pingme.core.connector.accountId
 import org.pingme.core.model.AccountId
@@ -37,6 +38,7 @@ class ChatActions
         private val applier: EventApplier,
         private val settings: org.pingme.core.store.SettingsRepository,
         private val notifications: NotificationRouter,
+        private val merges: org.pingme.core.store.MergeRepository,
     ) {
         /** The chat is on screen: its notification comes down at once (owner, Gate G2). */
         fun opened(id: ChatId) = notifications.clear(id)
@@ -50,7 +52,14 @@ class ChatActions
                 chats.update(id) { it.copy(isPinned = false, pinOrder = null) }
                 return true
             }
-            val pins = chats.pinned()
+            // Only pins that show in the grid count toward the twelve: a chat folded into a
+            // merged chat, or sitting in Requests or General, kept its pin flag unseen and
+            // blocked new pins (owner, 2026-10-05: "pin up to 12" with eight on screen).
+            val pins =
+                chats.pinned().filter {
+                    it.mergedInto == null && it.folder != ChatFolder.GENERAL &&
+                        it.folder != ChatFolder.REQUESTS
+                }
             if (pins.any { it.id == id }) return true
             if (pins.size >= MAX_PINS) return false
             val next = (pins.mapNotNull { it.pinOrder }.maxOrNull() ?: -1) + 1
@@ -82,8 +91,16 @@ class ChatActions
             id: ChatId,
             read: Boolean,
         ) {
+            // A merged chat reads as a whole: every member is read on its own network (UI_DESIGN.md 10.15).
+            merges.members(id).forEach { setRead(it.id, read) }
             if (read) {
-                chats.update(id) { it.copy(unreadCount = 0, readUpTo = it.lastActivityAt) }
+                // "Read" reaches the newest message PingMe holds: a network's chat time can be
+                // older than its newest message, which then counted as unread on every sync
+                // (owner, Gate G7, round 3: Google Messages chats read here came back unread).
+                val newest = messages.newestSentAt(id)
+                chats.update(id) {
+                    it.copy(unreadCount = 0, readUpTo = maxOf(it.lastActivityAt, newest ?: it.lastActivityAt))
+                }
                 notifications.clear(id)
                 sendReadMarker(id)
             } else {
@@ -91,7 +108,27 @@ class ChatActions
             }
         }
 
+        /**
+         * Tells the network a chat already counted read here is read, on opening it (owner,
+         * 2026-10-05: Instagram kept chats unread that PingMe had read before its marks worked).
+         * A chat still unread here is covered by [setRead]; a merged chat tells each member's network.
+         */
+        suspend fun tellNetworkRead(id: ChatId) {
+            val members = merges.members(id)
+            if (members.isNotEmpty()) {
+                members.forEach { tellNetworkRead(it.id) }
+                return
+            }
+            val chat = chats.get(id) ?: return
+            if (chat.unreadCount == 0) sendReadMarker(id)
+        }
+
         private suspend fun sendReadMarker(id: ChatId) {
+            if (org.pingme.core.service.merge.Merges
+                    .isMergedId(id)
+            ) {
+                return
+            }
             val newest = messages.newest(id) ?: return
             val network = accounts.get(id.accountId)?.network ?: return
             // "Send read receipts" off: the network never hears it (UI_DESIGN.md 10.3).
@@ -100,11 +137,14 @@ class ChatActions
                     .privacy
                     .sendsReadReceipts(network)
             ) {
+                Log.i(TAG, "Read marker for $network kept here: 'Send read receipts' is off for it")
                 return
             }
             val connector = registry[network] ?: return
             try {
                 connector.markRead(id, newest)
+                Log.i(TAG, "Read marker sent to $network for ${id.value}")
+                Diag.note(TAG, "Read marker sent to $network for ${id.value}")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: UnsupportedCapabilityException) {
@@ -239,6 +279,8 @@ class ChatActions
 
         /** Deletes the chat and its messages from this phone. The network keeps its copy. */
         suspend fun delete(id: ChatId) {
+            // Deleting a merged chat deletes its members; the merged row goes with its last member.
+            merges.members(id).forEach { delete(it.id) }
             notifications.clear(id)
             // Remembered, so the network's next listing does not bring the chat back (owner, Gate G7).
             chats.hide(

@@ -111,15 +111,22 @@ fun NetworkBadge(
     network: NetworkId,
     modifier: Modifier = Modifier,
 ) {
-    val accent = PingMeTheme.networkColors.accent(network)
+    // The badge is the network's bubble colour, the first swatch in Appearance, with text
+    // that reads on it (owner, 2026-10-04: a faint tint matched neither swatch).
+    val accent =
+        PingMeTheme.networkColors
+            .outgoing(network, org.pingme.core.model.Transport.NETWORK)
+            .container
     Text(
         badgeLabel(network),
         modifier
-            .background(accent.copy(alpha = BADGE_TINT), RoundedCornerShape(8.dp))
+            .background(accent, RoundedCornerShape(8.dp))
             .padding(horizontal = 7.dp, vertical = 2.dp),
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurface,
+        color =
+            org.pingme.core.ui.components
+                .readableOn(accent),
     )
 }
 
@@ -168,7 +175,6 @@ fun TypingDots(modifier: Modifier = Modifier) {
     }
 }
 
-private const val BADGE_TINT = 0.28f
 private const val DOTS = 3
 private const val DOT_BOUNCE_MS = 350
 private const val DOT_STAGGER_MS = 150

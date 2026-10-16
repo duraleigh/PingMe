@@ -20,6 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.inbox.DemoInbox
 import org.pingme.app.inbox.InboxBarItem
 import org.pingme.core.model.AccountId
@@ -100,6 +101,7 @@ class SettingsScreenTest {
     @Test
     fun homeListsTheBuiltPagesAndOpensThem() {
         show(SettingsPage.HOME)
+        compose.assertAccessible()
         assertTrue(shown("Accounts"))
         assertTrue(shown("Notifications"))
         tap("Privacy")
@@ -109,6 +111,7 @@ class SettingsScreenTest {
     @Test
     fun accountListOpensAnAccount() {
         show(SettingsPage.ACCOUNTS)
+        compose.assertAccessible()
         tap("Demo")
         assertEquals(listOf(demo.account.id), openedAccounts)
     }
@@ -116,6 +119,7 @@ class SettingsScreenTest {
     @Test
     fun anAccountCanBeAddedFromAnyNetworkThisBuildHas() {
         show(SettingsPage.ACCOUNTS)
+        compose.assertAccessible()
         tap("Add account")
         waitFor { shown("Pretend messages to try PingMe. Nothing leaves your phone.") }
         tap("Pretend messages to try PingMe. Nothing leaves your phone.")
@@ -125,6 +129,7 @@ class SettingsScreenTest {
     @Test
     fun anAccountCanLogInAgain() {
         show(SettingsPage.ACCOUNT, demo.account.id)
+        compose.assertAccessible()
         tap("Log in again")
         assertEquals(listOf(NetworkId.DEMO to demo.account.id), logins)
     }
@@ -132,6 +137,7 @@ class SettingsScreenTest {
     @Test
     fun anAccountCanBeKeptOutOfTheInbox() {
         show(SettingsPage.ACCOUNT, demo.account.id)
+        compose.assertAccessible()
         tap("Show in inbox")
         waitFor { runBlocking { demo.accounts.get(demo.account.id)?.showInInbox == false } }
     }
@@ -139,6 +145,7 @@ class SettingsScreenTest {
     @Test
     fun readReceiptsCanBeTurnedOff() {
         show(SettingsPage.PRIVACY)
+        compose.assertAccessible()
         assertTrue(vm.state.value.app.privacy.readReceipts)
         tap("Send read receipts")
         waitFor { !vm.state.value.app.privacy.readReceipts }
@@ -147,6 +154,7 @@ class SettingsScreenTest {
     @Test
     fun linkPreviewsCanBeLimitedToWifi() {
         show(SettingsPage.PRIVACY)
+        compose.assertAccessible()
         tap("Only on Wi-Fi")
         waitFor { vm.state.value.app.privacy.linkPreviews == org.pingme.core.model.LinkPreviewMode.WIFI_ONLY }
     }
@@ -155,6 +163,7 @@ class SettingsScreenTest {
     fun aSpecialEmojiCanBeRemoved() {
         runBlocking { demo.settings.updateApp { it.copy(specialEmoji = setOf("🤖")) } }
         show(SettingsPage.REACTIONS)
+        compose.assertAccessible()
         waitFor { shown("🤖") }
         tap("🤖")
         waitFor {
@@ -166,6 +175,7 @@ class SettingsScreenTest {
     @Test
     fun flippyReactionsCanBeTurnedOff() {
         show(SettingsPage.MOTION)
+        compose.assertAccessible()
         tap("Flippy reactions")
         waitFor { vm.state.value.app.flippyReactions == false }
     }
@@ -173,6 +183,7 @@ class SettingsScreenTest {
     @Test
     fun aNetworkCanBeMadeSilent() {
         show(SettingsPage.NOTIFICATIONS)
+        compose.assertAccessible()
         tap("Silent")
         waitFor {
             vm.state.value.app.notifications
@@ -185,6 +196,7 @@ class SettingsScreenTest {
     fun instagramShowsItsThreeFolders() {
         runBlocking { demo.accounts.upsert(demo.account.copy(id = AccountId("ig"), network = NetworkId.INSTAGRAM)) }
         show(SettingsPage.NOTIFICATIONS)
+        compose.assertAccessible()
         waitFor { shown("Instagram folders") }
         assertTrue(shown("Requests"))
     }
@@ -192,6 +204,7 @@ class SettingsScreenTest {
     @Test
     fun codesCanBeCopiedByThemselves() {
         show(SettingsPage.NOTIFICATIONS)
+        compose.assertAccessible()
         tap("Auto-copy one-time codes")
         waitFor { vm.state.value.app.notifications.autoCopyCodes }
     }
@@ -199,6 +212,7 @@ class SettingsScreenTest {
     @Test
     fun aKeywordCanBeAddedAndDeleted() {
         show(SettingsPage.NOTIFICATIONS)
+        compose.assertAccessible()
         tap("Add keyword")
         compose.onNode(hasSetTextAction()).performTextInput("urgent")
         tap("OK")
@@ -217,6 +231,7 @@ class SettingsScreenTest {
     @Test
     fun gifSearchAndAutoplayCanBeTurnedOff() {
         show(SettingsPage.STORAGE)
+        compose.assertAccessible()
         tap("Search GIFs online")
         tap("Play GIFs by themselves")
         waitFor {
@@ -226,8 +241,25 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun theVolumeKeysCanBeGivenBackOneAtATime() {
+        show(SettingsPage.STORAGE)
+        assertTrue(vm.state.value.app.media.volumeUpRecords && vm.state.value.app.media.volumeDownDictates)
+        tap("Volume up records a voice note")
+        waitFor {
+            vm.state.value.app.media
+                .let { !it.volumeUpRecords && it.volumeDownDictates }
+        }
+        tap("Volume down dictates")
+        waitFor {
+            vm.state.value.app.media
+                .let { !it.volumeUpRecords && !it.volumeDownDictates }
+        }
+    }
+
+    @Test
     fun allMediaCanBeSaved() {
         show(SettingsPage.STORAGE)
+        compose.assertAccessible()
         assertTrue(shown("Inside PingMe"))
         tap("Save all incoming media")
         tap("Write out voice notes")
@@ -240,6 +272,7 @@ class SettingsScreenTest {
     @Test
     fun aSpaceCanBeMadeFromAnyChatsAndDeleted() {
         show(SettingsPage.SPACES)
+        compose.assertAccessible()
         waitFor {
             vm.state.value.chats
                 .isNotEmpty()
@@ -274,6 +307,7 @@ class SettingsScreenTest {
     @Test
     fun theBottomBarCanBeChosenHere() {
         show(SettingsPage.SPACES)
+        compose.assertAccessible()
         tap("Choose the bottom bar")
         waitFor { shown(BAR_HINT) }
         // All is a choice like the rest (UI_DESIGN.md 10.4).
@@ -287,18 +321,21 @@ class SettingsScreenTest {
     @Test
     fun theChatsCanBeSavedToAFile() {
         show(SettingsPage.BACKUP)
+        compose.assertAccessible()
         assertTrue(shown("Save a backup"))
-        val file = temp.newFile("backup.db")
-        vm.exportTo(android.net.Uri.fromFile(file))
+        val file = temp.newFile("backup.pingme")
+        vm.exportTo(android.net.Uri.fromFile(file), "open sesame")
         waitFor { shown("Backup saved.") }
-        assertEquals("SQLite format 3", file.readBytes().copyOf(SQLITE.length).decodeToString())
+        // Locked, not a bare database (Phase 8, P8.2).
+        assertEquals("PINGME-BACKUP-1", file.readBytes().copyOf(15).decodeToString())
     }
 
     @Test
     fun aFileThatIsNotABackupIsRefused() {
         show(SettingsPage.BACKUP)
+        compose.assertAccessible()
         val file = temp.newFile("notes.txt").apply { writeText("shopping list") }
-        vm.restoreFrom(android.net.Uri.fromFile(file))
+        vm.restoreFrom(android.net.Uri.fromFile(file), "")
         waitFor { shown("That file is not a PingMe backup.") }
         assertEquals(0, restarts)
     }
@@ -322,9 +359,17 @@ class SettingsScreenTest {
 
     private companion object {
         const val BAR_HINT =
-            "Pick up to five. All comes first when it is on; without it, the inbox opens on the first one."
+            "Pick up to four. All comes first when it is on; without it, the inbox opens on the first one. " +
+                "Everything else sits behind More."
         const val TIMEOUT = 15_000L
         const val SQLITE = "SQLite format 3"
         val STEP: Duration = Duration.ofMillis(50)
+    }
+
+    @Test
+    fun everyControlHasASpokenNameAndIsBigEnough() {
+        show(SettingsPage.HOME)
+        compose.assertAccessible()
+        compose.assertAccessible()
     }
 }

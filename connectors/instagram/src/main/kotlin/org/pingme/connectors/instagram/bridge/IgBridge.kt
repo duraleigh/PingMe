@@ -42,6 +42,12 @@ interface IgSession {
 
     fun thread(fbid: String): String
 
+    /** A current address for an attachment of a thread, by its id (a kept photo or video without one). */
+    fun mediaUrl(
+        fbid: String,
+        attachmentId: String,
+    ): String
+
     /** A JSON array of [IgMessage], newest first, older than [olderThan] (the newest when empty). */
     fun messages(
         fbid: String,

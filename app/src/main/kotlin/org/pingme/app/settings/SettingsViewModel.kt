@@ -60,13 +60,21 @@ data class SettingsState(
 )
 
 /** How the last backup or restore went. */
-enum class BackupStatus { IDLE, WORKING, SAVED, SAVE_FAILED, RESTORED, NOT_A_BACKUP, NEWER_VERSION }
+enum class BackupStatus { IDLE, WORKING, SAVED, SAVE_FAILED, RESTORED, NOT_A_BACKUP, NEWER_VERSION, WRONG_PASSPHRASE }
 
 /** Saving the chats to a file and bringing them back (BUILD_PLAN.md P2.6). */
 interface BackupActions {
-    fun exportTo(uri: Uri)
+    /** Saves the backup to [uri], locked with [passphrase] (Phase 8, P8.2). */
+    fun exportTo(
+        uri: Uri,
+        passphrase: String,
+    )
 
-    fun restoreFrom(uri: Uri)
+    /** Restores from [uri], unlocking it with [passphrase]; an old plain backup needs none. */
+    fun restoreFrom(
+        uri: Uri,
+        passphrase: String,
+    )
 }
 
 /** Spaces and the bottom bar (UI_DESIGN.md 10.4). */
@@ -163,39 +171,47 @@ class SettingsViewModel
 
         override fun saveSpace(space: Space) = launch { chats.upsertSpace(space) }
 
-        override fun exportTo(uri: Uri) =
-            launch {
-                backupStatus.value = BackupStatus.WORKING
-                val saved =
-                    try {
-                        withContext(Dispatchers.IO) {
-                            context.contentResolver.openOutputStream(uri)?.use { backups.export(it) } != null
-                        }
-                    } catch (_: IOException) {
-                        false
+        override fun exportTo(
+            uri: Uri,
+            passphrase: String,
+        ) = launch {
+            backupStatus.value = BackupStatus.WORKING
+            val saved =
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri)?.use {
+                            backups.export(it, passphrase.toCharArray())
+                        } != null
                     }
-                backupStatus.value = if (saved) BackupStatus.SAVED else BackupStatus.SAVE_FAILED
-            }
+                } catch (_: IOException) {
+                    false
+                }
+            backupStatus.value = if (saved) BackupStatus.SAVED else BackupStatus.SAVE_FAILED
+        }
 
-        override fun restoreFrom(uri: Uri) =
-            launch {
-                backupStatus.value = BackupStatus.WORKING
-                val problem =
-                    try {
-                        withContext(Dispatchers.IO) {
-                            context.contentResolver.openInputStream(uri)?.use { backups.restore(it) }
-                                ?: RestoreProblem.NOT_A_BACKUP
-                        }
-                    } catch (_: IOException) {
-                        RestoreProblem.NOT_A_BACKUP
+        override fun restoreFrom(
+            uri: Uri,
+            passphrase: String,
+        ) = launch {
+            backupStatus.value = BackupStatus.WORKING
+            val problem =
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.use {
+                            backups.restore(it, passphrase.toCharArray())
+                        } ?: RestoreProblem.NOT_A_BACKUP
                     }
-                backupStatus.value =
-                    when (problem) {
-                        null -> BackupStatus.RESTORED
-                        RestoreProblem.NOT_A_BACKUP -> BackupStatus.NOT_A_BACKUP
-                        RestoreProblem.NEWER_VERSION -> BackupStatus.NEWER_VERSION
-                    }
-            }
+                } catch (_: IOException) {
+                    RestoreProblem.NOT_A_BACKUP
+                }
+            backupStatus.value =
+                when (problem) {
+                    null -> BackupStatus.RESTORED
+                    RestoreProblem.NOT_A_BACKUP -> BackupStatus.NOT_A_BACKUP
+                    RestoreProblem.NEWER_VERSION -> BackupStatus.NEWER_VERSION
+                    RestoreProblem.WRONG_PASSPHRASE -> BackupStatus.WRONG_PASSPHRASE
+                }
+        }
 
         override fun deleteSpace(space: Space) =
             launch {

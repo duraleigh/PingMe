@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The Appearance studio (UI_DESIGN.md 3.5, 4). -->
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="appearance_title">Appearance</string>
     <string name="back">Back</string>
     <string name="reset">Reset</string>
@@ -15,8 +15,6 @@
     <string name="appearance_section_icon">Icon and shortcuts</string>
     <string name="appearance_section_file">Theme file</string>
 
-    <string name="appearance_contrast_title">Some text will be hard to read</string>
-    <string name="appearance_contrast_issue">%1$s: %2$.1f to 1 (needs 4.5 to 1)</string>
 
     <string name="appearance_colour_source">Colour source</string>
     <string name="colour_source_dynamic">Wallpaper</string>
@@ -40,8 +38,10 @@
     <string name="contrast_medium">Medium</string>
     <string name="contrast_high">High</string>
     <string name="appearance_network_colours">Network colours</string>
-    <string name="appearance_bubble_colour">Bubble colour</string>
-    <string name="appearance_accent_colour">Badge and header colour</string>
+    <string name="appearance_bubble_colour">Bubble and badge colour</string>
+    <string name="appearance_accent_colour">Gradient end and header colour</string>
+    <string name="appearance_swatch_bubble">Bubble, badge</string>
+    <string name="appearance_swatch_badge">Gradient end</string>
     <string name="appearance_sender_names">Sender names in groups</string>
     <string name="sender_names_auto">Colourful</string>
     <string name="sender_names_fixed">One colour</string>
@@ -126,7 +126,10 @@
 
     <string name="picker_hue">Hue</string>
     <string name="picker_colourfulness">Colourfulness</string>
+    <!-- Not a count: a value and the most the screen can show at this hue and lightness. -->
+    <string name="picker_colourfulness_of" tools:ignore="PluralsCandidate">%1$d of %2$d the screen can show here</string>
     <string name="picker_lightness">Lightness</string>
+    <string name="picker_hex">Hex code</string>
 
     <string name="preview_sam">Sam Ortiz</string>
     <string name="preview_incoming">Are you still coming tonight?</string>

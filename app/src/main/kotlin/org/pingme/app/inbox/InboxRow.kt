@@ -45,9 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -69,6 +67,7 @@ import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Transport
 import org.pingme.core.ui.components.Avatar
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.Haptics
 import org.pingme.core.ui.theme.InboxDensity
 import org.pingme.core.ui.theme.MotionIntensity
@@ -208,7 +207,8 @@ private fun TitleLine(
             )
         }
         // Google Messages is the phone's own texting: its rows carry no badge (owner, Gate G3).
-        if (row.network != NetworkId.GMESSAGES) NetworkBadge(row.network)
+        // A merged chat carries no badges: its ring says what it is (owner, 2026-10-03).
+        if (!row.isMerged && row.network != NetworkId.GMESSAGES) NetworkBadge(row.network)
         if (row.chat.folder == ChatFolder.GENERAL) FolderTag(stringResource(R.string.inbox_folder_general))
         row.last?.let {
             Text(
@@ -226,21 +226,11 @@ private fun SwipeFeedback(
     state: AnchoredDraggableState<SwipeSide>,
     haptics: Haptics,
 ) {
-    val feedback = LocalHapticFeedback.current
+    val feedback = rememberHaptic()
     LaunchedEffect(state, haptics) {
         if (haptics == Haptics.OFF) return@LaunchedEffect
         snapshotFlow { state.targetValue }.distinctUntilChanged().drop(1).collect { target ->
-            if (target != SwipeSide.REST) {
-                feedback.performHapticFeedback(
-                    if (haptics ==
-                        Haptics.STRONG
-                    ) {
-                        HapticFeedbackType.LongPress
-                    } else {
-                        HapticFeedbackType.GestureThresholdActivate
-                    },
-                )
-            }
+            if (target != SwipeSide.REST) feedback.tick()
         }
     }
 }
@@ -290,7 +280,6 @@ private fun RowContent(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (unread) UnreadBadge(muted = row.chat.isMuted)
             }
         }
     }
@@ -459,8 +448,39 @@ private fun RowAvatar(
                 Icon(painterResource(UiR.drawable.ic_check), null, tint = colours.onPrimary)
             }
         } else {
-            Avatar(row.title, size = size)
+            Ringed(row.isUnread, PingMeTheme.shapes.avatar, muted = row.chat.isMuted) {
+                if (row.faces.isEmpty()) {
+                    Avatar(row.title, size = size, photo = row.photo)
+                } else {
+                    org.pingme.core.ui.components
+                        .GroupAvatar(row.faces, row.title, size = size)
+                }
+            }
         }
         if (row.typing) TypingDots(Modifier.align(Alignment.BottomEnd).offset(x = 8.dp, y = 4.dp))
     }
+}
+
+/** The unread ring around [content] when [unread] (owner, 2026-10-04); the outline colour for a muted chat. */
+@Composable
+internal fun Ringed(
+    unread: Boolean,
+    shape: androidx.graphics.shapes.RoundedPolygon,
+    modifier: Modifier = Modifier,
+    gap: androidx.compose.ui.unit.Dp = 3.dp,
+    muted: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val colours = MaterialTheme.colorScheme
+    val label = stringResource(R.string.inbox_unread)
+    org.pingme.core.ui.components
+        .OrbitRing(
+            shape,
+            modifier.semantics { if (unread) contentDescription = label },
+            gap = gap,
+            shown = unread,
+            colour = if (muted) colours.outline else colours.primary,
+        ) {
+            content()
+        }
 }

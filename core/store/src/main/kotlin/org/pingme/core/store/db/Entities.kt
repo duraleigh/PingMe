@@ -268,6 +268,8 @@ data class PersonEntity(
     val networkHandle: String,
     val avatarPath: String?,
     val contactId: String?,
+    val contactName: String? = null,
+    val contactPhoto: String? = null,
 )
 
 @Entity(tableName = "spaces", indices = [Index("accountId")])

@@ -20,6 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.core.connector.chat
 import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
@@ -77,6 +78,7 @@ class InboxDestinationsTest {
             }
         }
         waitForText("Casey Nguyen")
+        compose.assertAccessible()
         compose.onNodeWithText("Accept").performClick()
         val casey = demo.account.id.chat("casey")
         waitFor { runBlocking { demo.chats.get(casey)?.folder } == ChatFolder.PRIMARY }
@@ -96,6 +98,7 @@ class InboxDestinationsTest {
             }
         }
         waitForText("Dad")
+        compose.assertAccessible()
         compose.onNodeWithText("Dad").performClick()
         assertEquals(listOf(demo.account.id.chat("dad")), opened)
     }
@@ -106,6 +109,7 @@ class InboxDestinationsTest {
         compose.setContent { PingMeTheme { SearchRoute({}, { opened += it }, viewModel = vm) } }
         compose.onNode(hasSetTextAction()).performTextInput("seat")
         waitForText("I saved you a seat")
+        compose.assertAccessible()
         compose.onNodeWithText("I saved you a seat").performClick()
         assertEquals(listOf(demo.account.id.chat("sam")), opened)
     }
@@ -118,6 +122,7 @@ class InboxDestinationsTest {
         waitForText("Name, number, or username")
         compose.onNode(hasSetTextAction()).performTextInput("+15550123")
         waitForText("Start a chat with +15550123")
+        compose.assertAccessible()
         compose.onNodeWithText("Start a chat with +15550123").performClick()
         waitFor { opened.isNotEmpty() }
         assertEquals("+15550123", runBlocking { demo.chats.get(opened.single())?.title })
@@ -133,6 +138,7 @@ class InboxDestinationsTest {
         compose.onNodeWithText("Group name").performTextInput("Trip")
         compose.onNodeWithText("Name, number, or username").performTextInput("ana")
         waitForText("Add ana")
+        compose.assertAccessible()
         compose.onNodeWithText("Add ana").performClick()
         // The button turns on once the member shows as a chip.
         waitFor { compose.onAllNodes(hasText("Make the group") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }

@@ -13,7 +13,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,6 +34,7 @@ import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.TimeLimit
 import org.pingme.core.ui.components.Avatar
+import org.pingme.core.ui.components.PingMeSheet
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -44,14 +44,14 @@ import org.pingme.core.ui.R as UiR
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeleteSheet(
+internal fun DeleteSheet(
     count: Int,
     everyone: EveryoneDelete,
     onForMe: () -> Unit,
     onForEveryone: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
             Text(
                 pluralStringResource(R.plurals.delete_title, count, count),
@@ -143,12 +143,12 @@ private const val MINUTES_PER_HOUR = 60L
 /** Info from the action sheet: when it was sent, how far it got, and how it travelled. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InfoSheet(
+internal fun InfoSheet(
     message: Message,
     network: NetworkId,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)) {
             Text(
                 stringResource(R.string.info_title),
@@ -196,13 +196,13 @@ private fun full(at: Instant) =
 /** Forward: pick one or more chats, then Send (UI_DESIGN.md 3.3). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ForwardSheet(
+internal fun ForwardSheet(
     chats: List<Chat>,
     onSend: (List<ChatId>) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var picked by remember { mutableStateOf(emptySet<ChatId>()) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         Column(Modifier.padding(bottom = 16.dp)) {
             Text(
                 stringResource(R.string.forward_title),

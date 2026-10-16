@@ -37,6 +37,8 @@ type Member struct {
 	Name    string `json:"name,omitempty"`
 	IsMe    bool   `json:"isMe,omitempty"`
 	IsAdmin bool   `json:"isAdmin,omitempty"`
+	// The avatar saved on this phone, when the contact list or the profile carried one.
+	Avatar string `json:"avatar,omitempty"`
 }
 
 // Message is one live or archived message, or something about one (a reaction, an

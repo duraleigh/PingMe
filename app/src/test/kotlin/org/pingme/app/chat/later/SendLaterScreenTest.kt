@@ -19,6 +19,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.chat.COMPOSER
 import org.pingme.app.chat.ChatRoute
 import org.pingme.app.chat.ChatViewModel
@@ -86,6 +87,8 @@ class SendLaterScreenTest {
         compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
         compose.onNodeWithText("Send later").performClick()
         compose.onNode(hasTestTag(LATER_FIELD)).performTextInput("in 2 hours")
+        // The Send later sheet, as a screen reader sees it (P8.1).
+        compose.assertAccessible()
         compose.onNodeWithText("Schedule").performClick()
         waitFor { latest().status is MessageStatus.Scheduled }
         // The wake-up is set just after the message is stored.
@@ -118,6 +121,7 @@ class SendLaterScreenTest {
             compose.onNodeWithText(it).assertExists()
         }
         compose.onNodeWithText("Reply").assertDoesNotExist()
+        compose.assertAccessible()
         compose.onNodeWithText("Unschedule").performClick()
         waitFor { runBlocking { demo.messages.get(waiting.id) } == null }
     }

@@ -67,6 +67,8 @@ data class IgMessage(
     val viewOnce: Boolean = false,
     val viewOnceGone: String = "",
     val unsent: Boolean = false,
+    /** What Instagram sent for a view-once message without a file, for the diagnostic file. */
+    val raw: String = "",
 )
 
 @Serializable
@@ -79,6 +81,8 @@ data class IgMedia(
     val height: Int = 0,
     val durationMs: Int = 0,
     val id: String = "",
+    /** The thread, kept with the reference so an address can be fetched by id later. */
+    val thread: String = "",
 )
 
 @Serializable

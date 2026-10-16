@@ -66,7 +66,7 @@ internal class MessageNotifications(
         code: String? = null,
     ) {
         val title = chat.nameOverride ?: chat.title
-        val who = person(sender?.displayName ?: title, message.senderId.value)
+        val who = person(sender?.name ?: title, message.senderId.value, sender?.photo)
         val text = if (chat.isObscured) context.getString(R.string.notification_new_message) else lineFor(message)
         val history = lines.getOrPut(chat.id) { mutableListOf() }
         if (chat.isObscured) history.clear()
@@ -214,11 +214,25 @@ internal class MessageNotifications(
     private fun person(
         name: String,
         key: String,
+        photo: String? = null,
     ) = Person
         .Builder()
         .setName(name)
         .setKey(key)
+        .setIcon(photo?.let(::iconFor))
         .build()
+
+    // The contact's photo as the sender's picture (UI_DESIGN.md 10.18); the shade cannot
+    // read a contacts address itself, so the picture is loaded here.
+    private fun iconFor(photo: String): androidx.core.graphics.drawable.IconCompat? =
+        runCatching {
+            context.contentResolver.openInputStream(android.net.Uri.parse(photo))?.use { stream ->
+                android.graphics.BitmapFactory.decodeStream(stream)
+            }
+        }.getOrNull()?.let {
+            androidx.core.graphics.drawable.IconCompat
+                .createWithAdaptiveBitmap(it)
+        }
 
     private fun me() =
         Person

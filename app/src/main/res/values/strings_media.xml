@@ -25,9 +25,9 @@
     <string name="voice_resume">Go on recording</string>
     <string name="voice_play_so_far">Play what you have recorded</string>
     <string name="voice_stop_so_far">Stop playing</string>
-    <string name="voice_slide_to_cancel">‹ Slide to cancel</string>
     <string name="voice_slide_up_to_lock">Slide up to keep recording hands-free</string>
     <string name="voice_discard">Delete recording</string>
+    <string name="voice_stop_without_sending">Stop without sending</string>
     <string name="voice_play">Play voice note</string>
     <string name="voice_pause">Pause voice note</string>
     <string name="action_voice_reply">Voice reply</string>

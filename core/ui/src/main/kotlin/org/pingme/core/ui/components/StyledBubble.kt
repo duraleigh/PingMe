@@ -5,8 +5,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.toArgb
-import com.materialkolor.hct.Hct
 import org.pingme.core.ui.theme.BubbleColors
 import org.pingme.core.ui.theme.BubbleStyle
 import org.pingme.core.ui.theme.contrastRatio
@@ -60,12 +58,10 @@ fun styleBubble(
         }
 
         BubbleStyle.GRADIENT -> {
+            // From the bubble colour to the badge colour: the two swatches in Appearance
+            // (owner, 2026-10-04), no hidden hue shift.
             val start = colors.container
-            val end =
-                Hct
-                    .fromInt(
-                        start.toArgb(),
-                    ).let { Color(it.withHue((it.hue + GRADIENT_HUE_SHIFT) % FULL_TURN).toInt()) }
+            val end = accent
             StyledBubble(
                 Brush.linearGradient(listOf(start, end)),
                 listOf(start, end),
@@ -85,5 +81,3 @@ fun readableOn(background: Color): Color =
 fun StyledBubble.textContrast(): Double = backgroundStops.minOf { contrastRatio(it, content) }
 
 private val NEAR_BLACK = Color(0xFF1B1B1F)
-private const val GRADIENT_HUE_SHIFT = 40.0
-private const val FULL_TURN = 360.0

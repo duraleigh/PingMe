@@ -13,12 +13,39 @@ import androidx.core.net.toUri
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.NetworkId
 
+/** Who a call icon calls: the person's number, and the chat's id on its network. */
+data class CallTarget(
+    val phone: String?,
+    /** The chat's own id on the network, for opening it in Instagram or Messenger. */
+    val thread: String? = null,
+)
+
+/** One press of a call icon: which network, how that network calls, and whom. */
+data class CallRequest(
+    val network: NetworkId,
+    val method: CallMethod,
+    val video: Boolean,
+    val target: CallTarget,
+)
+
 /** What pressing a call icon did. */
 enum class CallOutcome {
     /** The call is being placed. */
     CALLING,
 
-    /** The app opened to that person, because it has no way to start the call directly. */
+    /** PingMe has no leave to place phone calls yet: ask once, then try again. */
+    NEEDS_PERMISSION,
+
+    /** The dialer opened with the number filled in, because phone calls were refused. */
+    OPENED_DIALER,
+
+    /** The chat opened in its app, which lets no other app start its calls (Instagram, Messenger). */
+    OPENED_CHAT_NO_CALLS,
+
+    /** The chat opened in its app, which has not put its call rows on the contact (WhatsApp, Signal, Telegram). */
+    OPENED_CHAT_NEEDS_SYNC,
+
+    /** The app opened, because nothing more direct worked. */
     OPENED_APP,
 
     /** Nothing on this phone can place it. */
@@ -27,40 +54,65 @@ enum class CallOutcome {
 
 /**
  * The phone and video icons in the chat header (UI_DESIGN.md 10.17): each does the most
- * direct thing the service allows. Which intents each app answers is confirmed on a real
- * phone at the gates; everything here falls back to opening the app.
+ * direct thing the service allows. What each app answers was read off the owner's phone on
+ * 2026-10-06 (the apps' intent filters and the call rows they add to contacts); everything
+ * here falls back to opening the app to the person, then to opening the app.
  */
 class Calls(
     private val context: Context,
 ) {
+    /**
+     * Places the call. [asked] is true after the phone-call permission was requested, so a
+     * refusal opens the dialer with the number instead of asking again.
+     */
     fun start(
         network: NetworkId,
         method: CallMethod,
         video: Boolean,
-        phone: String?,
+        target: CallTarget,
+        asked: Boolean = false,
     ): CallOutcome =
         when (method) {
-            CallMethod.DIALER -> phone?.let(::dial) ?: CallOutcome.UNAVAILABLE
-            CallMethod.MEET -> phone?.let(::meet) ?: openApp(MEET)
-            CallMethod.CONTACT_APP_CALL -> phone?.let { contactCall(network, video, it) } ?: openApp(network.appPackage)
-            CallMethod.OPEN_APP, CallMethod.OPEN_THREAD -> openApp(network.appPackage)
+            CallMethod.DIALER -> dial(target.phone, null, asked)
+            CallMethod.APP_DIALER -> dial(target.phone, network.appPackage, asked)
+            CallMethod.MEET -> meet(target.phone)
+            CallMethod.CONTACT_APP_CALL -> contactCall(network, video, target.phone)
+            CallMethod.OPEN_THREAD -> openThread(network, target.thread)
+            CallMethod.OPEN_APP -> openApp(network.appPackage)
             CallMethod.NONE -> CallOutcome.UNAVAILABLE
         }
 
-    /** Dials at once with the phone-call permission, or opens the dialer with the number filled in. */
-    private fun dial(phone: String): CallOutcome {
-        val allowed =
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) ==
-                PackageManager.PERMISSION_GRANTED
-        val action = if (allowed) Intent.ACTION_CALL else Intent.ACTION_DIAL
-        return if (launch(Intent(action, "tel:$phone".toUri()))) CallOutcome.CALLING else CallOutcome.UNAVAILABLE
-    }
+    /**
+     * Dials at once with the phone-call permission; in [appPackage] when given (Google Voice
+     * answers the call action itself and places the call on its own number). Without the
+     * permission it asks once, then settles for the dialer with the number filled in.
+     */
+    private fun dial(
+        phone: String?,
+        appPackage: String?,
+        asked: Boolean,
+    ): CallOutcome =
+        when {
+            phone == null -> {
+                CallOutcome.UNAVAILABLE
+            }
 
-    private fun meet(phone: String): CallOutcome =
-        if (launch(
-                Intent(Intent.ACTION_VIEW, "tel:$phone".toUri()).setPackage(MEET),
-            )
-        ) {
+            granted(Manifest.permission.CALL_PHONE) -> {
+                outcome(Intent(Intent.ACTION_CALL, tel(phone)).setPackage(appPackage), CallOutcome.CALLING)
+            }
+
+            !asked -> {
+                CallOutcome.NEEDS_PERMISSION
+            }
+
+            else -> {
+                outcome(Intent(Intent.ACTION_DIAL, tel(phone)).setPackage(appPackage), CallOutcome.OPENED_DIALER)
+            }
+        }
+
+    /** Google Meet starts a call from its own action with a tel: number; it ignores a plain view. */
+    private fun meet(phone: String?): CallOutcome =
+        if (phone != null && launch(Intent(MEET_CALL, tel(phone)).setPackage(MEET))) {
             CallOutcome.CALLING
         } else {
             openApp(MEET)
@@ -68,30 +120,61 @@ class Calls(
 
     /**
      * WhatsApp, Signal, and Telegram put a call row on the person's contact; opening it starts
-     * the call. Without contacts access or that row, the app opens instead.
+     * the call. Without that row (the app has not been let at the contacts), the app opens to
+     * the person instead.
      */
     private fun contactCall(
         network: NetworkId,
         video: Boolean,
-        phone: String,
+        phone: String?,
     ): CallOutcome {
-        val mime = callMimeType(network, video) ?: return openApp(network.appPackage)
-        val row = findDataRow(mime, phone) ?: return openApp(network.appPackage)
-        val intent =
-            Intent(
-                Intent.ACTION_VIEW,
-            ).setDataAndType(ContentUris.withAppendedId(ContactsContract.Data.CONTENT_URI, row), mime)
-        return if (launch(intent)) CallOutcome.CALLING else openApp(network.appPackage)
+        val mime = callMimeType(network, video)
+        val row = if (phone != null && mime != null) findDataRow(mime, phone) else null
+        val call =
+            row?.let {
+                Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(ContentUris.withAppendedId(ContactsContract.Data.CONTENT_URI, it), mime)
+            }
+        return if (call != null && launch(call)) CallOutcome.CALLING else openPerson(network, phone)
     }
+
+    private fun openPerson(
+        network: NetworkId,
+        phone: String?,
+    ): CallOutcome {
+        val link = phone?.let { personLink(network, it) }
+        return if (link != null && launch(Intent(Intent.ACTION_VIEW, link.toUri()).setPackage(network.appPackage))) {
+            CallOutcome.OPENED_CHAT_NEEDS_SYNC
+        } else {
+            openApp(network.appPackage)
+        }
+    }
+
+    /** Instagram and Messenger open the chat itself; neither lets another app start a call. */
+    private fun openThread(
+        network: NetworkId,
+        thread: String?,
+    ): CallOutcome {
+        val link = thread?.let { threadLink(network, it) }
+        return if (link != null && launch(Intent(Intent.ACTION_VIEW, link.toUri()).setPackage(network.appPackage))) {
+            CallOutcome.OPENED_CHAT_NO_CALLS
+        } else {
+            openApp(network.appPackage)
+        }
+    }
+
+    private fun tel(phone: String) = "tel:$phone".toUri()
+
+    private fun outcome(
+        intent: Intent,
+        started: CallOutcome,
+    ) = if (launch(intent)) started else CallOutcome.UNAVAILABLE
 
     private fun findDataRow(
         mime: String,
         phone: String,
     ): Long? {
-        val allowed =
-            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
-                PackageManager.PERMISSION_GRANTED
-        if (!allowed) return null
+        if (!granted(Manifest.permission.READ_CONTACTS)) return null
         val digits = phone.filter(Char::isDigit).takeLast(SIGNIFICANT_DIGITS)
         context.contentResolver
             .query(
@@ -109,6 +192,9 @@ class Calls(
         return null
     }
 
+    private fun granted(permission: String) =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
     private fun openApp(appPackage: String?): CallOutcome {
         val intent =
             appPackage?.let { context.packageManager.getLaunchIntentForPackage(it) } ?: return CallOutcome.UNAVAILABLE
@@ -125,11 +211,14 @@ class Calls(
             false
         }
 
-    private companion object {
+    internal companion object {
         const val MEET = "com.google.android.apps.tachyon"
+
+        /** The only call action Meet's call screen answers (read off the phone, 2026-10-06). */
+        const val MEET_CALL = "com.google.android.apps.tachyon.action.CALL"
         const val SIGNIFICANT_DIGITS = 9
 
-        /** The call rows each app adds to contacts. Checked on a real phone at the gates (10.17). */
+        /** The call rows each app adds to contacts, as the owner's phone lists them (2026-10-06). */
         fun callMimeType(
             network: NetworkId,
             video: Boolean,
@@ -144,7 +233,11 @@ class Calls(
                 }
 
                 NetworkId.SIGNAL -> {
-                    "vnd.android.cursor.item/vnd.org.thoughtcrime.securesms.call"
+                    if (video) {
+                        "vnd.android.cursor.item/vnd.org.thoughtcrime.securesms.videocall"
+                    } else {
+                        "vnd.android.cursor.item/vnd.org.thoughtcrime.securesms.call"
+                    }
                 }
 
                 NetworkId.TELEGRAM -> {
@@ -158,6 +251,32 @@ class Calls(
                 else -> {
                     null
                 }
+            }
+
+        /** The public link that opens a chat with a number in each app. */
+        fun personLink(
+            network: NetworkId,
+            phone: String,
+        ): String? {
+            val digits = phone.filter(Char::isDigit)
+            if (digits.isEmpty()) return null
+            return when (network) {
+                NetworkId.WHATSAPP -> "https://wa.me/$digits"
+                NetworkId.SIGNAL -> "https://signal.me/#p/+$digits"
+                NetworkId.TELEGRAM -> "https://t.me/+$digits"
+                else -> null
+            }
+        }
+
+        /** The public link that opens a chat by its id in each app. */
+        fun threadLink(
+            network: NetworkId,
+            thread: String,
+        ): String? =
+            when (network) {
+                NetworkId.INSTAGRAM -> "https://www.instagram.com/direct/t/$thread/"
+                NetworkId.MESSENGER, NetworkId.FBPAGE -> "https://www.messenger.com/t/$thread"
+                else -> null
             }
     }
 }

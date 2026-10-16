@@ -77,7 +77,8 @@ fun ShowMessages(
         messages.collect { message ->
             launch {
                 val text =
-                    message.chatTitle?.let { resources.getString(message.text, it) }
+                    message.plain
+                        ?: message.chatTitle?.let { resources.getString(message.text, it) }
                         ?: resources.getString(message.text)
                 val result =
                     snackbar.showSnackbar(

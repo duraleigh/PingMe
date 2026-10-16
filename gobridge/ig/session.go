@@ -47,11 +47,11 @@ type Session struct {
 	sink    EventSink
 	log     zerolog.Logger
 
-	mu       sync.Mutex
-	viewer   int64
-	ids      map[string]*instameow.ThreadIGIDs
-	cancel   context.CancelFunc
-	threads  map[string]string // thread fbid -> long id, from listings
+	mu      sync.Mutex
+	viewer  int64
+	ids     map[string]*instameow.ThreadIGIDs
+	cancel  context.CancelFunc
+	threads map[string]string // thread fbid -> long id, from listings
 }
 
 // NewSession takes the instagram.com cookies as a JSON object of name to value.
@@ -215,6 +215,35 @@ func (s *Session) Messages(fbid, olderThan string, count int) (string, error) {
 	return marshal(messages)
 }
 
+// MediaURL returns a current address for the attachment fbid in thread, read from the
+// thread's recent messages: Instagram's live event for a kept photo or video can come
+// without one, and addresses expire (owner, 2026-10-04).
+func (s *Session) MediaURL(fbid, attachmentID string) (string, error) {
+	ctx, cancel := s.ctx()
+	defer cancel()
+	req := &slidetypes.PaginateMessagesRequest{ThreadID: fbid, FirstN: refreshPage, InitialMessagePageCount: refreshPage}
+	resp, err := s.client.PaginateMessages(ctx, req)
+	if err != nil {
+		return "", wrap(err)
+	}
+	if resp.ThreadInfo.AsIGDirectThread == nil || resp.ThreadInfo.AsIGDirectThread.Messages == nil {
+		return "", fmt.Errorf("%w: no messages for the thread", ErrRejected)
+	}
+	for _, edge := range resp.ThreadInfo.AsIGDirectThread.Messages.Edges {
+		if edge.Node == nil {
+			continue
+		}
+		for _, m := range convertMessage(edge.Node, fbid).Media {
+			if m.ID == attachmentID && m.URL != "" {
+				return m.URL, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("%w: the attachment is not among the thread's recent messages", ErrRejected)
+}
+
+const refreshPage = 40
+
 // SendText sends text, as a reply when replyTo names a message. Returns the Message as sent.
 func (s *Session) SendText(fbid, text, replyTo string) (string, error) {
 	ids, err := s.idsFor(fbid)
@@ -356,6 +385,12 @@ func (s *Session) MarkRead(fbid, messageID string, timestamp int64) error {
 	if err != nil {
 		return wrap(err)
 	}
+	// The read watermark is the time of reading, not the message's own: a reaction
+	// that came after the newest message sits past the message's time, and marking read
+	// up to the message alone left the thread unread in Instagram (owner, 2026-10-05).
+	if now := time.Now().UnixMilli(); now > timestamp {
+		timestamp = now
+	}
 	var at slidetypes.MarkReadData
 	at.MessageID = messageID
 	at.MessageTimestampMS.Time = time.UnixMilli(timestamp)
@@ -463,7 +498,9 @@ func (s *Session) handleEvent(ctx context.Context, raw slidetypes.ClientEvent) e
 	case *slidetypes.ResnapshotRequired:
 		s.emit(map[string]any{"type": "resync"})
 	case *slidetypes.TypingNotification:
-		s.emit(map[string]any{"type": "typing", "thread": evt.ThreadID, "sender": strconv.FormatInt(evt.SenderID, 10),
+		// The typing stream names the thread by its long id; chats go by the short one
+		// (owner, 2026-10-05: Instagram typing never showed).
+		s.emit(map[string]any{"type": "typing", "thread": s.fbidFor(evt.ThreadID), "sender": strconv.FormatInt(evt.SenderID, 10),
 			"typing": evt.ActivityStatus != 0})
 	case *slidetypes.Delta:
 		s.handleDelta(evt)
@@ -483,7 +520,13 @@ func (s *Session) handleDelta(d *slidetypes.Delta) {
 		if thread == "" {
 			thread = evt.Message.ThreadFBID
 		}
-		s.emit(map[string]any{"type": "message", "message": convertMessage(evt.Message, thread)})
+		converted := convertMessage(evt.Message, thread)
+		if converted.ViewOnceGone != "" {
+			// The whole live event, for the phone's diagnostic file (owner, 2026-10-05:
+			// unviewed view-once photos arrived as "gone").
+			converted.Raw = clip(string(d.Raw), rawLimit)
+		}
+		s.emit(map[string]any{"type": "message", "message": converted})
 	case *slidetypes.AdminMessageEvent:
 		if evt.Message == nil {
 			return
@@ -510,7 +553,7 @@ func (s *Session) handleDelta(d *slidetypes.Delta) {
 		s.emit(map[string]any{"type": "unreadByMe", "thread": thread})
 	case *slidetypes.ReadReceiptEvent:
 		s.emit(map[string]any{"type": "readReceipt", "thread": thread,
-			"sender": strconv.FormatInt(evt.ReadReceipt.ParticipantFBID, 10),
+			"sender":    strconv.FormatInt(evt.ReadReceipt.ParticipantFBID, 10),
 			"timestamp": evt.ReadReceipt.WatermarkTimestampMS.UnixMilli()})
 	case *slidetypes.UpdateThreadFolderEvent:
 		s.emit(map[string]any{"type": "folder", "thread": thread, "folder": evt.Folder, "inboxFolder": evt.IGInboxFolder})
@@ -562,6 +605,31 @@ func (s *Session) remember(t Thread) Thread {
 }
 
 // idsFor finds the two ids a thread goes by, asking Instagram when a listing has not said.
+// fbidFor turns a thread's long id into the short one chats go by, when the thread is
+// known; any other id is returned as it came.
+func (s *Session) fbidFor(id string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if known := s.ids[id]; known != nil {
+		return id
+	}
+	for fbid, ids := range s.ids {
+		if ids != nil && ids.LongID == id {
+			return fbid
+		}
+	}
+	return id
+}
+
+func clip(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	return s[:limit] + "…"
+}
+
+const rawLimit = 6000
+
 func (s *Session) idsFor(fbid string) (*instameow.ThreadIGIDs, error) {
 	s.mu.Lock()
 	known := s.ids[fbid]
