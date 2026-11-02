@@ -11,6 +11,7 @@
     <string name="attach_remove">Remove</string>
     <string name="attach_no_location">Could not find where you are. Check that location is on.</string>
     <string name="attach_no_camera">No camera app on this phone</string>
+    <string name="attach_unreadable">That picture could not be attached. Pick it again.</string>
     <string name="chat_send_options">More ways to send</string>
     <string name="media_play_video">Play video</string>
     <string name="media_save">Save to Photos</string>

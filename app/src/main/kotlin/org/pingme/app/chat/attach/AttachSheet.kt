@@ -51,7 +51,7 @@ import java.io.File
 import org.pingme.core.ui.R as UiR
 
 /** Why an attach option could not finish, for the chat's snackbar. */
-enum class AttachProblem { NO_LOCATION, NO_CAMERA }
+enum class AttachProblem { NO_LOCATION, NO_CAMERA, UNREADABLE }
 
 /**
  * The "+" sheet: Camera, Gallery, File, Location, Contact (UI_DESIGN.md 5.8). [pick] comes

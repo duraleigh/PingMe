@@ -139,6 +139,7 @@ internal fun composerHooks(
             when (problem) {
                 AttachProblem.NO_LOCATION -> R.string.attach_no_location
                 AttachProblem.NO_CAMERA -> R.string.attach_no_camera
+                AttachProblem.UNREADABLE -> R.string.attach_unreadable
             },
         )
     },

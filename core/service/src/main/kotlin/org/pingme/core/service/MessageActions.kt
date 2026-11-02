@@ -395,6 +395,12 @@ class MessageActions
         ): Message {
             val connector = connectorFor(pending.chatId)
             val files = pending.attachments.mapNotNull { it.asOutgoing() }
+            // Every send is written down, so a picture that never went can be traced (owner, 2026-11-02).
+            Diag.note(
+                TAG,
+                "Sending ${pending.id.value}: ${pending.body.orEmpty().length} characters, " +
+                    "${files.size} of ${pending.attachments.size} file(s)",
+            )
             val draft = OutgoingMessage(pending.id, pending.body, files, pending.replyTo, pending.quote, forceSms)
             val result =
                 if (connector == null) {
@@ -410,6 +416,7 @@ class MessageActions
                         uploads.update { it - pending.id }
                     } ?: SendResult.Failed("No answer from the network", retryable = true)
                 }
+            Diag.note(TAG, "Send ${pending.id.value}: ${result.diaryLine()}")
             return when (result) {
                 is SendResult.Sent -> {
                     sent.replaced(pending.id, result.message.message.id)
@@ -536,3 +543,10 @@ internal class SentCopies(
     /** [message] as it is now. */
     suspend fun current(message: Message): Message = sentAs[message.id]?.let { messages.get(it) } ?: message
 }
+
+/** How a send ended, for the diary: which message it became and how many files it kept. */
+private fun SendResult.diaryLine(): String =
+    when (this) {
+        is SendResult.Sent -> "sent as ${message.message.id.value} with ${message.message.attachments.size} file(s)"
+        is SendResult.Failed -> "failed: $reason"
+    }

@@ -56,6 +56,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
 import org.pingme.app.R
 import org.pingme.app.chat.attach.AttachLaunchers
+import org.pingme.app.chat.attach.AttachProblem
 import org.pingme.app.chat.attach.AttachSheet
 import org.pingme.app.chat.attach.Outbox
 import org.pingme.app.chat.attach.SendButton
@@ -113,6 +114,8 @@ internal fun Composer(
     StagedStrip(staged, copying > 0, { outbox?.remove(it) })
     // The pickers' listeners live here, where they outlive the attach sheet.
     val pick = outbox?.let { rememberAttachLaunchers(it, hooks.onProblem) }
+    val problem by rememberUpdatedState(hooks.onProblem)
+    LaunchedEffect(outbox) { outbox?.missed?.collect { problem(AttachProblem.UNREADABLE) } }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,

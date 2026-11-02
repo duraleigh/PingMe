@@ -4556,3 +4556,24 @@ move through the networks, as with the box's chip (left or up is next, right or 
 ends); tap it for the list. The flick is now one shared gesture (`flickToStep`) for both. New group
 chat uses the same form; the share screen picks conversations, not networks, so it has no such row.
 Test: `NetworkPillTest`.
+
+**Pictures on Google Messages (owner, 2026-11-02, 9:22-9:33, Nicole's chat).** Three faults reported:
+a text with a picture waited over a minute and the picture never went; a later picture showed blank;
+and the earlier picture's bubble then showed the later one.
+
+*Found (the diary, 9:25:59-9:26:17):* a sent message is matched to the phone's copy by its tmpId, or,
+when that is missing, by "same chat, same text" for up to 24 hours. Any message of yours with a tmpId
+that was not this send's still fell through to the text match, and every picture sent without words
+has the same empty text. The chat's catch-up re-reads the 50 newest messages every few seconds; the
+first picture (307321) answered the second picture's send, `keepingFiles` gave it the second picture's
+file, and the second picture's real message (307330) arrived bare, blank until its preview (120 KB of
+559 KB) came down. *Fixed:* `sendAnswered` (new, `Outgoing.kt`): a tagged message answers only its
+own send; an untagged one needs the same chat, text, and number of pictures, and must be made no
+earlier than the send (2 s of slack). Test: `SendPairingTest`.
+
+*Not proven:* why the 9:22 picture never went. The bubble that waited showed text only, so the picture
+was most likely not attached when Send was pressed; a picked file that could not be read was dropped
+without a word, the one silent path found. The phone's log reached back only to 9:26:40 and the diary
+did not record sends. *Done:* a picture that cannot be attached now says so ("That picture could not be
+attached"), and every send is written to the diary: what went out, how many files, what the phone's
+copy was matched to, any refusal, and any stand-in. The next miss can be traced, not guessed.

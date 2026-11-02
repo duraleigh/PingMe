@@ -103,19 +103,6 @@ internal class GmessagesSession(
     // One listing at a time: the session and the supervisor both ask for it on connecting.
     private val listing = Mutex()
 
-    /**
-     * One send: what went out, so the phone's copy can be matched by its tmpId, or, when the
-     * phone drops that, by text and time. [waiter] is set while [send] waits; [standIn] once
-     * a stand-in message has been shown instead.
-     */
-    private class Outgoing(
-        val conversation: String,
-        val text: String,
-        val sentAt: Instant,
-        @Volatile var waiter: CompletableDeferred<MessageSnapshot>?,
-        @Volatile var standIn: MessageId? = null,
-    )
-
     /** Connects, then streams events until [close] or a failure. */
     fun flow(): Flow<ConnectorEvent> =
         channelFlow {
@@ -266,23 +253,11 @@ internal class GmessagesSession(
         }
     }
 
-    /**
-     * The send a message from the phone belongs to: by its tmpId, or, when the phone did
-     * not keep that, the oldest recent send of the same text in the same chat.
-     */
+    /** The send a message from the phone answers, taken off the waiting list ([sendAnswered]). */
     private fun matchOutgoing(msg: GmMessage): Outgoing? {
-        if (!msg.fromMe) return null
-        val byTag = msg.tmpId.takeIf { it.isNotEmpty() }?.let { outgoing.remove(it) }
-        val now = clock.now()
-        val byText = {
-            outgoing.entries
-                .filter { (_, o) ->
-                    o.conversation == msg.conversationId && o.text == msg.text && now - o.sentAt < MATCH_WINDOW
-                }.minByOrNull { (_, o) -> o.sentAt }
-                ?.key
-                ?.let { outgoing.remove(it) }
-        }
-        return byTag ?: byText()
+        val key = sendAnswered(msg, outgoing, clock.now(), MATCH_WINDOW) ?: return null
+        Diag.note(TAG, "Phone's message ${msg.id} answers send $key (pictures=${msg.media.size})")
+        return outgoing.remove(key)
     }
 
     private fun snapshotOf(event: ConnectorEvent): MessageSnapshot =
@@ -401,9 +376,11 @@ internal class GmessagesSession(
                 upload(file).also { progress((i + 1).toFloat() / draft.attachments.size) }
             }
         val waiter = CompletableDeferred<MessageSnapshot>()
-        val record = Outgoing(conversation, draft.body.orEmpty(), clock.now(), waiter)
+        val record = Outgoing(conversation, draft.body.orEmpty(), media.size, clock.now(), waiter)
         outgoing[tmpId] = record
-        Log.i(TAG, "send tmpId=$tmpId conv=$conversation chars=${draft.body.orEmpty().length} media=${media.size}")
+        val said = "send tmpId=$tmpId conv=$conversation chars=${draft.body.orEmpty().length} media=${media.size}"
+        Log.i(TAG, said)
+        Diag.note(TAG, said)
         val refused =
             try {
                 val body =
@@ -417,6 +394,7 @@ internal class GmessagesSession(
             ) {
                 outgoing.remove(tmpId)
                 Log.w(TAG, "send tmpId=$tmpId refused", e)
+                Diag.note(TAG, "send tmpId=$tmpId refused: ${e.message}")
                 SendResult.Failed(sendFailure(e), retryable = GmError.codeOf(e) != GmError.REJECTED)
             }
         // Waited on a real-time dispatcher: the echo comes from the bridge's own thread, and a
@@ -434,6 +412,7 @@ internal class GmessagesSession(
             echoed == null
         ) {
             Log.i(TAG, "send tmpId=$tmpId: no echo in $ECHO_TIMEOUT, showing a stand-in")
+            Diag.note(TAG, "send tmpId=$tmpId: no answer from the phone in $ECHO_TIMEOUT, showing a stand-in")
         }
         val sent = echoed?.keepingFiles(draft) ?: standIn(chatId, conversation, draft, media, tmpId, record)
         return refused ?: SendResult.Sent(sent)
