@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
 import org.pingme.core.model.Person
@@ -157,7 +159,9 @@ private fun PersonRow(
             .clip(
                 androidx.compose.foundation.shape
                     .RoundedCornerShape(top, top, bottom, bottom),
-            ).combinedClickable(enabled = enabled, onLongClick = onHold, onClick = onClick),
+            ).combinedClickable(enabled = enabled, onLongClick = onHold, onClick = onClick)
+            // The list item keeps its words to itself, so the row has to say who it is.
+            .semantics { contentDescription = person.name },
         color = if (picked) colours.secondaryContainer else colours.surfaceContainer,
     ) {
         androidx.compose.material3.ListItem(

@@ -147,6 +147,19 @@ jobs:
         # check = ktlintCheck, detekt, Android lint, unit tests (BUILD_PLAN.md P0.5).
         run: ./gradlew check assembleRelease assembleDebug
 
+      # A test that fails only here says why in the log, not only in a report that is thrown away.
+      - name: Show failed tests
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as E
+          for f in glob.glob("**/build/test-results/**/*.xml", recursive=True):
+              for case in E.parse(f).getroot().findall("testcase"):
+                  bad = case.find("failure")
+                  if bad is not None:
+                      print(case.get("classname"), case.get("name"), "\n", (bad.get("message") or bad.text or "")[:1500])
+          PY
+
       - name: Name the APK
         if: steps.changes.outputs.code == 'true'
         id: apk

@@ -135,8 +135,30 @@ class InboxDestinationsTest {
             PingMeTheme { NewChatRoute({}, { opened += it }, viewModel = vm) }
         }
         waitForText("Name, number, or username")
+        // The people in their rows are audited too, once they have arrived.
+        waitFor {
+            vm.state.value.suggestions
+                .isNotEmpty()
+        }
+        waitFor {
+            compose
+                .onAllNodesWithText(
+                    vm.state.value.suggestions
+                        .first()
+                        .name,
+                ).fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.waitForIdle()
+        compose.assertAccessible()
         compose.onNodeWithText("Name, number, or username").performTextInput("ana")
         waitForText("Add ana")
+        // Audited once the list has followed what was typed: nobody in the demo matches "ana".
+        waitFor {
+            vm.state.value.suggestions
+                .isEmpty()
+        }
+        compose.waitForIdle()
         compose.assertAccessible()
         compose.onNodeWithText("Add ana").performClick()
         // People first, then the name, as in Google Messages (owner, 2026-11-01).
