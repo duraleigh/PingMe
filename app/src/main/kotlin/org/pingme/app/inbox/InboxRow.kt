@@ -393,6 +393,9 @@ internal fun Ringed(
     modifier: Modifier = Modifier,
     gap: androidx.compose.ui.unit.Dp = 3.dp,
     muted: Boolean = false,
+    loud: Color? = null,
+    stroke: androidx.compose.ui.unit.Dp = 2.dp,
+    halo: () -> Float = { 0f },
     content: @Composable () -> Unit,
 ) {
     val colours = MaterialTheme.colorScheme
@@ -402,8 +405,10 @@ internal fun Ringed(
             shape,
             modifier.semantics { if (unread) contentDescription = label },
             gap = gap,
+            stroke = stroke,
             shown = unread,
-            colour = if (muted) colours.outline else colours.primary,
+            colour = if (muted) colours.outline else loud ?: colours.primary,
+            halo = halo,
         ) {
             content()
         }

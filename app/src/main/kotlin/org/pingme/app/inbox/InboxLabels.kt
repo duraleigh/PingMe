@@ -33,6 +33,19 @@ val NetworkId.displayName: String
         }
 
 /**
+ * A network's name on the bottom bar: one short word where the full name would wrap (owner,
+ * 2026-11-02, to save room). Everywhere else the full [displayName] stands.
+ */
+val NetworkId.tabName: String
+    get() =
+        when (this) {
+            NetworkId.GMESSAGES -> "Messages"
+            NetworkId.GVOICE -> "Voice"
+            NetworkId.MESSENGER -> "Facebook"
+            else -> displayName
+        }
+
+/**
  * A plain line icon per network for the bottom bar and the account chips, in the same
  * style as All, Low priority, and More (owner, 2026-10-03: the coloured circles were
  * gaudy). Material Symbols that say what the network is for; no brand logos are bundled.

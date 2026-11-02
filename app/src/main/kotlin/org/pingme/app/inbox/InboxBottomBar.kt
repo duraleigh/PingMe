@@ -272,7 +272,7 @@ fun barLabel(
 
         is InboxBarItem.Network -> {
             (entry.narrowedTo as? Narrowing.Account)?.let { n -> accounts.find { it.id == n.id }?.displayName }
-                ?: item.network.displayName
+                ?: item.network.tabName
         }
 
         is InboxBarItem.Space -> {

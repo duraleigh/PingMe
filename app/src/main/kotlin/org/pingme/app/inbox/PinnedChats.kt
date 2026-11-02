@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.inbox
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -18,6 +24,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
@@ -51,6 +59,7 @@ import org.pingme.core.model.ChatKind
 import org.pingme.core.ui.components.Avatar
 import org.pingme.core.ui.components.HapticPlayer
 import org.pingme.core.ui.components.rememberHaptic
+import org.pingme.core.ui.theme.MotionIntensity
 import org.pingme.core.ui.theme.PingMeTheme
 import kotlin.math.roundToInt
 
@@ -118,8 +127,10 @@ fun PinnedRow(
 
 /**
  * One pinned chat. Unread, the tile has to shout as loudly as an unread row does (owner,
- * Gate G2: a dot alone was missed): the orbiting ring in the accent colour around the
- * avatar and the name in bold accent colour (the dot went on 2026-10-04).
+ * Gate G2: a dot alone was missed): the orbiting ring around the avatar and the name in bold
+ * (the dot went on 2026-10-04). Still missed (owner, 2026-11-02: "I rarely can tell there's a
+ * new one up there"), so now all in the + button's bright blue: a thicker ring with a slowly
+ * pulsing glow, the whole tile washed in the blue, and the name extra bold in it.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -133,13 +144,24 @@ private fun PinnedTile(
     val hold = stringResource(R.string.inbox_chat_actions)
     val unread = row.isUnread
     val shape = PingMeTheme.shapes.pinnedTile(index)
-    val accent = if (row.chat.isMuted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
+    val accent =
+        if (row.chat.isMuted) MaterialTheme.colorScheme.outline else FloatingActionButtonDefaults.containerColor
+    val halo = pinHalo(unread && !row.chat.isMuted)
     val dragged = reorder.dragging == row.id
     Column(
         modifier
             .zIndex(if (dragged) 1f else 0f)
             .offset { if (dragged) reorder.offsetOf(index) else IntOffset.Zero }
-            .onGloballyPositioned { reorder.slots[index] = it.boundsInRoot() }
+            .then(
+                if (unread) {
+                    Modifier.background(
+                        accent.copy(alpha = PIN_TINT),
+                        RoundedCornerShape(PIN_CORNER),
+                    )
+                } else {
+                    Modifier
+                },
+            ).onGloballyPositioned { reorder.slots[index] = it.boundsInRoot() }
             .semantics { customActions = listOf(CustomAccessibilityAction(hold) { reorder.onHold(row).let { true } }) }
             .pointerInput(row.id) {
                 detectDragGesturesAfterLongPress(
@@ -157,7 +179,7 @@ private fun PinnedTile(
     ) {
         Box(Modifier.size(TILE_AVATAR + (RING + RING_GAP) * 2), contentAlignment = Alignment.Center) {
             // Unread: the orbiting ring, no dot (owner, 2026-10-04).
-            Ringed(unread, shape, gap = RING_GAP, muted = row.chat.isMuted) {
+            Ringed(unread, shape, gap = RING_GAP, muted = row.chat.isMuted, loud = accent, stroke = RING, halo = halo) {
                 if (row.faces.isEmpty()) {
                     Avatar(row.title, size = TILE_AVATAR, shape = shape, photo = row.photo)
                 } else {
@@ -186,8 +208,24 @@ private val TILE_AVATAR = 54.dp
 private val TILE_WIDTH = 72.dp
 private val CENTRED_WIDTH = 84.dp
 private val CENTRED_GAP = 24.dp
-private val RING = 3.dp
+private val RING = 3.5.dp
 private val RING_GAP = 3.dp
+private val PIN_CORNER = 18.dp
+private const val PIN_TINT = 0.18f
+private const val HALO_LOW = 0.15f
+private const val HALO_HIGH = 0.55f
+private const val HALO_STILL = 0.4f
+private const val HALO_MS = 1100
+
+/** The glow under an unread pin's ring: breathing, or held still when motion is off. */
+@Composable
+private fun pinHalo(on: Boolean): () -> Float {
+    val still = if (on) HALO_STILL else 0f
+    if (!on || PingMeTheme.motion == MotionIntensity.OFF) return { still }
+    val alpha by rememberInfiniteTransition(label = "pin-halo")
+        .animateFloat(HALO_LOW, HALO_HIGH, infiniteRepeatable(tween(HALO_MS), RepeatMode.Reverse), label = "halo")
+    return { alpha }
+}
 
 /**
  * The live order of the pinned tiles while one is being dragged: the dragged tile follows

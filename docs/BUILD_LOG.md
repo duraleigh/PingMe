@@ -4540,3 +4540,11 @@ pair themselves.
 in Google Messages; once anything is typed both go, so the text has the whole width instead of wrapping
 two or three words a line. Emoji stay on the keyboard, and the + still attaches pictures. Test:
 `ChatScreenTest.emojiAndGalleryLeaveTheBoxOnceTypingStarts`.
+
+**The bottom bar and pinned chats (owner, 2026-11-02, 7:10 AM).** Bar names are one word where the full
+name wrapped: Messages (Google Messages), Facebook (Messenger), Voice (Google Voice, for when he adds
+it), and Quiet for Low priority (his pick). Only the bar changes; menus and settings keep the full names.
+The Messages tab's unread colour is the + button's blue: it had become the bubbles' deep blue, too dark
+on the bar. Pinned chats with a new message, which he "rarely can tell": the ring is thicker (3.5 dp) and
+in the + button's blue with a slowly breathing glow under it (still when motion is off), the whole tile
+is washed in the blue, and the name is extra bold in it. Muted pins stay grey.

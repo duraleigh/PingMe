@@ -19,7 +19,9 @@ import androidx.graphics.shapes.RoundedPolygon
  * The unread mark (owner, 2026-10-04): a thin ring in the theme's accent colour orbiting
  * the avatar, in the avatar's own shape, a little larger than the avatar with a gap
  * between them. The ring is drawn outside the avatar's bounds, so the avatar keeps its
- * size and the row keeps its layout. A muted chat's ring is the outline colour.
+ * size and the row keeps its layout. A muted chat's ring is the outline colour. [halo] is a
+ * soft wider band of the same colour under the ring, read while drawing so it can pulse
+ * without the avatar being laid out again (pinned chats, owner 2026-11-02).
  */
 @Composable
 fun OrbitRing(
@@ -30,6 +32,7 @@ fun OrbitRing(
     /** False draws nothing, so one composable serves ringed and plain avatars alike. */
     shown: Boolean = true,
     colour: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+    halo: () -> Float = { 0f },
     content: @Composable () -> Unit,
 ) {
     val outline = shape.toShape()
@@ -39,10 +42,15 @@ fun OrbitRing(
             val grow = (gap + stroke).toPx()
             val ring = Size(size.width + grow * 2, size.height + grow * 2)
             translate(-grow, -grow) {
-                drawOutline(outline.createOutline(ring, layoutDirection, this), colour, style = Stroke(stroke.toPx()))
+                val path = outline.createOutline(ring, layoutDirection, this)
+                val glow = halo()
+                if (glow > 0f) drawOutline(path, colour.copy(alpha = glow), style = Stroke(stroke.toPx() * HALO_WIDTH))
+                drawOutline(path, colour, style = Stroke(stroke.toPx()))
             }
         },
     ) {
         content()
     }
 }
+
+private const val HALO_WIDTH = 3.2f

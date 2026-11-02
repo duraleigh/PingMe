@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import org.pingme.core.model.Account
+import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Transport
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
@@ -71,10 +72,20 @@ internal fun MoreIcon() {
 internal fun unreadColour(entry: BarEntry): Color {
     if (entry.badge <= 0) return Color.Unspecified
     val item = entry.item
-    return if (item is InboxBarItem.Network) {
-        PingMeTheme.networkColors.outgoing(item.network, Transport.NETWORK).container
-    } else {
-        MaterialTheme.colorScheme.primary
+    return when {
+        // Its bubbles' deep blue was too dark to see on the bar; the + button's brighter blue pops
+        // (owner, 2026-11-02).
+        item is InboxBarItem.Network && item.network == NetworkId.GMESSAGES -> {
+            androidx.compose.material3.FloatingActionButtonDefaults.containerColor
+        }
+
+        item is InboxBarItem.Network -> {
+            PingMeTheme.networkColors.outgoing(item.network, Transport.NETWORK).container
+        }
+
+        else -> {
+            MaterialTheme.colorScheme.primary
+        }
     }
 }
 
@@ -83,7 +94,8 @@ internal fun unreadColour(entry: BarEntry): Color {
 internal fun moreColour(more: List<BarEntry>): Color =
     if (more.any { it.badge > 0 }) MaterialTheme.colorScheme.primary else Color.Unspecified
 
-// Long names ("Low priority", "Google Messages") wrap to a second line (owner, 2026-10-04).
+// A name that is still long wraps to a second line (owner, 2026-10-04); the bar uses short ones
+// where it can: Messages, Facebook, Voice, Quiet (owner, 2026-11-02).
 @Composable
 internal fun BarLabel(
     text: String,

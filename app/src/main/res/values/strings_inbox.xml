@@ -31,7 +31,7 @@
     <!-- Bottom bar -->
     <string name="bar_all">All</string>
     <string name="bar_unread">Unread</string>
-    <string name="bar_low_priority">Low priority</string>
+    <string name="bar_low_priority">Quiet</string>
     <string name="bar_show_all_accounts">All accounts</string>
     <string name="bar_show_both_folders">Primary and General</string>
     <string name="bar_primary_only">Primary only</string>
