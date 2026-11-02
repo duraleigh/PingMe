@@ -4510,5 +4510,14 @@ Left as they are: the PingMe wordmark keeps its weight (it is the app's name, no
 the round person icon stands where Google Messages shows the Google account's photo, which PingMe has not
 got.
 
+**Checked on the phone at 4:39 AM, build b985351.** Inbox rows now 245 px apart, text ending at 1036
+(Google Messages 1034), time at 1072 (1070), "Tracy West" 299 px wide (298), "Video" 138 (139),
+pictures 156 px. One mistake found and fixed: the inbox had taken the chat's darker #1e2025 behind
+its bar, where Google Messages' inbox keeps #26282d, so the bar showed as a separate curved band.
+Message text was already the same size: line for line the same widths (820, 772, 770 px) and 96 px
+apart. The sent bubbles' bright fade with black text, and their tails, come from his Appearance
+settings (a picked Google Messages colour, the Gradient style, Bubble tails on); Google Messages
+draws #004787 with white text and no tails.
+
 Auto-rotate: found on during the measure, though the owner keeps it off; set off and left off. Nothing in
 PingMe or Speakboard changes rotation; the setting shows 31 changes since its last reset.

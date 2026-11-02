@@ -58,7 +58,6 @@ import org.pingme.core.service.IncomingReaction
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.theme.PinnedStyle
 import org.pingme.core.ui.theme.SwipeAction
-import org.pingme.core.ui.theme.messagesBar
 import org.pingme.core.ui.R as UiR
 
 /** Where the inbox leads. */
@@ -182,7 +181,8 @@ fun InboxScreen(
             },
             floatingActionButton = { StartChatButton(navigation.onNewChat) },
             snackbarHost = { SnackbarHost(snackbar) },
-            containerColor = MaterialTheme.colorScheme.messagesBar(androidx.compose.foundation.isSystemInDarkTheme()),
+            // Google Messages' inbox keeps the lighter #26282d; only its chat is darker (measured 2026-11-02).
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ) { padding ->
             ListContainer(padding) {
                 ChatListBody(
