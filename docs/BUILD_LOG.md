@@ -4548,3 +4548,11 @@ The Messages tab's unread colour is the + button's blue: it had become the bubbl
 on the bar. Pinned chats with a new message, which he "rarely can tell": the ring is thicker (3.5 dp) and
 in the + button's blue with a slowly breathing glow under it (still when motion is off), the whole tile
 is washed in the blue, and the name is extra bold in it. Muted pins stay grey.
+
+**New chat's network: one pill beside "On" (owner, 2026-11-02, 9:00 AM).** The row of pills, one per
+network, took the top of the screen. Now a single pill sits on the "On" line in the picked network's
+bubble colour (the same as the chip in a chat's box), starting on Google Messages. Flick it any way to
+move through the networks, as with the box's chip (left or up is next, right or down is back, round the
+ends); tap it for the list. The flick is now one shared gesture (`flickToStep`) for both. New group
+chat uses the same form; the share screen picks conversations, not networks, so it has no such row.
+Test: `NetworkPillTest`.

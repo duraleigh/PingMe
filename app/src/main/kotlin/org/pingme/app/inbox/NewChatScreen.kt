@@ -10,7 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -426,20 +425,9 @@ private fun NewChatForm(
 ) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (state.accounts.size > 1) {
-            Text(stringResource(R.string.new_chat_on), style = MaterialTheme.typography.labelLarge)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.accounts.forEach { account ->
-                    // The network's name, not the account's (a phone number says nothing about where
-                    // it goes); the account's own name only when two accounts share a network.
-                    val twins = state.accounts.count { it.network == account.network } > 1
-                    val label = account.network.displayName + if (twins) " · ${account.displayName}" else ""
-                    FilterChip(
-                        selected = account.id == state.account,
-                        onClick = { actions.onAccount(account.id) },
-                        label = { Text(label) },
-                        leadingIcon = { Icon(painterResource(account.network.lineIcon()), null) },
-                    )
-                }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.new_chat_on), style = MaterialTheme.typography.titleMedium)
+                NetworkPill(state.accounts, state.account, actions.onAccount)
             }
         }
         if (group && state.naming) {

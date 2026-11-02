@@ -54,8 +54,23 @@ internal fun Modifier.swipeThroughNetworks(
     members: List<MemberChip>,
     current: MemberChip?,
     onPick: (MemberChip) -> Unit,
+): Modifier =
+    flickToStep(members.size >= 2, members to current) { towardsNext ->
+        nextMember(members, current, towardsNext)?.let(onPick)
+    }
+
+/**
+ * The flick itself, for any one-at-a-time choice (the chat box's chip, New chat's network pill):
+ * [onStep] hears true for left or up, false for right or down. [key] restarts the gesture when the
+ * choices change. Nothing happens while [enabled] is false.
+ */
+@Composable
+internal fun Modifier.flickToStep(
+    enabled: Boolean,
+    key: Any?,
+    onStep: (towardsNext: Boolean) -> Unit,
 ): Modifier {
-    if (members.size < 2) return this
+    if (!enabled) return this
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val shift = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
@@ -64,17 +79,15 @@ internal fun Modifier.swipeThroughNetworks(
         .graphicsLayer {
             translationX = shift.value.x
             translationY = shift.value.y
-        }.pointerInput(members, current) {
+        }.pointerInput(key) {
             var dragged = Offset.Zero
             detectDragGestures(
                 onDragStart = { dragged = Offset.Zero },
                 onDragEnd = {
                     val distance = if (abs(dragged.x) >= abs(dragged.y)) dragged.x else dragged.y
                     if (abs(distance) >= needed) {
-                        nextMember(members, current, towardsNext = distance < 0)?.let {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onPick(it)
-                        }
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onStep(distance < 0)
                     }
                     scope.launch { shift.animateTo(Offset.Zero) }
                 },
