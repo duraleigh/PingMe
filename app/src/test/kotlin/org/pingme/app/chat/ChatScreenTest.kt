@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -93,6 +94,19 @@ class ChatScreenTest {
         waitForText("Sam Ortiz")
         compose.onNodeWithText("New messages").assertExists()
         waitFor { runBlocking { demo.chats.get(sam())!!.unreadCount } == 0 }
+    }
+
+    @Test
+    fun emojiAndGalleryLeaveTheBoxOnceTypingStarts() {
+        open("sam")
+        compose.onNodeWithContentDescription("Emoji").assertExists()
+        compose.onNode(hasTestTag(COMPOSER)).performTextInput("went in person")
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Emoji").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Gallery").assertDoesNotExist()
+        compose.onNode(hasTestTag(COMPOSER)).performTextClearance()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Emoji").assertExists()
     }
 
     @Test

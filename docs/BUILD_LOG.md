@@ -4535,3 +4535,8 @@ Google Messages' bar shade is not one of the theme's own colours, so Android had
 with it and fell back to black. The header and the thread behind the messages now name their text
 colour outright. Swept every other panel in the chat and inbox: all use the theme's own colours, which
 pair themselves.
+
+**The box's emoji and gallery buttons (owner, 5:51 AM):** they now show only while the box is empty, as
+in Google Messages; once anything is typed both go, so the text has the whole width instead of wrapping
+two or three words a line. Emoji stay on the keyboard, and the + still attaches pictures. Test:
+`ChatScreenTest.emojiAndGalleryLeaveTheBoxOnceTypingStarts`.

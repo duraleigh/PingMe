@@ -285,12 +285,20 @@ private fun RowScope.MessageField(
                 network?.let { NetworkPick(it, hooks) }
             }
         },
-        trailingIcon = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ComposerIcon(UiR.drawable.ic_mood, R.string.composer_emoji, openers.onEmoji)
-                openers.onGallery?.let { ComposerIcon(UiR.drawable.ic_image, R.string.attach_gallery, it) }
-            }
-        },
+        // Only while the box is empty, as in Google Messages: once anything is typed they go, so the
+        // text has the box's whole width (owner, 2026-11-02: it wrapped two or three words a line).
+        // The keyboard still has emoji, and the + still attaches pictures.
+        trailingIcon =
+            if (field.text.isEmpty()) {
+                {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ComposerIcon(UiR.drawable.ic_mood, R.string.composer_emoji, openers.onEmoji)
+                        openers.onGallery?.let { ComposerIcon(UiR.drawable.ic_image, R.string.attach_gallery, it) }
+                    }
+                }
+            } else {
+                null
+            },
         shape = RoundedCornerShape(28.dp),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = COMPOSER_LINES),
         // 56 tall with one line, level with the voice button, as measured on Google Messages
