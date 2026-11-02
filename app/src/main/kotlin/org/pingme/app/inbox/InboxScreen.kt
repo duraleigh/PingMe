@@ -2,6 +2,7 @@
 package org.pingme.app.inbox
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -171,12 +173,7 @@ fun InboxScreen(
         Scaffold(
             topBar = {
                 InboxTop(state, callbacks, navigation, menu, selectedRows, selection::clear) { action ->
-                    if (action == BulkAction.DELETE) {
-                        selection.confirmingDelete = true
-                    } else {
-                        callbacks.onBulk(selectedRows, action)
-                        selection.clear()
-                    }
+                    selection.act(action) { callbacks.onBulk(selectedRows, it) }
                 }
             },
             bottomBar = {
@@ -184,19 +181,25 @@ fun InboxScreen(
             },
             floatingActionButton = { StartChatButton(navigation.onNewChat) },
             snackbarHost = { SnackbarHost(snackbar) },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ) { padding ->
-            ChatListBody(
-                state = state,
-                flips = flips,
-                onOpen = { navigation.onOpenChat(it.id, (state.selected as? InboxBarItem.Network)?.network) },
-                onHold = { holding = it },
-                onSwipe = callbacks.onSwipe,
-                onMovePin = callbacks.onMovePin,
-                onFlipEnd = { flips.remove(it) },
-                contentPadding = padding,
-                selected = selection.ids,
-                onSelect = selection::toggle,
-            )
+            ListContainer(padding) {
+                ChatListBody(
+                    state = state,
+                    flips = flips,
+                    onOpen = { navigation.onOpenChat(it.id, (state.selected as? InboxBarItem.Network)?.network) },
+                    onHold = { holding = it },
+                    onSwipe = callbacks.onSwipe,
+                    onMovePin = callbacks.onMovePin,
+                    onFlipEnd = { flips.remove(it) },
+                    contentPadding =
+                        androidx.compose.foundation.layout.PaddingValues(
+                            bottom = padding.calculateBottomPadding(),
+                        ),
+                    selected = selection.ids,
+                    onSelect = selection::toggle,
+                )
+            }
         }
     }
     holding?.let { row -> ChatActionSheet(row, { callbacks.onAction(row, it) }, { holding = null }) }
@@ -239,6 +242,19 @@ private class RowSelection {
     fun clear() {
         ids = emptySet()
         confirmingDelete = false
+    }
+
+    /** A bulk action now, or for Delete, the question first. */
+    fun act(
+        action: BulkAction,
+        onBulk: (BulkAction) -> Unit,
+    ) {
+        if (action == BulkAction.DELETE) {
+            confirmingDelete = true
+        } else {
+            onBulk(action)
+            clear()
+        }
     }
 }
 
@@ -370,6 +386,12 @@ private fun ChatListBody(
         androidx.compose.foundation.lazy
             .rememberLazyListState()
     androidx.compose.runtime.LaunchedEffect(Unit) { listState.scrollToItem(0) }
+    // The first pin brings its tiles in above the list: show them rather than stay on the row
+    // that was first, which left a chat just pinned out of sight (owner, 2026-11-01).
+    val anyPinned = state.pinned.isNotEmpty()
+    LaunchedEffect(anyPinned) {
+        if (anyPinned && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
+    }
     LazyColumn(Modifier.fillMaxSize().testTag(INBOX_LIST), state = listState, contentPadding = contentPadding) {
         if (state.pinned.isNotEmpty() && style != PinnedStyle.TOP_OF_LIST) {
             item(key = "pinned") {

@@ -73,6 +73,7 @@ fun ChatDetailsRoute(
                         onUnmute = viewModel::unmute,
                         onPin = viewModel::setPinned,
                         onRename = viewModel::rename,
+                        onGroupIcon = viewModel::setGroupIcon,
                     ),
                 onSeeAll = { type -> toChat { viewModel.askSearch(type) } },
                 onOpen = { message -> toChat { viewModel.askJump(message) } },

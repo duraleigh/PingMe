@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -35,6 +34,7 @@ import org.pingme.core.ui.components.ChoiceSetting
 import org.pingme.core.ui.components.ColorSwatch
 import org.pingme.core.ui.components.PingMeSheet
 import org.pingme.core.ui.components.SwitchSetting
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /** Every account with its network and connection (UI_DESIGN.md 6.5). */
 @Composable

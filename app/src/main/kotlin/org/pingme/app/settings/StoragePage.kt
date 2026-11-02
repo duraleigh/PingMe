@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,6 +19,7 @@ import org.pingme.app.R
 import org.pingme.core.model.MediaSettings
 import org.pingme.core.ui.components.SettingsSectionHeader
 import org.pingme.core.ui.components.SwitchSetting
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /**
  * Settings > Media and storage (UI_DESIGN.md 5.5, 5.6, 10.16): GIF search and autoplay,

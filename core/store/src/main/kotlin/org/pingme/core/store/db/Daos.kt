@@ -88,10 +88,6 @@ data class LastMessageRow(
 )
 
 /** How many messages a chat holds since some time: how much it is talked in. */
-data class ChatTimeRow(
-    val chatId: String,
-    val at: Instant,
-)
 
 @Dao
 interface ChatDao {
@@ -339,10 +335,6 @@ interface MessageDao {
     /** When the chat's newest stored message was sent: what "read" must reach (owner, Gate G7, round 3). */
     @Query("SELECT MAX(sentAt) FROM messages WHERE chatId = :chatId")
     suspend fun newestSentAt(chatId: String): Instant?
-
-    /** When you last sent to each chat, for ranking the share picker (UI_DESIGN.md 5.8). */
-    @Query("SELECT chatId AS chatId, MAX(sentAt) AS at FROM messages WHERE isOutgoing = 1 GROUP BY chatId")
-    fun observeLastSent(): Flow<List<ChatTimeRow>>
 
     /** Your messages still on [status] from before [before]: left behind, since a send ends in minutes. */
     @Query("SELECT id FROM messages WHERE isOutgoing = 1 AND status = :status AND sentAt < :before")

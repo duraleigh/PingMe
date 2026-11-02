@@ -15,7 +15,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import org.pingme.app.R
 import java.time.LocalDate
 import org.pingme.core.ui.R as UiR
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /**
  * Settings > Backup (DESIGN.md milestone 4): save the chats to a file the user picks, or

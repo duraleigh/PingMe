@@ -16,23 +16,34 @@ fun photoFor(
     chat: Chat,
     people: Map<PersonId, Person>,
 ): String? {
-    if (chat.kind != ChatKind.DIRECT) return null
+    val source = chat.avatarSource
+    return when {
+        source is AvatarSource.Picture -> source.path
+        chat.kind != ChatKind.DIRECT -> null
+        else -> directPhoto(source, chat, people)
+    }
+}
+
+private fun directPhoto(
+    source: AvatarSource,
+    chat: Chat,
+    people: Map<PersonId, Person>,
+): String? {
     // A merged chat lists the person once per network; the source says whose picture counts.
     val others = chat.participants.mapNotNull { people[it] }.filter { it.displayName != YOU }
-    val other = others.firstOrNull() ?: return null
-    return when (val source = chat.avatarSource) {
-        AvatarSource.Contacts -> {
-            others.firstNotNullOfOrNull { it.contactPhoto }
-                ?: others.firstNotNullOfOrNull { it.avatarPath }
+    val other = others.firstOrNull()
+    return when {
+        other == null || source == AvatarSource.Initials || source is AvatarSource.Picture -> {
+            null
         }
 
-        is AvatarSource.Network -> {
+        source is AvatarSource.Network -> {
             val onNetwork = others.firstOrNull { it.accountId == source.accountId } ?: other
             onNetwork.avatarPath ?: onNetwork.contactPhoto
         }
 
-        AvatarSource.Initials -> {
-            null
+        else -> {
+            others.firstNotNullOfOrNull { it.contactPhoto } ?: others.firstNotNullOfOrNull { it.avatarPath }
         }
     }
 }
@@ -42,7 +53,8 @@ fun facesFor(
     chat: Chat,
     people: Map<PersonId, Person>,
 ): List<org.pingme.core.ui.components.Face> {
-    if (chat.kind != ChatKind.GROUP) return emptyList()
+    // A picked picture stands in for the members' faces.
+    if (chat.kind != ChatKind.GROUP || chat.avatarSource is AvatarSource.Picture) return emptyList()
     return chat.participants
         .mapNotNull { people[it] }
         .filter { it.displayName != YOU }

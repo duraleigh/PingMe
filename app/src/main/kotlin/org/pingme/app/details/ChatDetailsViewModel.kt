@@ -255,6 +255,8 @@ class ChatDetailsViewModel
 
         fun rename(name: String) = act { chatActions.rename(chatId, name) }
 
+        fun setGroupIcon(path: String) = act { chatActions.setGroupIcon(chatId, path) }
+
         fun setAvatar(source: AvatarSource) = act { chatActions.setAvatarSource(chatId, source) }
 
         fun moveTo(folder: ChatFolder) = act { chatActions.moveFolder(chatId, folder) }

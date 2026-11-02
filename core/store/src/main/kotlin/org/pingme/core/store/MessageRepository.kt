@@ -56,10 +56,6 @@ class MessageRepository
                 }
             }
 
-        /** When you last sent to each chat; chats you never sent to are absent. */
-        fun lastSent(): Flow<Map<ChatId, Instant>> =
-            dao.observeLastSent().map { rows -> rows.associate { ChatId(it.chatId) to it.at } }
-
         /** Your messages still "sending" from before [before]. */
         suspend fun stuckSending(before: Instant): List<MessageId> =
             dao.idsWithStatus(MessageStatus.Sending, before).map(::MessageId)

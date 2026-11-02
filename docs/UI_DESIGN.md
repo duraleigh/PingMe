@@ -484,10 +484,9 @@ the Google Voice app.
 
 PingMe is in Android's share menu (owner, Gate G3): text, pictures, videos, sounds, and
 files shared from another app open a picker of chats, with people from the networks that
-can start a chat once a search is typed. Whoever you last sent to comes first, typed or
-shared, and the rest follow by recency (owner, 2026-11-01, replacing the most-used order of
-2026-10-10). A merged chat stands for its members, which are not listed on their own, so no
-one appears twice, and counts from its newest send on any of them. Each send also puts that
+can start a chat once a search is typed. The latest conversation comes first, as in Google
+Messages (owner, 2026-11-01, replacing the most-used order of 2026-10-10). A merged chat stands
+for its members, which are not listed on their own, so no one appears twice. Each send also puts that
 chat among the faces in Android's own share pop-up; tapping one opens this picker with that
 chat picked. Several can be picked; each gets its own message, one after the other, the way
 Google Messages does. Send closes the picker at once: one pick opens that chat, with the

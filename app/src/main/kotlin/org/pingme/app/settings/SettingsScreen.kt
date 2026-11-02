@@ -12,7 +12,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -28,6 +27,7 @@ import org.pingme.app.R
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.R as UiR
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /** One page of Settings. [ACCOUNT] is one account's page. */
 enum class SettingsPage(

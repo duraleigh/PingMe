@@ -72,7 +72,20 @@ fun <T> ChoiceSetting(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    SettingCard(modifier) {
+        ChoiceBody(label, options, selected, optionLabel, onSelect)
+    }
+}
+
+@Composable
+private fun <T> ChoiceBody(
+    label: String,
+    options: List<T>,
+    selected: T,
+    optionLabel: @Composable (T) -> String,
+    onSelect: (T) -> Unit,
+) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
         Text(label, style = MaterialTheme.typography.bodyLarge)
         if (options.size <= CONNECTED_MAX) {
             Row(
@@ -172,14 +185,32 @@ fun SwitchSetting(
     modifier: Modifier = Modifier,
     description: String? = null,
 ) {
-    ListItem(
-        onClick = { onChange(!checked) },
-        modifier = modifier.semantics { role = Role.Switch },
-        supportingContent = description?.let { { Text(it) } },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
-    ) {
-        Text(label)
+    SettingCard(modifier) {
+        ListItem(
+            onClick = { onChange(!checked) },
+            modifier = Modifier.semantics { role = Role.Switch },
+            supportingContent = description?.let { { Text(it) } },
+            trailingContent = { Switch(checked = checked, onCheckedChange = null) },
+        ) {
+            Text(label)
+        }
     }
+}
+
+/** Each setting in a container of its own, as on the owner's Google Messages (2026-11-01). */
+@Composable
+fun SettingCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    androidx.compose.material3.Surface(
+        modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+        shape =
+            androidx.compose.foundation.shape
+                .RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        content = content,
+    )
 }
 
 /** A round colour sample; ringed when selected. */
@@ -206,4 +237,30 @@ fun ColorSwatch(
                 this.selected = selected
             },
     )
+}
+
+/** A setting's row in its own card: what every Settings and Chat details line uses (owner, 2026-11-01). */
+@Composable
+fun SettingRow(
+    headlineContent: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    overlineContent: (@Composable () -> Unit)? = null,
+    supportingContent: (@Composable () -> Unit)? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
+    colors: androidx.compose.material3.ListItemColors =
+        androidx.compose.material3.ListItemDefaults
+            .colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+) {
+    SettingCard {
+        androidx.compose.material3.ListItem(
+            headlineContent = headlineContent,
+            modifier = modifier,
+            overlineContent = overlineContent,
+            supportingContent = supportingContent,
+            leadingContent = leadingContent,
+            trailingContent = trailingContent,
+            colors = colors,
+        )
+    }
 }

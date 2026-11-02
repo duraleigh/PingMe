@@ -303,7 +303,6 @@ class DemoInbox(
             actions,
             messageActions,
             files,
-            messages,
             context,
             scope,
         )

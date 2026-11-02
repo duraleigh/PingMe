@@ -129,11 +129,15 @@ class ChatDetailsScreenTest {
     @Test
     fun seeAllHandsSearchToTheChat() {
         showScreen()
+        // The pills moved the tabs further down the page.
+        scrollTo("Links")
         compose.onNodeWithText("Links").performClick()
         compose.onNodeWithText("Files").performClick()
         compose.onNodeWithText("Media").performClick()
         // Sam's chat has no media, so the chat is asked through the Search button instead.
-        compose.onNodeWithText("Search").performClick()
+        // Through the button's own click action: scrolled to, it can sit under the top bar.
+        scrollTo("Search")
+        compose.onNodeWithText("Search").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         waitFor { backToChat == 1 }
         assertEquals(ChatRequest.Search(sam, SearchType.TEXT), demo.requests.requests.value)
     }

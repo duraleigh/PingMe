@@ -17,6 +17,7 @@ class HeaderButtons(
     val onUnmute: () -> Unit,
     val onPin: (Boolean) -> Unit,
     val onRename: (String) -> Unit,
+    val onGroupIcon: (String) -> Unit = {},
 )
 
 /** What the Look section changes. */

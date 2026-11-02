@@ -36,9 +36,7 @@ import org.pingme.core.service.MessageActions
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
-import org.pingme.core.store.MessageRepository
 import javax.inject.Inject
-import kotlin.time.Instant
 
 /** Somewhere a share can go: a chat PingMe has, or a person a new chat can start with. */
 sealed interface ShareTarget {
@@ -92,7 +90,6 @@ class ShareViewModel
         private val chatActions: ChatActions,
         private val messageActions: MessageActions,
         private val files: OutgoingFiles,
-        messages: MessageRepository,
         @param:ApplicationContext private val context: Context,
         @ApplicationScope private val appScope: CoroutineScope,
     ) : ViewModel() {
@@ -117,11 +114,11 @@ class ShareViewModel
 
         @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
         val state: StateFlow<ShareUiState> =
-            combine(form, accounts.accounts(), chats.all(), messages.lastSent()) { f, accountList, chatList, sent ->
+            combine(form, accounts.accounts(), chats.all()) { f, accountList, chatList ->
                 val networks = accountList.associate { it.id to it.network }
                 val q = f.query.trim()
                 val rows =
-                    rank(chatList, sent)
+                    rank(chatList)
                         .mapNotNull { chat -> networks[chat.accountId]?.let { ShareTarget.ToChat(chat, it) } }
                         .filter { q.isEmpty() || it.title.contains(q, ignoreCase = true) }
                 Triple(f.copy(chats = rows), accountList, q)
@@ -134,26 +131,15 @@ class ShareViewModel
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), form.value)
 
         /**
-         * Whoever you last sent to first, typed or shared, then the rest by recency (owner,
-         * 2026-11-01: "most recent recipients"; this replaces the most-used order of 2026-10-10).
-         * A merged chat stands for its members, which are left out, so no one is listed twice,
-         * and it counts from its newest send on any of them.
+         * The latest conversation first, the way Google Messages lists them (owner, 2026-11-01,
+         * replacing the last-sent and most-used orders before it). A merged chat stands for its
+         * members, which are left out, so no one is listed twice.
          */
-        private fun rank(
-            chatList: List<Chat>,
-            sent: Map<ChatId, Instant>,
-        ): List<Chat> {
-            val lastSent = HashMap<ChatId, Instant>()
-            chatList.forEach { chat ->
-                val at = sent[chat.id] ?: return@forEach
-                val key = chat.mergedInto ?: chat.id
-                if (lastSent[key].let { it == null || it < at }) lastSent[key] = at
-            }
-            return chatList
+        private fun rank(chatList: List<Chat>): List<Chat> =
+            chatList
                 .filter { !it.isArchived && it.mergedInto == null }
                 .distinctBy { it.id }
-                .sortedWith(compareByDescending<Chat> { lastSent[it.id] }.thenByDescending { it.lastActivityAt })
-        }
+                .sortedByDescending { it.lastActivityAt }
 
         private fun peopleOn(
             startable: List<Account>,

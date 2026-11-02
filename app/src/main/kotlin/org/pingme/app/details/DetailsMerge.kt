@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -32,6 +31,7 @@ import org.pingme.core.model.ChatId
 import org.pingme.core.model.ChatKind
 import org.pingme.core.ui.components.SettingsSectionHeader
 import org.pingme.core.ui.R as UiR
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /**
  * A merged chat's networks: each member with the network it is on, which one the composer

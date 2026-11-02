@@ -228,6 +228,18 @@ class ChatActions
             change(id) { it.copy(folder = folder) }
         }
 
+        /** The picture a group shows in PingMe (owner, 2026-11-01). */
+        suspend fun setGroupIcon(
+            id: ChatId,
+            path: String,
+        ) = change(id) {
+            it.copy(
+                avatarSource =
+                    org.pingme.core.model.AvatarSource
+                        .Picture(path),
+            )
+        }
+
         suspend fun setObscured(
             id: ChatId,
             obscured: Boolean,

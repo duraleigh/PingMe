@@ -133,6 +133,10 @@
     <string name="new_group_name">Group name</string>
     <string name="new_group_name_optional">Group name (optional)</string>
     <string name="new_group_next">Next</string>
+    <string name="details_call">Call</string>
+    <string name="details_video">Video</string>
+    <string name="group_icon_pick">Pick a picture for this group</string>
+    <string name="group_icon_note">The picture shows in PingMe, not to the others in the group.</string>
     <string name="action_move_general">Move to General</string>
     <string name="action_move_primary">Move to Primary</string>
     <string name="inbox_moved_general">Moved to General</string>

@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -101,6 +102,8 @@ data class NewChatUiState(
     val memberNames: Map<String, String> = emptyMap(),
     /** New group's second step, as in Google Messages: people first, then an optional name. */
     val naming: Boolean = false,
+    /** The picture picked for the new group. */
+    val icon: String? = null,
     val suggestions: List<Person> = emptyList(),
     val working: Boolean = false,
 )
@@ -235,6 +238,8 @@ class NewChatViewModel
 
         fun remove(handle: String) = form.update { it.copy(members = it.members - handle) }
 
+        fun setIcon(path: String) = form.update { it.copy(icon = path) }
+
         /** New group: on to the optional name, or back to the people. */
         fun naming(on: Boolean) = form.update { it.copy(naming = on) }
 
@@ -243,7 +248,11 @@ class NewChatViewModel
             // the combined screen state can be a step behind.
             val typed = form.value
             val account = requireNotNull(state.value.account)
-            run { actions.createGroup(account, typed.title.trim(), typed.members) }
+            run {
+                actions.createGroup(account, typed.title.trim(), typed.members).also { id ->
+                    typed.icon?.let { actions.setGroupIcon(id, it) }
+                }
+            }
         }
 
         private fun run(block: suspend () -> ChatId) {
@@ -302,6 +311,7 @@ fun NewChatRoute(
                 viewModel::refreshPeople,
                 viewModel::naming,
                 viewModel::pick,
+                viewModel::setIcon,
             ),
         modifier = modifier,
         snackbar = snackbar,
@@ -319,6 +329,7 @@ class NewChatActions(
     val onRefreshPeople: () -> Unit = {},
     val onNaming: (Boolean) -> Unit = {},
     val onHold: (String) -> Unit = {},
+    val onIcon: (String) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -417,6 +428,16 @@ private fun NewChatForm(
             }
         }
         if (group && state.naming) {
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth(), Alignment.Center) {
+                GroupIconPicker(state.title, state.icon, ICON_SIZE, actions.onIcon)
+            }
+            Text(
+                stringResource(R.string.group_icon_note),
+                Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
             OutlinedTextField(
                 state.title,
                 actions.onTitle,
@@ -452,6 +473,8 @@ private fun NewChatForm(
 
 /** Only Google Messages makes a group with no name. */
 private fun nameOptional(network: NetworkId?) = network == NetworkId.GMESSAGES || network == NetworkId.SMS
+
+private val ICON_SIZE = 112.dp
 
 private const val TAG = "PingMeNewChat"
 

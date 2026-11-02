@@ -11,7 +11,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -35,6 +34,7 @@ import org.pingme.core.ui.components.Avatar
 import org.pingme.core.ui.components.SettingsSectionHeader
 import org.pingme.core.ui.components.SwitchSetting
 import org.pingme.core.ui.R as UiR
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /**
  * This chat's quick reactions (UI_DESIGN.md 3.4, 5.4): the app's set, or its own set of up

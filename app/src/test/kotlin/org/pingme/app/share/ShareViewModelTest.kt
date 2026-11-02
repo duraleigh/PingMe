@@ -115,7 +115,7 @@ class ShareViewModelTest {
         assertEquals(1, keys.count { it == merged.value })
     }
 
-    /** Whoever you last sent to comes first, not the chat with the latest message (owner, 2026-11-01). */
+    /** The latest conversation comes first, and a share makes that one (owner, 2026-11-01). */
     @Test
     fun aChatSharedToRisesToTheTop() {
         val vm = picker(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "https://example.com/story"))

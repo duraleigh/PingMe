@@ -4448,3 +4448,14 @@ was put back to 60 seconds, the system's recorded default, which may not be what
 pencil in one row, and a name long enough to wrap took the whole row, leaving the pencil no width:
 the same layout fault as the Retry button in note 5. The name now gives way to the pencil. A search of
 the app for a Text followed directly by a button in a row found no other.
+
+**The owner, 12:24 AM: "Why would you leave these things out?"** The look had been narrowed to the
+screens already read. Added, read off the phone at 12:44 AM: Chat details as Google Messages lays it
+out (the number under the name, pills over labels for Call, Video, Contact info, Search, then Mute and
+Pin), every Settings and Chat details row in a card (`SettingRow`), the inbox list in a container
+curved at the top, and a group icon when making a group and in Chat details. The bridge can read a
+group's icon but has no call to set one, so **the picked icon shows in PingMe only**, and the screen says
+so. The share list now sorts by latest conversation, as Google Messages does, not by last sent. While on
+the phone: one Back too many left Google Messages, and a tap landed in Opera and opened its account
+panel, which was closed. Nothing was sent, made, or marked read.
+
