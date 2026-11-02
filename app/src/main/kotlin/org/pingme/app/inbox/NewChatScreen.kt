@@ -104,6 +104,8 @@ data class NewChatUiState(
     val naming: Boolean = false,
     /** The picture picked for the new group. */
     val icon: String? = null,
+    /** The picked network can make groups, so a tap adds to the To box instead of opening a chat. */
+    val canGroup: Boolean = false,
     val suggestions: List<Person> = emptyList(),
     val working: Boolean = false,
 )
@@ -145,12 +147,17 @@ class NewChatViewModel
 
         val state: StateFlow<NewChatUiState> =
             combine(form, usable) { f, list ->
+                val picked =
+                    f.account?.takeIf { id -> list.any { it.id == id } }
+                        ?: list.firstOrNull { it.network == NetworkId.GMESSAGES }?.id
+                        ?: list.firstOrNull()?.id
                 f.copy(
                     accounts = list,
-                    account =
-                        f.account?.takeIf { id -> list.any { it.id == id } }
-                            ?: list.firstOrNull { it.network == NetworkId.GMESSAGES }?.id
-                            ?: list.firstOrNull()?.id,
+                    account = picked,
+                    canGroup =
+                        list.firstOrNull { it.id == picked }?.let {
+                            registry[it.network]?.capabilities?.createGroup
+                        } == true,
                 )
             }.flatMapLatest { s ->
                 val id = s.account ?: return@flatMapLatest flowOf(s)
@@ -214,25 +221,32 @@ class NewChatViewModel
             form.update { it.copy(title = text) }
         }
 
-        /** New chat: starts at once. New group: adds a member. */
+        /**
+         * A tap adds to the To box, or takes back out, as in Google Messages (owner, 2026-11-02:
+         * "as soon as I add a person, bam, the chat starts"). A network that cannot make groups
+         * has nothing to build, so its chat opens at once.
+         */
         fun choose(handle: String) {
             val h = handle.trim()
             if (h.isEmpty()) return
-            if (group || form.value.members.isNotEmpty()) {
-                pick(h)
+            if (group || state.value.canGroup) {
+                typed = ""
+                form.update {
+                    val members = if (h in it.members) it.members - h else it.members + h
+                    it.copy(members = members, text = "")
+                }
             } else {
                 run { actions.startChat(requireNotNull(state.value.account), h) }
             }
         }
 
-        /** Holding a person starts a group, as in Google Messages; a tap adds or takes away after that. */
-        fun pick(handle: String) {
-            val account = state.value.accounts.firstOrNull { it.id == state.value.account }
-            if (account == null || registry[account.network]?.capabilities?.createGroup != true) return
-            typed = ""
-            form.update {
-                val members = if (handle in it.members) it.members - handle else it.members + handle
-                it.copy(members = members, text = "")
+        /** Next: one person is their chat; more are a group, which asks for its name first. */
+        fun next() {
+            val members = form.value.members
+            if (!group && members.size == 1) {
+                run { actions.startChat(requireNotNull(state.value.account), members.single()) }
+            } else {
+                form.update { it.copy(naming = true) }
             }
         }
 
@@ -310,7 +324,7 @@ fun NewChatRoute(
                 viewModel::createGroup,
                 viewModel::refreshPeople,
                 viewModel::naming,
-                viewModel::pick,
+                viewModel::next,
                 viewModel::setIcon,
             ),
         modifier = modifier,
@@ -328,7 +342,7 @@ class NewChatActions(
     val onCreate: () -> Unit,
     val onRefreshPeople: () -> Unit = {},
     val onNaming: (Boolean) -> Unit = {},
-    val onHold: (String) -> Unit = {},
+    val onNext: () -> Unit = {},
     val onIcon: (String) -> Unit = {},
 )
 
@@ -341,13 +355,14 @@ fun NewChatScreen(
     modifier: Modifier = Modifier,
     snackbar: SnackbarHostState = remember { SnackbarHostState() },
 ) {
-    // A group starts by holding a person, or from the route that asks for one.
-    val building = group || state.members.isNotEmpty()
-    val naming = building && state.naming
+    // Two people make it a group; so does the route that asks for one.
+    val building = group || state.members.size > 1
+    val adding = group || state.canGroup
+    val naming = state.naming
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
-            if (building && !naming && state.members.isNotEmpty()) NextButton { actions.onNaming(true) }
+            if (!naming && state.members.isNotEmpty()) NextButton(actions.onNext)
         },
         topBar = { NewChatBar(naming, building, actions.onBack) },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -363,11 +378,11 @@ fun NewChatScreen(
         val pickedNetwork = state.accounts.firstOrNull { it.id == state.account }?.network
         androidx.activity.compose.BackHandler(naming) { actions.onNaming(false) }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
-            item { NewChatForm(building, state, actions, pickedNetwork) }
+            item { NewChatForm(group || state.members.isNotEmpty(), state, actions, pickedNetwork) }
             if (naming) return@LazyColumn
             if (pickedNetwork == NetworkId.SIGNAL) item { ContactsOnSignal(actions.onRefreshPeople) }
             val typed = state.text.trim()
-            if (typed.isNotEmpty()) item { TypedRow(typed, building, !state.working) { actions.onChoose(typed) } }
+            if (typed.isNotEmpty()) item { TypedRow(typed, adding, !state.working) { actions.onChoose(typed) } }
             people(state, actions)
         }
     }

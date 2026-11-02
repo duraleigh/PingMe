@@ -355,15 +355,14 @@ internal fun EditBarSheet(
 // All stays first; the rest keep the order they were picked in.
 private fun ordered(picked: List<InboxBarItem?>) = picked.filter { it == null } + picked.filterNotNull()
 
-/** One button, as on the owner's Google Messages; a group starts by holding a person (2026-11-01). */
+/** The plus: straight to a new chat, which is also where a group starts (owner, 2026-11-02). */
 @Composable
 fun StartChatButton(
     onStartChat: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    androidx.compose.material3.ExtendedFloatingActionButton(onStartChat, modifier) {
-        Icon(painterResource(UiR.drawable.ic_chat), null)
-        Text(stringResource(R.string.fab_start_chat), Modifier.padding(start = 12.dp))
+    androidx.compose.material3.FloatingActionButton(onStartChat, modifier) {
+        Icon(painterResource(UiR.drawable.ic_add), stringResource(R.string.fab_start_chat))
     }
 }
 

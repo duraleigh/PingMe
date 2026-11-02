@@ -134,11 +134,12 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   system status bar height, 24 dp on most phones, and nothing more.
 - **Filters**: the bottom bar, section 3.1 above, and section 10.4 for spaces.
 - **FAB menu**: expands into New chat and New group. (Scan QR was removed by the
-  owner, 2026-09-30.) It is one button now, Start chat, as on the owner's Google Messages
-  (2026-11-01). New chat has a rounded To: box, a letter over each run of people whose rows join
-  into a card, and people with names above bare numbers. Holding a person starts a group: the
-  row becomes a pill with a check, they join the To: box, the title says New group chat, a tap
-  adds or takes away, and Next asks for the name, optional on Google Messages and needed
+  owner, 2026-09-30.) It is one plus button now, straight to New chat (owner, 2026-11-02).
+  New chat has a rounded To: box, a letter over each run of people whose rows join into a
+  card, and people with names above bare numbers. A tap adds a person to the To box and says
+  "Anyone else?"; the row becomes a pill with a check, and a tap takes them back out. Next opens
+  the chat with one person. With two or more the title says New group chat, and Next asks for
+  the name, optional on Google Messages and needed
   elsewhere. New chat always starts on Google Messages, with
   its chip first, whatever was picked last time (owner, 2026-10-05). Under each
   person's name is their number or username, never a network's raw id.

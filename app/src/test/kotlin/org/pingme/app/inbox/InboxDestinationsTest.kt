@@ -121,9 +121,13 @@ class InboxDestinationsTest {
         }
         waitForText("Name, number, or username")
         compose.onNode(hasSetTextAction()).performTextInput("+15550123")
-        waitForText("Start a chat with +15550123")
+        waitForText("Add +15550123")
         compose.assertAccessible()
-        compose.onNodeWithText("Start a chat with +15550123").performClick()
+        // Into the To box first, then Next, as in Google Messages (owner, 2026-11-02).
+        compose.onNodeWithText("Add +15550123").performClick()
+        waitFor { compose.onAllNodes(hasText("Next") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(true, opened.isEmpty())
+        compose.onNodeWithText("Next").performSemanticsAction(SemanticsActions.OnClick)
         waitFor { opened.isNotEmpty() }
         assertEquals("+15550123", runBlocking { demo.chats.get(opened.single())?.title })
     }
@@ -169,6 +173,33 @@ class InboxDestinationsTest {
         // The button turns on once there is a name: the demo network wants one, as most do.
         waitFor { compose.onAllNodes(hasText("Done") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         // Through the button's own click action, so a layout still settling cannot move the tap.
+        compose.onNodeWithText("Done").performSemanticsAction(SemanticsActions.OnClick)
+        waitFor { opened.isNotEmpty() }
+        val group = runBlocking { demo.chats.get(opened.single()) }!!
+        assertEquals("Trip" to ChatKind.GROUP, group.title to group.kind)
+    }
+
+    /** Two people in the To box are a group, reached from New chat itself (owner, 2026-11-02). */
+    @Test
+    fun twoPeopleInTheToBoxMakeAGroup() {
+        val vm = demo.newChatViewModel(group = false)
+        compose.setContent {
+            PingMeTheme { NewChatRoute({}, { opened += it }, viewModel = vm) }
+        }
+        waitForText("Name, number, or username")
+        compose.onNodeWithText("Name, number, or username").performTextInput("+15550123")
+        waitForText("Add +15550123")
+        compose.onNodeWithText("Add +15550123").performClick()
+        waitForText("Anyone else?")
+        compose.onNodeWithText("Anyone else?").performTextInput("+15550124")
+        waitForText("Add +15550124")
+        compose.onNodeWithText("Add +15550124").performClick()
+        waitForText("New group chat")
+        assertEquals(true, opened.isEmpty())
+        compose.onNodeWithText("Next").performSemanticsAction(SemanticsActions.OnClick)
+        waitForText("Group name")
+        compose.onNodeWithText("Group name").performTextInput("Trip")
+        waitFor { compose.onAllNodes(hasText("Done") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Done").performSemanticsAction(SemanticsActions.OnClick)
         waitFor { opened.isNotEmpty() }
         val group = runBlocking { demo.chats.get(opened.single()) }!!

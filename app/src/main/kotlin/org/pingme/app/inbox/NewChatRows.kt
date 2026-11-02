@@ -104,7 +104,8 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.people(
                 last = i == people.lastIndex,
                 enabled = !state.working,
                 onClick = { actions.onChoose(person.networkHandle) },
-                onHold = { actions.onHold(person.networkHandle) },
+                // Holding does what a tap does here: both add, as in Google Messages.
+                onHold = { actions.onChoose(person.networkHandle) },
             )
         }
     }

@@ -4474,3 +4474,8 @@ fonts apply once (`lookVersion`), over what he had set, and Appearance can chang
 cause was not found before the next round applied it again. Check this on the phone. The unread row keeps
 its tint, an owner request from Gate G2, though Google Messages has none. The hold menu and the search
 screen in Google Messages have not been read.
+
+**The owner, 2 AM: no way to make a group.** The hold had been read off Google Messages and a tap never
+tried, so a tap in New chat opened the chat at once. A tap now adds to the To box ("Anyone else?"), Next
+opens the chat with one person, and two or more go on to the name. The floating button is a plain plus
+again, on his word: "I like having the plus button."
