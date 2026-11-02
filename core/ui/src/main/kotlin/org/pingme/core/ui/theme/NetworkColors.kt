@@ -50,8 +50,8 @@ class NetworkPalette(
     private val overrides: Map<NetworkId, Int>,
     private val accentOverrides: Map<NetworkId, Int> = emptyMap(),
 ) {
-    /** Incoming bubbles: the same tonal surface on every network (UI_DESIGN.md 3.2). */
-    val incoming = BubbleColors(scheme.surfaceContainer, scheme.onSurface, null) // Google Messages' shade (2026-11-02).
+    /** Incoming bubbles: the same tonal surface on every network, Google Messages' shade (UI_DESIGN.md 3.2). */
+    val incoming = BubbleColors(scheme.messagesBar(dark), scheme.onSurface, null)
 
     /** The network's colour for badges and the chat header accent. */
     fun accent(network: NetworkId): Color {
@@ -182,3 +182,21 @@ private const val DEEP_TONE_DARK = 30.0
 private const val DEEP_TONE_LIGHT = 90.0
 private const val CONTENT_TONE_DARK = 90.0
 private const val CONTENT_TONE_LIGHT = 10.0
+
+/**
+ * The shade of Google Messages' bars and boxes: sampled #1e2025 on the owner's phone, a touch darker
+ * than Android's own container there, #26282d (2026-11-02). Light mode keeps Android's.
+ */
+fun androidx.compose.material3.ColorScheme.messagesBar(dark: Boolean): Color =
+    if (dark) {
+        Color(
+            Hct
+                .fromInt(surfaceContainer.toArgb())
+                .withTone(BAR_TONE_DARK)
+                .toInt(),
+        )
+    } else {
+        surfaceContainer
+    }
+
+private const val BAR_TONE_DARK = 12.0

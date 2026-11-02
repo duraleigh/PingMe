@@ -4491,3 +4491,24 @@ of the wallpaper's color (`deepTone`). Incoming bubbles take the bar's shade.
 182 to 165, rows 87 dp to 82, margins 16 and 24. Sizes are now ratios of the Material style
 (`TextStyle.resized`), so the font and text size picked in Appearance still apply on top, as he asked.
 **The wavy picture shapes are his choice and stay**: the round shape was taken back out of the look.
+
+**Measured on the phone itself, 2:55 to 3:10 AM** (both apps upright, same chat, uiautomator bounds and
+sampled pixels). Matching: the box (168 px, 56 dp), the voice button (168 px, #553f5d), the bar's height,
+inbox times, and the letters' weight (ink per area 0.295 to 0.300). Fixed from it: the bars and the box
+in Google Messages' #1e2025 rather than #26282d (tone 12), the chat's name 0.83 of titleLarge, inbox names
+0.795 and previews 0.89, rows 245 px apart. Pictures stay 52 dp (Google Messages' are 156 px).
+The outgoing bubbles' extra 7 dp at the right is the room their tails take: Bubble tails is on on the
+phone, as is the gradient Bubble style, though the look turned both off, so both are left as his choice.
+
+**From his 3:00 AM screenshots, side by side.** The inbox's time now has a column of its own, level with
+the top of the name, 12 dp from the text, so the preview ends where the name ends instead of running under
+the time. Two-person groups overlap on a slant, as Google Messages draws them (each face 0.6 of the
+whole, the front one with a thin gap round it); three to nine keep his polygon. The top bar lost its 4 dp
+bottom padding, so the list starts at 322 px as there. In the chat box, the hint and cursor start 14 dp
+after the network chip, as Google Messages' hint does after its + (he: "too smashed together").
+Left as they are: the PingMe wordmark keeps its weight (it is the app's name, not a style to copy), and
+the round person icon stands where Google Messages shows the Google account's photo, which PingMe has not
+got.
+
+Auto-rotate: found on during the measure, though the owner keeps it off; set off and left off. Nothing in
+PingMe or Speakboard changes rotation; the setting shows 31 changes since its last reset.

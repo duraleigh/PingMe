@@ -81,6 +81,7 @@ import org.pingme.core.model.Message
 import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.ChatLook
 import org.pingme.core.ui.theme.PingMeTheme
+import org.pingme.core.ui.theme.messagesBar
 import org.pingme.core.ui.theme.with
 import org.pingme.core.ui.R as UiR
 
@@ -208,7 +209,7 @@ fun ChatScreen(
             snackbarHost = { SnackbarHost(snackbar) },
             // The app bar is its own layer and the thread a container curved at the top, as on
             // the owner's Google Messages (2026-11-01).
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = MaterialTheme.colorScheme.messagesBar(androidx.compose.foundation.isSystemInDarkTheme()),
         ) { padding ->
             // While a message is held, everything else blurs behind it (UI_DESIGN.md 3.3).
             Box(

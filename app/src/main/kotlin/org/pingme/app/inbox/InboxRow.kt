@@ -184,12 +184,8 @@ private fun Modifier.swipeActions(
 
 /** Name, mute icon, network badge, folder tag, and time. */
 @Composable
-private fun TitleLine(
-    row: ChatRow,
-    now: Instant,
-) {
+private fun TitleLine(row: ChatRow) {
     val unread = row.isUnread
-    val colours = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             row.title,
@@ -214,13 +210,27 @@ private fun TitleLine(
         // A merged chat carries no badges: its ring says what it is (owner, 2026-10-03).
         if (!row.isMerged && row.network != NetworkId.GMESSAGES) NetworkBadge(row.network)
         if (row.chat.folder == ChatFolder.GENERAL) FolderTag(stringResource(R.string.inbox_folder_general))
-        row.last?.let {
-            Text(
-                timeLabel(it.sentAt, now, stringResource(R.string.inbox_now)),
-                style = MaterialTheme.typography.labelMedium,
-                color = if (unread) colours.primary else colours.onSurfaceVariant,
-            )
-        }
+    }
+}
+
+/** The last message, or who is typing; it ends where the name ends, short of the time. */
+@Composable
+private fun PreviewLine(row: ChatRow) {
+    val unread = row.isUnread
+    val colours = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Your last message's mark, the same as in the chat (UI_DESIGN.md 3.1).
+        val mine = row.last?.takeIf { it.isOutgoing && !row.typing && !row.chat.isObscured }
+        if (mine != null) StatusMark(mine.status)
+        Text(
+            if (row.typing) stringResource(R.string.inbox_typing) else previewText(row),
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyLarge.resized(PREVIEW_RATIO),
+            color = if (unread) colours.onSurface else colours.onSurfaceVariant,
+            fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -251,8 +261,8 @@ private fun RowContent(
         when (appearance.inboxDensity) {
             InboxDensity.COMPACT -> 4.dp
 
-            // Comfortable is Google Messages' row: 82 dp from one to the next.
-            InboxDensity.COMFORTABLE -> 11.dp
+            // Comfortable is Google Messages' row: 245 pixels from one to the next on the phone.
+            InboxDensity.COMFORTABLE -> 10.dp
 
             InboxDensity.SPACIOUS -> 14.dp
         }
@@ -269,129 +279,23 @@ private fun RowContent(
                 },
             ).padding(start = 16.dp, end = 24.dp, top = vertical, bottom = vertical),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         RowAvatar(row, selected, onSelect)
+        Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            TitleLine(row, now)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Your last message's mark, the same as in the chat (UI_DESIGN.md 3.1).
-                val mine = row.last?.takeIf { it.isOutgoing && !row.typing && !row.chat.isObscured }
-                if (mine != null) StatusMark(mine.status)
-                Text(
-                    if (row.typing) stringResource(R.string.inbox_typing) else previewText(row),
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyLarge.resized(PREVIEW_RATIO),
-                    color = if (unread) colours.onSurface else colours.onSurfaceVariant,
-                    fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            TitleLine(row)
+            PreviewLine(row)
         }
-    }
-}
-
-/** The coloured layer under a swiped row, naming what letting go will do. */
-@Composable
-private fun BoxScope.SwipeReveal(
-    action: SwipeAction,
-    row: ChatRow,
-    alignStart: Boolean,
-) {
-    val look = swipeLook(action, row)
-    Row(
-        Modifier
-            .matchParentSize()
-            .background(look.colour)
-            .padding(horizontal = 24.dp),
-        horizontalArrangement = if (alignStart) Arrangement.Start else Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(painterResource(look.icon), null, tint = look.content)
-        Spacer(Modifier.width(8.dp))
-        Text(
-            stringResource(look.label),
-            color = look.content,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.ExtraBold,
-        )
-    }
-}
-
-private class SwipeLook(
-    val colour: Color,
-    val content: Color,
-    val icon: Int,
-    val label: Int,
-)
-
-@Composable
-private fun swipeLook(
-    action: SwipeAction,
-    row: ChatRow,
-): SwipeLook {
-    val c = MaterialTheme.colorScheme
-    return when (action) {
-        SwipeAction.PIN -> {
-            SwipeLook(
-                c.secondary,
-                c.onSecondary,
-                UiR.drawable.ic_push_pin,
-                if (row.chat.isPinned) R.string.action_unpin else R.string.action_pin,
+        // The time stands in a column of its own, level with the top of the name, so neither
+        // line runs under it: Google Messages, measured on the phone (owner, 2026-11-02).
+        row.last?.let {
+            Spacer(Modifier.width(12.dp))
+            Text(
+                timeLabel(it.sentAt, now, stringResource(R.string.inbox_now)),
+                Modifier.align(Alignment.Top),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (unread) colours.primary else colours.onSurfaceVariant,
             )
-        }
-
-        SwipeAction.ARCHIVE -> {
-            SwipeLook(c.tertiary, c.onTertiary, UiR.drawable.ic_archive, R.string.action_archive)
-        }
-
-        SwipeAction.MUTE -> {
-            SwipeLook(
-                c.inverseSurface,
-                c.inverseOnSurface,
-                UiR.drawable.ic_notifications_off,
-                if (row.chat.isMuted) R.string.action_unmute else R.string.action_mute,
-            )
-        }
-
-        SwipeAction.MARK_READ -> {
-            SwipeLook(
-                c.primary,
-                c.onPrimary,
-                if (row.isUnread) UiR.drawable.ic_mark_chat_read else UiR.drawable.ic_mark_chat_unread,
-                if (row.isUnread) R.string.action_read else R.string.action_unread,
-            )
-        }
-
-        SwipeAction.LOW_PRIORITY -> {
-            SwipeLook(
-                c.secondaryContainer,
-                c.onSecondaryContainer,
-                UiR.drawable.ic_low_priority,
-                R.string.action_low_priority,
-            )
-        }
-
-        SwipeAction.DELETE -> {
-            SwipeLook(c.error, c.onError, UiR.drawable.ic_delete, R.string.action_delete)
-        }
-
-        SwipeAction.MOVE_FOLDER -> {
-            SwipeLook(
-                c.tertiaryContainer,
-                c.onTertiaryContainer,
-                UiR.drawable.ic_archive,
-                if (row.chat.folder == org.pingme.core.model.ChatFolder.GENERAL) {
-                    R.string.action_move_primary
-                } else {
-                    R.string.action_move_general
-                },
-            )
-        }
-
-        SwipeAction.OFF -> {
-            SwipeLook(Color.Transparent, Color.Transparent, UiR.drawable.ic_close, R.string.fab_close)
         }
     }
 }
@@ -505,5 +409,6 @@ internal fun Ringed(
         }
 }
 
-private const val NAME_RATIO = 0.86f
-private const val PREVIEW_RATIO = 0.91f
+// Measured on the phone (2026-11-02): names 468 wide on Google Messages, 506 at 0.86; previews 243, 248 at 0.91.
+private const val NAME_RATIO = 0.795f
+private const val PREVIEW_RATIO = 0.89f

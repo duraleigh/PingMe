@@ -92,7 +92,8 @@ fun InboxTopBar(
     Row(
         modifier
             .statusBarsPadding()
-            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp),
+            // The list starts 322 pixels down, as on Google Messages (measured on the phone, 2026-11-02).
+            .padding(start = 16.dp, end = 8.dp, top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {

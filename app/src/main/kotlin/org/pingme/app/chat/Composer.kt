@@ -76,6 +76,7 @@ import org.pingme.app.inbox.badgeLabel
 import org.pingme.core.model.Message
 import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.theme.PingMeTheme
+import org.pingme.core.ui.theme.messagesBar
 import org.pingme.core.ui.R as UiR
 
 /**
@@ -259,6 +260,7 @@ private fun RowScope.MessageField(
             }
         }
     val network = hooks?.network
+    val bar = MaterialTheme.colorScheme.messagesBar(androidx.compose.foundation.isSystemInDarkTheme())
     TextField(
         state = field,
         modifier = Modifier.weight(1f).testTag(COMPOSER).contentReceiver(receiver),
@@ -275,8 +277,10 @@ private fun RowScope.MessageField(
         },
         // Inside the box, as on the owner's Google Messages: + and the network at the left, emoji
         // and gallery at the right (2026-11-01).
+        // The text starts 14 dp after the last of them, as Google Messages' hint does after its +
+        // (owner, 2026-11-02: the chip, cursor, and hint were jammed together).
         leadingIcon = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 outbox?.let { ComposerIcon(UiR.drawable.ic_add_circle, R.string.attach, openers.onAttach) }
                 network?.let { NetworkPick(it, hooks) }
             }
@@ -299,9 +303,9 @@ private fun RowScope.MessageField(
         colors =
             TextFieldDefaults.colors(
                 // The bar's own color, as in Google Messages (owner, 2026-11-02).
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                focusedContainerColor = bar,
+                unfocusedContainerColor = bar,
+                disabledContainerColor = bar,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
                 disabledIndicatorColor = Color.Transparent,

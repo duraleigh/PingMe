@@ -24,9 +24,10 @@ import kotlin.math.sin
 
 /**
  * A group chat's avatar is made of its members' avatars, not counting you (owner,
- * 2026-10-03): two side by side, three in a triangle, four in a square, and so on round
- * to nine in a nonagon; ten or more become a multicoloured asterisk with one arm per
- * member. With nobody known, the group's own initials tile.
+ * 2026-10-03): two overlapping on a slant as in Google Messages (owner, 2026-11-02), three
+ * in a triangle, four in a square, and so on round to nine in a nonagon; ten or more become
+ * a multicoloured asterisk with one arm per member. With nobody known, the group's own
+ * initials tile.
  */
 @Composable
 fun GroupAvatar(
@@ -39,12 +40,41 @@ fun GroupAvatar(
     when {
         faces.isEmpty() -> Avatar(title, modifier, size, shape)
         faces.size == 1 -> Avatar(faces.single().name, modifier, size, shape, faces.single().photo)
+        faces.size == PAIR -> SlantedPair(faces, size, shape, modifier)
         faces.size >= ASTERISK_FROM -> Asterisk(faces, size, shape, modifier)
         else -> Ring(faces, size, shape, modifier)
     }
 }
 
-// Members on the corners of a regular polygon, each a small avatar; two sit side by side.
+// Two members: one top left, the other over it bottom right with a thin gap round it, as Google
+// Messages draws them (measured on the phone, 2026-11-02: each 0.6 of the whole).
+@Composable
+private fun SlantedPair(
+    faces: List<Face>,
+    size: Dp,
+    shape: RoundedPolygon,
+    modifier: Modifier = Modifier,
+) {
+    val small = size * PAIR_SHARE
+    val gap = MaterialTheme.colorScheme.surface
+    Box(modifier.size(size)) {
+        val (back, front) = faces
+        Avatar(back.name, Modifier.align(Alignment.TopStart), small, shape, back.photo)
+        Box(
+            Modifier
+                .align(Alignment.BottomEnd)
+                .size(small + PAIR_GAP * 2)
+                .offset(PAIR_GAP, PAIR_GAP)
+                .clip(shape.toShape())
+                .background(gap),
+            contentAlignment = Alignment.Center,
+        ) {
+            Avatar(front.name, Modifier, small, shape, front.photo)
+        }
+    }
+}
+
+// Members on the corners of a regular polygon, each a small avatar.
 @Composable
 private fun Ring(
     faces: List<Face>,
@@ -57,8 +87,8 @@ private fun Ring(
     val radius = (size - small) / 2
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         faces.forEachIndexed { index, face ->
-            // Start at the top (three make an upright triangle); two land left and right.
-            val angle = if (count == PAIR) Math.PI * index else -Math.PI / 2 + 2 * Math.PI * index / count
+            // Start at the top: three make an upright triangle.
+            val angle = -Math.PI / 2 + 2 * Math.PI * index / count
             val x = radius * cos(angle).toFloat()
             val y = radius * sin(angle).toFloat()
             Avatar(face.name, Modifier.offset(x, y), small, shape, face.photo)
@@ -104,6 +134,8 @@ private fun smallShare(count: Int): Float =
     }
 
 private const val PAIR = 2
+private const val PAIR_SHARE = 0.6f
+private val PAIR_GAP = 1.5.dp
 private const val SQUARE = 4
 private const val HEXAGON = 6
 private const val HALF = 0.5f

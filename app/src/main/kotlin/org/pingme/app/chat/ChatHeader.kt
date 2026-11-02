@@ -47,6 +47,7 @@ import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Message
 import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.components.Avatar
+import org.pingme.core.ui.theme.messagesBar
 import org.pingme.core.ui.theme.resized
 import org.pingme.core.ui.R as UiR
 
@@ -60,7 +61,10 @@ fun ChatHeader(
     actions: HeaderActions,
     modifier: Modifier = Modifier,
 ) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.messagesBar(androidx.compose.foundation.isSystemInDarkTheme()),
+        modifier = modifier,
+    ) {
         Row(
             Modifier
                 .statusBarsPadding()
@@ -212,5 +216,5 @@ private fun Overflow(
     }
 }
 
-// 330 wide on Google Messages where titleLarge made 389 (2026-11-02).
-private const val TITLE_RATIO = 0.86f
+// Measured on the phone: 495 wide on Google Messages, 513 at 0.86 (2026-11-02).
+private const val TITLE_RATIO = 0.83f
