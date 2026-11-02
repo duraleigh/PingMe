@@ -96,6 +96,11 @@ private class GomobileSession(
 
     override fun acceptRequest(fbid: String) = session.acceptRequest(fbid)
 
+    override fun moveThread(
+        fbid: String,
+        folder: String,
+    ): String = session.moveThread(fbid, folder)
+
     override fun deleteThread(fbid: String) = session.deleteThread(fbid)
 
     override fun download(

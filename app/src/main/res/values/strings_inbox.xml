@@ -127,6 +127,15 @@
     <string name="new_chat_no_accounts">None of your accounts can start new chats from PingMe.</string>
     <string name="new_group_no_accounts">None of your accounts can make groups from PingMe.</string>
     <string name="new_group_name">Group name</string>
+    <string name="new_group_name_optional">Group name (optional)</string>
+    <string name="new_group_next">Next</string>
+    <string name="action_move_general">Move to General</string>
+    <string name="action_move_primary">Move to Primary</string>
+    <string name="inbox_moved_general">Moved to General</string>
+    <string name="inbox_moved_primary">Moved to Primary</string>
+    <string name="inbox_bulk_general">Moved to General</string>
+    <string name="swipe_move_folder">Move between Instagram folders</string>
+    <string name="media_save_waiting">Still getting the full picture. Try again in a moment.</string>
     <string name="new_group_add">Add %1$s</string>
     <string name="new_group_remove">Remove %1$s</string>
     <string name="new_group_create">Make the group</string>
@@ -140,7 +149,8 @@
     <string name="chat_new_messages">New messages</string>
     <string name="chat_edited">edited</string>
     <string name="chat_not_sent">Not sent: %1$s</string>
-    <string name="chat_retry">Retry</string>
+    <string name="chat_retry">Try again</string>
+    <string name="chat_delete_failed">Delete</string>
     <string name="status_sending">Sending</string>
     <string name="status_sent">Sent</string>
     <string name="status_delivered">Delivered</string>

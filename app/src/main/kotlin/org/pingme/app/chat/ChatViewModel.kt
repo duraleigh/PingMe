@@ -152,7 +152,7 @@ class ChatViewModel
         private val chats: ChatRepository,
         private val messages: MessageRepository,
         pins: PinnedMessageRepository,
-        accounts: AccountRepository,
+        private val accounts: AccountRepository,
         contacts: ContactRepository,
         typing: TypingTracker,
         registry: ConnectorRegistry,
@@ -182,7 +182,10 @@ class ChatViewModel
          * not, and count as read only while it is (owner, Gate G3: a chat left behind in the
          * back stack kept marking new messages read).
          */
-        fun visible(on: Boolean) {
+        fun visible(
+            on: Boolean,
+            tab: NetworkId? = null,
+        ) {
             onScreen.value = on
             if (on) {
                 presence.visible = chatId
@@ -190,7 +193,7 @@ class ChatViewModel
                 // and nothing marks the chat read until it has decided.
                 decided.value = false
                 viewModelScope.launch {
-                    openOn()
+                    openOn(tab)
                     // Opening a chat tells its network it is read, unread here or not.
                     runCatching { chatActions.tellNetworkRead(chatId) }
                     // And fetches the newest page, for anything missed without a live connection.
@@ -202,11 +205,13 @@ class ChatViewModel
         }
 
         /**
-         * A merged chat opens, header, bubbles, and box alike, on the one network its unread
-         * messages came from; with none, or several, on its default network. "All" stays a
+         * A merged chat opens, header, bubbles, and box alike, on the network of the tab it was
+         * opened from (owner, 2026-11-01). From a tab with every network in it, or anywhere else,
+         * on the one network its unread messages came from, so they are not hidden behind
+         * another network's bubbles; with none, or several, on its default network. "All" stays a
          * choice in the header menu (owner, 2026-10-03).
          */
-        private suspend fun openOn() {
+        private suspend fun openOn(tab: NetworkId?) {
             try {
                 if (!isMergedId(chatId)) return
                 // Asked of the store directly: on a first visit the member flow has not
@@ -214,9 +219,10 @@ class ChatViewModel
                 // so the chat opened on its default network (owner, 2026-10-04).
                 val list = mergeRepo.members(chatId)
                 if (list.isEmpty()) return
+                val onTab = tab?.let { network -> list.firstOrNull { accounts.get(it.accountId)?.network == network } }
                 val unreadAccounts = list.filter { it.unreadCount > 0 }.map { it.accountId }.distinct()
                 val fallback = chats.get(chatId)?.defaultSendAccount ?: list.first().accountId
-                filter.value = unreadAccounts.singleOrNull() ?: fallback
+                filter.value = onTab?.accountId ?: unreadAccounts.singleOrNull() ?: fallback
                 chosenVia.value = null
             } finally {
                 decided.value = true

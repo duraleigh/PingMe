@@ -63,6 +63,10 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize">
+            <!-- The chats in Android's own share pop-up (owner, 2026-11-01). -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <!-- PingMe in Android's share menu: text, pictures, videos, sounds, and files (owner, Gate G3). -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

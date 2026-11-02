@@ -272,7 +272,12 @@ private fun NetworkPick(
 ) {
     var open by remember { mutableStateOf(false) }
     val choices = hooks.members
-    Box(Modifier.padding(start = 6.dp)) {
+    val current = choices.firstOrNull { it.chatId == hooks.sendVia }
+    Box(
+        Modifier
+            .padding(start = 6.dp)
+            .swipeThroughNetworks(choices, current) { hooks.onSendVia(it.chatId) },
+    ) {
         // A disconnected account is red-lined (UI_DESIGN.md 10.15), so the owner sees why the
         // message would wait before sending it.
         val ring =

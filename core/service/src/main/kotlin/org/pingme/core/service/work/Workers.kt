@@ -20,8 +20,10 @@ import org.pingme.core.model.ChatId
 import org.pingme.core.model.MessageId
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.ScheduledSend
+import org.pingme.core.model.isPreviewOnly
 import org.pingme.core.service.EventApplier
 import org.pingme.core.store.AccountRepository
+import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.MessageRepository
 import org.pingme.core.store.ScheduledSendRepository
 import kotlin.time.Clock
@@ -38,17 +40,24 @@ class HistoryBackfillWorker
         private val registry: ConnectorRegistry,
         private val accounts: AccountRepository,
         private val messages: MessageRepository,
+        private val chats: ChatRepository,
         private val applier: EventApplier,
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
             val chatId = inputData.getString(KEY_CHAT)?.let(::ChatId) ?: return Result.failure()
             val account = accounts.get(chatId.accountId) ?: return Result.failure()
             val connector = registry[account.network] ?: return Result.failure()
+            // A chat deleted here keeps no history: its pages would only be thrown away.
+            if (chats.hiddenAt(chatId) != null) return Result.success()
             repeat(PAGES_PER_RUN) {
-                val page = connector.syncMessages(chatId, before = messages.oldest(chatId), limit = PAGE_SIZE)
+                val before = messages.oldest(chatId)
+                val page = connector.syncMessages(chatId, before = before, limit = PAGE_SIZE)
                 val complete = page.size < PAGE_SIZE
                 applier.apply(ConnectorEvent.HistoryBatch(account.id, chatId, page, complete))
                 if (complete) return Result.success()
+                // Nothing older was kept, so asking again would fetch this same page for ever
+                // (owner, 2026-11-01: a chat deleted on Oct 3 was fetched three times a second).
+                if (messages.oldest(chatId) == before) return Result.success()
             }
             // More history remains; the next run continues from the new oldest message.
             Work.backfill(applicationContext, chatId)
@@ -92,6 +101,12 @@ class MediaDownloadWorker
                     // On the phone only (no telemetry, DESIGN.md 6.5): how long media takes to come in.
                     val took = System.currentTimeMillis() - started
                     android.util.Log.i(TAG, "downloaded ${attachment.kind} ${file.length()} bytes in $took ms")
+                    // What the network said against what came, for "are the pictures compressed?".
+                    org.pingme.core.connector.Diag.note(
+                        TAG,
+                        "${attachment.kind}: ${file.length()} bytes here, the network says ${attachment.sizeBytes}, " +
+                            "preview only: ${attachment.isPreviewOnly}",
+                    )
                     Result.success()
                 },
                 onFailure = {

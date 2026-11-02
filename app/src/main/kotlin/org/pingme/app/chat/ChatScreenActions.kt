@@ -94,6 +94,7 @@ class RowContext(
     val networkOf: Map<ChatId, NetworkId> = emptyMap(),
     val names: Map<PersonId, String>,
     val onRetry: (Message) -> Unit,
+    val onDelete: (Message) -> Unit,
     val onNeed: (Attachment) -> Unit,
     val onQuote: (Message) -> Unit,
     /** How far each sending message's media has got. */

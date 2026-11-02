@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 import org.pingme.app.R
 import org.pingme.core.model.Attachment
 import org.pingme.core.model.AttachmentKind
+import org.pingme.core.model.isPreviewOnly
 import java.io.File
 import org.pingme.core.ui.R as UiR
 
@@ -69,11 +70,18 @@ internal fun MediaViewer(
             val scope = androidx.compose.runtime.rememberCoroutineScope()
             val saved = stringResource(R.string.media_saved)
             val failed = stringResource(R.string.media_save_failed)
+            val getting = stringResource(R.string.media_save_waiting)
             IconButton(
                 onClick = {
                     scope.launch {
-                        val ok = saveToGallery(context, attachment)
-                        val said = if (ok) saved else failed
+                        // Only the small preview is here yet: saving now would keep that for good.
+                        val ok = !attachment.isPreviewOnly && saveToGallery(context, attachment)
+                        val said =
+                            when {
+                                attachment.isPreviewOnly -> getting
+                                ok -> saved
+                                else -> failed
+                            }
                         android.widget.Toast
                             .makeText(context, said, android.widget.Toast.LENGTH_SHORT)
                             .show()
@@ -111,8 +119,18 @@ private fun ZoomablePicture(
             scale = (scale * zoom).coerceIn(MIN_ZOOM, MAX_ZOOM)
             offset = if (scale > 1f) offset + pan else Offset.Zero
         }
+    // Coil would otherwise load the picture at the screen's size, and zooming in then only
+    // enlarged that copy (owner, 2026-11-01: pictures looked compressed).
+    val context = androidx.compose.ui.platform.LocalContext.current
     AsyncImage(
-        model = File(path),
+        model =
+            remember(path) {
+                coil3.request.ImageRequest
+                    .Builder(context)
+                    .data(File(path))
+                    .size(MAX_PICTURE)
+                    .build()
+            },
         contentDescription = description,
         contentScale = ContentScale.Fit,
         modifier =
@@ -160,3 +178,6 @@ private fun Video(
 }
 
 private const val NAME_ALPHA = 0.7f
+
+/** The longest side a picture is held at in the viewer: well past any phone, and safe to draw. */
+private const val MAX_PICTURE = 4096

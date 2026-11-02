@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import org.pingme.core.connector.Connector
 import org.pingme.core.connector.ConnectorEvent
@@ -42,6 +43,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 /**
@@ -68,6 +70,7 @@ class MessageActions
         private val links: org.pingme.core.service.links.CleanLinks,
         private val previews: org.pingme.core.service.links.PreviewRequests,
         private val merges: org.pingme.core.store.MergeRepository,
+        private val shareShortcuts: org.pingme.core.service.notify.ShareShortcuts,
     ) {
         private val uploads = MutableStateFlow<Map<MessageId, Float>>(emptyMap())
 
@@ -158,6 +161,7 @@ class MessageActions
                 val at = maxOf(it.lastActivityAt, pending.sentAt)
                 it.copy(lastActivityAt = at, unreadCount = 0, readUpTo = at)
             }
+            shareShortcuts.sentTo(chatId)
             return deliver(pending, forceSms)
         }
 
@@ -199,6 +203,8 @@ class MessageActions
         suspend fun deleteForMe(targets: List<Message>) {
             targets.map { sent.current(it) }.forEach { message ->
                 messages.delete(message.id)
+                // A message that never went is only here: there is nothing to ask the network.
+                if (message.status is MessageStatus.Failed) return@forEach
                 connectorFor(message.chatId)?.let { connector ->
                     quietly("delete") { connector.delete(message.id, forEveryone = false) }
                 }
@@ -395,11 +401,14 @@ class MessageActions
                     SendResult.Failed("This network is not connected", retryable = true)
                 } else {
                     val report: (Float) -> Unit = { done -> uploads.update { it + (pending.id to done) } }
+                    // A send that never answers ends here, so its bubble can be tried again
+                    // instead of sitting on its clock (owner, 2026-11-01).
+                    val allowed = if (files.isEmpty()) TEXT_SEND_LIMIT else FILE_SEND_LIMIT
                     try {
-                        quietly("send") { connector.send(pending.chatId, draft, report) }
+                        withTimeoutOrNull(allowed) { quietly("send") { connector.send(pending.chatId, draft, report) } }
                     } finally {
                         uploads.update { it - pending.id }
-                    } ?: SendResult.Failed("Could not reach the network", retryable = true)
+                    } ?: SendResult.Failed("No answer from the network", retryable = true)
                 }
             return when (result) {
                 is SendResult.Sent -> {
@@ -493,6 +502,8 @@ class MessageActions
             }
 
         companion object {
+            private val TEXT_SEND_LIMIT = 2.minutes
+            private val FILE_SEND_LIMIT = 10.minutes
             const val PAGE = 50
             private const val SELF = "me"
             private const val TAG = "PingMeMessages"

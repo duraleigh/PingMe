@@ -93,6 +93,10 @@ data class NewChatUiState(
     val text: String = "",
     val title: String = "",
     val members: List<String> = emptyList(),
+    /** The names of the people picked, by what was picked: the chips say who, not a number. */
+    val memberNames: Map<String, String> = emptyMap(),
+    /** New group's second step, as in Google Messages: people first, then an optional name. */
+    val naming: Boolean = false,
     val suggestions: List<Person> = emptyList(),
     val working: Boolean = false,
 )
@@ -150,6 +154,7 @@ class NewChatViewModel
             combine(this, flowOf(s)) { people, st ->
                 val q = st.text.trim()
                 st.copy(
+                    memberNames = people.associate { it.networkHandle to it.name },
                     suggestions =
                         people
                             // WhatsApp's hidden-id twin of a person already listed by number says nothing new.
@@ -158,6 +163,9 @@ class NewChatViewModel
                                 q.isEmpty() || p.name.contains(q, true) ||
                                     p.networkHandle.contains(q, true)
                             }.filter { p -> p.networkHandle !in st.members }
+                            // People with names first: digits sorted bare numbers to the top of the
+                            // list, above everyone the owner knows (owner, 2026-11-01).
+                            .sortedWith(compareBy({ p -> p.name.none(Char::isLetter) }, { p -> p.name.lowercase() }))
                             .take(MAX_SUGGESTIONS),
                 )
             }
@@ -213,6 +221,9 @@ class NewChatViewModel
 
         fun remove(handle: String) = form.update { it.copy(members = it.members - handle) }
 
+        /** New group: on to the optional name, or back to the people. */
+        fun naming(on: Boolean) = form.update { it.copy(naming = on) }
+
         fun createGroup() {
             // The name and members come from the form itself, which always has the last keystroke;
             // the combined screen state can be a step behind.
@@ -243,7 +254,7 @@ class NewChatViewModel
 
         private companion object {
             const val STOP_AFTER = 5_000L
-            const val MAX_SUGGESTIONS = 30
+            const val MAX_SUGGESTIONS = 500
         }
     }
 
@@ -275,6 +286,7 @@ fun NewChatRoute(
                 viewModel::remove,
                 viewModel::createGroup,
                 viewModel::refreshPeople,
+                viewModel::naming,
             ),
         modifier = modifier,
         snackbar = snackbar,
@@ -290,6 +302,7 @@ class NewChatActions(
     val onRemove: (String) -> Unit,
     val onCreate: () -> Unit,
     val onRefreshPeople: () -> Unit = {},
+    val onNaming: (Boolean) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -324,8 +337,10 @@ fun NewChatScreen(
             return@Scaffold
         }
         val pickedNetwork = state.accounts.firstOrNull { it.id == state.account }?.network
+        androidx.activity.compose.BackHandler(group && state.naming) { actions.onNaming(false) }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
-            item { NewChatForm(group, state, actions) }
+            item { NewChatForm(group, state, actions, pickedNetwork) }
+            if (group && state.naming) return@LazyColumn
             if (pickedNetwork == NetworkId.SIGNAL) item { ContactsOnSignal(actions.onRefreshPeople) }
             val typed = state.text.trim()
             if (typed.isNotEmpty()) {
@@ -389,6 +404,7 @@ private fun NewChatForm(
     group: Boolean,
     state: NewChatUiState,
     actions: NewChatActions,
+    network: NetworkId?,
 ) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (state.accounts.size > 1) {
@@ -408,47 +424,70 @@ private fun NewChatForm(
                 }
             }
         }
-        if (group) {
+        if (group && state.naming) {
             OutlinedTextField(
                 state.title,
                 actions.onTitle,
                 Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.new_group_name)) },
+                label = {
+                    // Google Messages asks for no name; the other networks cannot make a group without one.
+                    Text(
+                        stringResource(
+                            if (nameOptional(network)) R.string.new_group_name_optional else R.string.new_group_name,
+                        ),
+                    )
+                },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             )
+        }
+        if (group) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.members.forEach { handle ->
                     InputChip(
                         selected = true,
                         onClick = { actions.onRemove(handle) },
-                        label = { Text(handle) },
+                        label = { Text(state.memberNames[handle] ?: handle) },
                         trailingIcon = {
                             Icon(
                                 painterResource(UiR.drawable.ic_close),
-                                stringResource(R.string.new_group_remove, handle),
+                                stringResource(R.string.new_group_remove, state.memberNames[handle] ?: handle),
                             )
                         },
                     )
                 }
             }
         }
-        OutlinedTextField(
-            state.text,
-            actions.onText,
-            Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.new_chat_who)) },
-            singleLine = true,
-        )
-        if (group) {
+        if (!(group && state.naming)) {
+            OutlinedTextField(
+                state.text,
+                actions.onText,
+                Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.new_chat_who)) },
+                singleLine = true,
+            )
+        }
+        if (group && !state.naming) {
+            Button(
+                onClick = { actions.onNaming(true) },
+                enabled = state.members.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.new_group_next)) }
+        }
+        if (group && state.naming) {
             Button(
                 onClick = actions.onCreate,
-                enabled = !state.working && state.title.isNotBlank() && state.members.isNotEmpty(),
+                enabled =
+                    !state.working && state.members.isNotEmpty() &&
+                        (nameOptional(network) || state.title.isNotBlank()),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(stringResource(R.string.new_group_create)) }
         }
     }
 }
+
+/** Only Google Messages makes a group with no name. */
+private fun nameOptional(network: NetworkId?) = network == NetworkId.GMESSAGES || network == NetworkId.SMS
 
 private const val TAG = "PingMeNewChat"
 

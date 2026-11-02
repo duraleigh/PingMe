@@ -253,6 +253,7 @@ internal class MessageNotifications(
                 .setShortLabel(title.ifBlank { context.getString(R.string.channel_messages) })
                 .setLongLived(true)
                 .setIsConversation()
+                .setCategories(setOf(ShareShortcuts.CATEGORY))
                 .setPerson(who)
                 .setIntent(launch(chat.id).setAction(Intent.ACTION_VIEW))
                 .build()

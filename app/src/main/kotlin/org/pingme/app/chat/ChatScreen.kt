@@ -90,6 +90,8 @@ fun ChatRoute(
     chatId: ChatId,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    /** The network tab the chat was opened from, if any: it opens on that network (owner, 2026-11-01). */
+    tab: org.pingme.core.model.NetworkId? = null,
     onDetails: (() -> Unit)? = null,
     onOpenPage: ((String, AccountId) -> Unit)? = null,
     viewModel: ChatViewModel =
@@ -97,8 +99,8 @@ fun ChatRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // On screen and resumed: no notifications for this chat; paused or gone: they come back.
-    androidx.lifecycle.compose.LifecycleResumeEffect(chatId) {
-        viewModel.visible(true)
+    androidx.lifecycle.compose.LifecycleResumeEffect(chatId, tab) {
+        viewModel.visible(true, tab)
         onPauseOrDispose { viewModel.visible(false) }
     }
     val forwardTargets by viewModel.forwardTargets.collectAsStateWithLifecycle()
@@ -203,7 +205,10 @@ fun ChatScreen(
             // While a message is held, everything else blurs behind it (UI_DESIGN.md 3.3).
             Box(Modifier.fillMaxSize().padding(padding).blur(if (ui.holding != null) HELD_BLUR else 0.dp)) {
                 Wallpaper(PingMeTheme.appearance.wallpaper, Modifier.fillMaxSize())
-                MessageList(state, list, actions, highlight, ui) { jumpTo(it) }
+                androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
+                    Box(Modifier.weight(1f)) { MessageList(state, list, actions, highlight, ui) { jumpTo(it) } }
+                    TypingBubble(state.typing, state.chat?.kind)
+                }
                 ToNewest(list, state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
                 if (actions.search.state.showing) {
                     ChatSearchResults(actions.search.state, state.names, actions.search.onOpen)
@@ -228,6 +233,7 @@ internal fun rowContext(
         state.networkOf,
         state.names,
         actions.onRetry,
+        { actions.menu?.deleteForMe(listOf(it)) },
         actions.onNeed,
         { m -> m.replyTo?.let { onJump(it.value) } },
         actions.uploads,

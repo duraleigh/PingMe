@@ -59,6 +59,8 @@ class FakeConnector : Connector {
     val connects = AtomicInteger()
     var chats: List<ChatSnapshot> = emptyList()
     var history: List<MessageSnapshot> = emptyList()
+    val historyCalls = AtomicInteger()
+    var beforeHistory: suspend () -> Unit = {}
     var sendResult: (OutgoingMessage) -> SendResult = { SendResult.Failed("not scripted", retryable = false) }
     var download: (Attachment) -> File = { error("not scripted") }
     val readMarkers = CopyOnWriteArrayList<Pair<ChatId, MessageId>>()
@@ -93,6 +95,8 @@ class FakeConnector : Connector {
         before: MessageId?,
         limit: Int,
     ): List<MessageSnapshot> {
+        historyCalls.incrementAndGet()
+        beforeHistory()
         val newestFirst = history.filter { it.message.chatId == chatId }.sortedByDescending { it.message.sentAt }
         val older =
             if (before == null) {
@@ -156,10 +160,14 @@ class FakeConnector : Connector {
         text: String,
     ) = throw UnsupportedCapabilityException("not used")
 
+    var moveFails = false
+
     override suspend fun moveFolder(
         chatId: ChatId,
         folder: ChatFolder,
-    ) = Unit
+    ) {
+        if (moveFails) throw UnsupportedCapabilityException("not moved")
+    }
 
     override suspend fun respondToRequest(
         chatId: ChatId,

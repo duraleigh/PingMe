@@ -134,13 +134,17 @@ class InboxDestinationsTest {
         compose.setContent {
             PingMeTheme { NewChatRoute({}, { opened += it }, viewModel = vm) }
         }
-        waitForText("Group name")
-        compose.onNodeWithText("Group name").performTextInput("Trip")
+        waitForText("Name, number, or username")
         compose.onNodeWithText("Name, number, or username").performTextInput("ana")
         waitForText("Add ana")
         compose.assertAccessible()
         compose.onNodeWithText("Add ana").performClick()
-        // The button turns on once the member shows as a chip.
+        // People first, then the name, as in Google Messages (owner, 2026-11-01).
+        waitFor { compose.onAllNodes(hasText("Next") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Next").performSemanticsAction(SemanticsActions.OnClick)
+        waitForText("Group name")
+        compose.onNodeWithText("Group name").performTextInput("Trip")
+        // The button turns on once there is a name: the demo network wants one, as most do.
         waitFor { compose.onAllNodes(hasText("Make the group") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         // Through the button's own click action, so a layout still settling cannot move the tap.
         compose.onNodeWithText("Make the group").performSemanticsAction(SemanticsActions.OnClick)

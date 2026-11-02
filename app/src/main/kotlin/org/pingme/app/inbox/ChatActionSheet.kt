@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
+import org.pingme.core.model.ChatFolder
 import org.pingme.core.ui.components.Avatar
 import org.pingme.core.ui.components.PingMeSheet
 import org.pingme.core.ui.R as UiR
@@ -120,5 +121,15 @@ private fun sheetItems(row: ChatRow): List<Triple<ChatAction, Int, Int>> {
             if (chat.isObscured) R.string.action_unobscure else R.string.action_obscure,
         ),
         Triple(ChatAction.DELETE, UiR.drawable.ic_delete, R.string.action_delete),
-    )
+    ).let { items ->
+        if (!row.movesFolder) return@let items
+        val move =
+            Triple(
+                ChatAction.MOVE_FOLDER,
+                UiR.drawable.ic_archive,
+                if (chat.folder == ChatFolder.GENERAL) R.string.action_move_primary else R.string.action_move_general,
+            )
+        // Near the top: it is why many Instagram chats get pressed at all (owner, 2026-11-01).
+        listOf(move) + items
+    }
 }

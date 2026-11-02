@@ -102,6 +102,12 @@ interface IgSession {
 
     fun acceptRequest(fbid: String)
 
+    /** Asks for the chat to go in [folder]; returns the folder Instagram says it is in. */
+    fun moveThread(
+        fbid: String,
+        folder: String,
+    ): String
+
     fun deleteThread(fbid: String)
 
     fun download(

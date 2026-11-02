@@ -60,7 +60,8 @@ import org.pingme.core.ui.R as UiR
 
 /** Where the inbox leads. */
 class InboxNavigation(
-    val onOpenChat: (ChatId) -> Unit,
+    /** The chat, and the network of the tab it was opened from, if that tab is one network's. */
+    val onOpenChat: (ChatId, org.pingme.core.model.NetworkId?) -> Unit,
     val onSearch: () -> Unit,
     val onNewChat: () -> Unit,
     val onNewGroup: () -> Unit,
@@ -189,7 +190,7 @@ fun InboxScreen(
             ChatListBody(
                 state = state,
                 flips = flips,
-                onOpen = { navigation.onOpenChat(it.id) },
+                onOpen = { navigation.onOpenChat(it.id, (state.selected as? InboxBarItem.Network)?.network) },
                 onHold = { holding = it },
                 onSwipe = callbacks.onSwipe,
                 onMovePin = callbacks.onMovePin,
@@ -269,7 +270,7 @@ private fun InboxTop(
     onBulk: (BulkAction) -> Unit,
 ) {
     if (selectedRows.isNotEmpty()) {
-        SelectionBar(count = selectedRows.size, onClose = onClearSelection, onAct = onBulk)
+        SelectionBar(rows = selectedRows, onClose = onClearSelection, onAct = onBulk)
     } else {
         // Its own surface with rounded bottom corners, so the list scrolls cleanly under it (3.1).
         Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = TOP_BAR_SHAPE) {
@@ -307,7 +308,7 @@ private fun ConfirmBulkDelete(
  */
 @Composable
 private fun SelectionBar(
-    count: Int,
+    rows: List<ChatRow>,
     onClose: () -> Unit,
     onAct: (BulkAction) -> Unit,
 ) {
@@ -318,7 +319,7 @@ private fun SelectionBar(
                     Icon(painterResource(UiR.drawable.ic_close), stringResource(R.string.inbox_selection_close))
                 }
                 Text(
-                    pluralStringResource(R.plurals.selected, count, count),
+                    pluralStringResource(R.plurals.selected, rows.size, rows.size),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -330,6 +331,10 @@ private fun SelectionBar(
                 BulkButton(BulkAction.ARCHIVE, UiR.drawable.ic_archive, R.string.action_archive, onAct)
                 BulkButton(BulkAction.LOW_PRIORITY, UiR.drawable.ic_low_priority, R.string.action_low_priority, onAct)
                 BulkButton(BulkAction.MERGE, UiR.drawable.ic_call_merge, R.string.action_merge, onAct)
+                // Instagram's own folders: only when every picked chat has them.
+                if (rows.all { it.movesFolder }) {
+                    BulkButton(BulkAction.MOVE_GENERAL, UiR.drawable.ic_archive, R.string.action_move_general, onAct)
+                }
                 BulkButton(BulkAction.DELETE, UiR.drawable.ic_delete, R.string.action_delete, onAct)
             }
         }

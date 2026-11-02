@@ -81,7 +81,7 @@ enum class Haptics { OFF, LIGHT, STRONG }
 
 /** What a swipe on an inbox row does (UI_DESIGN.md 3.1). Each direction is set on its own. */
 @Serializable
-enum class SwipeAction { PIN, ARCHIVE, MUTE, MARK_READ, LOW_PRIORITY, DELETE, OFF }
+enum class SwipeAction { PIN, ARCHIVE, MUTE, MARK_READ, LOW_PRIORITY, MOVE_FOLDER, DELETE, OFF }
 
 /** App icon variants, switched through activity aliases (UI_DESIGN.md 4.6). */
 @Serializable

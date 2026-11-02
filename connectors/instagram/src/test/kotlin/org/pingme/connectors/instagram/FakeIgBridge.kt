@@ -235,6 +235,11 @@ class FakeIgSession(
         typing: Boolean,
     ) = Unit
 
+    override fun moveThread(
+        fbid: String,
+        folder: String,
+    ) = folder
+
     override fun acceptRequest(fbid: String) {
         network.accepted += fbid
     }

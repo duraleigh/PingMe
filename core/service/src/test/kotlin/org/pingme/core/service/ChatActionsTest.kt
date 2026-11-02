@@ -16,6 +16,7 @@ import org.pingme.core.connector.chat
 import org.pingme.core.connector.message
 import org.pingme.core.connector.person
 import org.pingme.core.model.AvatarSource
+import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Reaction
@@ -211,5 +212,32 @@ class ChatActionsTest : ServiceTest() {
             }
             actions.setRead(id, read = true)
             assertEquals(1, connector.readMarkers.size)
+        }
+
+    /** When Instagram will not move a chat, it moves here and stays through listings (owner, 2026-11-01). */
+    @Test
+    fun aChatInstagramWillNotMoveStaysWhereItWasPutHere() =
+        runTest {
+            accounts.upsert(account())
+            val id = accountId.chat("c1")
+            applier.applyChats(listOf(chatSnapshot().copy(folder = ChatFolder.PRIMARY)))
+            connector.moveFails = true
+            actions.moveFolder(id, ChatFolder.GENERAL)
+            assertEquals(ChatFolder.GENERAL, chats.get(id)?.folder)
+            applier.applyChats(listOf(chatSnapshot().copy(folder = ChatFolder.PRIMARY)))
+            assertEquals(ChatFolder.GENERAL, chats.get(id)?.folder)
+        }
+
+    /** A move Instagram made leaves Instagram in charge of the folder afterwards. */
+    @Test
+    fun aChatInstagramMovedFollowsInstagramAfterwards() =
+        runTest {
+            accounts.upsert(account())
+            val id = accountId.chat("c1")
+            applier.applyChats(listOf(chatSnapshot().copy(folder = ChatFolder.PRIMARY)))
+            actions.moveFolder(id, ChatFolder.GENERAL)
+            assertEquals(ChatFolder.GENERAL, chats.get(id)?.folder)
+            applier.applyChats(listOf(chatSnapshot().copy(folder = ChatFolder.PRIMARY)))
+            assertEquals(ChatFolder.PRIMARY, chats.get(id)?.folder)
         }
 }

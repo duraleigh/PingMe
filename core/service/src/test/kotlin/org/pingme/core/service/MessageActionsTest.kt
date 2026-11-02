@@ -46,6 +46,8 @@ class MessageActionsTest : ServiceTest() {
                 .fromAssets(context),
             QuietPreviews(context),
             merged,
+            org.pingme.core.service.notify
+                .ShareShortcuts(context, chats),
         )
     }
     private val merged by lazy {

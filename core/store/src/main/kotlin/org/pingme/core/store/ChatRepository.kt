@@ -116,6 +116,19 @@ class ChatRepository
 
         suspend fun hiddenAt(id: ChatId): Instant? = dao.hiddenAt(id.value)
 
+        /** Keeps the chat in [folder] here, whatever the network lists it under. */
+        suspend fun setFolderMove(
+            id: ChatId,
+            folder: ChatFolder,
+        ) = dao.setFolderMove(
+            org.pingme.core.store.db
+                .ChatFolderMoveEntity(id.value, folder),
+        )
+
+        suspend fun folderMove(id: ChatId): ChatFolder? = dao.folderMove(id.value)
+
+        suspend fun clearFolderMove(id: ChatId) = dao.clearFolderMove(id.value)
+
         suspend fun unhide(id: ChatId) = dao.unhide(id.value)
 
         /**

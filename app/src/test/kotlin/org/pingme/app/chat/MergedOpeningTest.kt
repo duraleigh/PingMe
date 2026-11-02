@@ -15,6 +15,7 @@ import org.junit.runner.RunWith
 import org.pingme.app.inbox.DemoInbox
 import org.pingme.core.connector.chat
 import org.pingme.core.model.AccountId
+import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.theme.Appearance
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.theme.ThemeMode
@@ -73,6 +74,31 @@ class MergedOpeningTest {
         waitUntil { vm.state.value.filter == other }
         waitUntil { runBlocking { demo.chats.get(samOnOther)!!.unreadCount == 0 } }
         assertEquals(other, vm.state.value.filter)
+    }
+
+    /** The Instagram tab opens the Instagram side, whatever the default or the unread say (owner, 2026-11-01). */
+    @Test
+    fun aNetworkTabOpensThatNetworkOverTheDefaultAndTheUnread() {
+        val other = AccountId("demo-wa")
+        val sam = demo.account.id.chat("sam")
+        val samOnOther = other.chat("sam-wa")
+        val merged =
+            runBlocking {
+                demo.accounts.upsert(demo.account.copy(id = other, network = NetworkId.WHATSAPP))
+                val base = demo.chats.get(sam)!!
+                demo.chats.upsert(
+                    base.copy(id = samOnOther, accountId = other, unreadCount = 1, isPinned = false, pinOrder = null),
+                )
+                demo.mergeService.merge(listOf(sam, samOnOther))
+            }
+        val vm = demo.chatViewModelFor(merged)
+        compose.setContent {
+            PingMeTheme(Appearance(mode = ThemeMode.LIGHT)) {
+                ChatRoute(vm.chatId, onBack = {}, tab = NetworkId.DEMO, viewModel = vm)
+            }
+        }
+        waitUntil { vm.state.value.filter == demo.account.id }
+        assertEquals(demo.account.id, vm.state.value.filter)
     }
 
     private fun waitUntil(condition: () -> Boolean) =

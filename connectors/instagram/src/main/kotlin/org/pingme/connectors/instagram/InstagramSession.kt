@@ -35,6 +35,7 @@ import org.pingme.core.connector.remoteId
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.Attachment
 import org.pingme.core.model.AttachmentKind
+import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.MessageId
@@ -591,6 +592,17 @@ internal class InstagramSession(
         val url = media.url.ifEmpty { request { session.mediaUrl(media.thread, media.id) } }
         request { session.download(url, target.absolutePath) }
         return target
+    }
+
+    /** Asks Instagram to move the chat; throws, with what it said, when it stays where it was. */
+    suspend fun moveFolder(
+        chatId: ChatId,
+        folder: ChatFolder,
+    ) {
+        val now = request { session.moveThread(chatId.remoteId, folder.name) }
+        if (!now.equals(folder.name, ignoreCase = true)) {
+            throw UnsupportedCapabilityException("Instagram keeps it in '$now'")
+        }
     }
 
     /** Runs a bridge call off the main thread; a signed-out answer also ends the session. */

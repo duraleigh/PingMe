@@ -33,6 +33,14 @@ data class ChatRow(
     val isUnread: Boolean get() = chat.unreadCount > 0
 }
 
+/** An Instagram chat of its own, already past Requests: it can go between Primary and General. */
+val ChatRow.movesFolder: Boolean
+    get() =
+        network == org.pingme.core.model.NetworkId.INSTAGRAM &&
+            !org.pingme.core.service.merge.Merges
+                .isMergedId(chat.id) &&
+            chat.folder != org.pingme.core.model.ChatFolder.REQUESTS
+
 /** A bar button with its unread badge. [item] null is All. */
 data class BarEntry(
     val item: InboxBarItem?,

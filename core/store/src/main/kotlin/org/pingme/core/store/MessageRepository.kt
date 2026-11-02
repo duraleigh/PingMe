@@ -56,9 +56,13 @@ class MessageRepository
                 }
             }
 
-        /** How many messages each chat holds since [since]; chats with none are absent. */
-        fun activitySince(since: Instant): Flow<Map<ChatId, Int>> =
-            dao.observeCountsSince(since).map { rows -> rows.associate { ChatId(it.chatId) to it.n } }
+        /** When you last sent to each chat; chats you never sent to are absent. */
+        fun lastSent(): Flow<Map<ChatId, Instant>> =
+            dao.observeLastSent().map { rows -> rows.associate { ChatId(it.chatId) to it.at } }
+
+        /** Your messages still "sending" from before [before]. */
+        suspend fun stuckSending(before: Instant): List<MessageId> =
+            dao.idsWithStatus(MessageStatus.Sending, before).map(::MessageId)
 
         /** Who "you" are in [chatId], known once you have sent anything there. */
         suspend fun selfIn(chatId: ChatId): PersonId? = dao.selfSenderId(chatId.value)?.let(::PersonId)

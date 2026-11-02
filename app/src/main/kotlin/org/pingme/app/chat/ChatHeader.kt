@@ -35,9 +35,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -93,7 +91,8 @@ private fun NetworkPicker(
 ) {
     var open by remember { mutableStateOf(false) }
     val current = state.members.firstOrNull { it.accountId == state.filter }
-    Box {
+    val sending = current ?: state.members.firstOrNull { it.chatId == state.sendVia }
+    Box(Modifier.swipeThroughNetworks(state.members, sending) { onFilter?.invoke(it.accountId) }) {
         Row(
             Modifier.clickable(role = Role.Button, onClickLabel = stringResource(R.string.chat_pick_network)) {
                 open =
@@ -188,10 +187,8 @@ private fun TitleBlock(
                 }
                 Text(
                     liveStatus(state),
-                    // "Sam is typing…" is spoken as it changes (Phase 8, P8.1).
-                    Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (state.typing.isEmpty()) colours.onSurfaceVariant else colours.primary,
+                    color = colours.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -200,23 +197,11 @@ private fun TitleBlock(
     }
 }
 
-/** "Sam is typing…", "Priya and Leo are typing…", or for groups how many are in it. */
+/** For groups how many are in it; who is typing shows as a bubble in the chat (owner, 2026-11-01). */
 @Composable
 private fun liveStatus(state: ChatUiState): String {
     val chat = state.chat ?: return ""
     return when {
-        state.typing.size == 1 && chat.kind == ChatKind.DIRECT -> {
-            stringResource(R.string.inbox_typing)
-        }
-
-        state.typing.size == 1 -> {
-            stringResource(R.string.chat_one_typing, state.typing.single().substringBefore(' '))
-        }
-
-        state.typing.size > 1 -> {
-            stringResource(R.string.chat_many_typing)
-        }
-
         chat.kind == ChatKind.GROUP -> {
             // Everyone else plus you; a network that lists you among the members is not counted twice
             // (owner, Gate G3: the count was one too many).

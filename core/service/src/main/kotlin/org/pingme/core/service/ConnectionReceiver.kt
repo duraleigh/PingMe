@@ -8,7 +8,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.pingme.core.connector.Diag
-import org.pingme.core.store.AccountRepository
 import javax.inject.Inject
 
 /**
@@ -20,7 +19,7 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 class ConnectionReceiver : BroadcastReceiver() {
-    @Inject lateinit var accounts: AccountRepository
+    @Inject lateinit var keeper: ConnectionKeeper
 
     @Inject @ApplicationScope
     lateinit var scope: CoroutineScope
@@ -29,19 +28,24 @@ class ConnectionReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent,
     ) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
-        Diag.note(TAG, "${intent.action}: starting the connection service if an account needs it")
+        val action = intent.action
+        val known = action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED
+        if (!known && action != ACTION_WATCH) return
+        if (known) Diag.connection(TAG, "$action: starting the connection service if an account needs it")
         val pending = goAsync()
         scope.launch {
             try {
-                ConnectionService.startIfNeeded(context, accounts)
+                keeper.checkNow(action.orEmpty())
             } finally {
                 pending.finish()
             }
         }
     }
 
-    private companion object {
-        const val TAG = "PingMeConnection"
+    companion object {
+        private const val TAG = "PingMeConnection"
+
+        /** The keeper's alarm (owner, 2026-11-01). */
+        const val ACTION_WATCH = "org.pingme.action.CONNECTION_WATCH"
     }
 }

@@ -142,3 +142,11 @@ enum class LinkPreviewSource {
     NETWORK,
     LOCAL,
 }
+
+/**
+ * Whether the file here is only the network's small preview, with the full one still on its way.
+ * Google Messages hands a picture over that way first (owner, Gate G3); its reference then has
+ * an empty media id.
+ */
+val Attachment.isPreviewOnly: Boolean
+    get() = remoteRef?.contains("\"mediaId\":\"\"") == true

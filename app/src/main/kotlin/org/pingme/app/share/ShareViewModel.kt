@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.share
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,6 +20,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.pingme.app.chat.attach.OutgoingFiles
 import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.connector.Diag
@@ -25,16 +30,15 @@ import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Person
+import org.pingme.core.service.ApplicationScope
 import org.pingme.core.service.ChatActions
 import org.pingme.core.service.MessageActions
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
 import org.pingme.core.store.MessageRepository
-import org.pingme.core.store.SettingsRepository
 import javax.inject.Inject
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
+import kotlin.time.Instant
 
 /** Somewhere a share can go: a chat PingMe has, or a person a new chat can start with. */
 sealed interface ShareTarget {
@@ -89,7 +93,8 @@ class ShareViewModel
         private val messageActions: MessageActions,
         private val files: OutgoingFiles,
         messages: MessageRepository,
-        private val settings: SettingsRepository,
+        @param:ApplicationContext private val context: Context,
+        @ApplicationScope private val appScope: CoroutineScope,
     ) : ViewModel() {
         private val payload = requests.take()
         private val form =
@@ -99,6 +104,7 @@ class ShareViewModel
                     fileCount =
                         payload?.uris?.size ?: 0,
                     empty = payload == null,
+                    picked = setOfNotNull(payload?.chatKey),
                 ),
             )
         private val done = Channel<ChatId?>(Channel.BUFFERED)
@@ -109,19 +115,13 @@ class ShareViewModel
         private val failures = Channel<String?>(Channel.BUFFERED)
         val failed = failures.receiveAsFlow()
 
-        /** How much each chat is used: messages in the last month, and shares from this picker. */
-        private val use =
-            combine(messages.activitySince(Clock.System.now() - RECENT), settings.shareCounts) { talked, shared ->
-                Use(talked, shared)
-            }
-
         @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
         val state: StateFlow<ShareUiState> =
-            combine(form, accounts.accounts(), chats.all(), use) { f, accountList, chatList, use ->
+            combine(form, accounts.accounts(), chats.all(), messages.lastSent()) { f, accountList, chatList, sent ->
                 val networks = accountList.associate { it.id to it.network }
                 val q = f.query.trim()
                 val rows =
-                    rank(chatList, use)
+                    rank(chatList, sent)
                         .mapNotNull { chat -> networks[chat.accountId]?.let { ShareTarget.ToChat(chat, it) } }
                         .filter { q.isEmpty() || it.title.contains(q, ignoreCase = true) }
                 Triple(f.copy(chats = rows), accountList, q)
@@ -134,19 +134,26 @@ class ShareViewModel
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), form.value)
 
         /**
-         * The chats most shared with and most talked in first, then the rest by recency
-         * (owner, 2026-10-10: "most frequently interacted with or most frequently shared with",
-         * not the latest messages). A merged chat stands for its members, which are left out,
-         * so no one is listed twice (owner, 2026-10-10: Parker Aiken twice).
+         * Whoever you last sent to first, typed or shared, then the rest by recency (owner,
+         * 2026-11-01: "most recent recipients"; this replaces the most-used order of 2026-10-10).
+         * A merged chat stands for its members, which are left out, so no one is listed twice,
+         * and it counts from its newest send on any of them.
          */
         private fun rank(
             chatList: List<Chat>,
-            use: Use,
-        ): List<Chat> =
-            chatList
+            sent: Map<ChatId, Instant>,
+        ): List<Chat> {
+            val lastSent = HashMap<ChatId, Instant>()
+            chatList.forEach { chat ->
+                val at = sent[chat.id] ?: return@forEach
+                val key = chat.mergedInto ?: chat.id
+                if (lastSent[key].let { it == null || it < at }) lastSent[key] = at
+            }
+            return chatList
                 .filter { !it.isArchived && it.mergedInto == null }
                 .distinctBy { it.id }
-                .sortedWith(compareByDescending<Chat> { use.score(it.id) }.thenByDescending { it.lastActivityAt })
+                .sortedWith(compareByDescending<Chat> { lastSent[it.id] }.thenByDescending { it.lastActivityAt })
+        }
 
         private fun peopleOn(
             startable: List<Account>,
@@ -200,24 +207,43 @@ class ShareViewModel
             if (share == null || targets.isEmpty() || s.sending) return
             form.update { it.copy(sending = true) }
             viewModelScope.launch {
-                val went = targets.mapNotNull { sendOne(it, share, s.note) }
+                if (share.text.isBlank() && share.uris.none { files.canRead(it) }) {
+                    failures.send(UNREADABLE)
+                    form.update { it.copy(sending = false) }
+                    return@launch
+                }
+                val chatsToSend = targets.mapNotNull { chatOrSay(it) }
                 form.update { it.copy(sending = false) }
-                // Nothing went: the picker stays, with the reason on screen, instead of closing
-                // as if it had worked.
-                if (went.isEmpty()) return@launch
+                if (chatsToSend.isEmpty()) return@launch
+                // The send goes on without this screen, which closes now: the bubble and its
+                // progress are in the chat (owner, 2026-11-01: "take me directly to the chat").
+                appScope.launch { chatsToSend.forEach { sendOne(it, share, s.note) } }
                 requests.finish()
-                done.send(went.singleOrNull())
+                done.send(chatsToSend.singleOrNull())
             }
         }
 
-        /** One target's send; the chat it went to, or null with the reason raised for the screen. */
+        /** The chat to send to; only someone new takes a moment, while the network makes it. */
+        private suspend fun chatOrSay(target: ShareTarget): ChatId? =
+            try {
+                chatFor(target)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                Diag.note(TAG, "No chat for $target: $e")
+                failures.send(e.message)
+                null
+            }
+
+        /** One chat's send, after the screen has gone: a failure shows on its bubble, or else in a toast. */
         private suspend fun sendOne(
-            target: ShareTarget,
+            chatId: ChatId,
             share: SharePayload,
             note: String,
-        ): ChatId? =
+        ) {
             try {
-                val chatId = chatFor(target)
                 // Copied once per send: a network may keep or move the file it is given.
                 val attachments = share.uris.mapNotNull { files.copy(it) }
                 Diag.note(TAG, "To ${chatId.value}: ${attachments.size} of ${share.uris.size} file(s) readable")
@@ -225,23 +251,27 @@ class ShareViewModel
                 // note follows as its own message once it is away, so the other side never
                 // reads the words and then waits for the picture (owner, Gate G7).
                 if (share.text.isBlank() && attachments.isEmpty()) {
-                    failures.send(UNREADABLE)
-                    null
-                } else {
-                    val message = messageActions.send(chatId, share.text, attachments = attachments)
-                    Diag.note(TAG, "Sent ${message.id.value} to ${chatId.value}: ${message.status}")
-                    note.trim().takeIf { it.isNotEmpty() }?.let { messageActions.send(chatId, it) }
-                    settings.noteShare(chatId)
-                    chatId
+                    tell(UNREADABLE)
+                    return
                 }
+                val message = messageActions.send(chatId, share.text, attachments = attachments)
+                Diag.note(TAG, "Sent ${message.id.value} to ${chatId.value}: ${message.status}")
+                note.trim().takeIf { it.isNotEmpty() }?.let { messageActions.send(chatId, it) }
             } catch (e: CancellationException) {
                 throw e
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
-                Diag.note(TAG, "Share to $target failed: $e")
-                failures.send(e.message)
-                null
+                Diag.note(TAG, "Share to ${chatId.value} failed: $e")
+                tell(e.message ?: UNREADABLE)
+            }
+        }
+
+        private suspend fun tell(reason: String) =
+            withContext(Dispatchers.Main) {
+                android.widget.Toast
+                    .makeText(context, reason, android.widget.Toast.LENGTH_LONG)
+                    .show()
             }
 
         private suspend fun chatFor(target: ShareTarget): ChatId =
@@ -250,18 +280,8 @@ class ShareViewModel
                 is ShareTarget.ToPerson -> chatActions.startChat(target.person.accountId, target.person.networkHandle)
             }
 
-        /** Messages in the last month and picker shares, by chat; a share counts as [SHARE_WEIGHT] messages. */
-        private class Use(
-            private val talked: Map<ChatId, Int>,
-            private val shared: Map<String, Int>,
-        ) {
-            fun score(id: ChatId): Int = (talked[id] ?: 0) + SHARE_WEIGHT * (shared[id.value] ?: 0)
-        }
-
         private companion object {
             const val STOP_AFTER = 5_000L
-            const val SHARE_WEIGHT = 5
-            val RECENT = 30.days
             const val MAX_PEOPLE = 30
             const val TAG = "PingMeShare"
 

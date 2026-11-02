@@ -370,6 +370,19 @@ private fun swipeLook(
             SwipeLook(c.error, c.onError, UiR.drawable.ic_delete, R.string.action_delete)
         }
 
+        SwipeAction.MOVE_FOLDER -> {
+            SwipeLook(
+                c.tertiaryContainer,
+                c.onTertiaryContainer,
+                UiR.drawable.ic_archive,
+                if (row.chat.folder == org.pingme.core.model.ChatFolder.GENERAL) {
+                    R.string.action_move_primary
+                } else {
+                    R.string.action_move_general
+                },
+            )
+        }
+
         SwipeAction.OFF -> {
             SwipeLook(Color.Transparent, Color.Transparent, UiR.drawable.ic_close, R.string.fab_close)
         }

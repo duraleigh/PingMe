@@ -110,6 +110,7 @@ internal fun NewChatPreview() =
                 PreviewData.account.id,
                 title = "Climbing",
                 members = listOf("Sam Ortiz"),
+                naming = true,
             ),
             NewChatActions({}, {}, {}, {}, {}, {}, {}),
         )

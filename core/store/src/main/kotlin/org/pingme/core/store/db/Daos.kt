@@ -88,9 +88,9 @@ data class LastMessageRow(
 )
 
 /** How many messages a chat holds since some time: how much it is talked in. */
-data class ChatCountRow(
+data class ChatTimeRow(
     val chatId: String,
-    val n: Int,
+    val at: Instant,
 )
 
 @Dao
@@ -102,6 +102,15 @@ interface ChatDao {
     /** Remembers that the user deleted a chat here, so a network listing does not bring it back. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun tombstone(tombstone: ChatTombstoneEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun setFolderMove(move: ChatFolderMoveEntity)
+
+    @Query("SELECT folder FROM chat_folder_moves WHERE chatId = :chatId")
+    suspend fun folderMove(chatId: String): ChatFolder?
+
+    @Query("DELETE FROM chat_folder_moves WHERE chatId = :chatId")
+    suspend fun clearFolderMove(chatId: String)
 
     @Query("SELECT hiddenAt FROM chat_tombstones WHERE chatId = :chatId")
     suspend fun hiddenAt(chatId: String): Instant?
@@ -331,9 +340,16 @@ interface MessageDao {
     @Query("SELECT MAX(sentAt) FROM messages WHERE chatId = :chatId")
     suspend fun newestSentAt(chatId: String): Instant?
 
-    /** Messages per chat since [since], for ranking the share picker by use (UI_DESIGN.md 5.8). */
-    @Query("SELECT chatId AS chatId, COUNT(*) AS n FROM messages WHERE sentAt > :since GROUP BY chatId")
-    fun observeCountsSince(since: Instant): Flow<List<ChatCountRow>>
+    /** When you last sent to each chat, for ranking the share picker (UI_DESIGN.md 5.8). */
+    @Query("SELECT chatId AS chatId, MAX(sentAt) AS at FROM messages WHERE isOutgoing = 1 GROUP BY chatId")
+    fun observeLastSent(): Flow<List<ChatTimeRow>>
+
+    /** Your messages still on [status] from before [before]: left behind, since a send ends in minutes. */
+    @Query("SELECT id FROM messages WHERE isOutgoing = 1 AND status = :status AND sentAt < :before")
+    suspend fun idsWithStatus(
+        status: MessageStatus,
+        before: Instant,
+    ): List<String>
 
     /** The newest message of every chat, for inbox previews (UI_DESIGN.md 3.1). */
     @Query(

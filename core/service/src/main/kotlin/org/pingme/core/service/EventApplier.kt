@@ -171,13 +171,22 @@ class EventApplier
             if (hiddenHere(snapshot.id, snapshot.lastActivityAt)) return
             snapshot.participants.forEach { people.remember(it) }
             val existing = chats.get(snapshot.id)
-            if (existing != null && snapshot.folder != null && existing.folder != snapshot.folder) {
+            val movedHere = chats.folderMove(snapshot.id)
+            if (movedHere == null && existing != null && snapshot.folder != null &&
+                existing.folder != snapshot.folder
+            ) {
                 val move = "Chat ${snapshot.id.value} moves ${existing.folder} to ${snapshot.folder}: ${snapshot.title}"
                 android.util.Log.i(TAG, move)
                 Diag.note(TAG, move)
             }
             val merged = existing?.withSnapshot(snapshot) ?: snapshot.toNewChat()
-            chats.upsert(merged.copy(title = people.titleFor(snapshot), unreadCount = unreadFor(existing, snapshot)))
+            chats.upsert(
+                merged.copy(
+                    title = people.titleFor(snapshot),
+                    unreadCount = unreadFor(existing, snapshot),
+                    folder = movedHere ?: merged.folder,
+                ),
+            )
         }
 
         /**

@@ -280,19 +280,27 @@ internal fun Reactions(
     if (open) ReactionsSheet(message.reactions, context) { open = false }
 }
 
-/** "Not sent: <reason>" with Retry (UI_DESIGN.md 3.2). */
+/**
+ * "Not sent: <reason>" with Try again and Delete (UI_DESIGN.md 3.2). The buttons have a line of
+ * their own: beside a long reason they were squeezed out of sight (owner, 2026-11-01).
+ */
 @Composable
 internal fun FailedRow(
     reason: String,
     onRetry: () -> Unit,
+    onDelete: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
         Text(
             stringResource(R.string.chat_not_sent, reason),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.error,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
         )
-        TextButton(onClick = onRetry) { Text(stringResource(R.string.chat_retry)) }
+        Row {
+            TextButton(onClick = onRetry) { Text(stringResource(R.string.chat_retry)) }
+            TextButton(onClick = onDelete) { Text(stringResource(R.string.chat_delete_failed)) }
+        }
     }
 }
 

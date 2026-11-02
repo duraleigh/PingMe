@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import org.pingme.core.connector.Diag
 import org.pingme.core.store.AccountRepository
 import javax.inject.Inject
 
@@ -51,6 +52,7 @@ class ConnectionService : Service() {
                 val changed = lost || (current != null && current != network)
                 current = network
                 lost = false
+                Diag.connection(TAG, "Network $network available (change=$changed)")
                 if (changed) supervisor.onNetworkChanged()
             }
 
@@ -58,6 +60,7 @@ class ConnectionService : Service() {
                 if (current == network) {
                     current = null
                     lost = true
+                    Diag.connection(TAG, "Network $network lost")
                 }
             }
         }
@@ -71,6 +74,8 @@ class ConnectionService : Service() {
                 0
             }
         ServiceCompat.startForeground(this, NOTIFICATION_ID, connectedNotification(), type)
+        running = true
+        Diag.connection(TAG, "The connection service started")
         supervisor.start()
         contactsWatcher.start()
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
@@ -90,6 +95,8 @@ class ConnectionService : Service() {
     ) = START_STICKY
 
     override fun onDestroy() {
+        running = false
+        Diag.connection(TAG, "The connection service stopped")
         accountWatch?.cancel()
         getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback)
         supervisor.stop()
@@ -130,7 +137,14 @@ class ConnectionService : Service() {
     }
 
     companion object {
+        private const val TAG = "PingMeConnection"
         private const val NOTIFICATION_ID = 1
+
+        /** Whether the service is up in this process, for [ConnectionKeeper]'s check. */
+        @Volatile
+        var running = false
+            private set
+
         private const val CHANNEL = "connection"
 
         /** Starts the service. Call while the app is in the foreground. */

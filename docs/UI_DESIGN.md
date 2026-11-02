@@ -134,7 +134,10 @@ Design system: Material 3 Expressive, implemented with Jetpack Compose Material 
   system status bar height, 24 dp on most phones, and nothing more.
 - **Filters**: the bottom bar, section 3.1 above, and section 10.4 for spaces.
 - **FAB menu**: expands into New chat and New group. (Scan QR was removed by the
-  owner, 2026-09-30.) New chat and New group always start on Google Messages, with
+  owner, 2026-09-30.) New group goes as in Google Messages: people first, by name, then Next,
+  then the group's name, which is optional on Google Messages and needed elsewhere (owner,
+  2026-11-01). People with names list above bare numbers. New chat and New group always
+  start on Google Messages, with
   its chip first, whatever was picked last time (owner, 2026-10-05). Under each
   person's name is their number or username, never a network's raw id.
 - **Connection health chip**: when any connector is not Connected, a slim chip appears
@@ -185,8 +188,14 @@ group chat with no way to see whose it was).
 - **Header badge**: the network badge sits beside the live status, except for Google
   Messages, which carries none (owner, Gate G3).
 - **Day separators** and a "new messages" divider.
-- **Header**: avatar, name, network badge, live status (typing, online, last seen where
-  the network provides it). Tap opens Chat details.
+- **Header**: avatar, name, network badge, live status (online, last seen where the network
+  provides it). Tap opens Chat details.
+- **Typing**: a bubble of moving dots under the newest message, as in Google Messages, and
+  not words in the header; a group says who (owner, 2026-11-01). Reading older messages is
+  not disturbed.
+- **A message that did not send** says "Not sent" and why in plain words, with Try again and
+  Delete on a line of their own. One still sending after two minutes (ten with a file), or
+  left behind when the app closed, becomes this (owner, 2026-11-01).
 - **Scroll to bottom** pill with unread count, appears when scrolled up.
 - **Pinned message banner** under the header when the chat has a pinned message (local
   feature, works on every network).
@@ -473,12 +482,16 @@ the Google Voice app.
 
 PingMe is in Android's share menu (owner, Gate G3): text, pictures, videos, sounds, and
 files shared from another app open a picker of chats, with people from the networks that
-can start a chat once a search is typed. The chats are listed by use, not by their latest
-message (owner, 2026-10-10): the ones shared to from this picker and talked in most over
-the last month come first (a share counts for five messages), and the rest follow by
-recency. A merged chat stands for its members, which are not listed on their own, so no
-one appears twice. Several can be picked; each gets its own message, one after the
-other, the way Google Messages does. One pick opens that chat; more go back to the inbox. A voice note, sound, or file in a chat also saves to the
+can start a chat once a search is typed. Whoever you last sent to comes first, typed or
+shared, and the rest follow by recency (owner, 2026-11-01, replacing the most-used order of
+2026-10-10). A merged chat stands for its members, which are not listed on their own, so no
+one appears twice, and counts from its newest send on any of them. Each send also puts that
+chat among the faces in Android's own share pop-up; tapping one opens this picker with that
+chat picked. Several can be picked; each gets its own message, one after the other, the way
+Google Messages does. Send closes the picker at once: one pick opens that chat, with the
+message on its way there, and more go back to the inbox (owner, 2026-11-01). A picker with
+nothing it can read stays open and says so. Only someone new takes a moment, while the
+network makes the chat. A voice note, sound, or file in a chat also saves to the
 phone's Downloads (a PingMe folder) from the hold menu's Save.
 
 The "+" button opens a bottom sheet: Camera, Gallery, File, Location, Contact. Images
@@ -566,6 +579,13 @@ PingMe keeps that split and lets notifications differ per folder.
 Instagram's inbox and pending-inbox endpoints and stores it as chat metadata. When
 Instagram moves a thread (a request is accepted, or the user moves a chat between
 Primary and General in the Instagram app), PingMe updates on the next sync.
+
+**Moving a chat from PingMe (owner, 2026-11-01).** "Move to General" and "Move to Primary" are
+in the press-and-hold sheet and the swipe choices, and "Move to General" in the select-several
+bar, with Undo. PingMe asks Instagram to move it, through the one call of Instagram's that
+names a folder and answers with where the chat ended up. If Instagram does not move it, the
+chat still moves in PingMe and stays there through every listing (`chat_folder_moves`); it
+then stays in its old folder in the Instagram app itself.
 
 **How folders show in the inbox.**
 - Primary and General chats appear in the normal list and can be pinned like any
@@ -861,13 +881,17 @@ Chats with the same person on different networks can be merged into one thread.
 - The header badge of a merged chat is tappable: a dropdown offers "All networks" and
   each member network. One network narrows the bubbles to it and sets the composer to
   it; "All" shows everything and sets the composer to the default service. A merged
-  chat opens narrowed to the one network its unread messages came from; with unread
-  from more than one network, or none, it opens on its default network, never on "All"
-  (owner, 2026-10-03).
+  chat opened from a network's tab opens on that network, whatever its default or its
+  unread (owner, 2026-11-01). From All, Unread, a space, search, or a notification it opens
+  narrowed to the one network its unread messages came from; with unread from more than one
+  network, or none, it opens on its default network, never on "All" (owner, 2026-10-03).
 - The composer's text box carries a small network badge inside its left edge and a
   placeholder naming the network ("Send a WhatsApp message", "Send an Instagram DM").
   In a merged chat, tapping the badge opens the network menu to switch for the next
-  messages (owner, 2026-10-03). The GIF picker lives in the + menu so the box is wide.
+  messages (owner, 2026-10-03), and swiping it, in the box or in the header, moves straight
+  to the next network: left is next, right is back, round the ends, in a fixed order with the
+  default first; the header's "All networks" is only in its menu (owner, 2026-11-01). The GIF
+  picker lives in the + menu so the box is wide.
 - Each person has a default service, set in the merged chat's details, and the chip
   starts there.
 - PingMe suggests merges when people share a phone contact, a phone number, or a name

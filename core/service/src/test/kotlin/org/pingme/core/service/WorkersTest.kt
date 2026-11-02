@@ -43,7 +43,15 @@ class WorkersTest : ServiceTest() {
             ): ListenableWorker? =
                 when (workerClassName) {
                     HistoryBackfillWorker::class.java.name -> {
-                        HistoryBackfillWorker(appContext, workerParameters, registry, accounts, messages, applier)
+                        HistoryBackfillWorker(
+                            appContext,
+                            workerParameters,
+                            registry,
+                            accounts,
+                            messages,
+                            chats,
+                            applier,
+                        )
                     }
 
                     MediaDownloadWorker::class.java.name -> {
@@ -90,6 +98,34 @@ class WorkersTest : ServiceTest() {
             assertEquals(ListenableWorker.Result.success(), worker.doWork())
             (1..120).forEach { assertEquals("h$it", messages.get(accountId.message("h$it"))?.networkRemoteId) }
         }
+
+    @Test
+    fun backfillAsksNothingForAChatDeletedHere() =
+        runTest {
+            seed()
+            connector.history = (1..120).map { messageSnapshot("h$it", sentAt = now - it.minutes) }
+            chats.hide(accountId.chat("c1"), now)
+            assertEquals(ListenableWorker.Result.success(), backfill().doWork())
+            assertEquals(0, connector.historyCalls.get())
+            assertNull(messages.oldest(accountId.chat("c1")))
+        }
+
+    @Test
+    fun backfillStopsWhenAFullPageKeepsNothing() =
+        runTest {
+            seed()
+            connector.history = (1..120).map { messageSnapshot("h$it", sentAt = now - it.minutes) }
+            // The store refuses the page once, as it does for a chat hidden mid-run.
+            connector.beforeHistory = { chats.hide(accountId.chat("c1"), now) }
+            assertEquals(ListenableWorker.Result.success(), backfill().doWork())
+            assertEquals(1, connector.historyCalls.get())
+        }
+
+    private fun backfill() =
+        TestListenableWorkerBuilder<HistoryBackfillWorker>(context)
+            .setWorkerFactory(factory)
+            .setInputData(workDataOf(HistoryBackfillWorker.KEY_CHAT to accountId.chat("c1").value))
+            .build()
 
     @Test
     fun mediaDownloadRecordsWhereTheFileWent() =

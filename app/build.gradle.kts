@@ -34,8 +34,8 @@ android {
 
     defaultConfig {
         applicationId = "org.pingme.app"
-        versionCode = 8
-        versionName = "0.7.1"
+        versionCode = 9
+        versionName = "0.7.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GIPHY_API_KEY", "\"$giphyKey\"")
         // A local build for one processor type (-Ppingme.abi=x86_64 for the emulator): the

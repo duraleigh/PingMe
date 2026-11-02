@@ -104,7 +104,9 @@ fun MessageRow(
                 },
             )
             if (message.reactions.isNotEmpty()) Reactions(message, context)
-            (message.status as? MessageStatus.Failed)?.let { FailedRow(it.reason) { context.onRetry(message) } }
+            (message.status as? MessageStatus.Failed)?.let {
+                FailedRow(it.reason, { context.onRetry(message) }, { context.onDelete(message) })
+            }
         }
     }
 }

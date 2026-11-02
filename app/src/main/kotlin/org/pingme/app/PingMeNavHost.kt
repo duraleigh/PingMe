@@ -55,6 +55,7 @@ import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.ConnectionState
+import org.pingme.core.model.NetworkId
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.theme.ScreenMotion
@@ -261,6 +262,14 @@ private fun OpenTappedChat(nav: NavController) {
     }
 }
 
+/** The inbox's pane remembers one string: the chat, and the network tab it was opened from. */
+private fun openKey(
+    id: ChatId,
+    tab: NetworkId?,
+) = id.value + (tab?.let { TAB_MARK + it.name }.orEmpty())
+
+private const val TAB_MARK = "\t"
+
 /**
  * The inbox as a list-detail layout (BUILD_PLAN.md P2.3, UI_DESIGN.md 3.7): on phones the
  * chat replaces the list, on tablets and unfolded foldables it opens beside it.
@@ -277,8 +286,8 @@ private fun InboxHome(nav: NavController) {
             MotionPane(atEnd = false) {
                 InboxRoute(
                     InboxNavigation(
-                        onOpenChat = { id ->
-                            scope.launch { navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, id.value) }
+                        onOpenChat = { id, tab ->
+                            scope.launch { navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, openKey(id, tab)) }
                         },
                         onSearch = { nav.navigate(Search) },
                         onNewChat = { nav.navigate(NewChatRoute(group = false)) },
@@ -300,12 +309,14 @@ private fun InboxHome(nav: NavController) {
         },
         detailPane = {
             MotionPane(atEnd = true) {
-                val id = navigator.currentDestination?.contentKey
-                if (id == null) {
+                val key = navigator.currentDestination?.contentKey
+                if (key == null) {
                     NoChatPicked()
                 } else {
+                    val id = key.substringBefore(TAB_MARK)
                     ChatRoute(
                         ChatId(id),
+                        tab = key.substringAfter(TAB_MARK, "").takeIf { it.isNotEmpty() }?.let(NetworkId::valueOf),
                         onBack =
                             if (navigator.canNavigateBack()) {
                                 (

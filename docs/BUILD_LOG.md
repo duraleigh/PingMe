@@ -4366,3 +4366,65 @@ Installed at 11:53 AM on the 16th (this and the "Stop without sending" button of
 together; the phone had been off wireless debugging in between). The service came back by
 itself. Waiting on the owner: the inbox opening on Unread, and the trash during a held
 recording.
+
+### 2026-11-01: the owner's eleven notes (version 0.7.2)
+
+Worked from the owner's list and screenshots. This computer (Alvis-ThinkPad) had no PingMe; the
+code came from `phase-7`, with Java 17, Go, and the bridge parts installed fresh.
+
+**What the phone showed about Google Messages dropping** (read over wireless debugging, screen
+untouched). Nothing in the connection code had changed since 2026-10-07.
+
+- `HistoryBackfillWorker` looped for ever on a chat deleted here: the store refuses its pages, so
+  "oldest stored" stays empty and the same newest 50 come back. Chat `/95` (deleted Oct 3) wrote
+  4,528 identical diary lines from 7:41 to 8:09 PM, and the job record shows 487 runs in 30
+  minutes. Fixed: a hidden chat is not fetched, and a full page that keeps nothing ends the run.
+- That flood emptied the half-megabyte diary, so nothing older could be counted. Fixed: the same
+  line twice in a row is written once with a count, and connections have `connection.log`.
+- `dumpsys activity exit-info`: eight `KILL UID` shutdowns on Oct 27-31, all within 9 seconds of
+  the top of an hour, described "Foreground kill" or "SmartBackground". Motorola's software by
+  the look of it; not proven. Some are followed by PingMe alive with no connection service.
+  Added `ConnectionKeeper`: at each process start and on a 15-minute exact alarm it starts the
+  service if it is down, and writes each shutdown the phone recorded to `connection.log`.
+- PingMe is not on the phone's battery-unrestricted list. Not changed: the owner's setting.
+- Backoff cap 5 minutes to 1 (P1.4 said 5). Google Messages says Connected as soon as the phone is
+  ready and reads its chats after; `connection.log` gives how long each step took.
+- `mautrix-gmessages` moved from v0.2609.0 to the commit of 2026-10-28, for the long-poll fixes of
+  Oct 17 and 26. `UploadMedia` and `DownloadMedia` now take a context; both get ten minutes.
+
+Whether these end the drops is not known until `connection.log` has a few days in it.
+
+**The notes.**
+
+1. Share list: last sent to first, typed or shared, a merged chat by its newest send on any
+   member. Replaces the most-used order of 2026-10-10. Android's own share pop-up gets each chat
+   sent to (`ShareShortcuts`, `res/xml/shortcuts.xml`); a tap opens the picker with it picked.
+2. Instagram General: press-and-hold, swipe choice, select-several. `MoveThread` sends Instagram's
+   accept call with `ig_inbox_folder`, the only call that names a folder, and reads back the folder
+   it answers with. **Not known to work on a thread already accepted**; when it does not, the chat
+   moves in PingMe only and stays (`chat_folder_moves`, schema 9). The Instagram app then still
+   shows the old folder. `Moved ... on the network` or `here only` goes to the diary.
+3. Pictures: the viewer loaded at screen size, so zoom only enlarged that copy; it now loads up to
+   4096 px. Save refuses while only the preview is here. Each download writes bytes held against
+   what the network reports. **Whether Google gives PingMe a smaller copy than its own app is still
+   unmeasured**, so this may not be all of it.
+4. Groups: people first, by name, then Next, then a name, optional on Google Messages. The bridge
+   asks without the name first and with it only if that fails. Answers 2 and 4 are in no list
+   (`GetOrCreateConversationResponse.Status` names 0, 1, 3); the whole answer now goes to the diary.
+   **Why they came is unproven, and only the owner's real group can test it.**
+5. Failed messages: `FailedRow` put a long reason and Retry on one line, which squeezed Retry to
+   nothing. Now Try again and Delete have their own line. Sending ends after 2 minutes (10 with a
+   file), and one left behind at the next start becomes Not sent. No automatic resend, since a
+   timeout can mean it arrived. The http2 words read "Google didn't answer in time".
+6. See above.
+7. The Google Messages look: **not started**. The agreed step is a screen-by-screen list from the
+   owner's own Google Messages, approved before anything changes, and that needs its screens.
+8. Typing: a bubble under the list, out of the header. Beside the list rather than in it, so the
+   indexes that jumps and the unread pill rely on do not move.
+9. Chip swipe, both chips: `swipeOrder` is fixed, default first, because the member list reorders
+   with activity. Tapping still opens the menu.
+10. A network tab opens that network, carried in the pane's content key. All, Unread, spaces,
+    search, and notifications keep the unread-then-default rule of 2026-10-03, which the owner was
+    told; a chat opened on the default could hide its unread message.
+11. Share: Send closes the picker at once and the send runs on the application scope. A share
+    nothing can be read from still stays, checked by opening it rather than copying it.

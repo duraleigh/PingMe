@@ -11,15 +11,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.pingme.app.R
 import org.pingme.core.model.Chat
+import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
 import org.pingme.core.service.ChatActions
 import org.pingme.core.ui.theme.SwipeAction
 
 /** Something a swipe or the action sheet does to a chat (UI_DESIGN.md 3.1). */
-enum class ChatAction { PIN, READ, MUTE, ARCHIVE, LOW_PRIORITY, OBSCURE, DELETE }
+enum class ChatAction { PIN, READ, MUTE, ARCHIVE, LOW_PRIORITY, OBSCURE, MOVE_FOLDER, DELETE }
 
 /** What the selection bar does to every selected chat at once (owner, Gate G3). */
-enum class BulkAction { READ, UNREAD, MUTE, ARCHIVE, LOW_PRIORITY, MERGE, DELETE }
+enum class BulkAction { READ, UNREAD, MUTE, ARCHIVE, LOW_PRIORITY, MERGE, MOVE_GENERAL, DELETE }
 
 /** A snackbar to show, with what Undo does (if anything) and what happens when it goes away. */
 class InboxMessage(
@@ -60,6 +61,7 @@ class RowActions(
             SwipeAction.MARK_READ -> perform(row, ChatAction.READ)
             SwipeAction.LOW_PRIORITY -> perform(row, ChatAction.LOW_PRIORITY)
             SwipeAction.DELETE -> perform(row, ChatAction.DELETE)
+            SwipeAction.MOVE_FOLDER -> if (row.movesFolder) perform(row, ChatAction.MOVE_FOLDER)
             SwipeAction.OFF -> Unit
         }
     }
@@ -109,11 +111,28 @@ class RowActions(
                     actions.setObscured(chat.id, !chat.isObscured)
                 }
 
+                ChatAction.MOVE_FOLDER -> {
+                    moveFolder(chat, if (chat.folder == ChatFolder.GENERAL) ChatFolder.PRIMARY else ChatFolder.GENERAL)
+                }
+
                 ChatAction.DELETE -> {
                     delete(chat)
                 }
             }
         }
+    }
+
+    /** One tap with Undo, like archive: the chat leaves this list straight away. */
+    private suspend fun moveFolder(
+        chat: org.pingme.core.model.Chat,
+        to: ChatFolder,
+    ) {
+        val back = chat.folder ?: ChatFolder.PRIMARY
+        undoable(
+            chat,
+            if (to == ChatFolder.GENERAL) R.string.inbox_moved_general else R.string.inbox_moved_primary,
+            { actions.moveFolder(chat.id, to) },
+        ) { actions.moveFolder(chat.id, back) }
     }
 
     /**
@@ -137,6 +156,7 @@ class RowActions(
                     BulkAction.ARCHIVE -> actions.setArchived(id, true)
                     BulkAction.LOW_PRIORITY -> actions.setLowPriority(id, true)
                     BulkAction.DELETE -> actions.delete(id)
+                    BulkAction.MOVE_GENERAL -> actions.moveFolder(id, ChatFolder.GENERAL)
                     BulkAction.MERGE -> Unit
                 }
             }
@@ -160,6 +180,7 @@ class RowActions(
     @StringRes
     private fun bulkDone(action: BulkAction): Int =
         when (action) {
+            BulkAction.MOVE_GENERAL -> R.string.inbox_bulk_general
             BulkAction.READ -> R.string.inbox_bulk_read
             BulkAction.UNREAD -> R.string.inbox_bulk_unread
             BulkAction.MUTE -> R.string.inbox_bulk_muted

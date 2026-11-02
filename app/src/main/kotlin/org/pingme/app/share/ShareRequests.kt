@@ -14,6 +14,8 @@ import javax.inject.Singleton
 data class SharePayload(
     val text: String,
     val uris: List<Uri>,
+    /** The chat picked by tapping its face in Android's own share pop-up. */
+    val chatKey: String? = null,
 )
 
 /**
@@ -62,7 +64,7 @@ class ShareRequests
                     }
                 val text = intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
                 if (text.isBlank() && uris.isEmpty()) return null
-                return SharePayload(text, uris)
+                return SharePayload(text, uris, intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID))
             }
 
             private fun Intent.stream(): Uri? =

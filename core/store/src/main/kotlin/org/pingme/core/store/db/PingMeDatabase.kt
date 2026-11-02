@@ -29,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
         PinnedMessageEntity::class,
         ChatOverridesEntity::class,
         ChatTombstoneEntity::class,
+        ChatFolderMoveEntity::class,
     ],
     version = PingMeDatabase.VERSION,
     exportSchema = true,
@@ -59,7 +60,7 @@ abstract class PingMeDatabase : RoomDatabase() {
         const val NAME = "pingme.db"
 
         /** The schema version. Bump it with a migration in [MIGRATIONS] and an exported schema. */
-        const val VERSION = 8
+        const val VERSION = 9
 
         /** Schema migrations, oldest first (BUILD_PLAN.md P1.6). MigrationTest checks every one. */
         val MIGRATIONS: Array<Migration> =
@@ -71,6 +72,7 @@ abstract class PingMeDatabase : RoomDatabase() {
                 ReadBackfill,
                 ContactLinks,
                 ReadReachesNewest,
+                FolderMoves,
             )
 
         /** Applies the settings every PingMe database needs, on-disk or in-memory. */
@@ -155,6 +157,7 @@ private object ReadBackfill : Migration(VERSION_5, VERSION_6) {
 
 /** 6 to 7 (P7.1): the matched contact's name and photo on a person (UI_DESIGN.md 10.18). */
 private const val VERSION_7 = 7
+private const val VERSION_8 = 8
 
 private object ContactLinks : Migration(VERSION_6, VERSION_7) {
     override fun migrate(connection: SQLiteConnection) {
@@ -167,11 +170,21 @@ private object ContactLinks : Migration(VERSION_6, VERSION_7) {
  * 7 to 8 (Gate G7, round 3): a chat showing as read is stamped read at its newest stored
  * message, not the network's chat time, which could be older (Google Messages).
  */
-private object ReadReachesNewest : Migration(VERSION_7, PingMeDatabase.VERSION) {
+private object ReadReachesNewest : Migration(VERSION_7, VERSION_8) {
     override fun migrate(connection: SQLiteConnection) {
         connection.execSQL(
             "UPDATE `chats` SET `readUpTo` = MAX(`readUpTo`, COALESCE((SELECT MAX(m.`sentAt`) FROM `messages` m " +
                 "WHERE m.`chatId` = `chats`.`id`), `readUpTo`)) WHERE `unreadCount` = 0 AND `readUpTo` IS NOT NULL",
+        )
+    }
+}
+
+/** 8 to 9 (owner, 2026-11-01): chats moved to Primary or General here when Instagram would not. */
+private object FolderMoves : Migration(VERSION_8, PingMeDatabase.VERSION) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `chat_folder_moves` (`chatId` TEXT NOT NULL, `folder` TEXT NOT NULL, " +
+                "PRIMARY KEY(`chatId`))",
         )
     }
 }

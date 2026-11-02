@@ -115,7 +115,7 @@ class ShareViewModelTest {
         assertEquals(1, keys.count { it == merged.value })
     }
 
-    /** The chats shared to come first, not the ones with the latest message (owner, 2026-10-10). */
+    /** Whoever you last sent to comes first, not the chat with the latest message (owner, 2026-11-01). */
     @Test
     fun aChatSharedToRisesToTheTop() {
         val vm = picker(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "https://example.com/story"))
@@ -143,8 +143,11 @@ class ShareViewModelTest {
         vm.send()
         waitFor { finished.isNotEmpty() }
         assertEquals(listOf<ChatId?>(sam), finished)
-        val mine = runBlocking { demo.messages.latest(sam, 5).first() }.filter { it.isOutgoing }
-        assertEquals("https://example.com/story", mine.first().body)
+        // The picker has closed by now; the message follows on its own.
+        waitFor {
+            runBlocking { demo.messages.latest(sam, 5).first() }
+                .any { it.isOutgoing && it.body == "https://example.com/story" }
+        }
     }
 
     @Test

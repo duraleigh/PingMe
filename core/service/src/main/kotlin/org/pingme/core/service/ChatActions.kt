@@ -204,12 +204,27 @@ class ChatActions
             source: AvatarSource,
         ) = change(id) { it.copy(avatarSource = source) }
 
-        /** Moves an Instagram chat between Primary and General on the network too (DESIGN.md 6.4). */
+        /**
+         * Moves an Instagram chat between Primary and General (owner, 2026-11-01): on the network
+         * when it will, and here regardless, where it then stays, even if Instagram still lists it
+         * in the other folder.
+         */
         suspend fun moveFolder(
             id: ChatId,
             folder: ChatFolder,
         ) {
-            connectorFor(id.accountId).moveFolder(id, folder)
+            try {
+                connectorFor(id.accountId).moveFolder(id, folder)
+                chats.clearFolderMove(id)
+                Diag.note(TAG, "Moved ${id.value} to $folder on the network")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                chats.setFolderMove(id, folder)
+                Diag.note(TAG, "Moved ${id.value} to $folder here only: ${e.message}")
+            }
             change(id) { it.copy(folder = folder) }
         }
 

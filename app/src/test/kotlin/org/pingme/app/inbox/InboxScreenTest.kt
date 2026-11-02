@@ -86,7 +86,7 @@ class InboxScreenTest {
             PingMeTheme(appearance) {
                 InboxRoute(
                     InboxNavigation(
-                        onOpenChat = { opened += it },
+                        onOpenChat = { id, _ -> opened += id },
                         onSearch = { searched = true },
                         onNewChat = {},
                         onNewGroup = {},

@@ -140,6 +140,8 @@ class DemoInbox(
             links,
             CountingPreviews(context),
             merges,
+            org.pingme.core.service.notify
+                .ShareShortcuts(context, chats),
         )
     val account =
         Account(
@@ -302,7 +304,8 @@ class DemoInbox(
             messageActions,
             files,
             messages,
-            settings,
+            context,
+            scope,
         )
 
     fun settingsViewModel() =

@@ -423,6 +423,23 @@ func (s *Session) AcceptRequest(fbid string) error {
 	return wrap(err)
 }
 
+// MoveThread asks Instagram to put a conversation in a folder ("PRIMARY" or "GENERAL") and
+// returns the folder Instagram says it is in. Instagram's web client has no move as such; the
+// accept call is the only one that names a folder, and its answer tells whether it worked.
+func (s *Session) MoveThread(fbid, folder string) (string, error) {
+	ctx, cancel := s.ctx()
+	defer cancel()
+	resp, err := s.client.AcceptMessageRequest(ctx, &slidetypes.AcceptMessageRequestRequest{
+		ThreadID:           fbid,
+		IGInboxFolder:      &folder,
+		OfflineThreadingID: strconv.FormatInt(methods.GenerateEpochID(), 10),
+	})
+	if err != nil {
+		return "", wrap(err)
+	}
+	return resp.Data.Folder, nil
+}
+
 // DeleteThread removes a conversation (declining a request, or leaving it behind).
 func (s *Session) DeleteThread(fbid string) error {
 	ctx, cancel := s.ctx()
