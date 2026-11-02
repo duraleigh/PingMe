@@ -63,6 +63,9 @@ fun ChatHeader(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.messagesBar(androidx.compose.foundation.isSystemInDarkTheme()),
+        // The shade is not one of the theme's own, so Android cannot pair a text colour with it: said
+        // outright, or the name and icons fall back to black (owner, 2026-11-02, 5:45 AM).
+        contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = modifier,
     ) {
         Row(

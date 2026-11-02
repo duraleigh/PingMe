@@ -210,6 +210,8 @@ fun ChatScreen(
             // The app bar is its own layer and the thread a container curved at the top, as on
             // the owner's Google Messages (2026-11-01).
             containerColor = MaterialTheme.colorScheme.messagesBar(androidx.compose.foundation.isSystemInDarkTheme()),
+            // Said outright, as in the header: the bar's shade has no text colour of its own.
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ) { padding ->
             // While a message is held, everything else blurs behind it (UI_DESIGN.md 3.3).
             Box(

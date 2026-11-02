@@ -4529,3 +4529,9 @@ text in dark mode, and the Gradient style runs them into the badge colour as on 
 moved to round 3: on his phone it only clears the bright blue once picked for Google Messages (which had
 made the text black); gradient, tails, shapes, and every other colour stay. A first-time look now sets
 Gradient and tails too. Tests: `MessagesLookTest`, `NetworkPaletteTest.googleMessagesSendsWhiteOnItsDeepBlueInDarkMode`.
+
+**FCI, the chat's top bar (owner, 5:45 AM):** the name and icons came out near black on the dark bar.
+Google Messages' bar shade is not one of the theme's own colours, so Android had no text colour to pair
+with it and fell back to black. The header and the thread behind the messages now name their text
+colour outright. Swept every other panel in the chat and inbox: all use the theme's own colours, which
+pair themselves.
