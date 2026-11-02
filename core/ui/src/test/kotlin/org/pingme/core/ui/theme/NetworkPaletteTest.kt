@@ -90,6 +90,15 @@ class NetworkPaletteTest {
     }
 
     @Test
+    fun googleMessagesSendsWhiteOnItsDeepBlueInDarkMode() {
+        palettes().filter { it.first.contains("dark=true") }.forEach { (name, palette) ->
+            val rcs = palette.outgoing(NetworkId.GMESSAGES, Transport.RCS)
+            assertEquals("$name", Color.White, rcs.content)
+            assertTrue("$name", Hct.fromInt(rcs.container.toArgb()).tone < 35)
+        }
+    }
+
+    @Test
     fun overridesReplaceANetworksColour() {
         val scheme = seedScheme(Color(ThemePreset.PINGME.seed), dark = false, amoled = false, ContrastLevel.STANDARD)
         val orange = 0xFFFF8800.toInt()

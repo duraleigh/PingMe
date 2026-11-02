@@ -4521,3 +4521,11 @@ draws #004787 with white text and no tails.
 
 Auto-rotate: found on during the measure, though the owner keeps it off; set off and left off. Nothing in
 PingMe or Speakboard changes rotation; the setting shows 31 changes since its last reset.
+
+**Google Messages bubbles, the owner's ruling (2026-11-02, 5:20 AM):** "the standard white text on the
+Google Messages deep blue, but … a gradient as the other networks have … and keep the tails." Sent
+bubbles now start from the deep blue (tone 30 of the wallpaper's colour, #004787 on his phone) with white
+text in dark mode, and the Gradient style runs them into the badge colour as on every network. The look
+moved to round 3: on his phone it only clears the bright blue once picked for Google Messages (which had
+made the text black); gradient, tails, shapes, and every other colour stay. A first-time look now sets
+Gradient and tails too. Tests: `MessagesLookTest`, `NetworkPaletteTest.googleMessagesSendsWhiteOnItsDeepBlueInDarkMode`.

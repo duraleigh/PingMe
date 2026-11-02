@@ -83,8 +83,11 @@ class NetworkPalette(
 
             // Google Messages' own deep tone of the wallpaper's color, not Android's brighter
             // container: sampled #004787 on the owner's phone against #2f8fff (2026-11-02).
+            // Its text is white in dark mode, as there (sampled #fefeff); the owner's Gradient style still
+            // runs it into the badge colour, as on every network (2026-11-02).
             network == NetworkId.GMESSAGES && network !in overrides -> {
-                BubbleColors(scheme.primaryContainer.deepTone(dark), scheme.primaryContainer.contentTone(dark), null)
+                val content = if (dark) Color.White else scheme.primaryContainer.contentTone(dark)
+                BubbleColors(scheme.primaryContainer.deepTone(dark), content, null)
             }
 
             else -> {
