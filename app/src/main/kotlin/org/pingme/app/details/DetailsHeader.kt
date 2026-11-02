@@ -72,7 +72,14 @@ fun DetailsHeader(
                 .GroupAvatar(faces, name, size = AVATAR)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(name, style = MaterialTheme.typography.headlineSmallEmphasized, textAlign = TextAlign.Center)
+            // Sized after the pencil: a name long enough to wrap took the whole line and left the
+            // pencil no room at all (owner, 2026-11-01: "why can I not edit that person's name?").
+            Text(
+                name,
+                Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.headlineSmallEmphasized,
+                textAlign = TextAlign.Center,
+            )
             IconButton(
                 { renaming = true },
             ) { Icon(painterResource(UiR.drawable.ic_edit), stringResource(R.string.details_rename)) }

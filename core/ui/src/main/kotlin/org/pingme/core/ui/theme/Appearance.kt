@@ -31,6 +31,8 @@ data class Appearance(
     /** Shape (UI_DESIGN.md 4.2). Bubble corner radius in dp; null follows the shape family. */
     val bubbleCorner: Float? = null,
     val bubbleTails: Boolean = true,
+    /** The Google Messages look has been applied once; a choice made after that stands (owner, 2026-11-01). */
+    val messagesLook: Boolean = false,
     val bubbleStyle: BubbleStyle = BubbleStyle.TONAL,
     // Layout and density (UI_DESIGN.md 4.3)
     val inboxDensity: InboxDensity = InboxDensity.COMFORTABLE,

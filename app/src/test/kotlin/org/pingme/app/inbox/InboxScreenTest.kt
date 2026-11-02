@@ -89,7 +89,6 @@ class InboxScreenTest {
                         onOpenChat = { id, _ -> opened += id },
                         onSearch = { searched = true },
                         onNewChat = {},
-                        onNewGroup = {},
                         onFix = {},
                         menu = MenuActions({}, {}, {}),
                     ),

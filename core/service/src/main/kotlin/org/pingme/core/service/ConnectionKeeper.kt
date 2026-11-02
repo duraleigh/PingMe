@@ -99,6 +99,7 @@ class ConnectionKeeper
             exits.lastOrNull()?.let { seen.edit().putLong(LAST_EXIT, it.timestamp).apply() }
         }
 
+        @androidx.annotation.RequiresApi(Build.VERSION_CODES.R)
         private fun describe(exit: ApplicationExitInfo): String {
             val at = SimpleDateFormat("MM-dd HH:mm:ss", Locale.US).format(Date(exit.timestamp))
             return "The phone shut PingMe down at $at: reason ${exit.reason}, \"${exit.description}\", " +

@@ -67,20 +67,19 @@ internal fun AttachSheet(
     onGif: (() -> Unit)? = null,
 ) {
     PingMeSheet(onDismiss) {
+        // Four across, each a pill over its label, in Google Messages' order (owner, 2026-11-01).
         FlowRow(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 24.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            maxItemsInEachRow = OPTIONS_ACROSS,
         ) {
             val choose = { action: () -> Unit ->
                 action()
                 onDismiss()
             }
-            AttachOption(R.string.attach_camera, UiR.drawable.ic_photo_camera) { choose(pick.camera) }
             AttachOption(R.string.attach_gallery, UiR.drawable.ic_photo_library) { choose(pick.gallery) }
-            AttachOption(R.string.attach_file, UiR.drawable.ic_description) { choose(pick.file) }
-            AttachOption(R.string.attach_location, UiR.drawable.ic_location_on) { choose(pick.location) }
-            AttachOption(R.string.attach_contact, UiR.drawable.ic_contacts) { choose(pick.contact) }
+            AttachOption(R.string.attach_camera, UiR.drawable.ic_photo_camera) { choose(pick.camera) }
             // The GIF picker replaces this sheet: close first, then open it.
             onGif?.let { open ->
                 AttachOption(R.string.gif, UiR.drawable.ic_gif_box) {
@@ -88,6 +87,9 @@ internal fun AttachSheet(
                     open()
                 }
             }
+            AttachOption(R.string.attach_file, UiR.drawable.ic_description) { choose(pick.file) }
+            AttachOption(R.string.attach_location, UiR.drawable.ic_location_on) { choose(pick.location) }
+            AttachOption(R.string.attach_contact, UiR.drawable.ic_contacts) { choose(pick.contact) }
         }
     }
 }
@@ -98,7 +100,7 @@ private fun AttachOption(
     @DrawableRes icon: Int,
     onClick: () -> Unit,
 ) {
-    // The label is part of the target: the whole option takes the tap. The circle is only
+    // The label is part of the target: the whole option takes the tap. The pill is only
     // the look, not a second button: a screen reader found an unnamed button beside each
     // named option (P8.1).
     Column(
@@ -106,10 +108,10 @@ private fun AttachOption(
         modifier = Modifier.width(OPTION_WIDTH).clickable(role = Role.Button, onClick = onClick),
     ) {
         Surface(
-            Modifier.size(OPTION_SIZE),
+            Modifier.size(width = OPTION_PILL_WIDTH, height = OPTION_PILL_HEIGHT),
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
             Box(contentAlignment = Alignment.Center) { Icon(painterResource(icon), null) }
         }
@@ -230,5 +232,7 @@ private fun currentLocation(
 private val LOCATION_PERMISSIONS =
     arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
 private const val MAX_PICKS = 20
-private val OPTION_SIZE = 64.dp
-private val OPTION_WIDTH = 88.dp
+private val OPTION_PILL_WIDTH = 72.dp
+private val OPTION_PILL_HEIGHT = 56.dp
+private val OPTION_WIDTH = 84.dp
+private const val OPTIONS_ACROSS = 4

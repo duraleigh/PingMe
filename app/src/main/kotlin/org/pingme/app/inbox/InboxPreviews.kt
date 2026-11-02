@@ -123,7 +123,7 @@ fun previewInboxState(): InboxUiState {
 }
 
 private val previewNavigation =
-    InboxNavigation({ _, _ -> }, {}, {}, {}, {}, MenuActions({}, {}, {}))
+    InboxNavigation({ _, _ -> }, {}, {}, {}, MenuActions({}, {}, {}))
 
 private val previewCallbacks =
     InboxCallbacks({ _, _ -> }, { _, _ -> }, {}, BarActions({}, { _, _ -> }), {})

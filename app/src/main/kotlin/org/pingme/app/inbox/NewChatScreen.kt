@@ -6,14 +6,17 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -162,7 +166,7 @@ class NewChatViewModel
                             .filter { p ->
                                 q.isEmpty() || p.name.contains(q, true) ||
                                     p.networkHandle.contains(q, true)
-                            }.filter { p -> p.networkHandle !in st.members }
+                            }
                             // People with names first: digits sorted bare numbers to the top of the
                             // list, above everyone the owner knows (owner, 2026-11-01).
                             .sortedWith(compareBy({ p -> p.name.none(Char::isLetter) }, { p -> p.name.lowercase() }))
@@ -211,11 +215,21 @@ class NewChatViewModel
         fun choose(handle: String) {
             val h = handle.trim()
             if (h.isEmpty()) return
-            if (group) {
-                typed = ""
-                form.update { it.copy(members = (it.members + h).distinct(), text = "") }
+            if (group || form.value.members.isNotEmpty()) {
+                pick(h)
             } else {
                 run { actions.startChat(requireNotNull(state.value.account), h) }
+            }
+        }
+
+        /** Holding a person starts a group, as in Google Messages; a tap adds or takes away after that. */
+        fun pick(handle: String) {
+            val account = state.value.accounts.firstOrNull { it.id == state.value.account }
+            if (account == null || registry[account.network]?.capabilities?.createGroup != true) return
+            typed = ""
+            form.update {
+                val members = if (handle in it.members) it.members - handle else it.members + handle
+                it.copy(members = members, text = "")
             }
         }
 
@@ -254,7 +268,7 @@ class NewChatViewModel
 
         private companion object {
             const val STOP_AFTER = 5_000L
-            const val MAX_SUGGESTIONS = 500
+            const val MAX_SUGGESTIONS = 2000
         }
     }
 
@@ -287,6 +301,7 @@ fun NewChatRoute(
                 viewModel::createGroup,
                 viewModel::refreshPeople,
                 viewModel::naming,
+                viewModel::pick,
             ),
         modifier = modifier,
         snackbar = snackbar,
@@ -303,6 +318,7 @@ class NewChatActions(
     val onCreate: () -> Unit,
     val onRefreshPeople: () -> Unit = {},
     val onNaming: (Boolean) -> Unit = {},
+    val onHold: (String) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -314,18 +330,15 @@ fun NewChatScreen(
     modifier: Modifier = Modifier,
     snackbar: SnackbarHostState = remember { SnackbarHostState() },
 ) {
+    // A group starts by holding a person, or from the route that asks for one.
+    val building = group || state.members.isNotEmpty()
+    val naming = building && state.naming
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(if (group) R.string.fab_new_group else R.string.fab_new_chat)) },
-                navigationIcon = {
-                    IconButton(onClick = actions.onBack) {
-                        Icon(painterResource(UiR.drawable.ic_arrow_back), stringResource(R.string.back))
-                    }
-                },
-            )
+        floatingActionButton = {
+            if (building && !naming && state.members.isNotEmpty()) NextButton { actions.onNaming(true) }
         },
+        topBar = { NewChatBar(naming, building, actions.onBack) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         if (state.accounts.isEmpty()) {
@@ -337,35 +350,14 @@ fun NewChatScreen(
             return@Scaffold
         }
         val pickedNetwork = state.accounts.firstOrNull { it.id == state.account }?.network
-        androidx.activity.compose.BackHandler(group && state.naming) { actions.onNaming(false) }
+        androidx.activity.compose.BackHandler(naming) { actions.onNaming(false) }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
-            item { NewChatForm(group, state, actions, pickedNetwork) }
-            if (group && state.naming) return@LazyColumn
+            item { NewChatForm(building, state, actions, pickedNetwork) }
+            if (naming) return@LazyColumn
             if (pickedNetwork == NetworkId.SIGNAL) item { ContactsOnSignal(actions.onRefreshPeople) }
             val typed = state.text.trim()
-            if (typed.isNotEmpty()) {
-                item {
-                    ListItem(
-                        onClick = { actions.onChoose(typed) },
-                        enabled = !state.working,
-                        leadingContent = {
-                            Icon(
-                                painterResource(if (group) UiR.drawable.ic_add else UiR.drawable.ic_chat),
-                                null,
-                            )
-                        },
-                    ) { Text(stringResource(if (group) R.string.new_group_add else R.string.new_chat_start, typed)) }
-                }
-            }
-            items(state.suggestions, key = { it.id.value }) { person ->
-                ListItem(
-                    onClick = { actions.onChoose(person.networkHandle) },
-                    enabled = !state.working,
-                    leadingContent = { Avatar(person.name, size = 40.dp, photo = person.photo) },
-                    // The number or username, never a network's raw id (owner, 2026-10-05: "@lid").
-                    supportingContent = secondLine(person)?.let { line -> { Text(line) } },
-                ) { Text(person.name) }
-            }
+            if (typed.isNotEmpty()) item { TypedRow(typed, building, !state.working) { actions.onChoose(typed) } }
+            people(state, actions)
         }
     }
 }
@@ -438,50 +430,22 @@ private fun NewChatForm(
                     )
                 },
                 singleLine = true,
+                shape =
+                    androidx.compose.foundation.shape
+                        .RoundedCornerShape(28.dp),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             )
-        }
-        if (group) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.members.forEach { handle ->
-                    InputChip(
-                        selected = true,
-                        onClick = { actions.onRemove(handle) },
-                        label = { Text(state.memberNames[handle] ?: handle) },
-                        trailingIcon = {
-                            Icon(
-                                painterResource(UiR.drawable.ic_close),
-                                stringResource(R.string.new_group_remove, state.memberNames[handle] ?: handle),
-                            )
-                        },
-                    )
-                }
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = actions.onCreate,
+                    enabled =
+                        !state.working && state.members.isNotEmpty() &&
+                            (nameOptional(network) || state.title.isNotBlank()),
+                    modifier = Modifier.align(androidx.compose.ui.Alignment.CenterEnd),
+                ) { Text(stringResource(R.string.new_group_create)) }
             }
-        }
-        if (!(group && state.naming)) {
-            OutlinedTextField(
-                state.text,
-                actions.onText,
-                Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.new_chat_who)) },
-                singleLine = true,
-            )
-        }
-        if (group && !state.naming) {
-            Button(
-                onClick = { actions.onNaming(true) },
-                enabled = state.members.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.new_group_next)) }
-        }
-        if (group && state.naming) {
-            Button(
-                onClick = actions.onCreate,
-                enabled =
-                    !state.working && state.members.isNotEmpty() &&
-                        (nameOptional(network) || state.title.isNotBlank()),
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.new_group_create)) }
+        } else {
+            ToField(state, actions)
         }
     }
 }

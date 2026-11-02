@@ -48,20 +48,31 @@ class HistoryBackfillWorker
             val account = accounts.get(chatId.accountId) ?: return Result.failure()
             val connector = registry[account.network] ?: return Result.failure()
             // A chat deleted here keeps no history: its pages would only be thrown away.
-            if (chats.hiddenAt(chatId) != null) return Result.success()
-            repeat(PAGES_PER_RUN) {
+            val more = chats.hiddenAt(chatId) == null && fetchPages(connector, account.id, chatId)
+            // More history remains; the next run continues from the new oldest message.
+            if (more) Work.backfill(applicationContext, chatId)
+            return Result.success()
+        }
+
+        /** A few pages; true when there is more to fetch and the last page moved the store on. */
+        private suspend fun fetchPages(
+            connector: org.pingme.core.connector.Connector,
+            accountId: org.pingme.core.model.AccountId,
+            chatId: ChatId,
+        ): Boolean {
+            var pages = 0
+            var more = true
+            while (more && pages < PAGES_PER_RUN) {
                 val before = messages.oldest(chatId)
                 val page = connector.syncMessages(chatId, before = before, limit = PAGE_SIZE)
                 val complete = page.size < PAGE_SIZE
-                applier.apply(ConnectorEvent.HistoryBatch(account.id, chatId, page, complete))
-                if (complete) return Result.success()
-                // Nothing older was kept, so asking again would fetch this same page for ever
+                applier.apply(ConnectorEvent.HistoryBatch(accountId, chatId, page, complete))
+                // Nothing older kept means asking again would fetch this same page for ever
                 // (owner, 2026-11-01: a chat deleted on Oct 3 was fetched three times a second).
-                if (messages.oldest(chatId) == before) return Result.success()
+                more = !complete && messages.oldest(chatId) != before
+                pages++
             }
-            // More history remains; the next run continues from the new oldest message.
-            Work.backfill(applicationContext, chatId)
-            return Result.success()
+            return more
         }
 
         companion object {

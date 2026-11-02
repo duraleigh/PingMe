@@ -5,6 +5,7 @@ import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -65,5 +66,27 @@ class FailedAndTypingTest {
     fun nobodyTypingShowsNoBubble() {
         compose.setContent { PingMeTheme { TypingBubble(emptyList(), ChatKind.DIRECT) } }
         compose.onNodeWithTag(TYPING_BUBBLE, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    /** A name long enough to wrap left the pencil no room (owner, 2026-11-01: Валентин Иван Бутым). */
+    @Test
+    fun aLongNameKeepsItsPencil() {
+        val chat =
+            org.pingme.app.preview.PreviewData.chat
+                .copy(title = "Валентин Иван Бутым Валентин Иван Бутым")
+        compose.setContent {
+            PingMeTheme {
+                org.pingme.app.details.DetailsHeader(
+                    org.pingme.app.details
+                        .ChatDetailsState(chat = chat),
+                    org.pingme.app.details
+                        .HeaderButtons({}, {}, {}, {}, {}),
+                )
+            }
+        }
+        compose
+            .onNodeWithContentDescription("Change name")
+            .assertIsDisplayed()
+            .assertWidthIsAtLeast(40.dp)
     }
 }

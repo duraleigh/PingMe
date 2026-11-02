@@ -145,9 +145,9 @@ class InboxDestinationsTest {
         waitForText("Group name")
         compose.onNodeWithText("Group name").performTextInput("Trip")
         // The button turns on once there is a name: the demo network wants one, as most do.
-        waitFor { compose.onAllNodes(hasText("Make the group") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        waitFor { compose.onAllNodes(hasText("Done") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         // Through the button's own click action, so a layout still settling cannot move the tap.
-        compose.onNodeWithText("Make the group").performSemanticsAction(SemanticsActions.OnClick)
+        compose.onNodeWithText("Done").performSemanticsAction(SemanticsActions.OnClick)
         waitFor { opened.isNotEmpty() }
         val group = runBlocking { demo.chats.get(opened.single()) }!!
         assertEquals("Trip" to ChatKind.GROUP, group.title to group.kind)

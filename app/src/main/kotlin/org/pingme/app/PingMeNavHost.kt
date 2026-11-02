@@ -291,7 +291,6 @@ private fun InboxHome(nav: NavController) {
                         },
                         onSearch = { nav.navigate(Search) },
                         onNewChat = { nav.navigate(NewChatRoute(group = false)) },
-                        onNewGroup = { nav.navigate(NewChatRoute(group = true)) },
                         onFix = { account -> fix(context, account) },
                         onMergeSuggestions = { nav.navigate(MergeSuggestionsDest) },
                         menu =

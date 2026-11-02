@@ -40,6 +40,8 @@ data class UnreadTotals(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
+// One function per thing asked of a chat; the list reads as one.
+@Suppress("TooManyFunctions")
 class ChatRepository
     @Inject
     constructor(

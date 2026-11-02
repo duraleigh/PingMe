@@ -97,10 +97,14 @@
     <string name="inbox_pin_limit">You can pin up to 12 chats</string>
 
     <!-- FAB menu -->
-    <string name="fab_new">New</string>
     <string name="fab_close">Close</string>
     <string name="fab_new_chat">New chat</string>
-    <string name="fab_new_group">New group</string>
+    <string name="fab_start_chat">Start chat</string>
+    <string name="composer_emoji">Emoji</string>
+    <string name="new_chat_to">To:</string>
+    <string name="new_chat_anyone_else">Anyone else?</string>
+    <string name="new_group_chat">New group chat</string>
+    <string name="new_group_add_name">Add group name</string>
 
     <!-- Avatar menu lists -->
     <string name="list_empty_archived">Nothing archived</string>
@@ -138,7 +142,7 @@
     <string name="media_save_waiting">Still getting the full picture. Try again in a moment.</string>
     <string name="new_group_add">Add %1$s</string>
     <string name="new_group_remove">Remove %1$s</string>
-    <string name="new_group_create">Make the group</string>
+    <string name="new_group_create">Done</string>
 
     <!-- Wide screens before a chat is picked -->
     <string name="chat_pick_one">Pick a chat</string>

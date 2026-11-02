@@ -161,8 +161,34 @@ private fun ShareTargets(
     state: ShareUiState,
     onToggle: (ShareTarget) -> Unit,
 ) {
+    // Recent conversations, a few and then the rest on asking, as in Google Messages (owner, 2026-11-01).
+    var more by rememberSaveable { mutableStateOf(false) }
+    val searching = state.query.isNotBlank()
+    val shown =
+        if (more || searching) {
+            state.chats
+        } else {
+            state.chats.take(RECENT_SHOWN) + state.chats.drop(RECENT_SHOWN).filter { it.key in state.picked }
+        }
     LazyColumn(Modifier.fillMaxSize().padding(top = 8.dp)) {
-        items(state.chats, key = { it.key }) { target -> TargetRow(target, target.key in state.picked, onToggle) }
+        if (!searching) {
+            item(key = "recent") {
+                Text(
+                    stringResource(R.string.share_recent),
+                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+        items(shown, key = { it.key }) { target -> TargetRow(target, target.key in state.picked, onToggle) }
+        if (shown.size < state.chats.size) {
+            item(key = "more") {
+                androidx.compose.material3.TextButton(
+                    onClick = { more = true },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                ) { Text(stringResource(R.string.share_more_recent)) }
+            }
+        }
         if (state.people.isNotEmpty()) {
             item(key = "people") {
                 Text(
@@ -210,3 +236,5 @@ private fun shareSummary(state: ShareUiState): String {
 }
 
 private const val TEXT_PREVIEW = 80
+
+private const val RECENT_SHOWN = 5

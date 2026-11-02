@@ -64,7 +64,6 @@ class InboxNavigation(
     val onOpenChat: (ChatId, org.pingme.core.model.NetworkId?) -> Unit,
     val onSearch: () -> Unit,
     val onNewChat: () -> Unit,
-    val onNewGroup: () -> Unit,
     val onFix: (Account) -> Unit,
     val menu: MenuActions,
     /** The merge suggestions screen (owner, Phase 7). */
@@ -158,7 +157,6 @@ fun InboxScreen(
 ) {
     var holding by remember { mutableStateOf<ChatRow?>(null) }
     var editingBar by remember { mutableStateOf(false) }
-    var fabOpen by remember { mutableStateOf(false) }
     // Hold an avatar to start selecting rows; the bar above acts on all of them (owner, Gate G3).
     val selection = remember { RowSelection() }
     val selectedRows = (state.pinned + state.rows).filter { it.id in selection.ids }
@@ -184,7 +182,7 @@ fun InboxScreen(
             bottomBar = {
                 if (!wide) InboxBottomBar(state.bar, state.selected, state.accounts, callbacks.bar, more = state.more)
             },
-            floatingActionButton = { NewMenu(fabOpen, { fabOpen = it }, navigation.onNewChat, navigation.onNewGroup) },
+            floatingActionButton = { StartChatButton(navigation.onNewChat) },
             snackbarHost = { SnackbarHost(snackbar) },
         ) { padding ->
             ChatListBody(

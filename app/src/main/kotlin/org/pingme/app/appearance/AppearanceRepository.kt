@@ -35,11 +35,11 @@ class AppearanceRepository
         /** The saved look. An imported font or picture that has since gone falls back to the default. */
         val appearance: Flow<Appearance> =
             settings.appearanceJson
-                .map { decodeOrDefault(it).withoutMissingFiles() }
+                .map { decodeOrDefault(it).withMessagesLook().withoutMissingFiles() }
                 .flowOn(Dispatchers.IO)
 
         suspend fun update(change: (Appearance) -> Appearance) {
-            settings.updateAppearanceJson { json -> encode(change(decodeOrDefault(json))) }
+            settings.updateAppearanceJson { json -> encode(change(decodeOrDefault(json).withMessagesLook())) }
         }
 
         /** Writes the current theme to [target] as JSON (UI_DESIGN.md 4). */
@@ -122,6 +122,17 @@ class AppearanceRepository
             fun decodeOrDefault(text: String?): Appearance =
                 text?.let { runCatching { decode(it) }.getOrNull() } ?: Appearance()
         }
+    }
+
+/**
+ * Google Messages' bubbles have no tails and no time inside them; the time sits between messages.
+ * Applied once, so turning either back on in Appearance stays on.
+ */
+fun Appearance.withMessagesLook(): Appearance =
+    if (messagesLook) {
+        this
+    } else {
+        copy(bubbleTails = false, timestamps = org.pingme.core.ui.theme.TimestampMode.ON_TAP, messagesLook = true)
     }
 
 /** Drops references to font and picture files that are not on this phone. */

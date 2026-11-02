@@ -88,8 +88,9 @@ private class Judge(
             found += "A $role with no spoken name, under: $place"
         }
         val bounds = node.touchBoundsInRoot
-        val w = bounds.width / density
-        val h = bounds.height / density
+        // A row part-way off the end of a scrolling list is cut, not small: judged at its full size.
+        val w = maxOf(bounds.width, node.size.width.toFloat()) / density
+        val h = maxOf(bounds.height, node.size.height.toFloat()) / density
         val onScreen = bounds.left >= 0 && bounds.top >= 0 && bounds.right <= width && bounds.bottom <= height
         val tooSmall = w < MIN_DP || h < MIN_DP
         val typing = node.config.contains(SemanticsActions.SetText)

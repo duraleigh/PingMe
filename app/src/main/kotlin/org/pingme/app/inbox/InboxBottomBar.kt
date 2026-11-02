@@ -355,47 +355,16 @@ internal fun EditBarSheet(
 // All stays first; the rest keep the order they were picked in.
 private fun ordered(picked: List<InboxBarItem?>) = picked.filter { it == null } + picked.filterNotNull()
 
-/** The + menu (UI_DESIGN.md 3.1): New chat and New group. Scan QR was dropped by the owner. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** One button, as on the owner's Google Messages; a group starts by holding a person (2026-11-01). */
 @Composable
-fun NewMenu(
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    onNewChat: () -> Unit,
-    onNewGroup: () -> Unit,
+fun StartChatButton(
+    onStartChat: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val newLabel = stringResource(if (expanded) R.string.fab_close else R.string.fab_new)
-    FloatingActionButtonMenu(
-        expanded = expanded,
-        modifier = modifier,
-        button = {
-            ToggleFloatingActionButton(
-                checked = expanded,
-                onCheckedChange = onExpandedChange,
-                modifier = Modifier.semantics { contentDescription = newLabel },
-            ) {
-                val icon = if (checkedProgress > HALF) UiR.drawable.ic_close else UiR.drawable.ic_add
-                Icon(painterResource(icon), null, Modifier.animateIcon({ checkedProgress }))
-            }
-        },
-    ) {
-        listOf(
-            Triple(R.string.fab_new_group, UiR.drawable.ic_group_add, onNewGroup),
-            Triple(R.string.fab_new_chat, UiR.drawable.ic_chat, onNewChat),
-        ).forEach { (label, icon, action) ->
-            FloatingActionButtonMenuItem(
-                onClick = {
-                    onExpandedChange(false)
-                    action()
-                },
-                text = { Text(stringResource(label)) },
-                icon = { Icon(painterResource(icon), null) },
-            )
-        }
+    androidx.compose.material3.ExtendedFloatingActionButton(onStartChat, modifier) {
+        Icon(painterResource(UiR.drawable.ic_chat), null)
+        Text(stringResource(R.string.fab_start_chat), Modifier.padding(start = 12.dp))
     }
 }
-
-private const val HALF = 0.5f
 
 const val INBOX_BAR = "inbox-bar"

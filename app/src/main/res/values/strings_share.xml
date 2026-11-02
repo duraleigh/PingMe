@@ -3,6 +3,8 @@
 <!-- The share picker: PingMe in Android's share menu (owner, Gate G3). -->
 <resources>
     <string name="share_title">Send to</string>
+    <string name="share_recent">Recent conversations</string>
+    <string name="share_more_recent">More recent conversations</string>
     <string name="share_search">Search chats and people</string>
     <string name="share_note">Add a message (optional)</string>
     <string name="share_people">People</string>

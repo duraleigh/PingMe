@@ -110,6 +110,8 @@ internal fun Composer(
     }
     dictation?.let { DictationRow(it, field) }
     StagedStrip(staged, copying > 0, { outbox?.remove(it) })
+    // The pickers' listeners live here, where they outlive the attach sheet.
+    val pick = outbox?.let { rememberAttachLaunchers(it, hooks.onProblem) }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,
@@ -118,51 +120,75 @@ internal fun Composer(
         if (recording != null && voice != null) {
             RecordingBar(recording, voice, Modifier.weight(1f))
         } else {
-            outbox?.let { ComposerIcon(UiR.drawable.ic_add, R.string.attach) { sheet = ComposerSheet.ATTACH } }
-            MessageField(field, outbox, hooks.takeIf { editing == null })
-        }
-        val sendWith = { send: (String) -> Unit ->
-            send(field.text.toString())
-            field.clearText()
+            MessageField(
+                field,
+                outbox,
+                hooks.takeIf { editing == null },
+                ComposerOpeners(
+                    onAttach = { sheet = ComposerSheet.ATTACH },
+                    onEmoji = { sheet = ComposerSheet.EMOJI },
+                    onGallery = pick?.gallery,
+                ),
+            )
         }
         MicOrSend(
             voice,
             hooks.onVoiceTooShort,
             something = field.text.isNotBlank() || staged.isNotEmpty(),
             ready = copying == 0,
-            onSend = { sendWith(onSend) },
+            onSend = {
+                onSend(field.text.toString())
+                field.clearText()
+            },
             onSendLater = hooks.onSchedule?.takeIf { editing == null }?.let { { sheet = ComposerSheet.LATER } },
         )
     }
-    org.pingme.app.chat.later.LaterSheetWithAsk(
-        open = sheet == ComposerSheet.LATER,
-        onSchedule = { at ->
-            hooks.onSchedule?.invoke(field.text.toString(), at)
-            field.clearText()
-        },
-        onDismiss = { sheet = ComposerSheet.NONE },
-    )
-    // The pickers' listeners live here, where they outlive the attach sheet.
-    val pick = outbox?.let { rememberAttachLaunchers(it, hooks.onProblem) }
     // GIFs live in the + menu (owner, 2026-10-03), so the box can be wider.
     val gifsOffered = hooks.gifs != null && editing == null
-    ComposerSheets(sheet, hooks, pick, onGif = { sheet = ComposerSheet.GIF }.takeIf { gifsOffered }) {
+    ComposerSheets(sheet, hooks, pick, field, onGif = { sheet = ComposerSheet.GIF }.takeIf { gifsOffered }) {
         sheet = ComposerSheet.NONE
     }
 }
 
+/** What the buttons inside the box open. */
+private class ComposerOpeners(
+    val onAttach: () -> Unit,
+    val onEmoji: () -> Unit,
+    val onGallery: (() -> Unit)?,
+)
+
 /** Which sheet the composer has open. */
-private enum class ComposerSheet { NONE, ATTACH, GIF, LATER }
+private enum class ComposerSheet { NONE, ATTACH, GIF, LATER, EMOJI }
 
 @Composable
 private fun ComposerSheets(
     sheet: ComposerSheet,
     hooks: ComposerHooks,
     pick: AttachLaunchers?,
+    field: TextFieldState,
     onGif: (() -> Unit)?,
     onClose: () -> Unit,
 ) {
+    org.pingme.app.chat.later.LaterSheetWithAsk(
+        open = sheet == ComposerSheet.LATER,
+        onSchedule = { at ->
+            hooks.onSchedule?.invoke(field.text.toString(), at)
+            field.clearText()
+        },
+        onDismiss = onClose,
+    )
     when (sheet) {
+        ComposerSheet.EMOJI -> {
+            org.pingme.app.chat.emoji.EmojiPickerSheet(
+                recent = emptyList(),
+                onPick = {
+                    field.edit { append(it) }
+                    onClose()
+                },
+                onDismiss = onClose,
+            )
+        }
+
         ComposerSheet.ATTACH -> {
             pick?.let { AttachSheet(it, onClose, onGif) }
         }
@@ -220,6 +246,7 @@ private fun RowScope.MessageField(
     field: TextFieldState,
     outbox: Outbox?,
     hooks: ComposerHooks?,
+    openers: ComposerOpeners,
 ) {
     val receiver =
         remember(outbox) {
@@ -246,7 +273,20 @@ private fun RowScope.MessageField(
                 else -> FittedHint(stringResource(sendHint(network)))
             }
         },
-        leadingIcon = network?.let { { NetworkPick(it, hooks) } },
+        // Inside the box, as on the owner's Google Messages: + and the network at the left, emoji
+        // and gallery at the right (2026-11-01).
+        leadingIcon = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                outbox?.let { ComposerIcon(UiR.drawable.ic_add, R.string.attach, openers.onAttach) }
+                network?.let { NetworkPick(it, hooks) }
+            }
+        },
+        trailingIcon = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ComposerIcon(UiR.drawable.ic_mood, R.string.composer_emoji, openers.onEmoji)
+                openers.onGallery?.let { ComposerIcon(UiR.drawable.ic_photo_library, R.string.attach_gallery, it) }
+            }
+        },
         shape = RoundedCornerShape(26.dp),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = COMPOSER_LINES),
         // Sentences start with a capital, as in any messaging keyboard (owner, Gate G3).

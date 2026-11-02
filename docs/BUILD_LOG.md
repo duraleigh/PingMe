@@ -4417,8 +4417,7 @@ Whether these end the drops is not known until `connection.log` has a few days i
    file), and one left behind at the next start becomes Not sent. No automatic resend, since a
    timeout can mean it arrived. The http2 words read "Google didn't answer in time".
 6. See above.
-7. The Google Messages look: **not started**. The agreed step is a screen-by-screen list from the
-   owner's own Google Messages, approved before anything changes, and that needs its screens.
+7. The Google Messages look: see below.
 8. Typing: a bubble under the list, out of the header. Beside the list rather than in it, so the
    indexes that jumps and the unread pill rely on do not move.
 9. Chip swipe, both chips: `swipeOrder` is fixed, default first, because the member list reorders
@@ -4428,3 +4427,24 @@ Whether these end the drops is not known until `connection.log` has a few days i
     told; a chat opened on the default could hide its unread message.
 11. Share: Send closes the picker at once and the send runs on the application scope. A share
     nothing can be read from still stays, checked by opening it rather than copying it.
+
+**The Google Messages look (note 7), from the owner's own phone.** The owner said to look rather than
+ask, so Google Messages was opened on the phone (2026-11-01, 10:29 PM) and read: nothing was sent,
+no group was made, and no unread chat was opened. Built from that: the thread in a container with
+curved top corners under the app bar's layer; +, the network chip, emoji, and gallery inside the box;
+the + menu four across, a pill over each label; one Start chat button; New chat's To: box, letters, and
+joined rows; hold a person to start a group, the row becoming a pill with a check, then Next and
+"Group name (optional)"; share under "Recent conversations", five then "More recent conversations"; no
+bubble tails, and the time between messages ("Wednesday • 20:14") after an hour's quiet instead of
+in every bubble. Tails and times are applied once (`messagesLook`), so a later choice in Appearance
+stands. **Not matched:** a group icon; Google Messages' share order is by latest conversation, while
+the owner's note asks for most recent recipients, so that note's order stays; settings rows, Chat
+details pills, and the inbox rows are unchanged.
+
+While on the phone the screen timeout was set to ten minutes without first reading it, a mistake. It
+was put back to 60 seconds, the system's recorded default, which may not be what the owner had.
+
+**Owner note, 11:19 PM: "why can I not edit that person's name?"** Chat details put the name and the
+pencil in one row, and a name long enough to wrap took the whole row, leaving the pencil no width:
+the same layout fault as the Retry button in note 5. The name now gives way to the pencil. A search of
+the app for a Text followed directly by a button in a row found no other.

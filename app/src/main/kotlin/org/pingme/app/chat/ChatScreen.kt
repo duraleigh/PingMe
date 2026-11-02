@@ -51,6 +51,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -199,11 +200,25 @@ fun ChatScreen(
     Box(modifier) {
         Scaffold(
             topBar = { TopBars(state, actions) { jumpTo(it) } },
-            bottomBar = { BottomBars(state, actions, ui, context) },
+            bottomBar = {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                ) { BottomBars(state, actions, ui, context) }
+            },
             snackbarHost = { SnackbarHost(snackbar) },
+            // The app bar is its own layer and the thread a container curved at the top, as on
+            // the owner's Google Messages (2026-11-01).
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ) { padding ->
             // While a message is held, everything else blurs behind it (UI_DESIGN.md 3.3).
-            Box(Modifier.fillMaxSize().padding(padding).blur(if (ui.holding != null) HELD_BLUR else 0.dp)) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .blur(if (ui.holding != null) HELD_BLUR else 0.dp)
+                    .clip(RoundedCornerShape(topStart = THREAD_CORNER, topEnd = THREAD_CORNER))
+                    .background(MaterialTheme.colorScheme.surface),
+            ) {
                 Wallpaper(PingMeTheme.appearance.wallpaper, Modifier.fillMaxSize())
                 androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
                     Box(Modifier.weight(1f)) { MessageList(state, list, actions, highlight, ui) { jumpTo(it) } }
@@ -305,7 +320,8 @@ private fun MessageList(
                 }
 
                 is ChatItem.Day -> {
-                    DayChip(dayLabel(item.date))
+                    val time = item.at?.let { " • " + clockTime(it) }.orEmpty()
+                    DayChip(dayLabel(item.date) + time)
                 }
 
                 ChatItem.NewMessages -> {
@@ -486,3 +502,5 @@ private const val HIGHLIGHT_MS = 900L
 private const val PULSE = 0.16f
 private const val SELECTED = 0.5f
 private val HELD_BLUR = 8.dp
+
+private val THREAD_CORNER = 28.dp

@@ -582,16 +582,26 @@ internal class GmessagesSession(
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
-                // The whole answer goes to the diary; the owner gets it in words (owner, 2026-11-01).
-                Diag.note(TAG, "No conversation for ${numbers.size} number(s): ${e.message}")
-                if (GmError.codeOf(e) != GmError.REJECTED) throw e
-                throw IOException(if (numbers.size > 1) GROUP_REFUSED else CHAT_REFUSED, e)
+                throw inWords(e, numbers.size)
             }
         val conversation = go.conversation(json)
         // Registered now, so the id is the folded chat's; the event tells the store about it.
         val chat = go.chat(conversation)
         events.trySend(GmEvent.Conversation(conversation))
         return chat.id
+    }
+
+    /** The whole answer goes to the diary; the owner gets it in words (owner, 2026-11-01). */
+    private fun inWords(
+        e: Exception,
+        people: Int,
+    ): Exception {
+        Diag.note(TAG, "No conversation for $people number(s): ${e.message}")
+        return if (GmError.codeOf(e) == GmError.REJECTED) {
+            IOException(if (people > 1) GROUP_REFUSED else CHAT_REFUSED, e)
+        } else {
+            e
+        }
     }
 
     /** Downloads an attachment's file (full size, or the thumbnail while the phone uploads the rest). */

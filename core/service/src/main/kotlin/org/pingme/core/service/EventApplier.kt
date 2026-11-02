@@ -28,6 +28,8 @@ import kotlin.time.Instant
  * priority, obscured, name override, merges, avatar source) is kept.
  */
 @Singleton
+// One function per kind of event; the list reads as one.
+@Suppress("TooManyFunctions")
 class EventApplier
     @Inject
     constructor(
@@ -172,13 +174,7 @@ class EventApplier
             snapshot.participants.forEach { people.remember(it) }
             val existing = chats.get(snapshot.id)
             val movedHere = chats.folderMove(snapshot.id)
-            if (movedHere == null && existing != null && snapshot.folder != null &&
-                existing.folder != snapshot.folder
-            ) {
-                val move = "Chat ${snapshot.id.value} moves ${existing.folder} to ${snapshot.folder}: ${snapshot.title}"
-                android.util.Log.i(TAG, move)
-                Diag.note(TAG, move)
-            }
+            if (movedHere == null) noteFolderChange(existing, snapshot)
             val merged = existing?.withSnapshot(snapshot) ?: snapshot.toNewChat()
             chats.upsert(
                 merged.copy(
@@ -187,6 +183,16 @@ class EventApplier
                     folder = movedHere ?: merged.folder,
                 ),
             )
+        }
+
+        private fun noteFolderChange(
+            existing: Chat?,
+            snapshot: ChatSnapshot,
+        ) {
+            if (existing == null || snapshot.folder == null || existing.folder == snapshot.folder) return
+            val move = "Chat ${snapshot.id.value} moves ${existing.folder} to ${snapshot.folder}: ${snapshot.title}"
+            android.util.Log.i(TAG, move)
+            Diag.note(TAG, move)
         }
 
         /**
