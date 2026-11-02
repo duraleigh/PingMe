@@ -193,8 +193,9 @@ private fun TitleLine(
         Text(
             row.title,
             Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = if (unread) FontWeight.ExtraBold else FontWeight.SemiBold,
+            // Larger and lighter, as in Google Messages; bold only says unread (owner, 2026-11-02).
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -274,7 +275,7 @@ private fun RowContent(
                 Text(
                     if (row.typing) stringResource(R.string.inbox_typing) else previewText(row),
                     Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = if (unread) colours.onSurface else colours.onSurfaceVariant,
                     fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
                     maxLines = 1,

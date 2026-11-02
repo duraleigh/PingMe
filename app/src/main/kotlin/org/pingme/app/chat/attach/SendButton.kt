@@ -103,4 +103,4 @@ private fun SendOptions(
     }
 }
 
-private val SEND_SIZE = 52.dp
+private val SEND_SIZE = 56.dp

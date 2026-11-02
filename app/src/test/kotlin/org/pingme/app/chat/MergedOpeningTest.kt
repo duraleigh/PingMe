@@ -2,7 +2,11 @@
 package org.pingme.app.chat
 
 import android.os.Looper
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -99,6 +103,60 @@ class MergedOpeningTest {
         }
         waitUntil { vm.state.value.filter == demo.account.id }
         assertEquals(demo.account.id, vm.state.value.filter)
+    }
+
+    private fun mergedChatOnScreen(): ChatViewModel {
+        val other = AccountId("demo-wa")
+        val sam = demo.account.id.chat("sam")
+        val samOnOther = other.chat("sam-wa")
+        val merged =
+            runBlocking {
+                demo.accounts.upsert(demo.account.copy(id = other, network = NetworkId.WHATSAPP))
+                val base = demo.chats.get(sam)!!
+                demo.chats.upsert(
+                    base.copy(id = samOnOther, accountId = other, isPinned = false, pinOrder = null),
+                )
+                demo.mergeService.merge(listOf(sam, samOnOther))
+            }
+        val vm = demo.chatViewModelFor(merged)
+        compose.setContent {
+            PingMeTheme(Appearance(mode = ThemeMode.LIGHT)) { ChatRoute(vm.chatId, onBack = {}, viewModel = vm) }
+        }
+        waitUntil { vm.state.value.members.size == 2 && vm.state.value.sendVia != null }
+        return vm
+    }
+
+    /** A slow drag across the chip moves to the next network (owner, 2026-11-01). */
+    @Test
+    fun swipingTheChipInTheBoxChangesTheNetwork() {
+        val vm = mergedChatOnScreen()
+        val before = vm.state.value.sendVia
+        compose.onNodeWithTag(NETWORK_CHIP, useUnmergedTree = true).performTouchInput {
+            swipe(center, center - Offset(200f, 0f), 300)
+        }
+        waitUntil { vm.state.value.sendVia != before }
+    }
+
+    /** A quick flick, barely moving, does too: that is how a thumb does it (owner, 2026-11-02). */
+    @Test
+    fun flickingTheChipInTheBoxChangesTheNetwork() {
+        val vm = mergedChatOnScreen()
+        val before = vm.state.value.sendVia
+        compose.onNodeWithTag(NETWORK_CHIP, useUnmergedTree = true).performTouchInput {
+            swipe(center, center - Offset(40f, 0f), 60)
+        }
+        waitUntil { vm.state.value.sendVia != before }
+    }
+
+    /** Up works as well as sideways (owner, 2026-11-02: he had reached for up and down). */
+    @Test
+    fun flickingTheChipUpChangesTheNetworkToo() {
+        val vm = mergedChatOnScreen()
+        val before = vm.state.value.sendVia
+        compose.onNodeWithTag(NETWORK_CHIP, useUnmergedTree = true).performTouchInput {
+            swipe(center, center - Offset(0f, 40f), 60)
+        }
+        waitUntil { vm.state.value.sendVia != before }
     }
 
     private fun waitUntil(condition: () -> Boolean) =

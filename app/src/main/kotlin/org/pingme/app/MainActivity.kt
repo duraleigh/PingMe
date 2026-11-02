@@ -50,6 +50,12 @@ class MainActivity : ComponentActivity() {
     }
 
     /** The side key records a voice note in the open chat (owner, 2026-10-06); see HardwareKeys. */
+    override fun onResume() {
+        super.onResume()
+        org.pingme.app.chat.PhoneClock
+            .refresh(this)
+    }
+
     override fun onKeyDown(
         keyCode: Int,
         event: KeyEvent,

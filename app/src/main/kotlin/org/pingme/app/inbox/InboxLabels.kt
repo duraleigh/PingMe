@@ -111,10 +111,23 @@ fun timeLabel(
     val days = ChronoUnit.DAYS.between(then.toLocalDate(), today)
     val pattern =
         when {
-            days == 0L -> return DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale).format(then)
-            days < WEEK -> "EEE"
-            then.year == today.year -> DateFormat.getBestDateTimePattern(locale, "MMMd")
-            else -> return DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale).format(then)
+            days == 0L -> {
+                return org.pingme.app.chat.PhoneClock
+                    .formatter(locale)
+                    .format(then)
+            }
+
+            days < WEEK -> {
+                "EEE"
+            }
+
+            then.year == today.year -> {
+                DateFormat.getBestDateTimePattern(locale, "MMMd")
+            }
+
+            else -> {
+                return DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale).format(then)
+            }
         }
     return DateTimeFormatter.ofPattern(pattern, locale).format(then)
 }

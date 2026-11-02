@@ -37,6 +37,10 @@ private val WEIGHTS = (100..900 step 100).map(::FontWeight)
  */
 fun fontFamilyFor(choice: FontChoice): FontFamily =
     when (choice) {
+        FontChoice.System -> {
+            FontFamily.Default
+        }
+
         is FontChoice.Bundled -> {
             FontFamily(
                 WEIGHTS.map {

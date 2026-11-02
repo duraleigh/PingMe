@@ -113,9 +113,9 @@ internal fun Composer(
     // The pickers' listeners live here, where they outlive the attach sheet.
     val pick = outbox?.let { rememberAttachLaunchers(it, hooks.onProblem) }
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (recording != null && voice != null) {
             RecordingBar(recording, voice, Modifier.weight(1f))
@@ -277,23 +277,27 @@ private fun RowScope.MessageField(
         // and gallery at the right (2026-11-01).
         leadingIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                outbox?.let { ComposerIcon(UiR.drawable.ic_add, R.string.attach, openers.onAttach) }
+                outbox?.let { ComposerIcon(UiR.drawable.ic_add_circle, R.string.attach, openers.onAttach) }
                 network?.let { NetworkPick(it, hooks) }
             }
         },
         trailingIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ComposerIcon(UiR.drawable.ic_mood, R.string.composer_emoji, openers.onEmoji)
-                openers.onGallery?.let { ComposerIcon(UiR.drawable.ic_photo_library, R.string.attach_gallery, it) }
+                openers.onGallery?.let { ComposerIcon(UiR.drawable.ic_image, R.string.attach_gallery, it) }
             }
         },
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(28.dp),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = COMPOSER_LINES),
         // Sentences start with a capital, as in any messaging keyboard (owner, Gate G3).
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         textStyle = PingMeTheme.messageText,
         colors =
             TextFieldDefaults.colors(
+                // The bar's own color, as in Google Messages (owner, 2026-11-02).
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
                 disabledIndicatorColor = Color.Transparent,
@@ -316,7 +320,8 @@ private fun NetworkPick(
     Box(
         Modifier
             .padding(start = 6.dp)
-            .swipeThroughNetworks(choices, current) { hooks.onSendVia(it.chatId) },
+            .swipeThroughNetworks(choices, current) { hooks.onSendVia(it.chatId) }
+            .testTag(NETWORK_CHIP),
     ) {
         // A disconnected account is red-lined (UI_DESIGN.md 10.15), so the owner sees why the
         // message would wait before sending it.
@@ -337,12 +342,22 @@ private fun NetworkPick(
             },
         )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.chat_networks_all)) },
+                trailingIcon = { if (hooks.showingAll) Icon(painterResource(UiR.drawable.ic_check), null) },
+                onClick = {
+                    open = false
+                    hooks.onAllNetworks()
+                },
+            )
             choices.forEach { member ->
                 DropdownMenuItem(
                     text = { Text(member.label) },
                     leadingIcon = { NetworkBadge(member.network) },
                     trailingIcon = {
-                        if (member.chatId == hooks.sendVia) Icon(painterResource(UiR.drawable.ic_check), null)
+                        if (!hooks.showingAll && member.chatId == hooks.sendVia) {
+                            Icon(painterResource(UiR.drawable.ic_check), null)
+                        }
                     },
                     onClick = {
                         open = false
@@ -399,3 +414,5 @@ private fun ComposerIcon(
 
 private const val COMPOSER_LINES = 6
 private val BUTTON = 44.dp
+
+const val NETWORK_CHIP = "network_chip"

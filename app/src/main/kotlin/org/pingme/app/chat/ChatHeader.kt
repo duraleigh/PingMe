@@ -63,7 +63,7 @@ fun ChatHeader(
         Row(
             Modifier
                 .statusBarsPadding()
-                .padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 8.dp),
+                .padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (actions.onBack != null) {
@@ -73,60 +73,9 @@ fun ChatHeader(
             } else {
                 Spacer(Modifier.width(12.dp))
             }
-            TitleBlock(state, actions.onDetails, Modifier.weight(1f), actions.onFilter, actions.onProfile)
-            CallButtons(state, actions.onCall)
-            Overflow(actions)
-        }
-    }
-}
-
-/**
- * A merged chat's badge opens a dropdown: "All" or one network, which narrows the bubbles
- * and sets the composer's chip (owner, Phase 7).
- */
-@Composable
-private fun NetworkPicker(
-    state: ChatUiState,
-    onFilter: ((org.pingme.core.model.AccountId?) -> Unit)?,
-) {
-    var open by remember { mutableStateOf(false) }
-    val current = state.members.firstOrNull { it.accountId == state.filter }
-    val sending = current ?: state.members.firstOrNull { it.chatId == state.sendVia }
-    Box(Modifier.swipeThroughNetworks(state.members, sending) { onFilter?.invoke(it.accountId) }) {
-        Row(
-            Modifier.clickable(role = Role.Button, onClickLabel = stringResource(R.string.chat_pick_network)) {
-                open =
-                    true
-            },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (current != null) {
-                NetworkBadge(current.network)
-            } else {
-                Text(stringResource(R.string.chat_networks_all), style = MaterialTheme.typography.labelMedium)
-            }
-            Icon(painterResource(UiR.drawable.ic_expand_more), null, Modifier.size(16.dp))
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.chat_networks_all)) },
-                onClick = {
-                    open = false
-                    onFilter?.invoke(null)
-                },
-                trailingIcon = { if (current == null) Icon(painterResource(UiR.drawable.ic_check), null) },
-            )
-            state.members.forEach { member ->
-                DropdownMenuItem(
-                    text = { Text(member.label) },
-                    leadingIcon = { NetworkBadge(member.network) },
-                    onClick = {
-                        open = false
-                        onFilter?.invoke(member.accountId)
-                    },
-                    trailingIcon = { if (member == current) Icon(painterResource(UiR.drawable.ic_check), null) },
-                )
-            }
+            TitleBlock(state, actions.onDetails, Modifier.weight(1f), actions.onProfile)
+            CallIcon(state, actions.onCall)
+            Overflow(state, actions)
         }
     }
 }
@@ -136,7 +85,6 @@ private fun TitleBlock(
     state: ChatUiState,
     onDetails: (() -> Unit)?,
     modifier: Modifier = Modifier,
-    onFilter: ((org.pingme.core.model.AccountId?) -> Unit)? = null,
     onProfile: (() -> Unit)? = null,
 ) {
     val details = stringResource(R.string.chat_details)
@@ -159,84 +107,34 @@ private fun TitleBlock(
             },
         ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (state.faces.isEmpty()) {
-            Avatar(state.title, size = 42.dp, photo = state.photo, modifier = avatarModifier)
+            Avatar(state.title, size = 40.dp, photo = state.photo, modifier = avatarModifier)
         } else {
             org.pingme.core.ui.components
-                .GroupAvatar(state.faces, state.title, size = 42.dp)
+                .GroupAvatar(state.faces, state.title, size = 40.dp)
         }
-        val colours = MaterialTheme.colorScheme
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                state.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (state.members.isNotEmpty()) {
-                    NetworkPicker(state, onFilter)
-                } else {
-                    // No badge for Google Messages, the phone's own texting (owner, Gate G3).
-                    state.account
-                        ?.takeIf { it.network != NetworkId.GMESSAGES }
-                        ?.let { NetworkBadge(it.network) }
-                }
-                Text(
-                    liveStatus(state),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colours.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
+        // Just the name, as in Google Messages (owner, 2026-11-02): the network is on the chip in
+        // the box, and a group's count is in its details.
+        Text(
+            state.title,
+            style = MaterialTheme.typography.titleLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
-/** For groups how many are in it; who is typing shows as a bubble in the chat (owner, 2026-11-01). */
+/** The phone icon; Video is in the menu, as in Google Messages (owner, 2026-11-02). */
 @Composable
-private fun liveStatus(state: ChatUiState): String {
-    val chat = state.chat ?: return ""
-    return when {
-        chat.kind == ChatKind.GROUP -> {
-            // Everyone else plus you; a network that lists you among the members is not counted twice
-            // (owner, Gate G3: the count was one too many).
-            val others = chat.participants.count { it != state.me && state.names[it] != YOU }
-            pluralStringResource(R.plurals.chat_members, others + 1, others + 1)
-        }
-
-        else -> {
-            ""
-        }
-    }
-}
-
-private const val YOU = "You"
-
-/** RCS or SMS in a Google Messages chat follows the newest message. */
-private fun ChatUiState.lastTransport() =
-    items
-        .firstNotNullOfOrNull {
-            (it as? ChatItem.Bubble)?.message
-        }?.let(Message::transport)
-
-@Composable
-private fun RowScope.CallButtons(
+private fun CallIcon(
     state: ChatUiState,
     onCall: (Boolean) -> Unit,
 ) {
     val calls = state.capabilities?.calls ?: return
     val network = state.sendNetwork ?: state.account?.network ?: return
-    if (calls.audio != CallMethod.NONE) {
-        CallButton(network, calls.audio, video = false) { onCall(false) }
-    }
-    if (calls.video != CallMethod.NONE) {
-        CallButton(network, calls.video, video = true) { onCall(true) }
-    }
+    if (calls.audio != CallMethod.NONE) CallButton(network, calls.audio, video = false) { onCall(false) }
 }
 
 /** A call icon; its long-press says what the tap does on this network (UI_DESIGN.md 10.17). */
@@ -265,13 +163,30 @@ private fun CallButton(
 }
 
 @Composable
-private fun Overflow(actions: HeaderActions) {
+private fun Overflow(
+    state: ChatUiState,
+    actions: HeaderActions,
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = {
             open = true
         }) { Icon(painterResource(UiR.drawable.ic_more_vert), stringResource(R.string.chat_more)) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (state.capabilities
+                    ?.calls
+                    ?.video
+                    ?.let { it != CallMethod.NONE } == true
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.chat_video_call)) },
+                    onClick = {
+                        open = false
+                        actions.onCall(true)
+                    },
+                    leadingIcon = { Icon(painterResource(UiR.drawable.ic_videocam), null, Modifier.size(20.dp)) },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.chat_search)) },
                 onClick = {

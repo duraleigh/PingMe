@@ -29,7 +29,6 @@ internal fun headerActions(
     onBack = onBack,
     onDetails = onDetails,
     onSearch = viewModel.search::open,
-    onFilter = viewModel::setFilter,
     onCall = { video ->
         callRequest(state, video)?.let(notices.placeCall) ?: notices.notice(R.string.chat_calls_unavailable)
     },

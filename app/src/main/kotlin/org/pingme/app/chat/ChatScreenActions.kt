@@ -20,8 +20,6 @@ class HeaderActions(
     val onCall: (video: Boolean) -> Unit,
     val onDetails: (() -> Unit)? = null,
     val onSearch: (() -> Unit)? = null,
-    /** A merged chat's header dropdown: one member's account, or null for all (owner, Phase 7). */
-    val onFilter: ((org.pingme.core.model.AccountId?) -> Unit)? = null,
     /** The avatar opens the person's page on the network, where there is one (owner, 2026-10-05). */
     val onProfile: (() -> Unit)? = null,
 )
@@ -82,6 +80,9 @@ class ComposerHooks(
     val members: List<MemberChip> = emptyList(),
     val sendVia: ChatId? = null,
     val onSendVia: (ChatId) -> Unit = {},
+    /** Every member's bubbles at once, from the same menu (moved here with the header's chip, 2026-11-02). */
+    val showingAll: Boolean = false,
+    val onAllNetworks: () -> Unit = {},
     /** The sending account is connected; false red-lines the badge and says so in the box. */
     val connected: Boolean = true,
 )
@@ -97,6 +98,8 @@ class RowContext(
     val onDelete: (Message) -> Unit,
     val onNeed: (Attachment) -> Unit,
     val onQuote: (Message) -> Unit,
+    /** Your newest message, which carries the sent and read marks. */
+    val newestMine: org.pingme.core.model.MessageId? = null,
     /** How far each sending message's media has got. */
     val uploads: Map<org.pingme.core.model.MessageId, Float> = emptyMap(),
     val player: org.pingme.app.chat.voice.VoicePlayer? = null,

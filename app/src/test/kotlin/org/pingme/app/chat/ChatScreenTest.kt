@@ -162,7 +162,6 @@ class ChatScreenTest {
     fun groupsShowWhoSaidWhat() {
         open("design")
         waitForText("Priya Shah")
-        compose.onNode(hasText("people", substring = true)).assertExists()
     }
 
     /** Renders chats to build/screenshots/chat-*.png. */

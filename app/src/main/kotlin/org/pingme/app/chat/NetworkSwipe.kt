@@ -2,11 +2,13 @@
 package org.pingme.app.chat
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -14,6 +16,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
  * The order a swipe on the network chip goes through (owner, 2026-11-01): the person's default
@@ -41,8 +44,10 @@ internal fun nextMember(
 }
 
 /**
- * Swiping the chip moves to the next network without opening its menu; tapping still opens the
- * menu (owner, 2026-11-01). The chip follows the finger, and a small buzz says it took.
+ * Flicking the chip moves to the next network without opening its menu; tapping still opens the
+ * menu (owner, 2026-11-01). Any direction works: left or up is next, right or down is back (owner,
+ * 2026-11-02: he had reached for up and down). The chip follows the finger, and a small buzz says
+ * it took.
  */
 @Composable
 internal fun Modifier.swipeThroughNetworks(
@@ -53,31 +58,42 @@ internal fun Modifier.swipeThroughNetworks(
     if (members.size < 2) return this
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
-    val shift = remember { Animatable(0f) }
+    val shift = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
     val needed = with(LocalDensity.current) { SWIPE_DISTANCE.dp.toPx() }
     return this
-        .graphicsLayer { translationX = shift.value }
-        .pointerInput(members, current) {
-            var dragged = 0f
-            detectHorizontalDragGestures(
-                onDragStart = { dragged = 0f },
+        .graphicsLayer {
+            translationX = shift.value.x
+            translationY = shift.value.y
+        }.pointerInput(members, current) {
+            var dragged = Offset.Zero
+            detectDragGestures(
+                onDragStart = { dragged = Offset.Zero },
                 onDragEnd = {
-                    if (kotlin.math.abs(dragged) >= needed) {
-                        nextMember(members, current, towardsNext = dragged < 0)?.let {
+                    val distance = if (abs(dragged.x) >= abs(dragged.y)) dragged.x else dragged.y
+                    if (abs(distance) >= needed) {
+                        nextMember(members, current, towardsNext = distance < 0)?.let {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onPick(it)
                         }
                     }
-                    scope.launch { shift.animateTo(0f) }
+                    scope.launch { shift.animateTo(Offset.Zero) }
                 },
-                onDragCancel = { scope.launch { shift.animateTo(0f) } },
+                onDragCancel = { scope.launch { shift.animateTo(Offset.Zero) } },
             ) { change, amount ->
                 change.consume()
                 dragged += amount
-                scope.launch { shift.snapTo((dragged * FOLLOW).coerceIn(-needed, needed)) }
+                scope.launch {
+                    shift.snapTo(
+                        Offset(
+                            (dragged.x * FOLLOW).coerceIn(-needed, needed),
+                            (dragged.y * FOLLOW).coerceIn(-needed, needed),
+                        ),
+                    )
+                }
             }
         }
 }
 
-private const val SWIPE_DISTANCE = 20
+// Barely past the touch slop, which already tells a tap from a move: a flick covers little ground.
+private const val SWIPE_DISTANCE = 1
 private const val FOLLOW = 0.5f

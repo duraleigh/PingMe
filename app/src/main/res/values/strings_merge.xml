@@ -37,16 +37,15 @@
     </plurals>
     <string name="settings_merge_none">None right now</string>
     <string name="chat_networks_all">All networks</string>
-    <string name="chat_pick_network">Show one network</string>
     <string name="chat_pick_send_network">Pick the network to send on</string>
-    <string name="send_hint_gmessages">Send a Google Message</string>
-    <string name="send_hint_sms">Send a text</string>
-    <string name="send_hint_whatsapp">Send a WhatsApp message</string>
+    <string name="send_hint_gmessages">RCS message</string>
+    <string name="send_hint_sms">Text message</string>
+    <string name="send_hint_whatsapp">WhatsApp message</string>
     <string name="send_hint_disconnected">%1$s is not connected; the message will wait</string>
-    <string name="send_hint_instagram">Send an Instagram DM</string>
-    <string name="send_hint_signal">Send a Signal</string>
-    <string name="send_hint_telegram">Send a Telegram</string>
-    <string name="send_hint_messenger">Send a Facebook Message</string>
-    <string name="send_hint_fbpage">Send as your Page</string>
-    <string name="send_hint_gvoice">Send with Google Voice</string>
+    <string name="send_hint_instagram">Instagram message</string>
+    <string name="send_hint_signal">Signal message</string>
+    <string name="send_hint_telegram">Telegram message</string>
+    <string name="send_hint_messenger">Messenger message</string>
+    <string name="send_hint_fbpage">Page message</string>
+    <string name="send_hint_gvoice">Google Voice message</string>
 </resources>

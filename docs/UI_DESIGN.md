@@ -190,8 +190,8 @@ group chat with no way to see whose it was).
 - **Header badge**: the network badge sits beside the live status, except for Google
   Messages, which carries none (owner, Gate G3).
 - **Day separators** and a "new messages" divider.
-- **Header**: avatar, name, network badge, live status (online, last seen where the network
-  provides it). Tap opens Chat details.
+- **Header**: back, avatar, name, phone, and the menu, as in Google Messages (owner, 2026-11-02).
+  Tap the name for Chat details.
 - **Typing**: a bubble of moving dots under the newest message, as in Google Messages, and
   not words in the header; a group says who (owner, 2026-11-01). Reading older messages is
   not disturbed.
@@ -879,9 +879,11 @@ Chats with the same person on different networks can be merged into one thread.
   bubble carrying only its network colour (section 10.1). The network badge appears
   beside the time and ticks when a bubble is tapped, and nowhere else on the bubble
   (owner, 2026-10-03).
-- The header badge of a merged chat is tappable: a dropdown offers "All networks" and
-  each member network. One network narrows the bubbles to it and sets the composer to
-  it; "All" shows everything and sets the composer to the default service. A merged
+- The header carries no network badge (owner, 2026-11-02): back, photo, name, phone, and the
+  menu, as in Google Messages, with Video in that menu. The composer's badge is the one place:
+  its menu offers "All networks" and each member network. One network narrows the bubbles to
+  it and sets the composer to it; "All" shows everything and sets the composer to the default
+  service. A merged
   chat opened from a network's tab opens on that network, whatever its default or its
   unread (owner, 2026-11-01). From All, Unread, a space, search, or a notification it opens
   narrowed to the one network its unread messages came from; with unread from more than one
@@ -889,8 +891,8 @@ Chats with the same person on different networks can be merged into one thread.
 - The composer's text box carries a small network badge inside its left edge and a
   placeholder naming the network ("Send a WhatsApp message", "Send an Instagram DM").
   In a merged chat, tapping the badge opens the network menu to switch for the next
-  messages (owner, 2026-10-03), and swiping it, in the box or in the header, moves straight
-  to the next network: left is next, right is back, round the ends, in a fixed order with the
+  messages (owner, 2026-10-03), and flicking it, in the box or in the header, moves straight
+  to the next network: left or up is next, right or down is back, round the ends, in a fixed order with the
   default first; the header's "All networks" is only in its menu (owner, 2026-11-01). The GIF
   picker lives in the + menu so the box is wide.
 - Each person has a default service, set in the merged chat's details, and the chip

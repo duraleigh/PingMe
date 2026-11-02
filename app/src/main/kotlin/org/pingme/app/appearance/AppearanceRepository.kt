@@ -125,15 +125,31 @@ class AppearanceRepository
     }
 
 /**
- * Google Messages' bubbles have no tails and no time inside them; the time sits between messages.
- * Applied once, so turning either back on in Appearance stays on.
+ * The look read off the owner's own Google Messages (2026-11-02): its colors from the wallpaper,
+ * its own solid bubbles with no tails and no time inside, round pictures, the phone's font. Applied
+ * once per round, so anything changed in Appearance afterwards stays changed.
  */
 fun Appearance.withMessagesLook(): Appearance =
-    if (messagesLook) {
+    if (lookVersion >= MESSAGES_LOOK) {
         this
     } else {
-        copy(bubbleTails = false, timestamps = org.pingme.core.ui.theme.TimestampMode.ON_TAP, messagesLook = true)
+        copy(
+            colorSource = org.pingme.core.ui.theme.ColorSource.Dynamic,
+            networkColors = networkColors - org.pingme.core.model.NetworkId.GMESSAGES,
+            bubbleCorner = null,
+            bubbleTails = false,
+            bubbleStyle = org.pingme.core.ui.theme.BubbleStyle.TONAL,
+            timestamps = org.pingme.core.ui.theme.TimestampMode.ON_TAP,
+            shapeFamily = org.pingme.core.ui.theme.ShapeFamily.ROUND,
+            avatarSize = MESSAGES_AVATAR,
+            uiFont = org.pingme.core.ui.theme.FontChoice.System,
+            messageFont = org.pingme.core.ui.theme.FontChoice.System,
+            lookVersion = MESSAGES_LOOK,
+        )
     }
+
+private const val MESSAGES_LOOK = 2
+private const val MESSAGES_AVATAR = 52f
 
 /** Drops references to font and picture files that are not on this phone. */
 fun Appearance.withoutMissingFiles(): Appearance {

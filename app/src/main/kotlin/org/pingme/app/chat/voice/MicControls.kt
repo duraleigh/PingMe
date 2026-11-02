@@ -115,10 +115,11 @@ fun MicButton(
                 }
             },
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
+        // The plum circle and sound-wave of Google Messages' voice button (owner, 2026-11-02).
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
     ) {
-        Box(contentAlignment = Alignment.Center) { Icon(painterResource(UiR.drawable.ic_mic), null) }
+        Box(contentAlignment = Alignment.Center) { Icon(painterResource(UiR.drawable.ic_graphic_eq), null) }
     }
 }
 
@@ -324,7 +325,7 @@ const val MIC = "mic"
 private const val SO_FAR = "recording-so-far"
 private const val MS_PER_SECOND = 1000
 private const val SECONDS_PER_MINUTE = 60
-private val MIC_SIZE = 48.dp
+private val MIC_SIZE = 56.dp
 private val BAR_HEIGHT = 64.dp
 private val CANCEL_DISTANCE = 120.dp
 private val LOCK_DISTANCE = 90.dp

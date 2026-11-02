@@ -251,6 +251,7 @@ internal fun rowContext(
         { actions.menu?.deleteForMe(listOf(it)) },
         actions.onNeed,
         { m -> m.replyTo?.let { onJump(it.value) } },
+        state.items.firstNotNullOfOrNull { (it as? ChatItem.Bubble)?.message?.takeIf(Message::isOutgoing)?.id },
         actions.uploads,
         actions.player,
         actions.settings.media.gifsAutoplay,
@@ -458,16 +459,13 @@ private fun ToNewest(
 
 @Composable
 private fun DayChip(label: String) {
+    // Plain gray words between the messages, as in Google Messages (owner, 2026-11-02).
     Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-        // A tonal chip, so the date reads on any wallpaper (UI_DESIGN.md 4.3).
-        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-            Text(
-                label,
-                Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-            )
-        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

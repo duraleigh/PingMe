@@ -129,6 +129,8 @@ internal fun composerHooks(
     members = state.members,
     sendVia = state.sendVia,
     onSendVia = viewModel::sendVia,
+    showingAll = state.members.isNotEmpty() && state.filter == null,
+    onAllNetworks = { viewModel.setFilter(null) },
     connected =
         state.members.firstOrNull { it.chatId == state.sendVia }?.connected
             ?: (state.account?.state is org.pingme.core.model.ConnectionState.Connected),

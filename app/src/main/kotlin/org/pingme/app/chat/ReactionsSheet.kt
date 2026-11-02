@@ -13,8 +13,6 @@ import androidx.compose.ui.unit.dp
 import org.pingme.app.R
 import org.pingme.core.ui.components.PingMeSheet
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import kotlin.time.toJavaInstant
 
 /** Who placed which reaction, newest first; the user's own read "You". */
@@ -47,6 +45,6 @@ internal fun ReactionsSheet(
 }
 
 internal fun clockTime(at: kotlin.time.Instant): String =
-    DateTimeFormatter
-        .ofLocalizedTime(FormatStyle.SHORT)
+    PhoneClock
+        .formatter()
         .format(at.toJavaInstant().atZone(ZoneId.systemDefault()))

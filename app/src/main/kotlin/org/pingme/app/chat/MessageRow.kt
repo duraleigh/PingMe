@@ -3,6 +3,7 @@ package org.pingme.app.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -104,10 +105,23 @@ fun MessageRow(
                 },
             )
             if (message.reactions.isNotEmpty()) Reactions(message, context)
+            NewestMarks(message, context, showTime)
             (message.status as? MessageStatus.Failed)?.let {
                 FailedRow(it.reason, { context.onRetry(message) }, { context.onDelete(message) })
             }
         }
+    }
+}
+
+/** The marks sit under your newest message, outside it, as in Google Messages (owner, 2026-11-02). */
+@Composable
+private fun NewestMarks(
+    message: Message,
+    context: RowContext,
+    showTime: Boolean,
+) {
+    if (!showTime && message.id == context.newestMine) {
+        Box(Modifier.padding(top = 4.dp, end = 8.dp)) { StatusMark(message.status) }
     }
 }
 

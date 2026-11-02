@@ -4459,3 +4459,18 @@ so. The share list now sorts by latest conversation, as Google Messages does, no
 the phone: one Back too many left Google Messages, and a tap landed in Opera and opened its account
 panel, which was closed. Nothing was sent, made, or marked read.
 
+
+**The owner, 1:09 AM, with Google Messages and PingMe side by side.** The chip flicks left, right, up, or
+down (he had reached for up and down), and a quick flick now counts: a test showed a slow swipe worked
+and a real flick did not. The chip left the chat's top bar, which is now back, photo, name, phone, and the
+menu with Video in it; "All networks" moved to the box's chip menu, and a group's member count is gone.
+Read off his phone (colors sampled from it): the box in the bar's own color at 56 dp, level with a 56 dp
+plum button with a sound wave; an outlined + and short hints ("RCS message"); solid bubbles from the
+wallpaper's colors; marks under your newest message only; gray time labels on the phone's 12 or 24-hour
+clock; round pictures, the phone's font, larger and lighter inbox rows. Tails, times, colors, shape, and
+fonts apply once (`lookVersion`), over what he had set, and Appearance can change them back.
+
+**Open:** times were still inside bubbles on 0.7.2 although `withMessagesLook` set them to on-tap, and the
+cause was not found before the next round applied it again. Check this on the phone. The unread row keeps
+its tint, an owner request from Gate G2, though Google Messages has none. The hold menu and the search
+screen in Google Messages have not been read.

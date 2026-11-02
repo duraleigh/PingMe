@@ -31,8 +31,8 @@ data class Appearance(
     /** Shape (UI_DESIGN.md 4.2). Bubble corner radius in dp; null follows the shape family. */
     val bubbleCorner: Float? = null,
     val bubbleTails: Boolean = true,
-    /** The Google Messages look has been applied once; a choice made after that stands (owner, 2026-11-01). */
-    val messagesLook: Boolean = false,
+    /** The round of the Google Messages look applied; a choice made after that stands (owner, 2026-11-02). */
+    val lookVersion: Int = 0,
     val bubbleStyle: BubbleStyle = BubbleStyle.TONAL,
     // Layout and density (UI_DESIGN.md 4.3)
     val inboxDensity: InboxDensity = InboxDensity.COMFORTABLE,
@@ -177,6 +177,10 @@ enum class ShapeFamily { ROUND, SOFT, SHARP, EXPRESSIVE }
 
 @Serializable
 sealed interface FontChoice {
+    /** The phone's own font, the nearest thing to the one Google Messages uses (owner, 2026-11-02). */
+    @Serializable
+    data object System : FontChoice
+
     @Serializable
     data class Bundled(
         val font: BundledFont,
