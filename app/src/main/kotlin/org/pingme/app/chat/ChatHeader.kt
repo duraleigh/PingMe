@@ -47,6 +47,7 @@ import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Message
 import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.components.Avatar
+import org.pingme.core.ui.theme.resized
 import org.pingme.core.ui.R as UiR
 
 /**
@@ -63,13 +64,14 @@ fun ChatHeader(
         Row(
             Modifier
                 .statusBarsPadding()
-                .padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (actions.onBack != null) {
                 IconButton(onClick = actions.onBack) {
                     Icon(painterResource(UiR.drawable.ic_arrow_back), stringResource(R.string.back))
                 }
+                Spacer(Modifier.width(8.dp))
             } else {
                 Spacer(Modifier.width(12.dp))
             }
@@ -119,7 +121,8 @@ private fun TitleBlock(
         // the box, and a group's count is in its details.
         Text(
             state.title,
-            style = MaterialTheme.typography.titleLarge,
+            // Measured against Google Messages on the phone: 330 wide where titleLarge made 389.
+            style = MaterialTheme.typography.titleLarge.resized(TITLE_RATIO),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -208,3 +211,6 @@ private fun Overflow(
         }
     }
 }
+
+// 330 wide on Google Messages where titleLarge made 389 (2026-11-02).
+private const val TITLE_RATIO = 0.86f

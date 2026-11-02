@@ -47,6 +47,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.pingme.app.R
 import org.pingme.core.ui.components.HapticPlayer
 import org.pingme.core.ui.components.rememberHaptic
+import org.pingme.core.ui.theme.contentTone
+import org.pingme.core.ui.theme.deepTone
 import org.pingme.core.ui.R as UiR
 
 /**
@@ -77,6 +79,7 @@ fun MicButton(
             PackageManager.PERMISSION_GRANTED
     }
     val label = stringResource(R.string.voice_record)
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
     Surface(
         modifier
             .size(MIC_SIZE)
@@ -115,9 +118,10 @@ fun MicButton(
                 }
             },
         shape = CircleShape,
-        // The plum circle and sound-wave of Google Messages' voice button (owner, 2026-11-02).
-        color = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        // The deep plum and pale sound wave of Google Messages' voice button: sampled #553f5d
+        // on the owner's phone, where Android's own container is much lighter (2026-11-02).
+        color = MaterialTheme.colorScheme.tertiaryContainer.deepTone(dark),
+        contentColor = MaterialTheme.colorScheme.tertiaryContainer.contentTone(dark),
     ) {
         Box(contentAlignment = Alignment.Center) { Icon(painterResource(UiR.drawable.ic_graphic_eq), null) }
     }

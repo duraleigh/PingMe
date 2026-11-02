@@ -51,7 +51,7 @@ class NetworkPalette(
     private val accentOverrides: Map<NetworkId, Int> = emptyMap(),
 ) {
     /** Incoming bubbles: the same tonal surface on every network (UI_DESIGN.md 3.2). */
-    val incoming = BubbleColors(scheme.surfaceContainerHigh, scheme.onSurface, null)
+    val incoming = BubbleColors(scheme.surfaceContainer, scheme.onSurface, null) // Google Messages' shade (2026-11-02).
 
     /** The network's colour for badges and the chat header accent. */
     fun accent(network: NetworkId): Color {
@@ -81,8 +81,10 @@ class NetworkPalette(
                 tint(signature(network), chromaFactor = SMS_CHROMA_FACTOR).copy(outline = scheme.outline)
             }
 
+            // Google Messages' own deep tone of the wallpaper's color, not Android's brighter
+            // container: sampled #004787 on the owner's phone against #2f8fff (2026-11-02).
             network == NetworkId.GMESSAGES && network !in overrides -> {
-                BubbleColors(scheme.primaryContainer, scheme.onPrimaryContainer, null)
+                BubbleColors(scheme.primaryContainer.deepTone(dark), scheme.primaryContainer.contentTone(dark), null)
             }
 
             else -> {
@@ -157,3 +159,26 @@ fun contrastRatio(
 const val MIN_TEXT_CONTRAST = 4.5
 
 private const val LUMINANCE_OFFSET = 0.05f
+
+/** The tone Google Messages uses for a filled shape: deep in dark mode, pale in light. */
+fun Color.deepTone(dark: Boolean): Color =
+    Color(
+        Hct
+            .fromInt(toArgb())
+            .withTone(if (dark) DEEP_TONE_DARK else DEEP_TONE_LIGHT)
+            .toInt(),
+    )
+
+/** The tone that reads on [deepTone]. */
+fun Color.contentTone(dark: Boolean): Color =
+    Color(
+        Hct
+            .fromInt(toArgb())
+            .withTone(if (dark) CONTENT_TONE_DARK else CONTENT_TONE_LIGHT)
+            .toInt(),
+    )
+
+private const val DEEP_TONE_DARK = 30.0
+private const val DEEP_TONE_LIGHT = 90.0
+private const val CONTENT_TONE_DARK = 90.0
+private const val CONTENT_TONE_LIGHT = 10.0

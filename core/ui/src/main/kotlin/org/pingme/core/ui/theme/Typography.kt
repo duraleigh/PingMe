@@ -10,6 +10,7 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.unit.sp
 import org.pingme.core.ui.R
 import java.io.File
 import java.io.RandomAccessFile
@@ -116,6 +117,9 @@ fun pingMeTypography(
             fontFamily = family,
             fontSize = fontSize * fontScale,
             lineHeight = lineHeight.times(fontScale * lineHeightScale),
+            // No added spacing: Material's half point made text 5% wider than Google Messages',
+            // measured on the owner's phone (2026-11-02).
+            letterSpacing = 0.sp,
         )
     return Typography(
         displayLarge = base.displayLarge.scaled(),
@@ -152,3 +156,9 @@ fun pingMeTypography(
 }
 
 private fun TextUnit.times(factor: Float): TextUnit = if (isSpecified) this * factor else this
+
+/**
+ * This style at [ratio] of its size, line included: how a Google Messages size is reached from the
+ * Material one while the font and text size chosen in Appearance still apply (owner, 2026-11-02).
+ */
+fun TextStyle.resized(ratio: Float): TextStyle = copy(fontSize = fontSize * ratio, lineHeight = lineHeight * ratio)

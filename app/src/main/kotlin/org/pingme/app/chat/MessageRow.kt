@@ -78,7 +78,7 @@ fun MessageRow(
     Row(
         modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = if (item.lastInGroup) 3.dp else 1.dp),
+            .padding(horizontal = 8.dp, vertical = if (item.lastInGroup) 3.dp else 1.dp),
         horizontalArrangement = if (outgoing) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom,
     ) {

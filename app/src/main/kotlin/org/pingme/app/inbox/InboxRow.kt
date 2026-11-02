@@ -73,6 +73,7 @@ import org.pingme.core.ui.theme.InboxDensity
 import org.pingme.core.ui.theme.MotionIntensity
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.theme.SwipeAction
+import org.pingme.core.ui.theme.resized
 import kotlin.math.roundToInt
 import kotlin.time.Instant
 import org.pingme.core.ui.R as UiR
@@ -194,7 +195,9 @@ private fun TitleLine(
             row.title,
             Modifier.weight(1f),
             // Larger and lighter, as in Google Messages; bold only says unread (owner, 2026-11-02).
-            style = MaterialTheme.typography.titleLarge,
+            // Google Messages' sizes, measured on the phone: names 316 wide where titleLarge made 368,
+            // previews 165 where bodyLarge made 182 (owner, 2026-11-02). Appearance's text size applies on top.
+            style = MaterialTheme.typography.titleLarge.resized(NAME_RATIO),
             fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -247,7 +250,10 @@ private fun RowContent(
     val vertical =
         when (appearance.inboxDensity) {
             InboxDensity.COMPACT -> 4.dp
-            InboxDensity.COMFORTABLE -> 9.dp
+
+            // Comfortable is Google Messages' row: 82 dp from one to the next.
+            InboxDensity.COMFORTABLE -> 11.dp
+
             InboxDensity.SPACIOUS -> 14.dp
         }
     val unread = row.isUnread
@@ -261,9 +267,9 @@ private fun RowContent(
                     unread -> colours.primary.copy(alpha = UNREAD_TINT)
                     else -> Color.Transparent
                 },
-            ).padding(horizontal = 20.dp, vertical = vertical),
+            ).padding(start = 16.dp, end = 24.dp, top = vertical, bottom = vertical),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         RowAvatar(row, selected, onSelect)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -275,7 +281,7 @@ private fun RowContent(
                 Text(
                     if (row.typing) stringResource(R.string.inbox_typing) else previewText(row),
                     Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyLarge.resized(PREVIEW_RATIO),
                     color = if (unread) colours.onSurface else colours.onSurfaceVariant,
                     fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
                     maxLines = 1,
@@ -498,3 +504,6 @@ internal fun Ringed(
             content()
         }
 }
+
+private const val NAME_RATIO = 0.86f
+private const val PREVIEW_RATIO = 0.91f

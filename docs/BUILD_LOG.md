@@ -4479,3 +4479,15 @@ screen in Google Messages have not been read.
 tried, so a tap in New chat opened the chat at once. A tap now adds to the To box ("Anyone else?"), Next
 opens the chat with one person, and two or more go on to the name. The floating button is a plain plus
 again, on his word: "I like having the plus button."
+
+**The owner, 2 AM, again side by side: "Just look at the two damn images."** Measured from his two
+screenshots instead of judged by eye, in the same units (2 screen pixels to the dp): box 65 tall to
+Google Messages' 56; name 389 wide to 330; bubbles 300 wide to 322; 5% wider text from Material's letter
+spacing. Colors sampled from the phone: Google Messages fills with a deep tone, #004787 and #553f5d,
+where Android's dynamic containers are much brighter, so bubbles and the voice button now use tone 30
+of the wallpaper's color (`deepTone`). Incoming bubbles take the bar's shade.
+
+**The owner, 2:13 AM, inboxes side by side.** Measured: names 368 wide to Google Messages' 316, previews
+182 to 165, rows 87 dp to 82, margins 16 and 24. Sizes are now ratios of the Material style
+(`TextStyle.resized`), so the font and text size picked in Appearance still apply on top, as he asked.
+**The wavy picture shapes are his choice and stay**: the round shape was taken back out of the look.

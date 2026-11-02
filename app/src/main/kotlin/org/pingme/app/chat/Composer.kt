@@ -289,6 +289,10 @@ private fun RowScope.MessageField(
         },
         shape = RoundedCornerShape(28.dp),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = COMPOSER_LINES),
+        // 56 tall with one line, level with the voice button, as measured on Google Messages
+        // (owner, 2026-11-02: it was 65).
+        contentPadding =
+            TextFieldDefaults.contentPaddingWithoutLabel(start = 4.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
         // Sentences start with a capital, as in any messaging keyboard (owner, Gate G3).
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         textStyle = PingMeTheme.messageText,
@@ -413,6 +417,6 @@ private fun ComposerIcon(
 }
 
 private const val COMPOSER_LINES = 6
-private val BUTTON = 44.dp
+private val BUTTON = 48.dp
 
 const val NETWORK_CHIP = "network_chip"

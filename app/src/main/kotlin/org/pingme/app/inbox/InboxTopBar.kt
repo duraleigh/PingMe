@@ -92,7 +92,7 @@ fun InboxTopBar(
     Row(
         modifier
             .statusBarsPadding()
-            .padding(start = 20.dp, end = 8.dp, top = 4.dp),
+            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {

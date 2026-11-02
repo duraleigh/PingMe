@@ -126,7 +126,8 @@ class AppearanceRepository
 
 /**
  * The look read off the owner's own Google Messages (2026-11-02): its colors from the wallpaper,
- * its own solid bubbles with no tails and no time inside, round pictures, the phone's font. Applied
+ * its own solid bubbles with no tails and no time inside, the phone's font. The picture shapes stay
+ * as the owner set them ("the one thing I don't want you to mess with", 2026-11-02). Applied
  * once per round, so anything changed in Appearance afterwards stays changed.
  */
 fun Appearance.withMessagesLook(): Appearance =
@@ -140,7 +141,6 @@ fun Appearance.withMessagesLook(): Appearance =
             bubbleTails = false,
             bubbleStyle = org.pingme.core.ui.theme.BubbleStyle.TONAL,
             timestamps = org.pingme.core.ui.theme.TimestampMode.ON_TAP,
-            shapeFamily = org.pingme.core.ui.theme.ShapeFamily.ROUND,
             avatarSize = MESSAGES_AVATAR,
             uiFont = org.pingme.core.ui.theme.FontChoice.System,
             messageFont = org.pingme.core.ui.theme.FontChoice.System,
