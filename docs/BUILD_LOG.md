@@ -4605,3 +4605,14 @@ box's words and counts their files, and on Send forwards them with `MessageActio
 fetched first when not on the phone). One message goes with the box's words, changed or not; several
 go as they were. The old forward sheet and its strings are gone. Test:
 `ShareViewModelTest.forwardOpensThePickerWithTheWordsInTheBox`.
+
+**Checked on the phone, 12:18 (build 9ebcd29).** The inbox showed "Draft: draft check one" as meant, but
+the chat opened again with an empty box. *Cause, from the code:* the chat opens in the inbox's
+list-detail pane, so its view model belongs to the Home entry and lives on after the chat leaves the
+screen; the draft was read once, when the chat first opened, before anything was typed, and the box on
+return got that empty reading. *Fixed:* the view model follows the saved draft (a live flow) instead of
+reading it once; the test now reopens the chat with the same view model, as the phone does. Share on
+the phone matched Google Messages; from it: people known only by a number now come after Z, their
+number shows as the phone writes it ((888) 847-7291) and not at all when it is the name, and the foot
+is rounded at the top. *Auto-rotate:* proven to be turned on by `adb shell monkey`, used to open apps
+(off before, on after, "Events injected: 1"); never used again (`am start -n`).

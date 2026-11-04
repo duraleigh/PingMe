@@ -179,13 +179,16 @@ class ChatViewModel
     ) : ViewModel() {
         private val onScreen = MutableStateFlow(false)
 
-        private val savedDraft = MutableStateFlow<String?>(null)
-
         /**
-         * The words left unsent in this chat's box last time, once read (null until then), so the
-         * box gets them back (owner, 2026-11-04: leaving the chat cleared the box).
+         * The words left unsent in this chat's box, as saved now (null until first read), so the
+         * box gets them back (owner, 2026-11-04: leaving the chat cleared the box). Followed, not
+         * read once: in the inbox's pane this view model outlives the chat leaving the screen, and
+         * a draft read when the chat first opened was still empty when it opened again.
          */
-        val draft: StateFlow<String?> = savedDraft.asStateFlow()
+        val draft: StateFlow<String?> =
+            settingsRepo.drafts
+                .map { it[chatId.value].orEmpty() }
+                .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
         /**
          * Keeps what is in the box. Written on the app's own scope, so the last change survives
@@ -495,7 +498,6 @@ class ChatViewModel
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), ChatUiState())
 
         init {
-            viewModelScope.launch { savedDraft.value = settingsRepo.drafts.first()[chatId.value].orEmpty() }
             // Chat details can ask for search or a jump to a pinned message.
             viewModelScope.launch {
                 requests.requests.collect {

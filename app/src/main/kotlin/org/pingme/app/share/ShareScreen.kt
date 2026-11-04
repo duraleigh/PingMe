@@ -241,7 +241,11 @@ private fun ShareFoot(
     state: ShareUiState,
     actions: ShareScreenActions,
 ) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+    // Rounded at the top over the list, as Google Messages' foot is.
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    ) {
         Column(
             Modifier.navigationBarsPadding().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

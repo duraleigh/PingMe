@@ -96,10 +96,14 @@ class ChatScreenTest {
         waitFor { runBlocking { demo.chats.get(sam())!!.unreadCount } == 0 }
     }
 
-    /** Words left unsent are back in the box on return (owner, 2026-11-04: leaving cleared them). */
+    /**
+     * Words left unsent are back in the box on return (owner, 2026-11-04: leaving cleared them),
+     * with the same view model, as the inbox's pane keeps it while the chat is away.
+     */
     @Test
     fun wordsLeftUnsentAreBackWhenTheChatIsOpenedAgain() {
-        var shown by mutableStateOf<ChatViewModel?>(demo.chatViewModel("sam"))
+        val kept = demo.chatViewModel("sam")
+        var shown by mutableStateOf<ChatViewModel?>(kept)
         compose.setContent {
             PingMeTheme(appearance) { shown?.let { ChatRoute(it.chatId, onBack = {}, viewModel = it) } }
         }
@@ -107,7 +111,7 @@ class ChatScreenTest {
         waitFor { runBlocking { demo.settings.drafts.first()[sam().value] } == "half a thought" }
         shown = null
         compose.waitForIdle()
-        shown = demo.chatViewModel("sam")
+        shown = kept
         waitForText("half a thought")
         assertEquals(0, runBlocking { demo.messages.latest(sam(), 50).first() }.count { it.body == "half a thought" })
     }

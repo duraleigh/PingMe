@@ -220,7 +220,8 @@ class ShareViewModel
                                     it.displayName.contains(q, ignoreCase = true) ||
                                     it.networkHandle.contains(q, ignoreCase = true)
                             }.map { ShareTarget.ToPerson(it, startable[i].network) }
-                    }.sortedBy { it.title.lowercase() }
+                        // A to Z, and those known only by a number after Z, as Google Messages lists them.
+                    }.sortedWith(compareBy({ it.title.firstOrNull()?.isLetter() != true }, { it.title.lowercase() }))
             }
         }
 

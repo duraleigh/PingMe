@@ -98,8 +98,29 @@ private fun Picture(target: ShareTarget) =
 private fun secondLine(target: ShareTarget): String? =
     when (target) {
         is ShareTarget.ToChat -> target.row?.let { previewText(it) }
-        is ShareTarget.ToPerson -> target.person.networkHandle.takeIf { it.isNotBlank() && '@' !in it }
+        is ShareTarget.ToPerson -> numberLine(target.title, target.person.networkHandle)
     }
+
+/**
+ * A person's number written as the phone writes it, "(888) 847-7291" rather than "+18888477291",
+ * and left out when the name is that very number (owner, 2026-11-04, beside Google Messages).
+ */
+private fun numberLine(
+    name: String,
+    handle: String,
+): String? {
+    if (handle.isBlank() || '@' in handle) return null
+    val digits = { s: String -> s.filter(Char::isDigit).takeLast(TEN) }
+    if (digits(name).isNotEmpty() && digits(name) == digits(handle)) return null
+    return android.telephony.PhoneNumberUtils.formatNumber(
+        handle,
+        java.util.Locale
+            .getDefault()
+            .country,
+    ) ?: handle
+}
+
+private const val TEN = 10
 
 private val PICTURE = 48.dp
 private val CARD_CORNER = 24.dp
