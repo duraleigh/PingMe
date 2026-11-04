@@ -4577,3 +4577,11 @@ without a word, the one silent path found. The phone's log reached back only to 
 did not record sends. *Done:* a picture that cannot be attached now says so ("That picture could not be
 attached"), and every send is written to the diary: what went out, how many files, what the phone's
 copy was matched to, any refusal, and any stand-in. The next miss can be traced, not guessed.
+
+**Unsent words stay (owner, 2026-11-04: "as soon as I leave the chat screen, the text input field is
+cleared").** Each chat's box is saved as it changes, by chat id, in the settings store (so backups carry
+it), on the app's own scope so the last keystroke survives leaving. On return the words come back into
+an empty box once, without telling the other side anyone is typing; sending or scheduling clears them;
+editing a sent message leaves the draft alone. The inbox shows such a chat as "Draft:" (in the error
+colour) and the words, in place of the last message, as Google Messages does. Tests:
+`ChatScreenTest.wordsLeftUnsentAreBackWhenTheChatIsOpenedAgain`, `sendingClearsTheDraft`.

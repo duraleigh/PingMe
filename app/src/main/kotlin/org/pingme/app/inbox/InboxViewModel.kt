@@ -144,8 +144,8 @@ class InboxViewModel
                 barRepository.config,
                 selected,
                 chats.unreadTotals(),
-                menu,
-            ) { src, saved, pick, totals, counts ->
+                combine(menu, settings.drafts, ::Pair),
+            ) { src, saved, pick, totals, (counts, drafts) ->
                 val config = saved ?: defaultBar(src.accounts)
                 val now = clock.now()
                 // Everything the bar could hold; what it does not sits behind More (owner, 2026-10-03).
@@ -167,7 +167,9 @@ class InboxViewModel
                 val first = config.items.firstOrNull()?.takeIf { !config.showAll }
                 val offered = { item: InboxBarItem? -> item?.takeIf { it in config.items || it in rest } }
                 val current = if (pick != null) offered(pick.item) ?: first else offered(opening) ?: first
-                val (pinned, rows) = src.select(current, config.narrowings, now)
+                val (pinned, listed) = src.select(current, config.narrowings, now)
+                // A chat with words left unsent says "Draft", as in Google Messages (owner, 2026-11-04).
+                val rows = listed.map { row -> drafts[row.id.value]?.let { row.copy(draft = it) } ?: row }
                 val entryOf = { item: InboxBarItem? ->
                     if (item == null) BarEntry(null, src.allBadge(totals, now)) else entry(item, config, src, totals)
                 }

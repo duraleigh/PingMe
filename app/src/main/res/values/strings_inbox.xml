@@ -48,6 +48,7 @@
     <string name="inbox_hidden_preview">New message</string>
     <string name="inbox_no_messages">No messages yet</string>
     <string name="inbox_typing">typing…</string>
+    <string name="inbox_draft">Draft:</string>
     <string name="inbox_muted">Muted</string>
     <string name="inbox_folder_general">General</string>
     <string name="inbox_unread">Unread messages</string>

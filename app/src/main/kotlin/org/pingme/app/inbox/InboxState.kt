@@ -27,6 +27,8 @@ data class ChatRow(
     val faces: List<org.pingme.core.ui.components.Face> = emptyList(),
     /** A merged chat: ringed, and without network badges (owner, 2026-10-03). */
     val isMerged: Boolean = false,
+    /** Words left unsent in the chat's box, shown in place of the last message (owner, 2026-11-04). */
+    val draft: String? = null,
 ) {
     val id: ChatId get() = chat.id
     val title: String get() = chat.nameOverride ?: chat.title

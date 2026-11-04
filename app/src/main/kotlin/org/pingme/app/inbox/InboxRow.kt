@@ -53,8 +53,12 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -220,10 +224,15 @@ private fun PreviewLine(row: ChatRow) {
     val colours = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         // Your last message's mark, the same as in the chat (UI_DESIGN.md 3.1).
-        val mine = row.last?.takeIf { it.isOutgoing && !row.typing && !row.chat.isObscured }
+        val draft = row.draft?.takeIf { !row.typing && !row.chat.isObscured }
+        val mine = row.last?.takeIf { it.isOutgoing && !row.typing && !row.chat.isObscured && draft == null }
         if (mine != null) StatusMark(mine.status)
         Text(
-            if (row.typing) stringResource(R.string.inbox_typing) else previewText(row),
+            when {
+                row.typing -> AnnotatedString(stringResource(R.string.inbox_typing))
+                draft != null -> draftLine(draft)
+                else -> AnnotatedString(previewText(row))
+            },
             Modifier.weight(1f),
             style = MaterialTheme.typography.bodyLarge.resized(PREVIEW_RATIO),
             color = if (unread) colours.onSurface else colours.onSurfaceVariant,
@@ -417,3 +426,15 @@ internal fun Ringed(
 // Measured on the phone (2026-11-02): names 468 wide on Google Messages, 506 at 0.86; previews 243, 248 at 0.91.
 private const val NAME_RATIO = 0.795f
 private const val PREVIEW_RATIO = 0.89f
+
+/** "Draft:" in the error colour, then the words, as Google Messages shows a chat left mid-message. */
+@Composable
+private fun draftLine(words: String): AnnotatedString {
+    val label = stringResource(R.string.inbox_draft)
+    val colour = MaterialTheme.colorScheme.error
+    return buildAnnotatedString {
+        withStyle(SpanStyle(color = colour)) { append(label) }
+        append(" ")
+        append(words.replace('\n', ' '))
+    }
+}

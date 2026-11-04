@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -91,11 +92,7 @@ internal fun Composer(
     editing: Message? = null,
     hooks: ComposerHooks = ComposerHooks(),
 ) {
-    // Editing starts from the message's text; a new edit (or none) starts afresh.
-    val field =
-        rememberSaveable(editing?.id?.value, saver = TextFieldState.Saver) { TextFieldState(editing?.body.orEmpty()) }
-    val typing by rememberUpdatedState(onTyping)
-    LaunchedEffect(field) { snapshotFlow { field.text.toString() }.drop(1).collect { typing(it) } }
+    val field = rememberComposerField(editing, hooks, onTyping)
     var sheet by remember { mutableStateOf(ComposerSheet.NONE) }
     val outbox = hooks.outbox?.takeIf { editing == null }
     val voice = hooks.voice?.takeIf { editing == null }

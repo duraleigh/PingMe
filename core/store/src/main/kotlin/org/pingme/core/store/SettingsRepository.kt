@@ -44,6 +44,32 @@ class SettingsRepository
             }
         }
 
+        /**
+         * The words left unsent in each chat's box, by chat id: kept when the chat is left and put
+         * back on return, as in Google Messages (owner, 2026-11-04: leaving cleared the box).
+         */
+        val drafts: Flow<Map<String, String>> =
+            dataStore.data.map { prefs ->
+                prefs
+                    .asMap()
+                    .entries
+                    .mapNotNull { (key, value) ->
+                        key.name
+                            .removePrefix(DRAFT)
+                            .takeIf { key.name.startsWith(DRAFT) }
+                            ?.let { it to value as String }
+                    }.toMap()
+            }
+
+        /** Keeps [text] as [chatId]'s draft; blank text clears it. */
+        suspend fun saveDraft(
+            chatId: ChatId,
+            text: String,
+        ) {
+            val key = stringPreferencesKey(DRAFT + chatId.value)
+            dataStore.edit { if (text.isBlank()) it.remove(key) else it[key] = text }
+        }
+
         private fun decodeCounts(text: String?): Map<String, Int> =
             text?.let { runCatching { json.decodeFromString(COUNTS, it) }.getOrNull() }.orEmpty()
 
@@ -135,6 +161,7 @@ class SettingsRepository
         suspend fun deleteKeywordRule(id: KeywordRuleId) = keywordDao.delete(id.value)
 
         private companion object {
+            const val DRAFT = "draft:"
             val INSTAGRAM_SHOW_GENERAL = booleanPreferencesKey("instagram_show_general")
             val SHARE_COUNTS = stringPreferencesKey("share_counts")
             private val COUNTS = MapSerializer(String.serializer(), Int.serializer())

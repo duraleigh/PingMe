@@ -174,8 +174,25 @@ class ChatViewModel
         /** The ClearURLs rules, for links shown cleaned (UI_DESIGN.md 10.11). */
         val links: org.pingme.core.service.links.CleanLinks,
         private val mergeRepo: org.pingme.core.store.MergeRepository,
+        @org.pingme.core.service.ApplicationScope private val appScope: kotlinx.coroutines.CoroutineScope,
     ) : ViewModel() {
         private val onScreen = MutableStateFlow(false)
+
+        private val savedDraft = MutableStateFlow<String?>(null)
+
+        /**
+         * The words left unsent in this chat's box last time, once read (null until then), so the
+         * box gets them back (owner, 2026-11-04: leaving the chat cleared the box).
+         */
+        val draft: StateFlow<String?> = savedDraft.asStateFlow()
+
+        /**
+         * Keeps what is in the box. Written on the app's own scope, so the last change survives
+         * leaving the chat, when this screen's own work is cancelled.
+         */
+        fun saveDraft(text: String) {
+            appScope.launch { settingsRepo.saveDraft(chatId, text) }
+        }
 
         /**
          * The chat is (or is no longer) the one on screen: its messages notify only while it is
@@ -476,6 +493,7 @@ class ChatViewModel
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), ChatUiState())
 
         init {
+            viewModelScope.launch { savedDraft.value = settingsRepo.drafts.first()[chatId.value].orEmpty() }
             // Chat details can ask for search or a jump to a pinned message.
             viewModelScope.launch {
                 requests.requests.collect {

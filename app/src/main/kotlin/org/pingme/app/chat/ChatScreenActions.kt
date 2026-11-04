@@ -85,6 +85,10 @@ class ComposerHooks(
     val onAllNetworks: () -> Unit = {},
     /** The sending account is connected; false red-lines the badge and says so in the box. */
     val connected: Boolean = true,
+    /** The words left unsent last time, once read; null until then (owner, 2026-11-04). */
+    val draft: kotlinx.coroutines.flow.StateFlow<String?>? = null,
+    /** What is in the box now, kept for when the chat is opened again. */
+    val onDraft: (String) -> Unit = {},
 )
 
 /** What a message row needs besides the message. */

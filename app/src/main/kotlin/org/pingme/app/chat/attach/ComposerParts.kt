@@ -116,6 +116,8 @@ internal fun composerHooks(
     onNotice: (Int) -> Unit,
 ) = org.pingme.app.chat.ComposerHooks(
     outbox = viewModel.outbox,
+    draft = viewModel.draft,
+    onDraft = viewModel::saveDraft,
     voice = viewModel.voice.takeIf { state.capabilities?.voiceNote?.let { it != MediaRule.UNSUPPORTED } == true },
     onVoiceTooShort = { onNotice(R.string.voice_too_short) },
     volumeUpRecords = viewModel.appSettings.value.media.volumeUpRecords,

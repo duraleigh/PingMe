@@ -264,6 +264,7 @@ class DemoInbox(
             presence,
             links,
             merges,
+            scope,
         ).tracked()
 
     fun detailsViewModel(remote: String) =
