@@ -142,14 +142,6 @@ class MessageMenu(
         pinned: Boolean,
     ) = attempt { if (pinned) actions.unpin(message.id) else actions.pin(message) }
 
-    fun forward(
-        targets: List<Message>,
-        to: List<ChatId>,
-    ) {
-        clearSelection()
-        attempt { to.forEach { chat -> targets.sortedBy { it.sentAt }.forEach { actions.forward(it, chat) } } }
-    }
-
     /** Runs a network action; a refusal shows the network's reason. */
     private fun attempt(block: suspend () -> Unit) {
         scope.launch {

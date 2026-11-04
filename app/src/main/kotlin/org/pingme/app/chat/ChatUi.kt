@@ -343,10 +343,10 @@ private fun Sheets(
     }
     ui.infoFor?.let { InfoSheet(it, network) { ui.infoFor = null } }
     ui.forwarding?.let { targets ->
-        ForwardSheet(actions.forwardTargets, onSend = { chats -> actions.menu?.forward(targets, chats) }, onDismiss = {
-            ui.forwarding =
-                null
-        })
+        LaunchedEffect(targets) {
+            ui.forwarding = null
+            actions.onForward(targets)
+        }
     }
     ui.rescheduling?.let { waiting ->
         org.pingme.app.chat.later.SendLaterSheet(

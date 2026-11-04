@@ -4596,3 +4596,12 @@ changed, and what the box says is what goes; with files, the box is a message se
 to a group" makes one new group of everyone picked (two or more, on one account whose network makes
 groups, each a person PingMe has a number for) and sends there. A non-Google-Messages target keeps its
 network badge, as in the inbox. Tests: `ShareViewModelTest` (three new).
+
+**Forward opens the Share screen, as in Google Messages (owner, 2026-11-04; captured off his phone
+11:29: hold a message, Forward, and Google Messages opens the very same "Share" screen with the
+message's words in the box and Send to a group / Send).** PingMe's Forward no longer opens its own sheet
+of chats: it hands the messages to the share picker (`ShareRequests.forward`), which shows them as the
+box's words and counts their files, and on Send forwards them with `MessageActions.forward` (files
+fetched first when not on the phone). One message goes with the box's words, changed or not; several
+go as they were. The old forward sheet and its strings are gone. Test:
+`ShareViewModelTest.forwardOpensThePickerWithTheWordsInTheBox`.

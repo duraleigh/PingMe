@@ -253,8 +253,6 @@
     <string name="info_status">Status</string>
     <string name="info_network">Network</string>
     <string name="info_edited">Edited</string>
-    <string name="forward_title">Forward to</string>
-    <string name="forward_send">Send</string>
     <string name="editing">Editing message</string>
     <string name="cancel_edit">Stop editing</string>
     <string name="not_on_network">Not available on %1$s</string>

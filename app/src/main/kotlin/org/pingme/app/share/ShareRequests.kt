@@ -16,6 +16,13 @@ data class SharePayload(
     val uris: List<Uri>,
     /** The chat picked by tapping its face in Android's own share pop-up. */
     val chatKey: String? = null,
+    /**
+     * Messages being forwarded, oldest first: Forward opens this same picker, as in Google Messages
+     * (owner, 2026-11-04, from his phone), and the messages go with their own files.
+     */
+    val forwarding: List<org.pingme.core.model.MessageId> = emptyList(),
+    /** How many files the forwarded messages carry, for the line above the box. */
+    val forwardedFiles: Int = 0,
 )
 
 /**
@@ -51,6 +58,19 @@ class ShareRequests
 
         fun finish() {
             current = null
+        }
+
+        /** Forward: the picker opens with the messages' words in the box and their files to follow. */
+        fun forward(messages: List<org.pingme.core.model.Message>) {
+            val ordered = messages.sortedBy { it.sentAt }
+            if (ordered.isEmpty()) return
+            wanted.value =
+                SharePayload(
+                    text = ordered.mapNotNull { it.body?.takeIf(String::isNotBlank) }.joinToString("\n"),
+                    uris = emptyList(),
+                    forwarding = ordered.map { it.id },
+                    forwardedFiles = ordered.sumOf { it.attachments.size },
+                )
         }
 
         companion object {

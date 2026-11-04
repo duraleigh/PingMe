@@ -105,7 +105,6 @@ fun ChatRoute(
         viewModel.visible(true, tab)
         onPauseOrDispose { viewModel.visible(false) }
     }
-    val forwardTargets by viewModel.forwardTargets.collectAsStateWithLifecycle()
     val uploads by viewModel.uploads.collectAsStateWithLifecycle()
     val held by viewModel.heldBack.collectAsStateWithLifecycle()
     val player = rememberVoicePlayer()
@@ -139,7 +138,7 @@ fun ChatRoute(
                         menu = viewModel.menu,
                         onRememberEmoji = viewModel::rememberEmoji,
                         incoming = viewModel.incomingReactions,
-                        forwardTargets = forwardTargets,
+                        onForward = viewModel::forward,
                         uploads = uploads,
                         player = player,
                         settings = appSettings,

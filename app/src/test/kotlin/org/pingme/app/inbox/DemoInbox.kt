@@ -265,6 +265,8 @@ class DemoInbox(
             links,
             merges,
             scope,
+            org.pingme.app.share
+                .ShareRequests(),
         ).tracked()
 
     fun detailsViewModel(remote: String) =
@@ -293,10 +295,23 @@ class DemoInbox(
 
     /** The share picker, as if [intent] had come in through Android's share sheet. */
     fun shareViewModel(intent: android.content.Intent) =
-        org.pingme.app.share.ShareViewModel(
+        shareViewModelFor(
             org.pingme.app.share
                 .ShareRequests()
                 .apply { fromIntent(intent) },
+        )
+
+    /** The share picker opened by Forward on [forwarded]. */
+    fun forwardViewModel(forwarded: List<org.pingme.core.model.Message>) =
+        shareViewModelFor(
+            org.pingme.app.share
+                .ShareRequests()
+                .apply { forward(forwarded) },
+        )
+
+    private fun shareViewModelFor(requests: org.pingme.app.share.ShareRequests) =
+        org.pingme.app.share.ShareViewModel(
+            requests,
             chats,
             accounts,
             contacts,

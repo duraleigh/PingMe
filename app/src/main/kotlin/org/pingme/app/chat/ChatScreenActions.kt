@@ -40,7 +40,8 @@ class ChatScreenActions(
     val menu: MessageMenu? = null,
     val onRememberEmoji: (String) -> Unit = {},
     val incoming: Flow<IncomingReaction> = emptyFlow(),
-    val forwardTargets: List<Chat> = emptyList(),
+    /** Forward: the share picker opens with these messages. */
+    val onForward: (List<Message>) -> Unit = {},
     val composer: ComposerHooks = ComposerHooks(),
     val uploads: Map<org.pingme.core.model.MessageId, Float> = emptyMap(),
     /** Plays voice notes; null in previews. */

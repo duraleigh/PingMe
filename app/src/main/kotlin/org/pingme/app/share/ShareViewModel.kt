@@ -92,7 +92,7 @@ class ShareViewModel
         chats: ChatRepository,
         accounts: AccountRepository,
         contacts: ContactRepository,
-        messages: org.pingme.core.store.MessageRepository,
+        private val messages: org.pingme.core.store.MessageRepository,
         private val registry: ConnectorRegistry,
         private val chatActions: ChatActions,
         private val messageActions: MessageActions,
@@ -106,7 +106,7 @@ class ShareViewModel
                 ShareUiState(
                     text = payload?.text.orEmpty(),
                     fileCount =
-                        payload?.uris?.size ?: 0,
+                        (payload?.uris?.size ?: 0) + (payload?.forwardedFiles ?: 0),
                     empty = payload == null,
                     picked = setOfNotNull(payload?.chatKey),
                     // Shared words go into the box to be read and changed before sending, as in
@@ -278,7 +278,7 @@ class ShareViewModel
             group: Boolean,
         ) {
             val words = if (share.uris.isEmpty()) s.note else share.text
-            if (words.isBlank() && share.uris.none { files.canRead(it) }) {
+            if (share.forwarding.isEmpty() && words.isBlank() && share.uris.none { files.canRead(it) }) {
                 failures.send(UNREADABLE)
                 form.update { it.copy(sending = false) }
                 return
@@ -336,6 +336,7 @@ class ShareViewModel
             note: String,
         ) {
             try {
+                if (share.forwarding.isNotEmpty()) return forwardTo(chatId, share.forwarding, note)
                 // Copied once per send: a network may keep or move the file it is given.
                 val attachments = share.uris.mapNotNull { files.copy(it) }
                 Diag.note(TAG, "To ${chatId.value}: ${attachments.size} of ${share.uris.size} file(s) readable")
@@ -365,6 +366,25 @@ class ShareViewModel
             ) {
                 Diag.note(TAG, "Share to ${chatId.value} failed: $e")
                 tell(e.message ?: UNREADABLE)
+            }
+        }
+
+        /**
+         * Forwards the messages with their own files, fetched first where they are not on the
+         * phone. One message goes with the box's words, changed or not; several go as they were.
+         */
+        private suspend fun forwardTo(
+            chatId: ChatId,
+            ids: List<org.pingme.core.model.MessageId>,
+            note: String,
+        ) {
+            val found = ids.mapNotNull { messages.get(it) }
+            Diag.note(TAG, "Forward ${found.size} of ${ids.size} message(s) to ${chatId.value}")
+            val one = found.singleOrNull()
+            if (one != null) {
+                messageActions.forward(one, chatId, note)
+            } else {
+                found.forEach { messageActions.forward(it, chatId) }
             }
         }
 

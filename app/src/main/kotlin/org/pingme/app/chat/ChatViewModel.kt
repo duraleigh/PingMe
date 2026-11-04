@@ -175,6 +175,7 @@ class ChatViewModel
         val links: org.pingme.core.service.links.CleanLinks,
         private val mergeRepo: org.pingme.core.store.MergeRepository,
         @org.pingme.core.service.ApplicationScope private val appScope: kotlinx.coroutines.CoroutineScope,
+        private val shareRequests: org.pingme.app.share.ShareRequests,
     ) : ViewModel() {
         private val onScreen = MutableStateFlow(false)
 
@@ -346,13 +347,14 @@ class ChatViewModel
         /** How far each sending message's media has got. */
         val uploads = messageActions.progress
 
-        /** Chats a message can be forwarded to: the inbox, less this one. */
-        val forwardTargets: StateFlow<List<Chat>> =
-            chats
-                .inbox()
-                .map { list ->
-                    list.filter { it.id != chatId }
-                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), emptyList())
+        /**
+         * Forward opens the share picker with these messages, as Google Messages' Forward opens its
+         * Share screen (owner, 2026-11-04, from his phone).
+         */
+        fun forward(targets: List<Message>) {
+            menu.clearSelection()
+            shareRequests.forward(targets)
+        }
 
         /** Other people's reactions in this chat, for the Land and Celebrate phases. */
         val incomingReactions = reactionFeed.reactions.filter { it.chatId == chatId }

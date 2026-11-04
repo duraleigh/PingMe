@@ -189,6 +189,31 @@ class ShareViewModelTest {
         assertTrue(!vm.state.value.canGroup)
     }
 
+    /** Forward opens this same picker with the message's words in the box (owner, 2026-11-04). */
+    @Test
+    fun forwardOpensThePickerWithTheWordsInTheBox() {
+        val original = runBlocking { demo.messageActions.send(sam, "worth passing on") }
+        val vm = demo.forwardViewModel(listOf(original))
+        watching.launch { vm.state.collect {} }
+        watching.launch { vm.finished.collect { finished += it } }
+        waitFor {
+            vm.state.value.chats
+                .isNotEmpty()
+        }
+        assertEquals(original.body, vm.state.value.note)
+        vm.note("forwarded, with a word")
+        vm.toggle(
+            vm.state.value.chats
+                .first { it.key == sam.value },
+        )
+        vm.send()
+        waitFor { finished.isNotEmpty() }
+        waitFor {
+            runBlocking { demo.messages.latest(sam, 5).first() }
+                .any { it.isOutgoing && it.body == "forwarded, with a word" }
+        }
+    }
+
     @Test
     fun aFileThatCannotBeReadSaysSoAndThePickerStays() {
         val unreadable = Uri.parse("content://com.example.nothing/missing")

@@ -249,6 +249,8 @@ class MessageActions
         suspend fun forward(
             message: Message,
             to: ChatId,
+            /** The words to send: the message's own, or as changed in the picker's box. */
+            text: String = message.body.orEmpty(),
         ): Message? {
             val connector = connectorFor(message.chatId)
             // Files not yet on the phone are fetched first; one that cannot be fetched is left out.
@@ -258,7 +260,6 @@ class MessageActions
                     val path = local?.path ?: quietly("download") { connector?.downloadAttachment(file)?.path }
                     path?.let { file.copy(localPath = it).asOutgoing() }
                 }
-            val text = message.body.orEmpty()
             if (text.isBlank() && files.isEmpty()) return null
             return send(to, text, attachments = files)
         }
