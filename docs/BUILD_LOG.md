@@ -4585,3 +4585,14 @@ an empty box once, without telling the other side anyone is typing; sending or s
 editing a sent message leaves the draft alone. The inbox shows such a chat as "Draft:" (in the error
 colour) and the words, in place of the last message, as Google Messages does. Tests:
 `ChatScreenTest.wordsLeftUnsentAreBackWhenTheChatIsOpenedAgain`, `sendingClearsTheDraft`.
+
+**Share, laid out as Google Messages' (owner, 2026-11-04: "you didn't do anything to the similar
+processes for sharing").** From his phone's Share screen (captured 2026-11-01): "Share" with the search
+behind the bar's magnifier; "Recent conversations", five in one joined card, each with its photo or
+group faces, the name over the last message, and a round mark at the end; "More recent conversations";
+then everyone A to Z under a letter per run (before, people showed only when searched); and at the
+foot the message box over "Send to a group" and "Send". Shared words now sit in the box to be read and
+changed, and what the box says is what goes; with files, the box is a message sent after them. "Send
+to a group" makes one new group of everyone picked (two or more, on one account whose network makes
+groups, each a person PingMe has a number for) and sends there. A non-Google-Messages target keeps its
+network badge, as in the inbox. Tests: `ShareViewModelTest` (three new).

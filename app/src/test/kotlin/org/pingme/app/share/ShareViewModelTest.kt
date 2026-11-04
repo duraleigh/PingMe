@@ -150,6 +150,45 @@ class ShareViewModelTest {
         }
     }
 
+    /** Shared words sit in the box to be changed, and what the box says is what goes (owner, 2026-11-04). */
+    @Test
+    fun sharedWordsAreInTheBoxAndWhatItSaysIsSent() {
+        val vm = share(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "first try"))
+        assertEquals("first try", vm.state.value.note)
+        vm.note("said better")
+        vm.send()
+        waitFor { finished.isNotEmpty() }
+        waitFor {
+            runBlocking { demo.messages.latest(sam, 5).first() }
+                .any { it.isOutgoing && it.body == "said better" }
+        }
+        assertTrue(runBlocking { demo.messages.latest(sam, 5).first() }.none { it.body == "first try" })
+    }
+
+    /** Everyone is listed under the recent chats without a search, as in Google Messages. */
+    @Test
+    fun peopleAreListedWithoutSearching() {
+        val vm = picker(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "hi"))
+        waitFor {
+            vm.state.value.people
+                .isNotEmpty()
+        }
+        val names =
+            vm.state.value.people
+                .map { it.title.lowercase() }
+        assertEquals(names.sorted(), names)
+    }
+
+    @Test
+    fun oneChatPickedCannotBeSentToAGroup() {
+        val vm = share(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "hi"))
+        waitFor {
+            vm.state.value.picked
+                .isNotEmpty()
+        }
+        assertTrue(!vm.state.value.canGroup)
+    }
+
     @Test
     fun aFileThatCannotBeReadSaysSoAndThePickerStays() {
         val unreadable = Uri.parse("content://com.example.nothing/missing")

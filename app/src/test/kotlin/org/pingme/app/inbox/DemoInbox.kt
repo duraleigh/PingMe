@@ -300,6 +300,7 @@ class DemoInbox(
             chats,
             accounts,
             contacts,
+            messages,
             registry,
             actions,
             messageActions,
