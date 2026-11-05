@@ -69,9 +69,13 @@ class MessageActionsScreenTest {
         compose.setContent {
             PingMeTheme(Appearance(mode = ThemeMode.LIGHT)) { ChatRoute(vm.chatId, onBack = {}, viewModel = vm) }
         }
+        // The chat's catch-up, fetched as it opened, saves the network's copy of each message over
+        // the stored one. A double tap or a reaction stored before that lands would be wiped by
+        // the older copy, which a slow machine made happen once (CI, 2026-11-05): wait for it.
         waitFor {
             vm.state.value.items
-                .isNotEmpty()
+                .isNotEmpty() &&
+                vm.opening?.isCompleted == true
         }
     }
 

@@ -2,6 +2,7 @@
 package org.pingme.app.chat
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
@@ -213,17 +214,28 @@ class ChatViewModel
                 // The view model outlives one visit: the opening rule runs on every showing,
                 // and nothing marks the chat read until it has decided.
                 decided.value = false
-                viewModelScope.launch {
-                    openOn(tab)
-                    // Opening a chat tells its network it is read, unread here or not.
-                    runCatching { chatActions.tellNetworkRead(chatId) }
-                    // And fetches the newest page, for anything missed without a live connection.
-                    runCatching { messageActions.catchUp(chatId) }
-                }
+                opening =
+                    viewModelScope.launch {
+                        openOn(tab)
+                        // Opening a chat tells its network it is read, unread here or not.
+                        runCatching { chatActions.tellNetworkRead(chatId) }
+                        // And fetches the newest page, for anything missed without a live connection.
+                        runCatching { messageActions.catchUp(chatId) }
+                    }
             } else if (presence.visible == chatId) {
                 presence.visible = null
             }
         }
+
+        /**
+         * The work the latest showing started (the read marking and the catch-up above). Tests
+         * wait for it: the catch-up's page, fetched as the chat opened, is saved over the
+         * messages a moment later, so anything a test does to a message before then can be
+         * written over by the copy from before it.
+         */
+        @VisibleForTesting
+        internal var opening: Job? = null
+            private set
 
         /**
          * A merged chat opens, header, bubbles, and box alike, on the network of the tab it was

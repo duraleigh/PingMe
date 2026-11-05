@@ -4648,3 +4648,20 @@ empties the jar (and web storage) first, so Google asks who is signing in. Nothi
 out by it: each network keeps its own saved session, and the in-app browser puts an account's cookies
 back each time it opens a page. Test: the Google Voice contract tests refuse a sign-in that does not
 start signed out.
+
+**A test that failed once on GitHub: `MessageActionsScreenTest.doubleTapSendsTheDoubleTapReaction`**
+(run 42067752155, commit fa1b9d5, timed out; the same code passed in run 42067744124 and here).
+*Not a slow machine running out of time:* repeated 30 times on this computer under load, the heart
+was always stored at the first check, at most 27 thousandths of a second after the double tap. *Cause,
+found by experiment:* opening a chat fetches the network's newest page in the background, and that page
+is saved over the stored messages, reactions included. Fetched as the chat opened, before the double
+tap, it lacked the heart; on a slow machine its save landed after the heart's and erased it, so the
+wait never ended. Reproduced by making that save 0.4 s slower (an experiment only, undone): a run
+failed exactly as on GitHub, with the heart on the demo network and none in the store. *Fixed in the
+test:* setting up waits until the chat's opening work (read marking and that catch-up) has finished,
+seen through `ChatViewModel.opening`, which only records the job the chat already started; the app
+behaves as before. With the slowed save still in place, the whole class passed 3 times out of 3; without
+it, 5 out of 5. Nothing was skipped or loosened: the test still requires the double tap to store the
+heart. *Left for the owner:* the same overlap can happen on the phone. Double-tap a message within a
+moment of opening its chat on a slow network, and the heart can vanish from PingMe until the network's
+next copy of the message brings it back. Not changed here.
