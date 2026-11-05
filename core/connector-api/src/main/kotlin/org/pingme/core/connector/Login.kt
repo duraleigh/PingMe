@@ -49,6 +49,12 @@ sealed interface LoginStep {
         val url: String,
         val cookieDomains: List<String>,
         val finishedUrlPrefix: String? = null,
+        /**
+         * Start signed out: the in-app browser's cookie jar is emptied first, so a sign-in left there
+         * by another network (Google Messages' Google account) is not taken as this one's (owner,
+         * 2026-11-05: Google Voice connected his own Gmail before he could pick another account).
+         */
+        val freshSession: Boolean = false,
     ) : LoginStep
 
     /**

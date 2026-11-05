@@ -4637,3 +4637,14 @@ screen with the message's words in the box, nothing picked, Send greyed; backed 
 Found there: a merged chat (Parker) read "No messages yet" in Share, as its newest message belongs to
 its members; Share now takes the newest across the members, as the inbox does. Test:
 `ShareViewModelTest.aMergedChatShowsItsMembersNewestMessage` (fails without the fix).
+
+**Google Voice signed in as the wrong account (owner, 2026-11-05: "automatically logs me in to my
+clayaiken1130@gmail.com account ... so quickly I can't even tap ... to choose a different account").**
+*Cause, from the code:* every network's sign-in page shares the in-app browser's one cookie jar, which
+still held his Google account from pairing Google Messages; Google Voice's sign-in opens
+voice.google.com, Google went straight to that account's inbox, and the login counts reaching
+voice.google.com/u/ as finished. *Fixed:* `LoginStep.OpenWebView.freshSession`; Google Voice's sign-in
+empties the jar (and web storage) first, so Google asks who is signing in. Nothing in PingMe is signed
+out by it: each network keeps its own saved session, and the in-app browser puts an account's cookies
+back each time it opens a page. Test: the Google Voice contract tests refuse a sign-in that does not
+start signed out.

@@ -27,7 +27,17 @@ internal fun gvoiceLoginFlow(
     credentials: CredentialStore,
 ): LoginFlow =
     loginFlow {
-        val answer = ask(LoginStep.OpenWebView("web", SIGN_IN_URL, COOKIE_DOMAINS, finishedUrlPrefix = FINISHED_PREFIX))
+        // Signed out first, so Google asks which account rather than taking the one already there.
+        val answer =
+            ask(
+                LoginStep.OpenWebView(
+                    "web",
+                    SIGN_IN_URL,
+                    COOKIE_DOMAINS,
+                    finishedUrlPrefix = FINISHED_PREFIX,
+                    freshSession = true,
+                ),
+            )
         if (answer !is LoginResponse.Cookies) return@loginFlow cancelled()
         val cookies = answer.cookies.filterKeys { it in WANTED }
         val missing = REQUIRED.filter { cookies[it].isNullOrEmpty() }
