@@ -4630,3 +4630,10 @@ in the same instant; the phone's message 308650 answered one at 06:54:00.565; th
 overwritten under the same tmpId, had no answer and became a stand-in at 06:54:20. Only one real
 message came back, so the phone most likely sent once (both sends carried the same tmpId) and the
 second bubble is PingMe's stand-in alone; "Delete for me" removes it without asking the network.
+
+**Checked on the phone, 08:18-08:22 (build 2e556d8), in the 87261 short code's chat only.** The draft came
+back: the chat opened with "draft check one" in its box (cleared afterwards). Forward opened the Share
+screen with the message's words in the box, nothing picked, Send greyed; backed out, nothing sent.
+Found there: a merged chat (Parker) read "No messages yet" in Share, as its newest message belongs to
+its members; Share now takes the newest across the members, as the inbox does. Test:
+`ShareViewModelTest.aMergedChatShowsItsMembersNewestMessage` (fails without the fix).

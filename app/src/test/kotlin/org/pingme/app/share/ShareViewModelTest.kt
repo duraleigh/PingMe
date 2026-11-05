@@ -115,6 +115,31 @@ class ShareViewModelTest {
         assertEquals(1, keys.count { it == merged.value })
     }
 
+    /** A merged chat shows its members' newest message, not "No messages yet" (owner, 2026-11-05: Parker). */
+    @Test
+    fun aMergedChatShowsItsMembersNewestMessage() {
+        val other = AccountId("demo-wa")
+        val samOnOther = other.chat("sam-wa")
+        val merged =
+            runBlocking {
+                demo.accounts.upsert(demo.account.copy(id = other))
+                val base = demo.chats.get(sam)!!
+                demo.chats.upsert(base.copy(id = samOnOther, accountId = other, isPinned = false, pinOrder = null))
+                demo.messageActions.send(sam, "see you at noon")
+                demo.mergeService.merge(listOf(sam, samOnOther))
+            }
+        val vm = picker(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "hi"))
+        waitFor {
+            vm.state.value.chats
+                .any { it.key == merged.value && it.row?.last != null }
+        }
+        val row =
+            vm.state.value.chats
+                .first { it.key == merged.value }
+                .row
+        assertEquals("see you at noon", row?.last?.body)
+    }
+
     /** The latest conversation comes first, and a share makes that one (owner, 2026-11-01). */
     @Test
     fun aChatSharedToRisesToTheTop() {

@@ -135,8 +135,9 @@ class ShareViewModel
                 val q = f.query.trim()
                 val rows =
                     rank(chatList)
-                        .mapNotNull { chat -> networks[chat.accountId]?.let { target(chat, it, last, people) } }
-                        .filter { q.isEmpty() || it.title.contains(q, ignoreCase = true) }
+                        .mapNotNull { chat ->
+                            networks[chat.accountId]?.let { target(chat, it, newest(chat, chatList, last), people) }
+                        }.filter { q.isEmpty() || it.title.contains(q, ignoreCase = true) }
                 Triple(f.copy(chats = rows), accountList, q)
             }.flatMapLatest { (f, accountList, q) ->
                 // Everyone, A to Z, under the recent chats, as in Google Messages; a search narrows them.
@@ -146,17 +147,32 @@ class ShareViewModel
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), form.value)
 
+        /**
+         * A chat's newest message; a merged chat has none of its own, so the newest across its
+         * members, as the inbox shows it (owner, 2026-11-04: Parker read "No messages yet").
+         */
+        private fun newest(
+            chat: Chat,
+            chatList: List<Chat>,
+            last: Map<ChatId, org.pingme.core.store.LastMessage>,
+        ): org.pingme.core.store.LastMessage? =
+            last[chat.id]
+                ?: chatList
+                    .filter { it.mergedInto == chat.id }
+                    .mapNotNull { last[it.id] }
+                    .maxByOrNull { it.sentAt }
+
         private fun target(
             chat: Chat,
             network: NetworkId,
-            last: Map<ChatId, org.pingme.core.store.LastMessage>,
+            newest: org.pingme.core.store.LastMessage?,
             people: Map<org.pingme.core.model.PersonId, Person>,
         ): ShareTarget.ToChat {
             val row =
                 org.pingme.app.inbox.ChatRow(
                     chat,
                     network,
-                    last[chat.id],
+                    newest,
                     typing = false,
                     photo =
                         org.pingme.app.inbox
