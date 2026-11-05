@@ -4616,3 +4616,17 @@ the phone matched Google Messages; from it: people known only by a number now co
 number shows as the phone writes it ((888) 847-7291) and not at all when it is the name, and the foot
 is rounded at the top. *Auto-rotate:* proven to be turned on by `adb shell monkey`, used to open apps
 (off before, on after, "Events injected: 1"); never used again (`am start -n`).
+
+**A scheduled message went twice (owner, 2026-11-05: "I only scheduled one", Parker, 6:54).** Two
+bubbles, the first read, the second sent. *Cause, from the code:* `SendAlarm.arm` sets both an exact
+alarm and a fallback WorkManager job for the same moment, under different names, so at 6:54 two
+`ScheduledSendWorker`s ran at once; each read the due list before either had finished, and Google
+Messages' send waits up to 20 s for the phone's copy, so both found the message still due and both sent
+it. It needed the two to overlap, which is why it had not been seen. *Fixed:* the worker sends under one
+process-wide lock and reads what is due only once it holds it, so the second finds nothing left. Test:
+`WorkersTest.twoWakeUpsAtOnceSendTheMessageOnce` (two workers, a slow send: 2 sends before the fix, 1
+after). *Confirmed from the phone's diary:* "send tmpId=d22bf1bd… chars=37" at 06:54:00.034 and once more
+in the same instant; the phone's message 308650 answered one at 06:54:00.565; the other, its record
+overwritten under the same tmpId, had no answer and became a stand-in at 06:54:20. Only one real
+message came back, so the phone most likely sent once (both sends carried the same tmpId) and the
+second bubble is PingMe's stand-in alone; "Delete for me" removes it without asking the network.

@@ -9,6 +9,7 @@ import androidx.work.workDataOf
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.ConnectorRegistry
@@ -157,7 +158,11 @@ class ScheduledSendWorker
         private val previews: org.pingme.core.service.links.PreviewRequests,
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
-            val results = scheduled.due(clock.now()).map { send(it) }
+            // One sender at a time, each looking for what is due only once it has its turn: the
+            // exact alarm and the fallback job both wake at the message's time, and while the first
+            // waited on the network the second found the same message still due and sent it again
+            // (owner, 2026-11-05: one message scheduled for 6:54, two went to Parker).
+            val results = SENDING.withLock { scheduled.due(clock.now()).map { send(it) } }
             // Wake again for whichever message is due next.
             alarm.arm()
             return if (results.any { it == Outcome.RetryLater }) Result.retry() else Result.success()
@@ -206,6 +211,8 @@ class ScheduledSendWorker
 
         companion object {
             const val MAX_ATTEMPTS = 5
+
+            private val SENDING = kotlinx.coroutines.sync.Mutex()
 
             /** Later than this after its time, a scheduled send is announced as late (UI_DESIGN.md 10.13). */
             val LATE = kotlin.time.Duration.parse("5m")
