@@ -31,14 +31,15 @@
     <!-- Bottom bar -->
     <string name="bar_all">All</string>
     <string name="bar_unread">Unread</string>
-    <string name="bar_low_priority">Low priority</string>
+    <string name="bar_low_priority">Quiet</string>
     <string name="bar_show_all_accounts">All accounts</string>
     <string name="bar_show_both_folders">Primary and General</string>
     <string name="bar_primary_only">Primary only</string>
     <string name="bar_general_only">General only</string>
     <string name="bar_edit_title">Bottom bar</string>
-    <string name="bar_edit_hint">Pick up to five. All comes first when it is on; without it, the inbox opens on the first one.</string>
-    <string name="bar_edit_full">That is five already. Remove one first.</string>
+    <string name="bar_edit_hint">Pick up to four. All comes first when it is on; without it, the inbox opens on the first one. Everything else sits behind More.</string>
+    <string name="bar_edit_full">That is four already. Remove one first; the rest stay behind More.</string>
+    <string name="bar_more">More</string>
 
     <!-- Rows -->
     <string name="inbox_now">now</string>
@@ -47,6 +48,7 @@
     <string name="inbox_hidden_preview">New message</string>
     <string name="inbox_no_messages">No messages yet</string>
     <string name="inbox_typing">typing…</string>
+    <string name="inbox_draft">Draft:</string>
     <string name="inbox_muted">Muted</string>
     <string name="inbox_folder_general">General</string>
     <string name="inbox_unread">Unread messages</string>
@@ -96,10 +98,14 @@
     <string name="inbox_pin_limit">You can pin up to 12 chats</string>
 
     <!-- FAB menu -->
-    <string name="fab_new">New</string>
     <string name="fab_close">Close</string>
     <string name="fab_new_chat">New chat</string>
-    <string name="fab_new_group">New group</string>
+    <string name="fab_start_chat">Start chat</string>
+    <string name="composer_emoji">Emoji</string>
+    <string name="new_chat_to">To:</string>
+    <string name="new_chat_anyone_else">Anyone else?</string>
+    <string name="new_group_chat">New group chat</string>
+    <string name="new_group_add_name">Add group name</string>
 
     <!-- Avatar menu lists -->
     <string name="list_empty_archived">Nothing archived</string>
@@ -126,9 +132,22 @@
     <string name="new_chat_no_accounts">None of your accounts can start new chats from PingMe.</string>
     <string name="new_group_no_accounts">None of your accounts can make groups from PingMe.</string>
     <string name="new_group_name">Group name</string>
+    <string name="new_group_name_optional">Group name (optional)</string>
+    <string name="new_group_next">Next</string>
+    <string name="details_call">Call</string>
+    <string name="details_video">Video</string>
+    <string name="group_icon_pick">Pick a picture for this group</string>
+    <string name="group_icon_note">The picture shows in PingMe, not to the others in the group.</string>
+    <string name="action_move_general">Move to General</string>
+    <string name="action_move_primary">Move to Primary</string>
+    <string name="inbox_moved_general">Moved to General</string>
+    <string name="inbox_moved_primary">Moved to Primary</string>
+    <string name="inbox_bulk_general">Moved to General</string>
+    <string name="swipe_move_folder">Move between Instagram folders</string>
+    <string name="media_save_waiting">Still getting the full picture. Try again in a moment.</string>
     <string name="new_group_add">Add %1$s</string>
     <string name="new_group_remove">Remove %1$s</string>
-    <string name="new_group_create">Make the group</string>
+    <string name="new_group_create">Done</string>
 
     <!-- Wide screens before a chat is picked -->
     <string name="chat_pick_one">Pick a chat</string>
@@ -139,7 +158,8 @@
     <string name="chat_new_messages">New messages</string>
     <string name="chat_edited">edited</string>
     <string name="chat_not_sent">Not sent: %1$s</string>
-    <string name="chat_retry">Retry</string>
+    <string name="chat_retry">Try again</string>
+    <string name="chat_delete_failed">Delete</string>
     <string name="status_sending">Sending</string>
     <string name="status_sent">Sent</string>
     <string name="status_delivered">Delivered</string>
@@ -147,18 +167,31 @@
     <string name="status_failed">Not sent</string>
     <string name="status_scheduled">Scheduled</string>
     <string name="chat_details">Chat details</string>
+    <string name="chat_open_profile">Open their Instagram profile</string>
+    <string name="chat_profile_unavailable">Nothing on this phone can open an Instagram profile</string>
     <string name="chat_search">Search in chat</string>
     <string name="chat_more">More</string>
     <string name="chat_call">Call</string>
     <string name="chat_video_call">Video call</string>
     <string name="chat_one_typing">%1$s is typing…</string>
     <string name="chat_many_typing">Several people are typing…</string>
-    <plurals name="chat_members">
-        <item quantity="one">%d person</item>
-        <item quantity="other">%d people</item>
-    </plurals>
+    <string name="voice_note_shortcut">PingMe voice note</string>
+    <string name="dictation_listening">Listening… let go to write it out</string>
+    <string name="dictation_writing">Writing it out…</string>
+    <string name="dictation_failed">Dictation failed: %1$s</string>
+    <string name="dictation_nothing_heard">nothing was heard. Is another app using the microphone?</string>
     <string name="chat_calls_unavailable">This chat can\'t place calls from this phone</string>
-    <string name="chat_call_opened_app">Opened the app: it has no direct call button</string>
+    <string name="chat_call_opened_app">Opened %1$s: nothing more direct worked</string>
+    <string name="chat_call_opened_dialer">Opened the dialer with the number. Allow phone calls for PingMe and it will dial at once.</string>
+    <string name="chat_call_no_calls">%1$s lets no other app start its calls. Opened the chat there: the call buttons are at its top.</string>
+    <string name="chat_call_needs_sync">Opened %1$s to this person. To call straight from here, let %1$s see your contacts, then try again.</string>
+    <string name="chat_call_how_dialer">Calls the number in the phone\'s dialer</string>
+    <string name="chat_call_how_app_dialer">Calls the number through %1$s</string>
+    <string name="chat_call_how_meet">Video call in Google Meet</string>
+    <string name="chat_call_how_app_audio">%1$s call</string>
+    <string name="chat_call_how_app_video">%1$s video call</string>
+    <string name="chat_call_how_thread">Opens the chat in %1$s, where the call buttons are</string>
+    <string name="chat_call_how_open">Opens %1$s</string>
     <string name="chat_message_hint">Message</string>
     <string name="chat_send">Send</string>
     <string name="chat_replying_to">Replying to %1$s</string>
@@ -171,6 +204,9 @@
         <item quantity="other">%d new messages</item>
     </plurals>
     <string name="you">You</string>
+    <string name="reactions_title">Reactions</string>
+    <string name="reactions_see_who">See who reacted</string>
+    <string name="reactions_someone">Someone</string>
     <string name="emoji_search">Search emoji</string>
     <string name="emoji_recent">Recent</string>
     <string name="chat_double_tap_fallback">Not available here, so double tap sends %1$s</string>
@@ -217,8 +253,6 @@
     <string name="info_status">Status</string>
     <string name="info_network">Network</string>
     <string name="info_edited">Edited</string>
-    <string name="forward_title">Forward to</string>
-    <string name="forward_send">Send</string>
     <string name="editing">Editing message</string>
     <string name="cancel_edit">Stop editing</string>
     <string name="not_on_network">Not available on %1$s</string>

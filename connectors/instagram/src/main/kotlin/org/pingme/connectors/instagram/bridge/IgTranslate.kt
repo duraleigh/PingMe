@@ -82,6 +82,13 @@ class IgTranslate(
     @Synchronized
     fun knows(thread: String) = thread in threads
 
+    /**
+     * Whether a thread's folder is known: a thread seen only through a message, or fetched on
+     * its own (system='INBOX' and nothing else), has none yet (owner, 2026-10-09: Tony Wijaya).
+     */
+    @Synchronized
+    fun knowsFolder(thread: String): Boolean = threads[thread]?.let { folderOrUnknown(it) } != null
+
     /** Whether a sender has been seen in a thread listing, so they have a name. */
     @Synchronized
     fun knowsPerson(user: String) = user == ownId || user in names
@@ -104,6 +111,20 @@ class IgTranslate(
     /** The folder a thread sits in (UI_DESIGN.md 6.4). */
     fun folderOf(thread: IgThread): ChatFolder = folderOf(thread.systemFolder, thread.folder, thread.folderTag)
 
+    /**
+     * The folder when the thread says which, else null. A thread fetched on its own, or handed
+     * over with a live message, carries system='INBOX' and nothing else: that says it is not a
+     * request, not that it is Primary. Reading it as Primary moved General chats into the inbox
+     * at every new message (owner, 2026-10-07: "three more general folder messages in my
+     * PingMe inbox this morning"). Only the folder field or a tag tells Primary from General.
+     */
+    fun folderOrUnknown(thread: IgThread): ChatFolder? =
+        when {
+            thread.systemFolder in REQUEST_FOLDERS -> ChatFolder.REQUESTS
+            thread.folder.isNotEmpty() || thread.folderTag.isNotEmpty() -> folderOf(thread)
+            else -> null
+        }
+
     /** Data events become connector events; control events return nothing. */
     @Synchronized
     fun translate(event: IgEvent): List<ConnectorEvent> =
@@ -125,10 +146,24 @@ class IgTranslate(
     /** A thread as a chat, remembered for later lookups, with its newest messages as history. */
     @Synchronized
     fun chat(thread: IgThread): ChatSnapshot {
-        threads[thread.id] = thread
+        // A thread handed over again without its folder fields (a live update carries the
+        // messages, not the folder) keeps the folder it was listed with; without this a
+        // General chat jumped to Primary at its next message (owner, 2026-10-06: Carrie).
+        val known = threads[thread.id]
+        val kept =
+            if (known == null) {
+                thread
+            } else {
+                thread.copy(
+                    folder = thread.folder.ifEmpty { known.folder },
+                    systemFolder = thread.systemFolder.ifEmpty { known.systemFolder },
+                    folderTag = thread.folderTag.ifEmpty { known.folderTag },
+                )
+            }
+        threads[thread.id] = kept
         thread.users.forEach { names[it.id] = it }
         if (ownId.isEmpty()) thread.users.firstOrNull { it.isMe }?.let { ownId = it.id }
-        return snapshot(thread)
+        return snapshot(kept)
     }
 
     @Synchronized
@@ -146,7 +181,8 @@ class IgTranslate(
             participants = listOf(me()) + others.map(::person),
             unreadCount = if (thread.markedUnread || unreadFromOthers) 1 else 0,
             lastActivityAt = Instant.fromEpochMilliseconds(thread.lastMessageAt),
-            folder = folderOf(thread),
+            // Unknown stays unknown: the store keeps the folder it has (UI_DESIGN.md 6.4).
+            folder = folderOrUnknown(thread),
             spaceId = null,
             networkRemoteId = thread.id,
         )
@@ -161,7 +197,8 @@ class IgTranslate(
             displayName = displayName(user),
             phoneNumber = null,
             networkHandle = user.username.ifEmpty { user.id },
-            avatarPath = null,
+            // Instagram's profile picture, fetched into app storage by the service (owner, Phase 7).
+            avatarPath = user.picture.ifEmpty { null },
             contactId = null,
         )
 
@@ -181,7 +218,10 @@ class IgTranslate(
 
     private fun threadEvents(thread: IgThread): List<ConnectorEvent> {
         val chat = chat(thread)
-        val plain = thread.messages.filter { it.kind != "system" }
+        // A listing can hand a message over without its id (a shared post or reel; owner,
+        // 2026-10-07): it cannot be stored under a usable id, and the catch-up fetch on opening
+        // the chat brings it with one.
+        val plain = thread.messages.filter { it.kind != "system" && it.id.isNotBlank() }
         val batch = ConnectorEvent.HistoryBatch(accountId, chat.id, plain.map { snapshotOf(it) }, complete = false)
         return listOf(ConnectorEvent.ChatUpdated(accountId, chat), batch)
     }
@@ -268,7 +308,7 @@ class IgTranslate(
     }
 
     private fun attachmentsOf(msg: IgMessage): List<Attachment> =
-        msg.media.filter { it.url.isNotEmpty() }.mapIndexed { i, media ->
+        msg.media.filter { it.url.isNotEmpty() || it.id.isNotEmpty() }.mapIndexed { i, media ->
             val kind =
                 when (media.kind) {
                     "video" -> AttachmentKind.VIDEO
@@ -284,7 +324,7 @@ class IgTranslate(
                 fileName = null,
                 sizeBytes = 0,
                 localPath = null,
-                remoteRef = igJson.encodeToString(IgMedia.serializer(), media),
+                remoteRef = igJson.encodeToString(IgMedia.serializer(), media.copy(thread = msg.thread)),
                 durationMs = media.durationMs.takeIf { it > 0 }?.toLong(),
                 width = media.width.takeIf { it > 0 },
                 height = media.height.takeIf { it > 0 },

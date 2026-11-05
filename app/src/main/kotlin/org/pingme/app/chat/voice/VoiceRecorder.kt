@@ -8,6 +8,7 @@ import android.media.MediaMuxer
 import android.media.MediaRecorder
 import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
+import org.pingme.core.connector.Diag
 import org.pingme.core.connector.OutgoingAttachment
 import org.pingme.core.model.AttachmentKind
 import java.io.File
@@ -81,7 +82,10 @@ open class VoiceRecorder
             val home = folder ?: return null
             val note = File(home, NOTE)
             val length = recordedMs
-            val ok = length >= SHORTEST_MS && join(parts, note)
+            val joined = length >= SHORTEST_MS && join(parts, note)
+            val ok = joined
+            // Why a recording was kept or not (owner, 2026-10-06: "Too short to send" after twenty seconds).
+            Diag.note(TAG, "Recording: $length ms in ${parts.size} part(s), joined=$joined, kept=$ok")
             parts.forEach { it.delete() }
             parts.clear()
             folder = null
@@ -125,10 +129,14 @@ open class VoiceRecorder
 
         // Closes the stretch being recorded; one that captured nothing is dropped.
         private fun endPart(now: Long) {
-            if (recorder == null) return
+            if (recorder == null) {
+                Diag.note(TAG, "No recorder running at the end of a stretch")
+                return
+            }
             if (stopQuietly()) {
                 recordedMs += now - partStartedAt
             } else {
+                Diag.note(TAG, "The stretch of ${now - partStartedAt} ms captured nothing: stop() refused")
                 parts.removeLastOrNull()?.delete()
             }
         }
@@ -146,6 +154,8 @@ open class VoiceRecorder
         private fun legacyRecorder() = MediaRecorder()
 
         companion object {
+            private const val TAG = "PingMeRecorder"
+
             /** Shorter than this is a slip of the thumb, not a voice note. */
             const val SHORTEST_MS = 600L
             private const val SAMPLE_RATE = 44_100

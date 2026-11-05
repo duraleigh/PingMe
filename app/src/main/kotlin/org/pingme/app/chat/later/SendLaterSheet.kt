@@ -15,7 +15,6 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SuggestionChip
@@ -38,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
 import org.pingme.app.chat.scheduledLabel
+import org.pingme.core.ui.components.PingMeSheet
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -56,7 +56,7 @@ import org.pingme.core.ui.R as UiR
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SendLaterSheet(
+internal fun SendLaterSheet(
     onPick: (Instant) -> Unit,
     onDismiss: () -> Unit,
     clock: Clock = Clock.System,
@@ -69,7 +69,7 @@ fun SendLaterSheet(
         onPick(at)
         onDismiss()
     }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

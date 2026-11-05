@@ -42,6 +42,17 @@ open class OutgoingFiles
                 OutgoingAttachment(target.path, mime, kindFor(mime), name, caption = null)
             }
 
+        /** Whether a shared item can be opened at all: quick, with no copying. */
+        open suspend fun canRead(uri: Uri): Boolean =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.use {
+                        it.read()
+                        true
+                    }
+                }.getOrNull() == true
+            }
+
         /** Where the camera writes a new photo, and the address the camera app writes it through. */
         fun photoTarget(): Pair<File, Uri> {
             val file = newFile("photo.jpg")

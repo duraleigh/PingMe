@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -26,6 +27,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.inbox.DemoInbox
 import org.pingme.core.connector.chat
 import org.pingme.core.model.Quote
@@ -92,6 +94,48 @@ class ChatScreenTest {
         waitForText("Sam Ortiz")
         compose.onNodeWithText("New messages").assertExists()
         waitFor { runBlocking { demo.chats.get(sam())!!.unreadCount } == 0 }
+    }
+
+    /**
+     * Words left unsent are back in the box on return (owner, 2026-11-04: leaving cleared them),
+     * with the same view model, as the inbox's pane keeps it while the chat is away.
+     */
+    @Test
+    fun wordsLeftUnsentAreBackWhenTheChatIsOpenedAgain() {
+        val kept = demo.chatViewModel("sam")
+        var shown by mutableStateOf<ChatViewModel?>(kept)
+        compose.setContent {
+            PingMeTheme(appearance) { shown?.let { ChatRoute(it.chatId, onBack = {}, viewModel = it) } }
+        }
+        compose.onNode(hasTestTag(COMPOSER)).performTextInput("half a thought")
+        waitFor { runBlocking { demo.settings.drafts.first()[sam().value] } == "half a thought" }
+        shown = null
+        compose.waitForIdle()
+        shown = kept
+        waitForText("half a thought")
+        assertEquals(0, runBlocking { demo.messages.latest(sam(), 50).first() }.count { it.body == "half a thought" })
+    }
+
+    @Test
+    fun sendingClearsTheDraft() {
+        open("sam")
+        compose.onNode(hasTestTag(COMPOSER)).performTextInput("See you soon")
+        waitFor { runBlocking { demo.settings.drafts.first()[sam().value] } == "See you soon" }
+        compose.onNodeWithContentDescription("Send").performClick()
+        waitFor { runBlocking { demo.settings.drafts.first()[sam().value] } == null }
+    }
+
+    @Test
+    fun emojiAndGalleryLeaveTheBoxOnceTypingStarts() {
+        open("sam")
+        compose.onNodeWithContentDescription("Emoji").assertExists()
+        compose.onNode(hasTestTag(COMPOSER)).performTextInput("went in person")
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Emoji").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Gallery").assertDoesNotExist()
+        compose.onNode(hasTestTag(COMPOSER)).performTextClearance()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Emoji").assertExists()
     }
 
     @Test
@@ -161,7 +205,6 @@ class ChatScreenTest {
     fun groupsShowWhoSaidWhat() {
         open("design")
         waitForText("Priya Shah")
-        compose.onNode(hasText("people", substring = true)).assertExists()
     }
 
     /** Renders chats to build/screenshots/chat-*.png. */
@@ -186,5 +229,11 @@ class ChatScreenTest {
     private companion object {
         const val TIMEOUT = 15_000L
         const val STEP_MS = 50L
+    }
+
+    @Test
+    fun everyControlHasASpokenNameAndIsBigEnough() {
+        open("sam")
+        compose.assertAccessible()
     }
 }

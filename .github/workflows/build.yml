@@ -63,12 +63,15 @@ jobs:
           java-version: "17"
 
       # The runner image ships an Android SDK with licences accepted. Install exactly
-      # the packages the build uses so AGP never has to fetch them mid-build.
+      # the packages the build uses so AGP never has to fetch them mid-build. The NDK is
+      # here, not only in the bridge step: without it AGP cannot strip the bridge's
+      # native library and the APK came out 175 MB larger on a bridge cache hit
+      # (2026-10-06, build d638b17: 541 MB instead of 366 MB).
       - name: Android SDK packages
         if: steps.changes.outputs.code == 'true'
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-37.2" "build-tools;36.0.0" > /dev/null
+            "platforms;android-37.2" "build-tools;36.0.0" "ndk;27.3.13750724" > /dev/null
 
       - uses: gradle/actions/setup-gradle@v6
         if: steps.changes.outputs.code == 'true'
@@ -97,7 +100,6 @@ jobs:
           # build.sh downloads Signal's native library from this repository's releases.
           GH_TOKEN: ${{ github.token }}
         run: |
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.3.13750724" > /dev/null
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.3.13750724"
           go install golang.org/x/mobile/cmd/gomobile@latest
           gomobile init
@@ -144,6 +146,19 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
         # check = ktlintCheck, detekt, Android lint, unit tests (BUILD_PLAN.md P0.5).
         run: ./gradlew check assembleRelease assembleDebug
+
+      # A test that fails only here says why in the log, not only in a report that is thrown away.
+      - name: Show failed tests
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as E
+          for f in glob.glob("**/build/test-results/**/*.xml", recursive=True):
+              for case in E.parse(f).getroot().findall("testcase"):
+                  bad = case.find("failure")
+                  if bad is not None:
+                      print(case.get("classname"), case.get("name"), "\n", (bad.get("message") or bad.text or "")[:1500])
+          PY
 
       - name: Name the APK
         if: steps.changes.outputs.code == 'true'

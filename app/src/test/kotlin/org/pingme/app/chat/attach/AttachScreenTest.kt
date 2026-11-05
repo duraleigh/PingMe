@@ -19,6 +19,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.chat.COMPOSER
 import org.pingme.app.chat.ChatRoute
 import org.pingme.app.chat.ChatViewModel
@@ -81,6 +82,8 @@ class AttachScreenTest {
         for (option in listOf("Camera", "Gallery", "File", "Location", "Contact")) {
             waitFor { compose.onAllNodesWithText(option).fetchSemanticsNodes().isNotEmpty() }
         }
+        // The open attach sheet, as a screen reader sees it (P8.1).
+        compose.assertAccessible()
     }
 
     @Test

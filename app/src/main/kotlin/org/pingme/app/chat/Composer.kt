@@ -2,12 +2,15 @@
 package org.pingme.app.chat
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.content.MediaType
 import androidx.compose.foundation.content.ReceiveContentListener
 import androidx.compose.foundation.content.consume
 import androidx.compose.foundation.content.contentReceiver
 import androidx.compose.foundation.content.hasMediaType
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,8 +21,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -39,14 +47,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
 import org.pingme.app.R
 import org.pingme.app.chat.attach.AttachLaunchers
+import org.pingme.app.chat.attach.AttachProblem
 import org.pingme.app.chat.attach.AttachSheet
 import org.pingme.app.chat.attach.Outbox
 import org.pingme.app.chat.attach.SendButton
@@ -55,13 +66,19 @@ import org.pingme.app.chat.attach.rememberAttachLaunchers
 import org.pingme.app.chat.gif.GifPickerSheet
 import org.pingme.app.chat.gif.GifPicks
 import org.pingme.app.chat.later.SendLaterSheet
+import org.pingme.app.chat.voice.DictationRow
 import org.pingme.app.chat.voice.MicButton
 import org.pingme.app.chat.voice.MicState
 import org.pingme.app.chat.voice.RecordingBar
+import org.pingme.app.chat.voice.VoiceKeyListener
 import org.pingme.app.chat.voice.VoiceNotes
 import org.pingme.app.chat.voice.VoiceReplyStarter
+import org.pingme.app.inbox.NetworkBadge
+import org.pingme.app.inbox.badgeLabel
 import org.pingme.core.model.Message
+import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.theme.PingMeTheme
+import org.pingme.core.ui.theme.messagesBar
 import org.pingme.core.ui.R as UiR
 
 /**
@@ -75,11 +92,7 @@ internal fun Composer(
     editing: Message? = null,
     hooks: ComposerHooks = ComposerHooks(),
 ) {
-    // Editing starts from the message's text; a new edit (or none) starts afresh.
-    val field =
-        rememberSaveable(editing?.id?.value, saver = TextFieldState.Saver) { TextFieldState(editing?.body.orEmpty()) }
-    val typing by rememberUpdatedState(onTyping)
-    LaunchedEffect(field) { snapshotFlow { field.text.toString() }.drop(1).collect { typing(it) } }
+    val field = rememberComposerField(editing, hooks, onTyping)
     var sheet by remember { mutableStateOf(ComposerSheet.NONE) }
     val outbox = hooks.outbox?.takeIf { editing == null }
     val voice = hooks.voice?.takeIf { editing == null }
@@ -88,64 +101,97 @@ internal fun Composer(
     val mic by voice?.state.collectOr(MicState.Idle)
     val recording = mic as? MicState.Recording
     voice?.let { VoiceReplyStarter(it) }
+    val dictation = hooks.dictation?.takeIf { editing == null }
+    VoiceKeyListener(voice, dictation, hooks.onVoiceTooShort, volumeUp = hooks.volumeUpRecords)
     if (recording?.locked == true && voice != null) {
         RecordingBar(recording, voice, Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp))
         return
     }
+    dictation?.let { DictationRow(it, field) }
     StagedStrip(staged, copying > 0, { outbox?.remove(it) })
+    // The pickers' listeners live here, where they outlive the attach sheet.
+    val pick = outbox?.let { rememberAttachLaunchers(it, hooks.onProblem) }
+    val problem by rememberUpdatedState(hooks.onProblem)
+    LaunchedEffect(outbox) { outbox?.missed?.collect { problem(AttachProblem.UNREADABLE) } }
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (recording != null && voice != null) {
             RecordingBar(recording, voice, Modifier.weight(1f))
         } else {
-            outbox?.let { ComposerIcon(UiR.drawable.ic_add, R.string.attach) { sheet = ComposerSheet.ATTACH } }
-            hooks.gifs?.takeIf { editing == null }?.let {
-                ComposerIcon(UiR.drawable.ic_gif_box, R.string.gif) { sheet = ComposerSheet.GIF }
-            }
-            MessageField(field, outbox)
-        }
-        val sendWith = { send: (String) -> Unit ->
-            send(field.text.toString())
-            field.clearText()
+            MessageField(
+                field,
+                outbox,
+                hooks.takeIf { editing == null },
+                ComposerOpeners(
+                    onAttach = { sheet = ComposerSheet.ATTACH },
+                    onEmoji = { sheet = ComposerSheet.EMOJI },
+                    onGallery = pick?.gallery,
+                ),
+            )
         }
         MicOrSend(
             voice,
             hooks.onVoiceTooShort,
             something = field.text.isNotBlank() || staged.isNotEmpty(),
             ready = copying == 0,
-            onSend = { sendWith(onSend) },
+            onSend = {
+                onSend(field.text.toString())
+                field.clearText()
+            },
             onSendLater = hooks.onSchedule?.takeIf { editing == null }?.let { { sheet = ComposerSheet.LATER } },
         )
     }
-    org.pingme.app.chat.later.LaterSheetWithAsk(
-        open = sheet == ComposerSheet.LATER,
-        onSchedule = { at ->
-            hooks.onSchedule?.invoke(field.text.toString(), at)
-            field.clearText()
-        },
-        onDismiss = { sheet = ComposerSheet.NONE },
-    )
-    // The pickers' listeners live here, where they outlive the attach sheet.
-    val pick = outbox?.let { rememberAttachLaunchers(it, hooks.onProblem) }
-    ComposerSheets(sheet, hooks, pick) { sheet = ComposerSheet.NONE }
+    // GIFs live in the + menu (owner, 2026-10-03), so the box can be wider.
+    val gifsOffered = hooks.gifs != null && editing == null
+    ComposerSheets(sheet, hooks, pick, field, onGif = { sheet = ComposerSheet.GIF }.takeIf { gifsOffered }) {
+        sheet = ComposerSheet.NONE
+    }
 }
 
+/** What the buttons inside the box open. */
+private class ComposerOpeners(
+    val onAttach: () -> Unit,
+    val onEmoji: () -> Unit,
+    val onGallery: (() -> Unit)?,
+)
+
 /** Which sheet the composer has open. */
-private enum class ComposerSheet { NONE, ATTACH, GIF, LATER }
+private enum class ComposerSheet { NONE, ATTACH, GIF, LATER, EMOJI }
 
 @Composable
 private fun ComposerSheets(
     sheet: ComposerSheet,
     hooks: ComposerHooks,
     pick: AttachLaunchers?,
+    field: TextFieldState,
+    onGif: (() -> Unit)?,
     onClose: () -> Unit,
 ) {
+    org.pingme.app.chat.later.LaterSheetWithAsk(
+        open = sheet == ComposerSheet.LATER,
+        onSchedule = { at ->
+            hooks.onSchedule?.invoke(field.text.toString(), at)
+            field.clearText()
+        },
+        onDismiss = onClose,
+    )
     when (sheet) {
+        ComposerSheet.EMOJI -> {
+            org.pingme.app.chat.emoji.EmojiPickerSheet(
+                recent = emptyList(),
+                onPick = {
+                    field.edit { append(it) }
+                    onClose()
+                },
+                onDismiss = onClose,
+            )
+        }
+
         ComposerSheet.ATTACH -> {
-            pick?.let { AttachSheet(it, onClose) }
+            pick?.let { AttachSheet(it, onClose, onGif) }
         }
 
         ComposerSheet.GIF -> {
@@ -200,6 +246,8 @@ private fun <T> StateFlow<T>?.collectOr(default: T): State<T> =
 private fun RowScope.MessageField(
     field: TextFieldState,
     outbox: Outbox?,
+    hooks: ComposerHooks?,
+    openers: ComposerOpeners,
 ) {
     val receiver =
         remember(outbox) {
@@ -211,23 +259,165 @@ private fun RowScope.MessageField(
                 rest
             }
         }
+    val network = hooks?.network
+    val bar = MaterialTheme.colorScheme.messagesBar(androidx.compose.foundation.isSystemInDarkTheme())
     TextField(
         state = field,
         modifier = Modifier.weight(1f).testTag(COMPOSER).contentReceiver(receiver),
-        placeholder = { Text(stringResource(R.string.chat_message_hint)) },
-        shape = RoundedCornerShape(26.dp),
+        placeholder = {
+            when {
+                network == null -> FittedHint(stringResource(R.string.chat_message_hint))
+
+                // The "not connected" line is a notice, not a prompt: it wraps so it can be
+                // read in full (owner, 2026-10-05: it was cut off).
+                hooks?.connected == false -> Text(stringResource(R.string.send_hint_disconnected, badgeLabel(network)))
+
+                else -> FittedHint(stringResource(sendHint(network)))
+            }
+        },
+        // Inside the box, as on the owner's Google Messages: + and the network at the left, emoji
+        // and gallery at the right (2026-11-01).
+        // The text starts 14 dp after the last of them, as Google Messages' hint does after its +
+        // (owner, 2026-11-02: the chip, cursor, and hint were jammed together).
+        leadingIcon = {
+            Row(Modifier.padding(end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                outbox?.let { ComposerIcon(UiR.drawable.ic_add_circle, R.string.attach, openers.onAttach) }
+                network?.let { NetworkPick(it, hooks) }
+            }
+        },
+        // Only while the box is empty, as in Google Messages: once anything is typed they go, so the
+        // text has the box's whole width (owner, 2026-11-02: it wrapped two or three words a line).
+        // The keyboard still has emoji, and the + still attaches pictures.
+        trailingIcon =
+            if (field.text.isEmpty()) {
+                {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ComposerIcon(UiR.drawable.ic_mood, R.string.composer_emoji, openers.onEmoji)
+                        openers.onGallery?.let { ComposerIcon(UiR.drawable.ic_image, R.string.attach_gallery, it) }
+                    }
+                }
+            } else {
+                null
+            },
+        shape = RoundedCornerShape(28.dp),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = COMPOSER_LINES),
+        // 56 tall with one line, level with the voice button, as measured on Google Messages
+        // (owner, 2026-11-02: it was 65).
+        contentPadding =
+            TextFieldDefaults.contentPaddingWithoutLabel(start = 4.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
         // Sentences start with a capital, as in any messaging keyboard (owner, Gate G3).
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         textStyle = PingMeTheme.messageText,
         colors =
             TextFieldDefaults.colors(
+                // The bar's own color, as in Google Messages (owner, 2026-11-02).
+                focusedContainerColor = bar,
+                unfocusedContainerColor = bar,
+                disabledContainerColor = bar,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
                 disabledIndicatorColor = Color.Transparent,
             ),
     )
 }
+
+/**
+ * The badge inside the box names the network the message goes on (owner, 2026-10-03). In
+ * a merged chat it opens the same menu as the header's badge to pick another member.
+ */
+@Composable
+private fun NetworkPick(
+    network: NetworkId,
+    hooks: ComposerHooks,
+) {
+    var open by remember { mutableStateOf(false) }
+    val choices = hooks.members
+    val current = choices.firstOrNull { it.chatId == hooks.sendVia }
+    Box(
+        Modifier
+            .padding(start = 6.dp)
+            .swipeThroughNetworks(choices, current) { hooks.onSendVia(it.chatId) }
+            .testTag(NETWORK_CHIP),
+    ) {
+        // A disconnected account is red-lined (UI_DESIGN.md 10.15), so the owner sees why the
+        // message would wait before sending it.
+        val ring =
+            if (hooks.connected) {
+                Modifier
+            } else {
+                Modifier.border(2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(8.dp))
+            }
+        NetworkBadge(
+            network,
+            if (choices.size > 1) {
+                ring.clickable(role = Role.Button, onClickLabel = stringResource(R.string.chat_pick_send_network)) {
+                    open = true
+                }
+            } else {
+                ring
+            },
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.chat_networks_all)) },
+                trailingIcon = { if (hooks.showingAll) Icon(painterResource(UiR.drawable.ic_check), null) },
+                onClick = {
+                    open = false
+                    hooks.onAllNetworks()
+                },
+            )
+            choices.forEach { member ->
+                DropdownMenuItem(
+                    text = { Text(member.label) },
+                    leadingIcon = { NetworkBadge(member.network) },
+                    trailingIcon = {
+                        if (!hooks.showingAll && member.chatId == hooks.sendVia) {
+                            Icon(painterResource(UiR.drawable.ic_check), null)
+                        }
+                    },
+                    onClick = {
+                        open = false
+                        hooks.onSendVia(member.chatId)
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** One line that shrinks to fit the box instead of wrapping and growing it (owner, 2026-10-04). */
+@Composable
+private fun FittedHint(text: String) {
+    androidx.compose.foundation.text.BasicText(
+        text,
+        style = LocalTextStyle.current.merge(color = androidx.compose.material3.LocalContentColor.current),
+        maxLines = 1,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        autoSize =
+            androidx.compose.foundation.text.TextAutoSize.StepBased(
+                minFontSize = MIN_HINT_SP.sp,
+                maxFontSize = LocalTextStyle.current.fontSize,
+            ),
+    )
+}
+
+private const val MIN_HINT_SP = 11
+
+/** "Send a WhatsApp message", "Send an Instagram DM", and so on (owner, 2026-10-03). */
+@androidx.annotation.StringRes
+private fun sendHint(network: NetworkId): Int =
+    when (network) {
+        NetworkId.GMESSAGES -> R.string.send_hint_gmessages
+        NetworkId.SMS -> R.string.send_hint_sms
+        NetworkId.WHATSAPP -> R.string.send_hint_whatsapp
+        NetworkId.INSTAGRAM -> R.string.send_hint_instagram
+        NetworkId.SIGNAL -> R.string.send_hint_signal
+        NetworkId.TELEGRAM -> R.string.send_hint_telegram
+        NetworkId.MESSENGER -> R.string.send_hint_messenger
+        NetworkId.FBPAGE -> R.string.send_hint_fbpage
+        NetworkId.GVOICE -> R.string.send_hint_gvoice
+        NetworkId.DEMO -> R.string.chat_message_hint
+    }
 
 @Composable
 private fun ComposerIcon(
@@ -239,4 +429,6 @@ private fun ComposerIcon(
 }
 
 private const val COMPOSER_LINES = 6
-private val BUTTON = 44.dp
+private val BUTTON = 48.dp
+
+const val NETWORK_CHIP = "network_chip"

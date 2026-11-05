@@ -2,6 +2,7 @@
 package org.pingme.core.service
 
 import android.util.Log
+import org.pingme.core.model.MessageStatus
 import org.pingme.core.store.MessageRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,10 +24,17 @@ class StoreHousekeeping
         suspend fun run() {
             val gone = messages.deleteJunk(STAND_IN_PREFIX, clock.now() - STAND_IN_AGE)
             if (gone > 0) Log.i(TAG, "Removed $gone leftover messages")
+            // A send lives inside the app: one that was running when the app closed never ends,
+            // and a bubble on its clock for ever has no way to be tried again (owner, 2026-11-01).
+            messages.stuckSending(clock.now() - STUCK_AFTER).forEach {
+                messages.updateStatus(it, MessageStatus.Failed(LEFT_BEHIND))
+            }
         }
 
         private companion object {
             const val TAG = "PingMeHousekeeping"
             val STAND_IN_AGE = 10.minutes
+            val STUCK_AFTER = 2.minutes
+            const val LEFT_BEHIND = "PingMe closed before this went"
         }
     }

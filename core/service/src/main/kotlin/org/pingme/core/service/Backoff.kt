@@ -10,18 +10,22 @@ fun interface RetryDelays {
     fun delayFor(attempt: Int): Duration
 }
 
-/** Reconnect waits: 1 s, 2 s, 4 s, ... doubling, capped at 5 minutes (BUILD_PLAN.md P1.4). */
+/**
+ * Reconnect waits: 1 s, 2 s, 4 s, ... doubling, capped at a minute (owner, 2026-11-01: slow to
+ * come back; a messenger that sits out five minutes reads as broken, and the wait costs far
+ * less than the connection the service already holds open).
+ */
 object Backoff : RetryDelays {
     val FIRST = 1.seconds
-    val CAP = 5.minutes
+    val CAP = 1.minutes
 
     /** The wait before retry number [attempt], counting from 1. */
     override fun delayFor(attempt: Int): Duration {
         require(attempt >= 1) { "Attempts count from 1" }
-        // 2^9 s is already past the cap, so larger shifts are never needed.
+        // 2^6 s is already past the cap, so larger shifts are never needed.
         val doublings = (attempt - 1).coerceAtMost(MAX_DOUBLINGS)
         return (FIRST * (1 shl doublings)).coerceAtMost(CAP)
     }
 
-    private const val MAX_DOUBLINGS = 9
+    private const val MAX_DOUBLINGS = 6
 }

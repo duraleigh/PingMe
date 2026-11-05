@@ -73,9 +73,15 @@ private object NoActions : SettingsActions, SpaceActions, BackupActions {
 
     override fun setBar(buttons: List<InboxBarItem?>) = Unit
 
-    override fun exportTo(uri: Uri) = Unit
+    override fun exportTo(
+        uri: Uri,
+        passphrase: String,
+    ) = Unit
 
-    override fun restoreFrom(uri: Uri) = Unit
+    override fun restoreFrom(
+        uri: Uri,
+        passphrase: String,
+    ) = Unit
 }
 
 private val state =

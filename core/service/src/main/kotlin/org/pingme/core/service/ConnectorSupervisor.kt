@@ -79,6 +79,8 @@ class ConnectorSupervisor
          * be dead without saying so (owner, Gate G3: stale connections after a Wi-Fi change).
          */
         fun onNetworkChanged() {
+            org.pingme.core.connector.Diag
+                .connection(TAG, "The phone's network changed: every connection opens again")
             networkChanges.update { it + 1 }
         }
 
@@ -120,6 +122,8 @@ class ConnectorSupervisor
                 attempt++
                 val wait = retryDelays.delayFor(attempt)
                 accounts.updateState(account.id, ConnectionState.Reconnecting(attempt, clock.now() + wait))
+                org.pingme.core.connector.Diag
+                    .connection(TAG, "${account.network}: $outcome, try $attempt in $wait")
                 // A network change cuts the wait short and starts the backoff over.
                 val networkCame = withTimeoutOrNull(wait) { networkChanges.first { it != seen } } != null
                 if (networkCame) attempt = 0
@@ -135,6 +139,9 @@ class ConnectorSupervisor
             var connected = false
             var networkChanged = false
             val networkAtStart = networkChanges.value
+            val started = clock.now()
+            org.pingme.core.connector.Diag
+                .connection(TAG, "${account.network}: connecting")
             return try {
                 kotlinx.coroutines.coroutineScope {
                     // A network change while connected closes the session; it is opened again at once.
@@ -145,11 +152,17 @@ class ConnectorSupervisor
                             connector.disconnect(account.id)
                         }
                     try {
-                        collectSession(account, connector, creds) { connected = true }
+                        collectSession(account, connector, creds) {
+                            connected = true
+                            org.pingme.core.connector.Diag
+                                .connection(TAG, "${account.network}: connected in ${clock.now() - started}")
+                        }
                     } finally {
                         watcher.cancel()
                     }
                 }
+                org.pingme.core.connector.Diag
+                    .connection(TAG, "${account.network}: ended by itself after ${clock.now() - started}")
                 when {
                     networkChanged && connected -> Outcome.NetworkChanged
                     connected -> Outcome.Dropped
@@ -166,6 +179,8 @@ class ConnectorSupervisor
                 // Google Messages, a socket closed while the phone slept. Logged on the
                 // phone only (no telemetry, DESIGN.md 6.5).
                 Log.w(TAG, "${account.network} connection ended; retrying", e)
+                org.pingme.core.connector.Diag
+                    .connection(TAG, "${account.network}: ended after ${clock.now() - started}: ${e.message}")
                 when {
                     networkChanged && connected -> Outcome.NetworkChanged
                     connected -> Outcome.Dropped
@@ -196,7 +211,12 @@ class ConnectorSupervisor
                     if (state == ConnectionState.Connected && !connected) {
                         connected = true
                         onConnected()
+                        val listing = clock.now()
                         val chats = connector.syncChats(account.id)
+                        org.pingme.core.connector.Diag.connection(
+                            TAG,
+                            "${account.network}: ${chats.size} chats listed in ${clock.now() - listing}",
+                        )
                         applier.applyChats(chats)
                         history.chatsArrived(chats)
                         runCatching { connector.refreshPeople(account.id) }
@@ -246,6 +266,8 @@ class ConnectorSupervisor
             deepLink: String?,
         ): Outcome {
             accounts.updateState(accountId, ConnectionState.ActionNeeded(reason, deepLink))
+            org.pingme.core.connector.Diag
+                .connection(TAG, "$accountId needs attention: $reason")
             return Outcome.ActionNeeded
         }
 

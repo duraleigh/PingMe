@@ -6,10 +6,14 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import org.pingme.core.model.AppSettings
+import org.pingme.core.model.ChatId
 import org.pingme.core.model.KeywordRule
 import org.pingme.core.model.KeywordRuleId
 import org.pingme.core.store.db.PingMeDatabase
@@ -27,6 +31,47 @@ class SettingsRepository
         db: PingMeDatabase,
     ) {
         private val keywordDao = db.keywordRuleDao()
+
+        /** How many times the share picker has sent to each chat, by chat id (UI_DESIGN.md 5.8). */
+        val shareCounts: Flow<Map<String, Int>> = dataStore.data.map { decodeCounts(it[SHARE_COUNTS]) }
+
+        /** One more share to [chatId]. */
+        suspend fun noteShare(chatId: ChatId) {
+            dataStore.edit { prefs ->
+                val counts = decodeCounts(prefs[SHARE_COUNTS]).toMutableMap()
+                counts[chatId.value] = (counts[chatId.value] ?: 0) + 1
+                prefs[SHARE_COUNTS] = json.encodeToString(COUNTS, counts)
+            }
+        }
+
+        /**
+         * The words left unsent in each chat's box, by chat id: kept when the chat is left and put
+         * back on return, as in Google Messages (owner, 2026-11-04: leaving cleared the box).
+         */
+        val drafts: Flow<Map<String, String>> =
+            dataStore.data.map { prefs ->
+                prefs
+                    .asMap()
+                    .entries
+                    .mapNotNull { (key, value) ->
+                        key.name
+                            .removePrefix(DRAFT)
+                            .takeIf { key.name.startsWith(DRAFT) }
+                            ?.let { it to value as String }
+                    }.toMap()
+            }
+
+        /** Keeps [text] as [chatId]'s draft; blank text clears it. */
+        suspend fun saveDraft(
+            chatId: ChatId,
+            text: String,
+        ) {
+            val key = stringPreferencesKey(DRAFT + chatId.value)
+            dataStore.edit { if (text.isBlank()) it.remove(key) else it[key] = text }
+        }
+
+        private fun decodeCounts(text: String?): Map<String, Int> =
+            text?.let { runCatching { json.decodeFromString(COUNTS, it) }.getOrNull() }.orEmpty()
 
         /** "Show General in inbox" for Instagram, on by default (UI_DESIGN.md 6.4). */
         val instagramShowGeneral: Flow<Boolean> = dataStore.data.map { it[INSTAGRAM_SHOW_GENERAL] ?: true }
@@ -87,6 +132,13 @@ class SettingsRepository
             }
         }
 
+        /** Merge suggestions the user turned down, by the key MergeSuggestions gives them (UI_DESIGN.md 10.15). */
+        val dismissedMerges: Flow<Set<String>> = dataStore.data.map { it[DISMISSED_MERGES].orEmpty() }
+
+        suspend fun dismissMerge(key: String) {
+            dataStore.edit { it[DISMISSED_MERGES] = it[DISMISSED_MERGES].orEmpty() + key }
+        }
+
         /** Everything in Settings apart from appearance, reactions, and the inbox bar (BUILD_PLAN.md P2.6). */
         val app: Flow<AppSettings> = dataStore.data.map { decode(it[APP_SETTINGS]) }
 
@@ -109,13 +161,17 @@ class SettingsRepository
         suspend fun deleteKeywordRule(id: KeywordRuleId) = keywordDao.delete(id.value)
 
         private companion object {
+            const val DRAFT = "draft:"
             val INSTAGRAM_SHOW_GENERAL = booleanPreferencesKey("instagram_show_general")
+            val SHARE_COUNTS = stringPreferencesKey("share_counts")
+            private val COUNTS = MapSerializer(String.serializer(), Int.serializer())
             val APPEARANCE = stringPreferencesKey("appearance")
             val INBOX_BAR = stringPreferencesKey("inbox_bar")
             val QUICK_REACTIONS = stringPreferencesKey("quick_reactions")
             val DOUBLE_TAP = stringPreferencesKey("double_tap_reaction")
             val RECENT_EMOJI = stringPreferencesKey("recent_emoji")
             val APP_SETTINGS = stringPreferencesKey("app_settings")
+            val DISMISSED_MERGES = stringSetPreferencesKey("dismissed_merges")
             val json = Json { ignoreUnknownKeys = true }
 
             /** Emoji never contain a line break, so it separates them. */

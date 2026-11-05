@@ -48,13 +48,15 @@ class MessengerConnector(
     private val bridge: FbBridge,
     private val credentials: CredentialStore,
     private val mediaDir: File,
+    /** Where each account's encrypted-chat keys live; null leaves the channel off (tests). */
+    private val keyDir: File? = null,
 ) : Connector {
     @Inject
     constructor(
         bridge: FbBridge,
         credentials: CredentialStore,
         @ApplicationContext context: Context,
-    ) : this(bridge, credentials, File(context.filesDir, "messenger-media"))
+    ) : this(bridge, credentials, File(context.filesDir, "messenger-media"), File(context.filesDir, "messenger-keys"))
 
     override val network = NetworkId.MESSENGER
     override val capabilities = CAPABILITIES
@@ -68,9 +70,24 @@ class MessengerConnector(
         creds: Credentials,
     ): Flow<ConnectorEvent> {
         sessions.remove(account.id)?.close()
-        val session = MessengerSession(account.id, bridge, creds.secret.decodeToString(), creds.ref, credentials)
+        val session =
+            MessengerSession(
+                account.id,
+                bridge,
+                creds.secret.decodeToString(),
+                creds.ref,
+                credentials,
+                keyStorePath(account),
+            )
         sessions[account.id] = session
         return session.flow().onCompletion { sessions.remove(account.id, session) }
+    }
+
+    /** One key store per account, made on first use; "" when the channel is off. */
+    private fun keyStorePath(account: Account): String {
+        val dir = keyDir ?: return ""
+        dir.mkdirs()
+        return File(dir, account.id.value.replace(Regex("[^A-Za-z0-9._-]"), "_") + ".db").path
     }
 
     override suspend fun disconnect(accountId: AccountId) {

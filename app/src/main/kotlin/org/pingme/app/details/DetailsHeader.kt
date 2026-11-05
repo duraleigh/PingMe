@@ -12,11 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,48 +53,48 @@ fun DetailsHeader(
     val name = chat.nameOverride ?: chat.title
     var renaming by remember { mutableStateOf(false) }
     Column(modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Avatar(name, size = AVATAR)
+        HeaderPicture(state, name, buttons.onGroupIcon)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(name, style = MaterialTheme.typography.headlineSmallEmphasized, textAlign = TextAlign.Center)
+            // Sized after the pencil: a name long enough to wrap took the whole line and left the
+            // pencil no room at all (owner, 2026-11-01: "why can I not edit that person's name?").
+            Text(
+                name,
+                Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.headlineSmallEmphasized,
+                textAlign = TextAlign.Center,
+            )
             IconButton(
                 { renaming = true },
             ) { Icon(painterResource(UiR.drawable.ic_edit), stringResource(R.string.details_rename)) }
         }
-        state.account?.let { Text(it.network.displayName, style = MaterialTheme.typography.labelLarge) }
-        ContactButton(state.person, Modifier.padding(top = 8.dp))
-        Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(buttons.onSearch) { Text(stringResource(R.string.details_search)) }
-            val muted = chat.isMuted
-            FilledTonalButton(if (muted) buttons.onUnmute else buttons.onMute) {
-                Text(stringResource(if (muted) R.string.details_unmute else R.string.details_mute))
-            }
-            FilledTonalButton({ buttons.onPin(!chat.isPinned) }) {
-                Text(stringResource(if (chat.isPinned) R.string.details_unpin else R.string.details_pin))
-            }
+        // A merged chat names every network it spans (UI_DESIGN.md 10.15).
+        val networks =
+            state.members
+                .map { it.network }
+                .distinct()
+                .ifEmpty { listOfNotNull(state.account?.network) }
+        if (networks.isNotEmpty()) {
+            Text(networks.joinToString(" · ") { it.displayName }, style = MaterialTheme.typography.labelLarge)
         }
+        // The number under the name, as in Google Messages.
+        state.person?.phoneNumber?.let {
+            Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DetailsPills(state, buttons)
     }
     if (renaming) RenameDialog(chat, buttons.onRename) { renaming = false }
 }
 
 // The person's card in the phone's contacts app, or "Add to contacts" for someone not there (10.17).
 @Composable
-private fun ContactButton(
-    person: Person?,
-    modifier: Modifier = Modifier,
-) {
+internal fun ContactPill(person: Person?) {
     person ?: return
     val context = LocalContext.current
     val contact = person.contactId
     if (contact != null) {
-        OutlinedButton({ openCard(context, contact.value) }, modifier) {
-            Icon(painterResource(UiR.drawable.ic_contacts), null, Modifier.padding(end = 8.dp))
-            Text(stringResource(R.string.details_contact_card))
-        }
+        DetailsPill(UiR.drawable.ic_contacts, R.string.details_contact_card) { openCard(context, contact.value) }
     } else {
-        OutlinedButton({ addContact(context, person) }, modifier) {
-            Icon(painterResource(UiR.drawable.ic_person), null, Modifier.padding(end = 8.dp))
-            Text(stringResource(R.string.details_add_contact))
-        }
+        DetailsPill(UiR.drawable.ic_person, R.string.details_add_contact) { addContact(context, person) }
     }
 }
 
@@ -166,3 +164,34 @@ private fun start(
 }
 
 private val AVATAR = 96.dp
+
+/** The chat's picture; a group's can be changed, as in Google Messages (owner, 2026-11-01). */
+@Composable
+private fun HeaderPicture(
+    state: ChatDetailsState,
+    name: String,
+    onGroupIcon: (String) -> Unit,
+) {
+    val chat = state.chat ?: return
+    val everyone = state.people.associateBy { it.id }
+    val faces =
+        org.pingme.app.inbox
+            .facesFor(chat, everyone)
+    val photo =
+        org.pingme.app.inbox
+            .photoFor(chat, everyone)
+    val picture: @Composable () -> Unit = {
+        if (faces.isEmpty()) {
+            Avatar(name, size = AVATAR, photo = photo)
+        } else {
+            org.pingme.core.ui.components
+                .GroupAvatar(faces, name, size = AVATAR)
+        }
+    }
+    if (chat.kind == org.pingme.core.model.ChatKind.GROUP) {
+        org.pingme.app.inbox
+            .GroupIconPicker(name, photo, AVATAR, onGroupIcon, picture = picture)
+    } else {
+        picture()
+    }
+}

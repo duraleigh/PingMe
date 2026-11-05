@@ -7,6 +7,8 @@ import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import androidx.work.testing.TestListenableWorkerBuilder
 import androidx.work.workDataOf
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -43,7 +45,15 @@ class WorkersTest : ServiceTest() {
             ): ListenableWorker? =
                 when (workerClassName) {
                     HistoryBackfillWorker::class.java.name -> {
-                        HistoryBackfillWorker(appContext, workerParameters, registry, accounts, messages, applier)
+                        HistoryBackfillWorker(
+                            appContext,
+                            workerParameters,
+                            registry,
+                            accounts,
+                            messages,
+                            chats,
+                            applier,
+                        )
                     }
 
                     MediaDownloadWorker::class.java.name -> {
@@ -90,6 +100,34 @@ class WorkersTest : ServiceTest() {
             assertEquals(ListenableWorker.Result.success(), worker.doWork())
             (1..120).forEach { assertEquals("h$it", messages.get(accountId.message("h$it"))?.networkRemoteId) }
         }
+
+    @Test
+    fun backfillAsksNothingForAChatDeletedHere() =
+        runTest {
+            seed()
+            connector.history = (1..120).map { messageSnapshot("h$it", sentAt = now - it.minutes) }
+            chats.hide(accountId.chat("c1"), now)
+            assertEquals(ListenableWorker.Result.success(), backfill().doWork())
+            assertEquals(0, connector.historyCalls.get())
+            assertNull(messages.oldest(accountId.chat("c1")))
+        }
+
+    @Test
+    fun backfillStopsWhenAFullPageKeepsNothing() =
+        runTest {
+            seed()
+            connector.history = (1..120).map { messageSnapshot("h$it", sentAt = now - it.minutes) }
+            // The store refuses the page once, as it does for a chat hidden mid-run.
+            connector.beforeHistory = { chats.hide(accountId.chat("c1"), now) }
+            assertEquals(ListenableWorker.Result.success(), backfill().doWork())
+            assertEquals(1, connector.historyCalls.get())
+        }
+
+    private fun backfill() =
+        TestListenableWorkerBuilder<HistoryBackfillWorker>(context)
+            .setWorkerFactory(factory)
+            .setInputData(workDataOf(HistoryBackfillWorker.KEY_CHAT to accountId.chat("c1").value))
+            .build()
 
     @Test
     fun mediaDownloadRecordsWhereTheFileWent() =
@@ -148,6 +186,46 @@ class WorkersTest : ServiceTest() {
             assertEquals(ListenableWorker.Result.success(), worker.doWork())
             assertNull(messages.get(pending.id))
             assertEquals("see you", messages.get(accountId.message("net-1"))?.body)
+            assertEquals(emptyList<ScheduledSend>(), scheduled.due(now))
+        }
+
+    /**
+     * The exact alarm and the fallback job wake together at the message's time; the message goes
+     * once (owner, 2026-11-05: a message scheduled for 6:54 went to Parker twice).
+     */
+    @Test
+    fun twoWakeUpsAtOnceSendTheMessageOnce() =
+        runTest {
+            seed()
+            val pending =
+                messageSnapshot("pending", outgoing = true).message.copy(status = MessageStatus.Scheduled(now))
+            messages.upsert(pending)
+            val draft = OutgoingMessage(pending.id, "have a good day", emptyList(), null, null, forceSms = false)
+            scheduled.upsert(
+                ScheduledSend(
+                    pending.id,
+                    now - 1.minutes,
+                    accountId,
+                    accountId.chat("c1"),
+                    Json.encodeToString(OutgoingMessage.serializer(), draft),
+                    0,
+                ),
+            )
+            val sends =
+                java.util.concurrent.atomic
+                    .AtomicInteger()
+            connector.sendResult = {
+                val n = sends.incrementAndGet()
+                // As Google Messages does, the send waits a while for the phone's copy.
+                Thread.sleep(SLOW_SEND_MS)
+                SendResult.Sent(messageSnapshot("net-$n", body = it.body!!, outgoing = true))
+            }
+            val workers =
+                List(2) { TestListenableWorkerBuilder<ScheduledSendWorker>(context).setWorkerFactory(factory).build() }
+            workers
+                .map { w -> async(Dispatchers.Default) { w.doWork() } }
+                .forEach { it.await() }
+            assertEquals(1, sends.get())
             assertEquals(emptyList<ScheduledSend>(), scheduled.due(now))
         }
 
@@ -214,3 +292,5 @@ class WorkersTest : ServiceTest() {
             assertEquals(MessageStatus.Failed("Blocked"), messages.get(pending.id)?.status)
         }
 }
+
+private const val SLOW_SEND_MS = 400L

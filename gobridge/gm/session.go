@@ -19,6 +19,7 @@ import (
 	"go.mau.fi/mautrix-gmessages/pkg/libgm/gmproto"
 	"go.mau.fi/util/exhttp"
 	"go.mau.fi/util/ptr"
+	"google.golang.org/protobuf/proto"
 )
 
 // EventSink receives every event as one JSON object. Kotlin implements it. Calls come
@@ -36,6 +37,9 @@ var (
 )
 
 const requestTimeout = 60 * time.Second
+
+// mediaTimeout is how long one file may take to upload or download.
+const mediaTimeout = 10 * time.Minute
 
 // What the session remembers about a conversation, for sending.
 type convInfo struct {
@@ -321,7 +325,9 @@ func (s *Session) UploadMedia(path, fileName, mime string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	content, err := s.client.UploadMedia(data, fileName, mime)
+	ctx, cancel := context.WithTimeout(s.log.WithContext(context.Background()), mediaTimeout)
+	defer cancel()
+	content, err := s.client.UploadMedia(ctx, data, fileName, mime)
 	if err != nil {
 		return "", wrapRequestError(err)
 	}
@@ -334,7 +340,9 @@ func (s *Session) DownloadMedia(mediaID, keyBase64, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("media key is not base64: %w", err)
 	}
-	reader, err := s.client.DownloadMedia(mediaID, key)
+	ctx, cancel := context.WithTimeout(s.log.WithContext(context.Background()), mediaTimeout)
+	defer cancel()
+	reader, err := s.client.DownloadMedia(ctx, mediaID, key)
 	if err != nil {
 		return wrapRequestError(err)
 	}
@@ -454,17 +462,20 @@ func (s *Session) GetOrCreateConversation(numbersJSON, groupName string) (string
 		// 2 is what the reference bridge sends for a contact's number.
 		req.Numbers[i] = &gmproto.ContactNumber{MysteriousInt: 2, Number: n, Number2: n}
 	}
-	if len(numbers) > 1 {
-		req.RCSGroupName = ptr.NonZero(groupName)
-	}
 	ctx, cancel := s.requestContext()
 	defer cancel()
+	// Asked without the name first, as the Messages app does: a group someone in it cannot
+	// have over RCS comes back as a plain group, which has no shared name. Answers 2 and 4,
+	// which no list of Google's answers names, came back when the name went with the first
+	// ask (owner, 2026-11-01), so the name also gets its own try before giving up.
 	resp, err := s.client.GetOrCreateConversation(ctx, req)
 	if err == nil && resp.GetStatus() == gmproto.GetOrCreateConversationResponse_CREATE_RCS {
-		if req.RCSGroupName == nil {
-			req.RCSGroupName = ptr.Ptr("")
-		}
+		req.RCSGroupName = ptr.Ptr(groupName)
 		req.CreateRCSGroup = ptr.Ptr(true)
+		resp, err = s.client.GetOrCreateConversation(ctx, req)
+	} else if err == nil && resp.GetConversation().GetConversationID() == "" && len(numbers) > 1 && groupName != "" {
+		s.log.Warn().Stringer("status", resp.GetStatus()).Msg("No group without its name; asking with it")
+		req.RCSGroupName = ptr.Ptr(groupName)
 		resp, err = s.client.GetOrCreateConversation(ctx, req)
 	}
 	if err != nil {
@@ -472,7 +483,9 @@ func (s *Session) GetOrCreateConversation(numbersJSON, groupName string) (string
 	}
 	conv := resp.GetConversation()
 	if conv.GetConversationID() == "" {
-		return "", fmt.Errorf("%w: no conversation came back (status %s)", ErrRejected, resp.GetStatus())
+		raw, _ := proto.Marshal(resp)
+		return "", fmt.Errorf("%w: no conversation came back (status %s, %d people, answer %s)",
+			ErrRejected, resp.GetStatus(), len(numbers), base64.StdEncoding.EncodeToString(raw))
 	}
 	s.remember(conv)
 	return marshal(convertConversation(conv))

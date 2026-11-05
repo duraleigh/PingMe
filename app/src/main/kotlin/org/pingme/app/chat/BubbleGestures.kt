@@ -22,10 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -36,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.pingme.app.R
-import org.pingme.core.ui.theme.Haptics
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.MotionIntensity
 import org.pingme.core.ui.theme.PingMeTheme
 import kotlin.math.roundToInt
@@ -66,8 +64,7 @@ fun MessageTouch(
     val reach = with(LocalDensity.current) { REPLY_REACH.toPx() }
     val drag = remember { Animatable(0f) }
     val squash = remember { Animatable(1f) }
-    val haptic = LocalHapticFeedback.current
-    val haptics = PingMeTheme.appearance.haptics
+    val haptic = rememberHaptic()
     val moving = PingMeTheme.motion != MotionIntensity.OFF
     val reply by rememberUpdatedState(gestures.onSwipeReply)
     LaunchedEffect(wobble) {
@@ -87,7 +84,7 @@ fun MessageTouch(
                 customActions =
                     listOf(CustomAccessibilityAction(replyLabel) { gestures.onSwipeReply().let { true } })
             }.swipeToReply(drag, reach, { reply() }) {
-                if (haptics != Haptics.OFF) haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                haptic.tick()
             },
     ) {
         Icon(

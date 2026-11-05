@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material Symbols Rounded, Apache-2.0 (licenses/material-symbols-LICENSE.txt). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M480,840Q463,840 451.5,828.5Q440,817 440,800L440,537L228,325L188,365Q176,377 160,377Q144,377 132,365Q120,353 120,337Q120,321 132,309L240,201Q246,195 253,192.5Q260,190 268,190L400,190Q417,190 428.5,201.5Q440,213 440,230Q440,247 428.5,258.5Q417,270 400,270L308,270L480,442L652,270L560,270Q543,270 531.5,258.5Q520,247 520,230Q520,213 531.5,201.5Q543,190 560,190L692,190Q700,190 707,192.5Q714,195 720,201L828,309Q840,321 840,337Q840,353 828,365Q816,377 800,377Q784,377 772,365L732,325L520,537L520,800Q520,817 508.5,828.5Q497,840 480,840Z"/>
+</vector>

@@ -51,12 +51,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -79,8 +78,10 @@ import org.pingme.core.model.AccountId
 import org.pingme.core.model.CallMethod
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.ChatLook
 import org.pingme.core.ui.theme.PingMeTheme
+import org.pingme.core.ui.theme.messagesBar
 import org.pingme.core.ui.theme.with
 import org.pingme.core.ui.R as UiR
 
@@ -91,6 +92,8 @@ fun ChatRoute(
     chatId: ChatId,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    /** The network tab the chat was opened from, if any: it opens on that network (owner, 2026-11-01). */
+    tab: org.pingme.core.model.NetworkId? = null,
     onDetails: (() -> Unit)? = null,
     onOpenPage: ((String, AccountId) -> Unit)? = null,
     viewModel: ChatViewModel =
@@ -98,11 +101,10 @@ fun ChatRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // On screen and resumed: no notifications for this chat; paused or gone: they come back.
-    androidx.lifecycle.compose.LifecycleResumeEffect(chatId) {
-        viewModel.visible(true)
+    androidx.lifecycle.compose.LifecycleResumeEffect(chatId, tab) {
+        viewModel.visible(true, tab)
         onPauseOrDispose { viewModel.visible(false) }
     }
-    val forwardTargets by viewModel.forwardTargets.collectAsStateWithLifecycle()
     val uploads by viewModel.uploads.collectAsStateWithLifecycle()
     val held by viewModel.heldBack.collectAsStateWithLifecycle()
     val player = rememberVoicePlayer()
@@ -110,11 +112,8 @@ fun ChatRoute(
     val overrides by viewModel.overrides.collectAsStateWithLifecycle()
     val appSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val jump by viewModel.jumps.request.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val resources = LocalResources.current
-    val scope = rememberCoroutineScope()
-    val notice: (Int) -> Unit = { scope.launch { snackbar.showSnackbar(resources.getString(it)) } }
+    val notices = rememberChatNotices()
     // This chat's own look from Chat details, over the app's (UI_DESIGN.md 3.4).
     val app = PingMeTheme.appearance
     val look = remember(overrides.lookJson) { ChatLook.fromJson(overrides.lookJson) }
@@ -127,7 +126,7 @@ fun ChatRoute(
                 state = state,
                 actions =
                     ChatScreenActions(
-                        header = headerActions(viewModel, state, onBack, context, notice).copyWithDetails(onDetails),
+                        header = headerActions(viewModel, state, onBack, onDetails, context, notices),
                         onSend = { viewModel.send(it) },
                         onReply = viewModel::reply,
                         onRetry = viewModel::retry,
@@ -135,20 +134,21 @@ fun ChatRoute(
                         onLoadOlder = viewModel::loadOlder,
                         onNeed = viewModel::need,
                         onTyping = viewModel::typing,
+                        onSendVia = viewModel::sendVia,
                         menu = viewModel.menu,
                         onRememberEmoji = viewModel::rememberEmoji,
                         incoming = viewModel.incomingReactions,
-                        forwardTargets = forwardTargets,
+                        onForward = viewModel::forward,
                         uploads = uploads,
                         player = player,
                         settings = appSettings,
                         transcripts = viewModel.transcripts.takeIf { appSettings.media.transcribeVoice },
                         search = searchHooks(viewModel, searching, jump),
-                        composer = composerHooks(viewModel, state, notice),
+                        composer = composerHooks(viewModel, state, notices.notice),
                         cleanLink = { if (appSettings.privacy.cleanLinksReceived) viewModel.links.clean(it) else it },
                     ),
                 modifier = modifier,
-                snackbar = snackbar,
+                snackbar = notices.snackbar,
             )
         }
         org.pingme.app.chat.attach
@@ -173,7 +173,7 @@ fun ChatScreen(
     val highlight = remember { mutableStateMapOf<String, Boolean>() }
     val ui = remember { ChatUi() }
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val haptic = rememberHaptic()
     Notices(actions.menu, snackbar)
 
     fun jumpTo(id: String) {
@@ -200,13 +200,32 @@ fun ChatScreen(
     Box(modifier) {
         Scaffold(
             topBar = { TopBars(state, actions) { jumpTo(it) } },
-            bottomBar = { BottomBars(state, actions, ui, context) },
+            bottomBar = {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                ) { BottomBars(state, actions, ui, context) }
+            },
             snackbarHost = { SnackbarHost(snackbar) },
+            // The app bar is its own layer and the thread a container curved at the top, as on
+            // the owner's Google Messages (2026-11-01).
+            containerColor = MaterialTheme.colorScheme.messagesBar(androidx.compose.foundation.isSystemInDarkTheme()),
+            // Said outright, as in the header: the bar's shade has no text colour of its own.
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ) { padding ->
             // While a message is held, everything else blurs behind it (UI_DESIGN.md 3.3).
-            Box(Modifier.fillMaxSize().padding(padding).blur(if (ui.holding != null) HELD_BLUR else 0.dp)) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .blur(if (ui.holding != null) HELD_BLUR else 0.dp)
+                    .clip(RoundedCornerShape(topStart = THREAD_CORNER, topEnd = THREAD_CORNER))
+                    .background(MaterialTheme.colorScheme.surface),
+            ) {
                 Wallpaper(PingMeTheme.appearance.wallpaper, Modifier.fillMaxSize())
-                MessageList(state, list, actions, highlight, ui) { jumpTo(it) }
+                androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
+                    Box(Modifier.weight(1f)) { MessageList(state, list, actions, highlight, ui) { jumpTo(it) } }
+                    TypingBubble(state.typing, state.chat?.kind)
+                }
                 ToNewest(list, state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
                 if (actions.search.state.showing) {
                     ChatSearchResults(actions.search.state, state.names, actions.search.onOpen)
@@ -228,15 +247,19 @@ internal fun rowContext(
     RowContext(
         state.account!!.network,
         state.chat!!.kind,
+        state.networkOf,
         state.names,
         actions.onRetry,
+        { actions.menu?.deleteForMe(listOf(it)) },
         actions.onNeed,
         { m -> m.replyTo?.let { onJump(it.value) } },
+        state.items.firstNotNullOfOrNull { (it as? ChatItem.Bubble)?.message?.takeIf(Message::isOutgoing)?.id },
         actions.uploads,
         actions.player,
         actions.settings.media.gifsAutoplay,
         actions.transcripts,
         actions.cleanLink,
+        me = state.me,
     )
 
 @Composable
@@ -249,8 +272,7 @@ private fun MessageList(
     onJump: (String) -> Unit,
 ) {
     if (state.chat == null || state.account == null) return
-    val haptic = LocalHapticFeedback.current
-    val haptics = PingMeTheme.appearance.haptics
+    val haptic = rememberHaptic()
     val timestamps = PingMeTheme.appearance.timestamps
     val context = rowContext(state, actions, onJump)
     val obscured = state.chat.isObscured
@@ -283,7 +305,7 @@ private fun MessageList(
                         }
                     Entrance(item.message, ui, placement.background(tint)) {
                         MessageTouch(
-                            gestures = gesturesFor(item.message, state, actions, ui, haptic, haptics),
+                            gestures = gesturesFor(item.message, state, actions, ui, haptic),
                             wobble = ui.wobble[key] ?: 0,
                         ) {
                             HideAgain(key, ui.unblurred)
@@ -301,7 +323,8 @@ private fun MessageList(
                 }
 
                 is ChatItem.Day -> {
-                    DayChip(dayLabel(item.date))
+                    val time = item.at?.let { " • " + clockTime(it) }.orEmpty()
+                    DayChip(dayLabel(item.date) + time)
                 }
 
                 ChatItem.NewMessages -> {
@@ -320,8 +343,7 @@ private fun gesturesFor(
     state: ChatUiState,
     actions: ChatScreenActions,
     ui: ChatUi,
-    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
-    haptics: org.pingme.core.ui.theme.Haptics,
+    haptic: org.pingme.core.ui.components.HapticPlayer,
 ): BubbleGestures {
     val selecting = state.selection.isNotEmpty()
     val key = message.id.value
@@ -344,7 +366,7 @@ private fun gesturesFor(
             live {
                 val prefs = state.reactions
                 val emoji = actions.menu?.doubleTapEmoji(prefs.doubleTap, prefs.quick, state.capabilities?.reactions)
-                if (emoji != null) ui.react(message, emoji, null, state, actions, haptic, haptics)
+                if (emoji != null) ui.react(message, emoji, null, state, actions, haptic)
             },
         onHold = live { if (selecting) actions.menu?.toggle(message) else ui.holding = message },
         onSwipeReply = live { actions.onReply(message) },
@@ -439,16 +461,13 @@ private fun ToNewest(
 
 @Composable
 private fun DayChip(label: String) {
+    // Plain gray words between the messages, as in Google Messages (owner, 2026-11-02).
     Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-        // A tonal chip, so the date reads on any wallpaper (UI_DESIGN.md 4.3).
-        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-            Text(
-                label,
-                Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-            )
-        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -483,3 +502,5 @@ private const val HIGHLIGHT_MS = 900L
 private const val PULSE = 0.16f
 private const val SELECTED = 0.5f
 private val HELD_BLUR = 8.dp
+
+private val THREAD_CORNER = 28.dp

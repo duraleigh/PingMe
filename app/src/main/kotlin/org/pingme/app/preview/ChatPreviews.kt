@@ -76,6 +76,8 @@ internal fun ChatDetailsPreview() =
                 {},
                 {},
                 ChatChoices({}, {}, {}, {}, {}, {}),
+                org.pingme.app.details
+                    .MergeChoices({}, {}, {}, {}, {}),
             ),
             onBack = {},
         )
@@ -108,6 +110,7 @@ internal fun NewChatPreview() =
                 PreviewData.account.id,
                 title = "Climbing",
                 members = listOf("Sam Ortiz"),
+                naming = true,
             ),
             NewChatActions({}, {}, {}, {}, {}, {}, {}),
         )

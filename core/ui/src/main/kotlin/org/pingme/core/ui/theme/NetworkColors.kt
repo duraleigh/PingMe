@@ -50,12 +50,15 @@ class NetworkPalette(
     private val overrides: Map<NetworkId, Int>,
     private val accentOverrides: Map<NetworkId, Int> = emptyMap(),
 ) {
-    /** Incoming bubbles: the same tonal surface on every network (UI_DESIGN.md 3.2). */
-    val incoming = BubbleColors(scheme.surfaceContainerHigh, scheme.onSurface, null)
+    /** Incoming bubbles: the same tonal surface on every network, Google Messages' shade (UI_DESIGN.md 3.2). */
+    val incoming = BubbleColors(scheme.messagesBar(dark), scheme.onSurface, null)
 
     /** The network's colour for badges and the chat header accent. */
     fun accent(network: NetworkId): Color {
-        val signature = accentOverrides[network]?.let(::Color) ?: signature(network)
+        // A colour the user picked is used exactly as picked, in dark mode too (owner,
+        // 2026-10-04: the swatch is the colour; shifting its tone made picks look ignored).
+        (accentOverrides[network] ?: overrides[network])?.let { return Color(it) }
+        val signature = signature(network)
         return if (dark) Hct.fromInt(signature.toArgb()).withTone(DARK_ACCENT_TONE).asColor() else signature
     }
 
@@ -65,6 +68,11 @@ class NetworkPalette(
         transport: Transport,
     ): BubbleColors =
         when {
+            // Picked exactly; the text is whichever of black and white reads better on it.
+            network in overrides -> {
+                exact(Color(overrides.getValue(network)))
+            }
+
             network == NetworkId.SMS && network !in overrides -> {
                 BubbleColors(scheme.surfaceContainerHighest, scheme.onSurface, null)
             }
@@ -73,8 +81,13 @@ class NetworkPalette(
                 tint(signature(network), chromaFactor = SMS_CHROMA_FACTOR).copy(outline = scheme.outline)
             }
 
+            // Google Messages' own deep tone of the wallpaper's color, not Android's brighter
+            // container: sampled #004787 on the owner's phone against #2f8fff (2026-11-02).
+            // Its text is white in dark mode, as there (sampled #fefeff); the owner's Gradient style still
+            // runs it into the badge colour, as on every network (2026-11-02).
             network == NetworkId.GMESSAGES && network !in overrides -> {
-                BubbleColors(scheme.primaryContainer, scheme.onPrimaryContainer, null)
+                val content = if (dark) Color.White else scheme.primaryContainer.contentTone(dark)
+                BubbleColors(scheme.primaryContainer.deepTone(dark), content, null)
             }
 
             else -> {
@@ -114,6 +127,12 @@ class NetworkPalette(
         )
     }
 
+    private fun exact(picked: Color): BubbleColors {
+        val whiteReads = contrastRatio(picked, Color.White) >= contrastRatio(picked, Color.Black)
+        val content = if (whiteReads) Color.White else Color.Black
+        return BubbleColors(container = picked, content = content, outline = null)
+    }
+
     private fun Hct.asColor() = Color(toInt())
 
     private companion object {
@@ -143,3 +162,44 @@ fun contrastRatio(
 const val MIN_TEXT_CONTRAST = 4.5
 
 private const val LUMINANCE_OFFSET = 0.05f
+
+/** The tone Google Messages uses for a filled shape: deep in dark mode, pale in light. */
+fun Color.deepTone(dark: Boolean): Color =
+    Color(
+        Hct
+            .fromInt(toArgb())
+            .withTone(if (dark) DEEP_TONE_DARK else DEEP_TONE_LIGHT)
+            .toInt(),
+    )
+
+/** The tone that reads on [deepTone]. */
+fun Color.contentTone(dark: Boolean): Color =
+    Color(
+        Hct
+            .fromInt(toArgb())
+            .withTone(if (dark) CONTENT_TONE_DARK else CONTENT_TONE_LIGHT)
+            .toInt(),
+    )
+
+private const val DEEP_TONE_DARK = 30.0
+private const val DEEP_TONE_LIGHT = 90.0
+private const val CONTENT_TONE_DARK = 90.0
+private const val CONTENT_TONE_LIGHT = 10.0
+
+/**
+ * The shade of Google Messages' bars and boxes: sampled #1e2025 on the owner's phone, a touch darker
+ * than Android's own container there, #26282d (2026-11-02). Light mode keeps Android's.
+ */
+fun androidx.compose.material3.ColorScheme.messagesBar(dark: Boolean): Color =
+    if (dark) {
+        Color(
+            Hct
+                .fromInt(surfaceContainer.toArgb())
+                .withTone(BAR_TONE_DARK)
+                .toInt(),
+        )
+    } else {
+        surfaceContainer
+    }
+
+private const val BAR_TONE_DARK = 12.0

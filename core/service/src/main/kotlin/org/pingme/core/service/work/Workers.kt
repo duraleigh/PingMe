@@ -9,6 +9,7 @@ import androidx.work.workDataOf
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.ConnectorRegistry
@@ -20,8 +21,10 @@ import org.pingme.core.model.ChatId
 import org.pingme.core.model.MessageId
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.ScheduledSend
+import org.pingme.core.model.isPreviewOnly
 import org.pingme.core.service.EventApplier
 import org.pingme.core.store.AccountRepository
+import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.MessageRepository
 import org.pingme.core.store.ScheduledSendRepository
 import kotlin.time.Clock
@@ -38,21 +41,39 @@ class HistoryBackfillWorker
         private val registry: ConnectorRegistry,
         private val accounts: AccountRepository,
         private val messages: MessageRepository,
+        private val chats: ChatRepository,
         private val applier: EventApplier,
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
             val chatId = inputData.getString(KEY_CHAT)?.let(::ChatId) ?: return Result.failure()
             val account = accounts.get(chatId.accountId) ?: return Result.failure()
             val connector = registry[account.network] ?: return Result.failure()
-            repeat(PAGES_PER_RUN) {
-                val page = connector.syncMessages(chatId, before = messages.oldest(chatId), limit = PAGE_SIZE)
-                val complete = page.size < PAGE_SIZE
-                applier.apply(ConnectorEvent.HistoryBatch(account.id, chatId, page, complete))
-                if (complete) return Result.success()
-            }
+            // A chat deleted here keeps no history: its pages would only be thrown away.
+            val more = chats.hiddenAt(chatId) == null && fetchPages(connector, account.id, chatId)
             // More history remains; the next run continues from the new oldest message.
-            Work.backfill(applicationContext, chatId)
+            if (more) Work.backfill(applicationContext, chatId)
             return Result.success()
+        }
+
+        /** A few pages; true when there is more to fetch and the last page moved the store on. */
+        private suspend fun fetchPages(
+            connector: org.pingme.core.connector.Connector,
+            accountId: org.pingme.core.model.AccountId,
+            chatId: ChatId,
+        ): Boolean {
+            var pages = 0
+            var more = true
+            while (more && pages < PAGES_PER_RUN) {
+                val before = messages.oldest(chatId)
+                val page = connector.syncMessages(chatId, before = before, limit = PAGE_SIZE)
+                val complete = page.size < PAGE_SIZE
+                applier.apply(ConnectorEvent.HistoryBatch(accountId, chatId, page, complete))
+                // Nothing older kept means asking again would fetch this same page for ever
+                // (owner, 2026-11-01: a chat deleted on Oct 3 was fetched three times a second).
+                more = !complete && messages.oldest(chatId) != before
+                pages++
+            }
+            return more
         }
 
         companion object {
@@ -92,6 +113,12 @@ class MediaDownloadWorker
                     // On the phone only (no telemetry, DESIGN.md 6.5): how long media takes to come in.
                     val took = System.currentTimeMillis() - started
                     android.util.Log.i(TAG, "downloaded ${attachment.kind} ${file.length()} bytes in $took ms")
+                    // What the network said against what came, for "are the pictures compressed?".
+                    org.pingme.core.connector.Diag.note(
+                        TAG,
+                        "${attachment.kind}: ${file.length()} bytes here, the network says ${attachment.sizeBytes}, " +
+                            "preview only: ${attachment.isPreviewOnly}",
+                    )
                     Result.success()
                 },
                 onFailure = {
@@ -131,7 +158,11 @@ class ScheduledSendWorker
         private val previews: org.pingme.core.service.links.PreviewRequests,
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
-            val results = scheduled.due(clock.now()).map { send(it) }
+            // One sender at a time, each looking for what is due only once it has its turn: the
+            // exact alarm and the fallback job both wake at the message's time, and while the first
+            // waited on the network the second found the same message still due and sent it again
+            // (owner, 2026-11-05: one message scheduled for 6:54, two went to Parker).
+            val results = SENDING.withLock { scheduled.due(clock.now()).map { send(it) } }
             // Wake again for whichever message is due next.
             alarm.arm()
             return if (results.any { it == Outcome.RetryLater }) Result.retry() else Result.success()
@@ -180,6 +211,8 @@ class ScheduledSendWorker
 
         companion object {
             const val MAX_ATTEMPTS = 5
+
+            private val SENDING = kotlinx.coroutines.sync.Mutex()
 
             /** Later than this after its time, a scheduled send is announced as late (UI_DESIGN.md 10.13). */
             val LATE = kotlin.time.Duration.parse("5m")

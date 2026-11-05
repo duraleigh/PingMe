@@ -6,18 +6,20 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -36,7 +38,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -93,6 +97,14 @@ data class NewChatUiState(
     val text: String = "",
     val title: String = "",
     val members: List<String> = emptyList(),
+    /** The names of the people picked, by what was picked: the chips say who, not a number. */
+    val memberNames: Map<String, String> = emptyMap(),
+    /** New group's second step, as in Google Messages: people first, then an optional name. */
+    val naming: Boolean = false,
+    /** The picture picked for the new group. */
+    val icon: String? = null,
+    /** The picked network can make groups, so a tap adds to the To box instead of opening a chat. */
+    val canGroup: Boolean = false,
     val suggestions: List<Person> = emptyList(),
     val working: Boolean = false,
 )
@@ -108,6 +120,7 @@ class NewChatViewModel
         private val registry: ConnectorRegistry,
         private val actions: ChatActions,
         saved: SavedStateHandle,
+        private val contactsWatcher: org.pingme.core.service.people.ContactsWatcher,
     ) : ViewModel() {
         val group = saved.toRoute<NewChatRoute>().group
         private val form = MutableStateFlow(NewChatUiState())
@@ -122,18 +135,28 @@ class NewChatViewModel
 
         private val usable =
             combine(accounts.accounts(), flowOf(registry)) { all, reg ->
-                all.filter { account ->
-                    val caps = reg[account.network]?.capabilities
-                    caps != null && if (group) caps.createGroup else caps.startConversation
-                }
+                all
+                    .filter { account ->
+                        val caps = reg[account.network]?.capabilities
+                        caps != null && if (group) caps.createGroup else caps.startConversation
+                    }
+                    // Google Messages first and picked by default, every time (owner, 2026-10-05).
+                    .sortedBy { if (it.network == NetworkId.GMESSAGES) 0 else 1 }
             }
 
         val state: StateFlow<NewChatUiState> =
             combine(form, usable) { f, list ->
+                val picked =
+                    f.account?.takeIf { id -> list.any { it.id == id } }
+                        ?: list.firstOrNull { it.network == NetworkId.GMESSAGES }?.id
+                        ?: list.firstOrNull()?.id
                 f.copy(
                     accounts = list,
-                    account =
-                        f.account?.takeIf { id -> list.any { it.id == id } } ?: list.firstOrNull()?.id,
+                    account = picked,
+                    canGroup =
+                        list.firstOrNull { it.id == picked }?.let {
+                            registry[it.network]?.capabilities?.createGroup
+                        } == true,
                 )
             }.flatMapLatest { s ->
                 val id = s.account ?: return@flatMapLatest flowOf(s)
@@ -144,12 +167,18 @@ class NewChatViewModel
             combine(this, flowOf(s)) { people, st ->
                 val q = st.text.trim()
                 st.copy(
+                    memberNames = people.associate { it.networkHandle to it.name },
                     suggestions =
                         people
+                            // WhatsApp's hidden-id twin of a person already listed by number says nothing new.
+                            .filter { p -> !hiddenTwin(p, people) }
                             .filter { p ->
-                                q.isEmpty() || p.displayName.contains(q, true) ||
+                                q.isEmpty() || p.name.contains(q, true) ||
                                     p.networkHandle.contains(q, true)
-                            }.filter { p -> p.networkHandle !in st.members }
+                            }
+                            // People with names first: digits sorted bare numbers to the top of the
+                            // list, above everyone the owner knows (owner, 2026-11-01).
+                            .sortedWith(compareBy({ p -> p.name.none(Char::isLetter) }, { p -> p.name.lowercase() }))
                             .take(MAX_SUGGESTIONS),
                 )
             }
@@ -158,6 +187,8 @@ class NewChatViewModel
 
         /** Asks the picked account's network for its people again (Signal: the contacts on Signal). */
         fun refreshPeople() {
+            // Contacts just allowed, or opened again: everyone matches against the address book too.
+            contactsWatcher.refreshSoon()
             val picked = state.value.account ?: return
             val network =
                 state.value.accounts
@@ -189,26 +220,52 @@ class NewChatViewModel
             form.update { it.copy(title = text) }
         }
 
-        /** New chat: starts at once. New group: adds a member. */
+        /**
+         * A tap adds to the To box, or takes back out, as in Google Messages (owner, 2026-11-02:
+         * "as soon as I add a person, bam, the chat starts"). A network that cannot make groups
+         * has nothing to build, so its chat opens at once.
+         */
         fun choose(handle: String) {
             val h = handle.trim()
             if (h.isEmpty()) return
-            if (group) {
+            if (group || state.value.canGroup) {
                 typed = ""
-                form.update { it.copy(members = (it.members + h).distinct(), text = "") }
+                form.update {
+                    val members = if (h in it.members) it.members - h else it.members + h
+                    it.copy(members = members, text = "")
+                }
             } else {
                 run { actions.startChat(requireNotNull(state.value.account), h) }
             }
         }
 
+        /** Next: one person is their chat; more are a group, which asks for its name first. */
+        fun next() {
+            val members = form.value.members
+            if (!group && members.size == 1) {
+                run { actions.startChat(requireNotNull(state.value.account), members.single()) }
+            } else {
+                form.update { it.copy(naming = true) }
+            }
+        }
+
         fun remove(handle: String) = form.update { it.copy(members = it.members - handle) }
+
+        fun setIcon(path: String) = form.update { it.copy(icon = path) }
+
+        /** New group: on to the optional name, or back to the people. */
+        fun naming(on: Boolean) = form.update { it.copy(naming = on) }
 
         fun createGroup() {
             // The name and members come from the form itself, which always has the last keystroke;
             // the combined screen state can be a step behind.
             val typed = form.value
             val account = requireNotNull(state.value.account)
-            run { actions.createGroup(account, typed.title.trim(), typed.members) }
+            run {
+                actions.createGroup(account, typed.title.trim(), typed.members).also { id ->
+                    typed.icon?.let { actions.setGroupIcon(id, it) }
+                }
+            }
         }
 
         private fun run(block: suspend () -> ChatId) {
@@ -233,7 +290,7 @@ class NewChatViewModel
 
         private companion object {
             const val STOP_AFTER = 5_000L
-            const val MAX_SUGGESTIONS = 30
+            const val MAX_SUGGESTIONS = 2000
         }
     }
 
@@ -265,6 +322,9 @@ fun NewChatRoute(
                 viewModel::remove,
                 viewModel::createGroup,
                 viewModel::refreshPeople,
+                viewModel::naming,
+                viewModel::next,
+                viewModel::setIcon,
             ),
         modifier = modifier,
         snackbar = snackbar,
@@ -280,6 +340,9 @@ class NewChatActions(
     val onRemove: (String) -> Unit,
     val onCreate: () -> Unit,
     val onRefreshPeople: () -> Unit = {},
+    val onNaming: (Boolean) -> Unit = {},
+    val onNext: () -> Unit = {},
+    val onIcon: (String) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -291,18 +354,16 @@ fun NewChatScreen(
     modifier: Modifier = Modifier,
     snackbar: SnackbarHostState = remember { SnackbarHostState() },
 ) {
+    // Two people make it a group; so does the route that asks for one.
+    val building = group || state.members.size > 1
+    val adding = group || state.canGroup
+    val naming = state.naming
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(if (group) R.string.fab_new_group else R.string.fab_new_chat)) },
-                navigationIcon = {
-                    IconButton(onClick = actions.onBack) {
-                        Icon(painterResource(UiR.drawable.ic_arrow_back), stringResource(R.string.back))
-                    }
-                },
-            )
+        floatingActionButton = {
+            if (!naming && state.members.isNotEmpty()) NextButton(actions.onNext)
         },
+        topBar = { NewChatBar(naming, building, actions.onBack) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         if (state.accounts.isEmpty()) {
@@ -314,32 +375,14 @@ fun NewChatScreen(
             return@Scaffold
         }
         val pickedNetwork = state.accounts.firstOrNull { it.id == state.account }?.network
+        androidx.activity.compose.BackHandler(naming) { actions.onNaming(false) }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
-            item { NewChatForm(group, state, actions) }
+            item { NewChatForm(group || state.members.isNotEmpty(), state, actions, pickedNetwork) }
+            if (naming) return@LazyColumn
             if (pickedNetwork == NetworkId.SIGNAL) item { ContactsOnSignal(actions.onRefreshPeople) }
             val typed = state.text.trim()
-            if (typed.isNotEmpty()) {
-                item {
-                    ListItem(
-                        onClick = { actions.onChoose(typed) },
-                        enabled = !state.working,
-                        leadingContent = {
-                            Icon(
-                                painterResource(if (group) UiR.drawable.ic_add else UiR.drawable.ic_chat),
-                                null,
-                            )
-                        },
-                    ) { Text(stringResource(if (group) R.string.new_group_add else R.string.new_chat_start, typed)) }
-                }
-            }
-            items(state.suggestions, key = { it.id.value }) { person ->
-                ListItem(
-                    onClick = { actions.onChoose(person.networkHandle) },
-                    enabled = !state.working,
-                    leadingContent = { Avatar(person.displayName, size = 40.dp) },
-                    supportingContent = { Text(person.networkHandle) },
-                ) { Text(person.displayName) }
-            }
+            if (typed.isNotEmpty()) item { TypedRow(typed, adding, !state.working) { actions.onChoose(typed) } }
+            people(state, actions)
         }
     }
 }
@@ -378,65 +421,75 @@ private fun NewChatForm(
     group: Boolean,
     state: NewChatUiState,
     actions: NewChatActions,
+    network: NetworkId?,
 ) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (state.accounts.size > 1) {
-            Text(stringResource(R.string.new_chat_on), style = MaterialTheme.typography.labelLarge)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.accounts.forEach { account ->
-                    // The network's name, not the account's (a phone number says nothing about where
-                    // it goes); the account's own name only when two accounts share a network.
-                    val twins = state.accounts.count { it.network == account.network } > 1
-                    val label = account.network.displayName + if (twins) " · ${account.displayName}" else ""
-                    FilterChip(
-                        selected = account.id == state.account,
-                        onClick = { actions.onAccount(account.id) },
-                        label = { Text(label) },
-                        leadingIcon = { NetworkDot(account.network) },
-                    )
-                }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.new_chat_on), style = MaterialTheme.typography.titleMedium)
+                NetworkPill(state.accounts, state.account, actions.onAccount)
             }
         }
-        if (group) {
+        if (group && state.naming) {
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth(), Alignment.Center) {
+                GroupIconPicker(state.title, state.icon, ICON_SIZE, actions.onIcon)
+            }
+            Text(
+                stringResource(R.string.group_icon_note),
+                Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
             OutlinedTextField(
                 state.title,
                 actions.onTitle,
                 Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.new_group_name)) },
+                label = {
+                    // Google Messages asks for no name; the other networks cannot make a group without one.
+                    Text(
+                        stringResource(
+                            if (nameOptional(network)) R.string.new_group_name_optional else R.string.new_group_name,
+                        ),
+                    )
+                },
                 singleLine = true,
+                shape =
+                    androidx.compose.foundation.shape
+                        .RoundedCornerShape(28.dp),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.members.forEach { handle ->
-                    InputChip(
-                        selected = true,
-                        onClick = { actions.onRemove(handle) },
-                        label = { Text(handle) },
-                        trailingIcon = {
-                            Icon(
-                                painterResource(UiR.drawable.ic_close),
-                                stringResource(R.string.new_group_remove, handle),
-                            )
-                        },
-                    )
-                }
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = actions.onCreate,
+                    enabled =
+                        !state.working && state.members.isNotEmpty() &&
+                            (nameOptional(network) || state.title.isNotBlank()),
+                    modifier = Modifier.align(androidx.compose.ui.Alignment.CenterEnd),
+                ) { Text(stringResource(R.string.new_group_create)) }
             }
-        }
-        OutlinedTextField(
-            state.text,
-            actions.onText,
-            Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.new_chat_who)) },
-            singleLine = true,
-        )
-        if (group) {
-            Button(
-                onClick = actions.onCreate,
-                enabled = !state.working && state.title.isNotBlank() && state.members.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.new_group_create)) }
+        } else {
+            ToField(state, actions)
         }
     }
 }
 
+/** Only Google Messages makes a group with no name. */
+private fun nameOptional(network: NetworkId?) = network == NetworkId.GMESSAGES || network == NetworkId.SMS
+
+private val ICON_SIZE = 112.dp
+
 private const val TAG = "PingMeNewChat"
+
+/** What to show under a person's name: their number, or a username; a raw network id is nothing to read. */
+internal fun secondLine(person: Person): String? =
+    person.phoneNumber?.takeIf { it.isNotBlank() }
+        ?: person.networkHandle.takeIf { it.isNotBlank() && '@' !in it && it != person.name }
+
+private const val HIDDEN_ID = "@lid"
+
+/** A person known by WhatsApp's hidden id while the same name is listed by number. */
+private fun hiddenTwin(
+    person: Person,
+    people: List<Person>,
+): Boolean = person.networkHandle.endsWith(HIDDEN_ID) && people.any { it !== person && it.name == person.name }

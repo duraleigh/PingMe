@@ -11,9 +11,14 @@ package org.pingme.connectors.messenger.bridge
  * `LOGGED_OUT:` (see [FbError]).
  */
 interface FbBridge {
-    /** Opens a session with the facebook.com cookies (a JSON object of name to value). */
+    /**
+     * Opens a session with the facebook.com cookies (a JSON object of name to value) and the
+     * key store for encrypted chats at [storePath] (empty: no encrypted channel, as when
+     * only checking a sign-in).
+     */
     fun newSession(
         cookiesJson: String,
+        storePath: String,
         sink: FbEventSink,
     ): FbSession
 }

@@ -221,8 +221,19 @@ private fun WebSignIn(
                     // Google refuses sign-in from pages that announce themselves as a WebView
                     // ("this browser may not be secure"); the plain Chrome-on-Android string passes.
                     settings.userAgentString = browserUserAgent(settings.userAgentString)
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                    loadUrl(step.url)
+                    val jar = CookieManager.getInstance()
+                    jar.setAcceptThirdPartyCookies(this, true)
+                    if (step.freshSession) {
+                        // Every network's sign-in keeps its cookies in its own saved session, and the
+                        // in-app browser puts an account's back each time, so emptying the jar here signs
+                        // nothing in PingMe out; it only stops an old sign-in being taken for this one.
+                        android.webkit.WebStorage
+                            .getInstance()
+                            .deleteAllData()
+                        jar.removeAllCookies { jar.flush().also { loadUrl(step.url) } }
+                    } else {
+                        loadUrl(step.url)
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth().height(WEB_HEIGHT),
