@@ -89,6 +89,47 @@ class InboxViewModel
         init {
             // A fresh inbox opens by the rule, not where it was last left (owner, 2026-10-16).
             saved[SELECTED] = null
+            viewModelScope.launch { noteRecentChats() }
+        }
+
+        /**
+         * Every chat active in the last day, and all that decides which lists show it, to the
+         * diagnostic file: Instagram chats from Merle and Devin had messages and notified but
+         * were in no list, and nothing on screen says why (owner, 2026-11-07).
+         */
+        private suspend fun noteRecentChats() {
+            val all = chats.all().first()
+            val networks = accounts.accounts().first().associate { it.id to (it.network to it.showInInbox) }
+            val byId = all.associateBy { it.id }
+            val since = clock.now() - kotlin.time.Duration.parse("24h")
+            all
+                .filter { it.lastActivityAt > since }
+                .sortedByDescending { it.lastActivityAt }
+                .take(RECENT_NOTED)
+                .forEach { c ->
+                    val parent = c.mergedInto?.let { byId[it] }
+                    val (network, shown) = networks[c.accountId] ?: (null to null)
+                    org.pingme.core.connector.Diag.note(
+                        "PingMeInbox",
+                        "'${c.title.take(TITLE_NOTED)}' ${c.id.value} on $network at ${c.lastActivityAt}: " +
+                            "archived=${c.isArchived} quiet=${c.isLowPriority} folder=${c.folder} space=${c.spaceId} " +
+                            "accountInAll=$shown hidden=${chats.hiddenAt(c.id)} mergedInto=${c.mergedInto} " +
+                            (
+                                if (c.mergedInto == null) {
+                                    ""
+                                } else {
+                                    "(parent ${if (parent == null) {
+                                        "MISSING"
+                                    } else {
+                                        "'${parent.title.take(
+                                            TITLE_NOTED,
+                                        )}' at ${parent.lastActivityAt} archived=${parent.isArchived} " +
+                                            "quiet=${parent.isLowPriority} folder=${parent.folder}"
+                                    }})"
+                                }
+                            ),
+                    )
+                }
         }
 
         private val source =
@@ -331,3 +372,6 @@ class InboxViewModel
             val JSON = Json { ignoreUnknownKeys = true }
         }
     }
+
+private const val RECENT_NOTED = 60
+private const val TITLE_NOTED = 30

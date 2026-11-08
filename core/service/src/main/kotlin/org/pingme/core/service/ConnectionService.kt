@@ -52,8 +52,21 @@ class ConnectionService : Service() {
                 val changed = lost || (current != null && current != network)
                 current = network
                 lost = false
-                Diag.connection(TAG, "Network $network available (change=$changed)")
+                Diag.connection(TAG, "Network $network available (${kindOf(network)}, change=$changed)")
                 if (changed) supervisor.onNetworkChanged()
+            }
+
+            // Which kind it is, so the diary says whether the phone moved to Wi-Fi or mobile data
+            // or its data connection was rebuilt (owner, 2026-11-07).
+            private fun kindOf(network: Network): String {
+                val caps = getSystemService(ConnectivityManager::class.java)?.getNetworkCapabilities(network)
+                return when {
+                    caps == null -> "unknown"
+                    caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+                    caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile data"
+                    caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
+                    else -> "other"
+                }
             }
 
             override fun onLost(network: Network) {

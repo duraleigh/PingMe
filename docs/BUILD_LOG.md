@@ -4679,3 +4679,23 @@ order test passes with or without the tiebreak (SQLite returned stored order any
 a guarantee rather than a side effect.
 `QuickTime.kt` and `WhenParser.kt` stay, now unused by the screen. Tests: `SendLaterScreenTest` (rewritten
 for the new steps, four new), `WorkersTest.messagesSetForTheSameMomentGoInTheOrderTheyWereScheduled`.
+
+**Why accounts keep reconnecting (owner, 2026-11-07), from the connection diary and the phone's own
+network record.** Since Nov 2: 80 "network changed: every connection opens again", 114 WhatsApp refusals
+for "rate-overlimit", and Instagram re-reading all 305 chats (2+ minutes) on every reconnect. The phone's
+record (`dumpsys connectivity`) shows the cause is mostly not Wi-Fi/mobile switching: the Google Fi data
+connection itself is torn down and rebuilt, four times between 7:56 and 8:14 PM and about every 1 h 40 min
+all day on Nov 6-7, each rebuild a new network to Android; at 7:39 the default network also flipped three
+times in 33 s (what the second network was is no longer recorded). Only changes of the default network
+count (already so: background rebuilds while on Wi-Fi never triggered anything). *Changed:* the
+supervisor waits for the network to hold still for 15 s before reopening every connection, and a change
+inside the wait restarts it, so a burst reconnects once. The connection diary now names each network's
+kind (Wi-Fi, mobile data, VPN). Test: `ConnectorSupervisorTest.aBurstOfNetworkChangesReconnectsOnceAfterItSettles`.
+
+**Merle and Devin's Instagram chats (owner, 2026-11-07).** Their messages arrived and notified (diary:
+Devin's thread found and filed Primary at 19:43:59; both threads re-read with their newest messages), and
+search finds Merle's chat with her message, but on the phone the chats are in no list: not the Instagram
+tab, Quiet, Requests, General or Archived, and not among Merge suggestions. Nothing on screen says why.
+*Added:* opening the inbox writes one diary line per chat active in the last day with everything that
+decides its lists (archived, quiet, folder, space, account in All, hidden, merged into, and the merged
+chat's own state). The cause is to be read from that, not guessed.
