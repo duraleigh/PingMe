@@ -246,7 +246,13 @@ class ShareViewModelTest {
         vm.send()
         waitFor { failed.isNotEmpty() }
         assertEquals(listOf<String?>("the shared file could not be read"), failed)
-        waitFor { !vm.state.value.sending }
+        // The listed state is rebuilt on other threads after every change, and a change that
+        // lands mid-rebuild starts it again, so on a slow machine it can still show the picker as
+        // it was before the pick (CI run 42437795827). One more change, made after the failed
+        // send has finished: once the list shows it, the list has caught up with everything before.
+        vm.note(CAUGHT_UP)
+        waitFor { vm.state.value.note == CAUGHT_UP }
+        assertTrue(!vm.state.value.sending)
         // Nothing went, so the picker does not close as if it had.
         assertTrue(finished.isEmpty())
         assertTrue(
@@ -258,5 +264,6 @@ class ShareViewModelTest {
     private companion object {
         const val TIMEOUT = 10_000L
         const val STEP_MS = 20L
+        const val CAUGHT_UP = "typed after the failed send"
     }
 }

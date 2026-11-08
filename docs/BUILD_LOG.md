@@ -4699,3 +4699,19 @@ tab, Quiet, Requests, General or Archived, and not among Merge suggestions. Noth
 *Added:* opening the inbox writes one diary line per chat active in the last day with everything that
 decides its lists (archived, quiet, folder, space, account in All, hidden, merged into, and the merged
 chat's own state). The cause is to be read from that, not guessed.
+
+**A test that failed once on GitHub: `ShareViewModelTest.aFileThatCannotBeReadSaysSoAndThePickerStays`**
+(run 42437795827, commit 7891c4c; its last check, that the picked chat is still picked, found nothing
+picked; the same code passed here every time). *Cause, found by experiment:* the share screen's list is
+rebuilt on other threads (the people list comes from the database) after every change to the screen,
+and a change that lands while a rebuild is under way starts it again. Picking a chat, pressing Send and
+the send failing are three changes in quick succession; on a slow machine none of the rebuilds finished,
+so the list still showed the screen as it was before the pick (nobody picked, not sending). The test's
+"wait until it is no longer sending" was already true of that old picture, so it went straight on and
+read "nothing picked". The app was right all along: sending reads the taps themselves, and the list
+catches up a moment later. Reproduced with a 0.3 s pause after Send (an experiment only, removed): the
+old ending failed exactly as on GitHub (picked: none), the new one passed. *Fixed in the test:* after
+the failure it types a word in the box and waits until the list shows that word; the list has then
+caught up with the failed send before it, and the checks read the final picture. "Not sending" is now
+checked rather than waited for, so nothing was loosened: it still requires the failure message, no
+close, and the chat still picked. `ShareViewModelTest` passed 5 runs out of 5 here. No app code changed.
