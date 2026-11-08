@@ -349,7 +349,8 @@ private fun Sheets(
         }
     }
     ui.rescheduling?.let { waiting ->
-        org.pingme.app.chat.later.SendLaterSheet(
+        org.pingme.app.chat.later.SendLaterPicker(
+            lastUsed = actions.composer.lastScheduledAt,
             onPick = { at -> actions.menu?.reschedule(waiting, at) },
             onDismiss = { ui.rescheduling = null },
         )

@@ -46,8 +46,9 @@ class SendButtonTest {
         compose.onNode(hasContentDescription("Send")).performTouchInput { click() }
         assertEquals("a tap just sends, no menu", listOf("network"), sent)
         compose.onNodeWithText("Send later").assertDoesNotExist()
+        // Holding goes straight to Send later, with no button to tap first (owner, 2026-11-07).
         compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
-        compose.onNodeWithText("Send later").performClick()
+        compose.onNodeWithText("Send later").assertDoesNotExist()
         assertEquals(listOf("network", "later"), sent)
     }
 

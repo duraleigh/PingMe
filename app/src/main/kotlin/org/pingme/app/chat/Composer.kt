@@ -65,7 +65,6 @@ import org.pingme.app.chat.attach.StagedStrip
 import org.pingme.app.chat.attach.rememberAttachLaunchers
 import org.pingme.app.chat.gif.GifPickerSheet
 import org.pingme.app.chat.gif.GifPicks
-import org.pingme.app.chat.later.SendLaterSheet
 import org.pingme.app.chat.voice.DictationRow
 import org.pingme.app.chat.voice.MicButton
 import org.pingme.app.chat.voice.MicState
@@ -172,6 +171,7 @@ private fun ComposerSheets(
 ) {
     org.pingme.app.chat.later.LaterSheetWithAsk(
         open = sheet == ComposerSheet.LATER,
+        lastUsed = hooks.lastScheduledAt,
         onSchedule = { at ->
             hooks.onSchedule?.invoke(field.text.toString(), at)
             field.clearText()

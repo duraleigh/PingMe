@@ -359,6 +359,10 @@ class ChatViewModel
         /** A GIF or voice note over the carrier's MMS limit, waiting for the user to decide (UI_DESIGN.md 5.5). */
         val heldBack: StateFlow<HeldBack?> = tooBig.asStateFlow()
 
+        /** When the last message anywhere was scheduled for, for Send later's "Last used" (owner, 2026-11-07). */
+        val lastScheduled: StateFlow<kotlin.time.Instant?> =
+            settingsRepo.lastScheduledAt.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
         /** How far each sending message's media has got. */
         val uploads = messageActions.progress
 

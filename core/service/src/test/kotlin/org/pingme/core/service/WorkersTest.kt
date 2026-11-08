@@ -229,6 +229,40 @@ class WorkersTest : ServiceTest() {
             assertEquals(emptyList<ScheduledSend>(), scheduled.due(now))
         }
 
+    /**
+     * Two messages set for the same moment ("Last used") go in the order they were scheduled, the
+     * second right after the first (owner, 2026-11-07).
+     */
+    @Test
+    fun messagesSetForTheSameMomentGoInTheOrderTheyWereScheduled() =
+        runTest {
+            seed()
+            // Scheduled first, though its id sorts last: the order must come from when, not what.
+            listOf("zz-first" to "first", "aa-second" to "second").forEach { (id, body) ->
+                val pending =
+                    messageSnapshot(id, outgoing = true).message.copy(status = MessageStatus.Scheduled(now))
+                messages.upsert(pending)
+                val draft = OutgoingMessage(pending.id, body, emptyList(), null, null, forceSms = false)
+                scheduled.upsert(
+                    ScheduledSend(
+                        pending.id,
+                        now - 1.minutes,
+                        accountId,
+                        accountId.chat("c1"),
+                        Json.encodeToString(OutgoingMessage.serializer(), draft),
+                        0,
+                    ),
+                )
+            }
+            val order = mutableListOf<String>()
+            connector.sendResult = {
+                order += it.body!!
+                SendResult.Sent(messageSnapshot("net-${order.size}", body = it.body!!, outgoing = true))
+            }
+            TestListenableWorkerBuilder<ScheduledSendWorker>(context).setWorkerFactory(factory).build().doWork()
+            assertEquals(listOf("first", "second"), order)
+        }
+
     @Test
     fun aSendThatGoesWellAfterItsTimeSaysSo() =
         runTest {

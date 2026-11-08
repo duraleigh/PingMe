@@ -4665,3 +4665,17 @@ it, 5 out of 5. Nothing was skipped or loosened: the test still requires the dou
 heart. *Left for the owner:* the same overlap can happen on the phone. Double-tap a message within a
 moment of opening its chat on a slow network, and the heart can vanish from PingMe until the network's
 next copy of the message brings it back. Not changed here.
+
+**Send later in fewer steps (owner, 2026-11-07).** Holding Send opens the calendar straight away: the
+"Send later" button that came up first and the sheet of preset times and typed times are gone. The
+calendar looks as before (Cancel and OK at the bottom right) with **Last used** at the bottom left; OK
+goes on to the clock, whose Schedule sets the message, as before. Last used offers the moment the last
+message anywhere was scheduled for (kept in the settings store at every schedule and reschedule), shown
+once to confirm with Cancel (nothing scheduled), Go back (to the calendar) and Schedule. It is greyed out
+when nothing has been scheduled yet or that moment has passed (his ruling: no confirmation for a passed
+time). Rescheduling a waiting message uses the same picker. Messages due at the same moment now go in the
+order they were scheduled (`ORDER BY sendAt, rowid`), so a second message on Last used follows the first. The
+order test passes with or without the tiebreak (SQLite returned stored order anyway); the tiebreak makes it
+a guarantee rather than a side effect.
+`QuickTime.kt` and `WhenParser.kt` stay, now unused by the screen. Tests: `SendLaterScreenTest` (rewritten
+for the new steps, four new), `WorkersTest.messagesSetForTheSameMomentGoInTheOrderTheyWereScheduled`.

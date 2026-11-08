@@ -31,7 +31,8 @@ import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
 
 /**
- * The send button (UI_DESIGN.md 2.2, 3.2): tap to send; press and hold for Send later (10.13).
+ * The send button (UI_DESIGN.md 2.2, 3.2): tap to send; press and hold to open Send later's calendar
+ * straight away (10.13; owner, 2026-11-07: no "Send later" button to tap first).
  * One button: the owner found the Expressive split button too easy to mis-tap (Gate G1). There
  * is no Send as SMS: Google Messages does not let a paired device choose it (owner, 2026-10-01).
  */
@@ -45,7 +46,6 @@ fun SendButton(
     val label = stringResource(R.string.chat_send)
     val moreLabel = stringResource(R.string.chat_send_options)
     val more = onSendLater != null
-    var open by remember { mutableStateOf(false) }
     val haptic = rememberHaptic()
     val colours = IconButtonDefaults.filledIconButtonColors()
     Box(modifier) {
@@ -63,7 +63,7 @@ fun SendButton(
                         if (more) {
                             {
                                 haptic.tick()
-                                open = true
+                                onSendLater?.invoke()
                             }
                         } else {
                             null
@@ -76,28 +76,6 @@ fun SendButton(
                 painterResource(UiR.drawable.ic_send),
                 null,
                 tint = if (enabled) colours.contentColor else colours.disabledContentColor,
-            )
-        }
-        SendOptions(open, { open = false }, onSendLater)
-    }
-}
-
-/** What holding Send offers: Send later (10.13). */
-@Composable
-private fun SendOptions(
-    open: Boolean,
-    onClose: () -> Unit,
-    onSendLater: (() -> Unit)?,
-) {
-    DropdownMenu(open, onClose) {
-        onSendLater?.let { later ->
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.later_title)) },
-                leadingIcon = { Icon(painterResource(UiR.drawable.ic_schedule_send), null) },
-                onClick = {
-                    onClose()
-                    later()
-                },
             )
         }
     }

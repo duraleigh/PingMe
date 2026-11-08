@@ -106,6 +106,7 @@ fun ChatRoute(
         onPauseOrDispose { viewModel.visible(false) }
     }
     val uploads by viewModel.uploads.collectAsStateWithLifecycle()
+    val lastScheduled by viewModel.lastScheduled.collectAsStateWithLifecycle()
     val held by viewModel.heldBack.collectAsStateWithLifecycle()
     val player = rememberVoicePlayer()
     val searching by viewModel.search.state.collectAsStateWithLifecycle()
@@ -144,7 +145,7 @@ fun ChatRoute(
                         settings = appSettings,
                         transcripts = viewModel.transcripts.takeIf { appSettings.media.transcribeVoice },
                         search = searchHooks(viewModel, searching, jump),
-                        composer = composerHooks(viewModel, state, notices.notice),
+                        composer = composerHooks(viewModel, state, notices.notice, lastScheduled),
                         cleanLink = { if (appSettings.privacy.cleanLinksReceived) viewModel.links.clean(it) else it },
                     ),
                 modifier = modifier,

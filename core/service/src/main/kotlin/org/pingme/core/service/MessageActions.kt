@@ -311,6 +311,8 @@ class MessageActions
                     0,
                 ),
             )
+            // Send later's "Last used" offers this moment next time (owner, 2026-11-07).
+            settings.setLastScheduledAt(at)
             alarm.arm()
             return message
         }

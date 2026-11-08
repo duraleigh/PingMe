@@ -61,6 +61,17 @@ class SettingsRepository
                     }.toMap()
             }
 
+        /**
+         * The moment the last message was scheduled for, in any chat: Send later's "Last used"
+         * (owner, 2026-11-07). Null until something has been scheduled.
+         */
+        val lastScheduledAt: Flow<kotlin.time.Instant?> =
+            dataStore.data.map { prefs -> prefs[LAST_SCHEDULED]?.let { kotlin.time.Instant.fromEpochMilliseconds(it) } }
+
+        suspend fun setLastScheduledAt(at: kotlin.time.Instant) {
+            dataStore.edit { it[LAST_SCHEDULED] = at.toEpochMilliseconds() }
+        }
+
         /** Keeps [text] as [chatId]'s draft; blank text clears it. */
         suspend fun saveDraft(
             chatId: ChatId,
@@ -162,6 +173,9 @@ class SettingsRepository
 
         private companion object {
             const val DRAFT = "draft:"
+            val LAST_SCHEDULED =
+                androidx.datastore.preferences.core
+                    .longPreferencesKey("last_scheduled_at")
             val INSTAGRAM_SHOW_GENERAL = booleanPreferencesKey("instagram_show_general")
             val SHARE_COUNTS = stringPreferencesKey("share_counts")
             private val COUNTS = MapSerializer(String.serializer(), Int.serializer())

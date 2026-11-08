@@ -114,8 +114,10 @@ internal fun composerHooks(
     viewModel: org.pingme.app.chat.ChatViewModel,
     state: org.pingme.app.chat.ChatUiState,
     onNotice: (Int) -> Unit,
+    lastScheduledAt: kotlin.time.Instant? = null,
 ) = org.pingme.app.chat.ComposerHooks(
     outbox = viewModel.outbox,
+    lastScheduledAt = lastScheduledAt,
     draft = viewModel.draft,
     onDraft = viewModel::saveDraft,
     voice = viewModel.voice.takeIf { state.capabilities?.voiceNote?.let { it != MediaRule.UNSUPPORTED } == true },

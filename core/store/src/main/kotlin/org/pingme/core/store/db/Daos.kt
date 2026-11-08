@@ -755,14 +755,18 @@ interface SpaceDao {
 
 @Dao
 interface ScheduledSendDao {
-    @Query("SELECT * FROM scheduled_sends ORDER BY sendAt")
+    @Query("SELECT * FROM scheduled_sends ORDER BY sendAt, rowid")
     fun observeAll(): Flow<List<ScheduledSendEntity>>
 
     @Query("SELECT * FROM scheduled_sends WHERE chatId = :chatId ORDER BY sendAt")
     fun observeByChat(chatId: String): Flow<List<ScheduledSendEntity>>
 
-    /** Sends whose time has come, including late ones (UI_DESIGN.md 10.13). */
-    @Query("SELECT * FROM scheduled_sends WHERE sendAt <= :now ORDER BY sendAt")
+    /**
+     * Sends whose time has come, including late ones (UI_DESIGN.md 10.13). Those set for the same
+     * moment go in the order they were scheduled (owner, 2026-11-07: a second message on "Last used"
+     * goes right after the first).
+     */
+    @Query("SELECT * FROM scheduled_sends WHERE sendAt <= :now ORDER BY sendAt, rowid")
     suspend fun due(now: Instant): List<ScheduledSendEntity>
 
     @Query("SELECT * FROM scheduled_sends WHERE messageId = :messageId")
