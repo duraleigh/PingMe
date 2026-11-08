@@ -22,7 +22,12 @@ class StoreHousekeepingTest : ServiceTest() {
             val fresh = messageSnapshot("fresh", sentAt = now - 10.seconds).message
             messages.upsert(stuck.copy(isOutgoing = true, status = MessageStatus.Sending))
             messages.upsert(fresh.copy(isOutgoing = true, status = MessageStatus.Sending))
-            StoreHousekeeping(messages, clock).run()
+            StoreHousekeeping(
+                messages,
+                clock,
+                org.pingme.core.store
+                    .MergeRepository(db),
+            ).run()
             assertTrue(messages.get(accountId.message("stuck"))?.status is MessageStatus.Failed)
             assertEquals(MessageStatus.Sending, messages.get(accountId.message("fresh"))?.status)
             assertEquals(accountId.chat("c1"), messages.get(accountId.message("stuck"))?.chatId)

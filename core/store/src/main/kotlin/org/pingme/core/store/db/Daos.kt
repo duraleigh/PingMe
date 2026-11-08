@@ -182,6 +182,38 @@ interface ChatDao {
     @Query("DELETE FROM chats WHERE id = :id AND NOT EXISTS (SELECT 1 FROM chats m WHERE m.mergedInto = :id)")
     suspend fun deleteIfNoMembers(id: String)
 
+    /**
+     * Members whose merged chat no longer exists go back to being chats of their own (owner,
+     * 2026-11-07: 16 Instagram chats pointed at merged chats deleted with an account, and so
+     * were in no list at all). Returns how many.
+     */
+    @Query(
+        "UPDATE chats SET mergedInto = NULL WHERE mergedInto IS NOT NULL AND mergedInto NOT IN (SELECT id FROM chats)",
+    )
+    suspend fun releaseStranded(): Int
+
+    /** The chats [releaseStranded] would free, named for the diagnostic file first. */
+    @Query(
+        "SELECT id, title, accountId, lastActivityAt FROM chats " +
+            "WHERE mergedInto IS NOT NULL AND mergedInto NOT IN (SELECT id FROM chats) ORDER BY lastActivityAt DESC",
+    )
+    suspend fun stranded(): List<StrandedChatRow>
+
+    /**
+     * Before account [gone] is removed, which takes its chats with it, each merged chat filed
+     * under it moves to a member on another account, so the merge and its other members stay.
+     */
+    @Query(
+        "UPDATE chats SET accountId = (SELECT m.accountId FROM chats m WHERE m.mergedInto = chats.id " +
+            "AND m.accountId != :gone LIMIT 1) WHERE accountId = :gone AND EXISTS " +
+            "(SELECT 1 FROM chats m WHERE m.mergedInto = chats.id AND m.accountId != :gone)",
+    )
+    suspend fun rehomeMerged(gone: String)
+
+    /** A merged chat that sent through account [gone] by default sends through its own account instead. */
+    @Query("UPDATE chats SET defaultSendAccount = accountId WHERE defaultSendAccount = :gone AND accountId != :gone")
+    suspend fun dropDefaultSendAccount(gone: String)
+
     /** Pinned chats in grid order. */
     @Transaction
     @Query("SELECT * FROM chats WHERE isPinned = 1 ORDER BY pinOrder")
@@ -841,3 +873,11 @@ interface ChatOverridesDao {
     @Upsert
     suspend fun upsert(overrides: ChatOverridesEntity)
 }
+
+/** A chat left pointing at a merged chat that no longer exists. */
+data class StrandedChatRow(
+    val id: String,
+    val title: String,
+    val accountId: String,
+    val lastActivityAt: kotlin.time.Instant,
+)

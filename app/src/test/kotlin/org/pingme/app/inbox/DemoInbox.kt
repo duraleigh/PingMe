@@ -338,6 +338,7 @@ class DemoInbox(
                 MemoryCredentials(),
                 context,
                 registry,
+                merges,
             ).tracked()
 
     fun setupViewModel() =

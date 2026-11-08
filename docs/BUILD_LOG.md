@@ -4715,3 +4715,28 @@ the failure it types a word in the box and waits until the list shows that word;
 caught up with the failed send before it, and the checks read the final picture. "Not sending" is now
 checked rather than waited for, so nothing was loosened: it still requires the failure message, no
 close, and the chat still picked. `ShareViewModelTest` passed 5 runs out of 5 here. No app code changed.
+
+### 2026-11-07, 10:40 PM: Instagram chats hidden after the Google Messages account was removed (owner report)
+
+Merle Dandridge, Devin Neilson and Melinda Doolittle notified but never showed in the
+Instagram list. The diary line written at start-up showed each had `mergedInto` pointing
+at a merged chat that no longer existed: 16 of the 58 chats active that day, all
+Instagram. Cause: removing an account deletes every chat filed under it (the database's
+cascade), and a merged chat is filed under its lead member's account. The owner removed
+the Google Messages account two or three days earlier, so every merged chat led by a
+Google Messages chat went with it, and its Instagram members were left pointing at
+nothing and filtered out of the inbox.
+
+- `ChatDao.stranded()` / `releaseStranded()`: the housekeeping pass that runs at each
+  start names every such chat in the diary ("Freeing 'title' id last active …") and then
+  frees it, so it returns to the inbox on its own. Owner's choice (option 2): fix and list
+  in one build.
+- `MergeRepository.beforeAccountRemoved()`: before an account goes, merged chats filed
+  under it move to another member's account, and a starting send account pointing at it
+  falls back to the chat's own. Settings > remove account calls it, then frees anything
+  left stranded.
+- Freed chats are not combined again automatically; merge suggestions can offer it.
+- Tests: `MergeStoreTest` (both new). With the re-filing step switched off, the
+  account-removal test fails; restored, it passes.
+
+Next: install, read the freed list from the diary, give it to the owner.

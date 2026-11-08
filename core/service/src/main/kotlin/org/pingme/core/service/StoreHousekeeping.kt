@@ -20,8 +20,21 @@ class StoreHousekeeping
     constructor(
         private val messages: MessageRepository,
         private val clock: Clock,
+        private val merges: org.pingme.core.store.MergeRepository,
     ) {
         suspend fun run() {
+            // Chats left pointing at a merged chat that is gone are in no list at all (owner,
+            // 2026-11-07: Merle's and Devin's Instagram chats): they become chats of their own again.
+            val freed =
+                merges.releaseStranded { chat ->
+                    org.pingme.core.connector.Diag
+                        .note(TAG, "Freeing $chat: its merged chat is gone")
+                }
+            if (freed > 0) {
+                Log.i(TAG, "Freed $freed chats from merged chats that were gone")
+                org.pingme.core.connector.Diag
+                    .note(TAG, "Freed $freed chat(s) whose merged chat was gone")
+            }
             val gone = messages.deleteJunk(STAND_IN_PREFIX, clock.now() - STAND_IN_AGE)
             if (gone > 0) Log.i(TAG, "Removed $gone leftover messages")
             // A send lives inside the app: one that was running when the app closed never ends,

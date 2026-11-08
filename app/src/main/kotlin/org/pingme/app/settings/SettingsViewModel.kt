@@ -133,6 +133,7 @@ class SettingsViewModel
         private val credentials: CredentialStore,
         @param:ApplicationContext private val context: Context,
         private val registry: ConnectorRegistry,
+        private val merges: org.pingme.core.store.MergeRepository,
     ) : ViewModel(),
         SettingsActions,
         SpaceActions,
@@ -256,7 +257,11 @@ class SettingsViewModel
                     .onFailure { Log.w(TAG, "Disconnecting ${account.displayName} failed", it) }
                 runCatching { credentials.delete(account.credentialRef) }
                     .onFailure { Log.w(TAG, "Forgetting the sign-in of ${account.displayName} failed", it) }
+                // Merged chats filed under it move first, or they would go with it and strand
+                // their other members (owner, 2026-11-07: 16 Instagram chats in no list).
+                merges.beforeAccountRemoved(id)
                 accounts.delete(id)
+                merges.releaseStranded()
             }
 
         override fun unobscure(chat: Chat) = launch { chats.update(chat.id) { it.copy(isObscured = false) } }

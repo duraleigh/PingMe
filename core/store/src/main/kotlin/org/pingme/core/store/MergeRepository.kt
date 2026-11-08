@@ -43,6 +43,24 @@ class MergeRepository
             before?.takeIf { it != parent?.value }?.let { tidy(ChatId(it)) }
         }
 
+        /**
+         * Frees chats whose merged chat no longer exists, naming each first in [noteEach] (owner,
+         * 2026-11-07: he wanted the full list, not only the count). Returns how many.
+         */
+        suspend fun releaseStranded(noteEach: (String) -> Unit = {}): Int {
+            dao.stranded().forEach { noteEach("'${it.title}' ${it.id} last active ${it.lastActivityAt}") }
+            return dao.releaseStranded()
+        }
+
+        /**
+         * Before account [gone] is removed: merged chats filed under it move to another member's
+         * account, so removing the account deletes only its own chats (owner, 2026-11-07).
+         */
+        suspend fun beforeAccountRemoved(gone: org.pingme.core.model.AccountId) {
+            dao.rehomeMerged(gone.value)
+            dao.dropDefaultSendAccount(gone.value)
+        }
+
         /** A merged chat with fewer than two members releases the last one and goes. */
         suspend fun tidy(id: ChatId) {
             dao.releaseLonelyMember(id.value)

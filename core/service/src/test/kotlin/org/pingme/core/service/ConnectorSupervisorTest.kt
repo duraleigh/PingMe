@@ -44,7 +44,13 @@ class ConnectorSupervisorTest : ServiceTest() {
                 history = history,
                 clock = clock,
                 retryDelays = { delays(it) },
-                housekeeping = StoreHousekeeping(messages, clock),
+                housekeeping =
+                    StoreHousekeeping(
+                        messages,
+                        clock,
+                        org.pingme.core.store
+                            .MergeRepository(db),
+                    ),
                 previews = QuietPreviews(context),
                 tapbacks = Tapbacks(messages),
                 scope = scope,
