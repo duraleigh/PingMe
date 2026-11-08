@@ -4740,3 +4740,16 @@ nothing and filtered out of the inbox.
   account-removal test fails; restored, it passes.
 
 Next: install, read the freed list from the diary, give it to the owner.
+
+### 2026-11-07, 11:55 PM: merge suggestions never offered Instagram pictures (owner report)
+
+A suggestion card shows each member's picture as a choice for the merged chat, but it used
+the inbox rule (contact photo first). An Instagram person tied to a phone contact (every
+person in a chat that was ever merged, since merging shares the contact) showed the
+contact photo, so the Instagram picture was never offered. `PickableChat` now shows each
+chat's own network picture first, the contact photo only when the network has none; the
+contact photo stays its own choice on the card. The inbox is unchanged.
+
+- Test: `PickableChatTest` failed before (it got the contact photo) and passes now.
+- Not checked: whether some Instagram pictures also fail to download. The phone's log
+  keeps almost nothing and the diary does not record picture downloads.

@@ -2,6 +2,7 @@
 package org.pingme.app.merge
 
 import org.pingme.core.model.AccountId
+import org.pingme.core.model.AvatarSource
 import org.pingme.core.model.Chat
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.NetworkId
@@ -35,9 +36,7 @@ data class PickableChat(
                 id = chat.id,
                 title = chat.nameOverride ?: chat.title,
                 network = network,
-                photo =
-                    org.pingme.app.inbox
-                        .photoFor(chat, people),
+                photo = ownPhoto(chat, people),
                 accountId = chat.accountId,
                 detail =
                     other?.let {
@@ -61,6 +60,18 @@ data class PickableChat(
             detail = offer.number,
             hasContactPhoto = offer.photo != null,
         )
+
+        // The chat's own network picture first, the contact's photo only when it has none: a
+        // suggestion card offers each member's picture as a choice, and the contact's photo is a
+        // choice of its own (owner, 2026-11-07: Instagram pictures never showed).
+        private fun ownPhoto(
+            chat: Chat,
+            people: Map<PersonId, Person>,
+        ): String? {
+            val own = chat.avatarSource as? AvatarSource.Picture ?: AvatarSource.Network(chat.accountId)
+            return org.pingme.app.inbox
+                .photoFor(chat.copy(avatarSource = own), people)
+        }
 
         private const val YOU = "You"
     }
