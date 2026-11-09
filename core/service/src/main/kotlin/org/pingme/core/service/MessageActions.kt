@@ -71,6 +71,7 @@ class MessageActions
         private val previews: org.pingme.core.service.links.PreviewRequests,
         private val merges: org.pingme.core.store.MergeRepository,
         private val shareShortcuts: org.pingme.core.service.notify.ShareShortcuts,
+        private val reactionEdits: ReactionEdits,
     ) {
         private val uploads = MutableStateFlow<Map<MessageId, Float>>(emptyMap())
 
@@ -192,8 +193,13 @@ class MessageActions
             connector.react(message.id, emoji, remove)
             if (connector.capabilities.reactions is ReactionRule.TextFallback) return
             val me = messages.selfIn(message.chatId) ?: message.chatId.accountId.person(SELF)
-            message.reactions.filter { it.senderId == me }.forEach { messages.removeReaction(message.id, me, it.emoji) }
-            if (!remove) messages.addReaction(message.id, Reaction(emoji, me, clock.now()))
+            // Numbered, so a page of messages already on its way cannot undo it (ReactionEdits).
+            reactionEdits.change(message.id) {
+                messages.get(message.id)?.reactions.orEmpty().filter { it.senderId == me }.forEach {
+                    messages.removeReaction(message.id, me, it.emoji)
+                }
+                if (!remove) messages.addReaction(message.id, Reaction(emoji, me, clock.now()))
+            }
         }
 
         /**
@@ -386,9 +392,12 @@ class MessageActions
                 }
             targets.forEach { id ->
                 val connector = connectorFor(id) ?: return@forEach
+                // A reaction given or taken back while the page is on its way stays as given
+                // (BUILD_LOG 2026-11-09): on a slow network the page can land seconds later.
+                val mark = reactionEdits.mark()
                 val newest = quietly("catch-up") { connector.syncMessages(id, null, PAGE) } ?: return@forEach
                 Diag.note(TAG, "Catch-up for ${id.value}: ${newest.size} newest message(s) from the network")
-                applier.apply(ConnectorEvent.HistoryBatch(id.accountId, id, newest, complete = false))
+                applier.applyPage(ConnectorEvent.HistoryBatch(id.accountId, id, newest, complete = false), mark)
             }
         }
 

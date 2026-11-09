@@ -230,8 +230,9 @@ class ChatViewModel
         /**
          * The work the latest showing started (the read marking and the catch-up above). Tests
          * wait for it: the catch-up's page, fetched as the chat opened, is saved over the
-         * messages a moment later, so anything a test does to a message before then can be
-         * written over by the copy from before it.
+         * messages a moment later. A reaction given meanwhile now survives it (ReactionEdits),
+         * but anything else a test does to a message before then can be written over by the
+         * copy from before it.
          */
         @VisibleForTesting
         internal var opening: Job? = null

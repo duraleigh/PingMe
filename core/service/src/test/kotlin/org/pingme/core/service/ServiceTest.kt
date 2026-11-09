@@ -72,6 +72,7 @@ abstract class ServiceTest {
     protected lateinit var contacts: ContactRepository
     protected lateinit var typing: TypingTracker
     protected lateinit var reactionFeed: ReactionFeed
+    protected lateinit var reactionEdits: ReactionEdits
     protected lateinit var applier: EventApplier
     protected lateinit var router: NotificationRouter
     protected lateinit var presence: org.pingme.core.service.notify.ChatPresence
@@ -95,6 +96,7 @@ abstract class ServiceTest {
         contacts = ContactRepository(db)
         typing = TypingTracker(scope)
         reactionFeed = ReactionFeed()
+        reactionEdits = ReactionEdits()
         applier =
             EventApplier(
                 accounts,
@@ -111,6 +113,7 @@ abstract class ServiceTest {
                     org.pingme.core.service.people
                         .ProfilePhotos(context, contacts, scope),
                 ),
+                reactionEdits,
             )
         presence =
             org.pingme.core.service.notify

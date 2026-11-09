@@ -65,6 +65,9 @@ class DemoInbox(
     val contacts = ContactRepository(db)
     val typing = TypingTracker(scope)
     val reactions = ReactionFeed()
+    val reactionEdits =
+        org.pingme.core.service
+            .ReactionEdits()
     val applier =
         EventApplier(
             accounts,
@@ -84,6 +87,7 @@ class DemoInbox(
                     org.pingme.core.service.people
                         .ProfilePhotos(context, contacts, scope),
                 ),
+            reactionEdits,
         )
     val controls = DemoControls()
     val demo = DemoConnector(controls, MemoryCredentials(), dir.resolve("media"), Clock.System)
@@ -142,6 +146,7 @@ class DemoInbox(
             merges,
             org.pingme.core.service.notify
                 .ShareShortcuts(context, chats),
+            reactionEdits,
         )
     val account =
         Account(

@@ -20,6 +20,7 @@ import org.pingme.core.model.MessageKind
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Quote
+import org.pingme.core.model.Reaction
 import org.pingme.core.store.PinnedMessageRepository
 import java.io.File
 import kotlin.time.Duration.Companion.hours
@@ -48,6 +49,7 @@ class MessageActionsTest : ServiceTest() {
             merged,
             org.pingme.core.service.notify
                 .ShareShortcuts(context, chats),
+            reactionEdits,
         )
     }
     private val merged by lazy {
@@ -309,6 +311,85 @@ class MessageActionsTest : ServiceTest() {
             assertEquals(listOf("😂"), latest().reactions.map { it.emoji })
             actions.react(latest(), "😂", remove = true)
             assertTrue(latest().reactions.isEmpty())
+        }
+
+    /** Two stored messages: Sam's "m1" and one of yours, so the store knows who you are. */
+    private suspend fun seedForReactions(): org.pingme.core.connector.MessageSnapshot {
+        seed()
+        val m1 = messageSnapshot("m1")
+        applier.apply(
+            org.pingme.core.connector.ConnectorEvent
+                .NewMessage(accountId, m1),
+        )
+        applier.apply(
+            org.pingme.core.connector.ConnectorEvent
+                .NewMessage(accountId, messageSnapshot("mine", outgoing = true)),
+        )
+        return m1
+    }
+
+    private suspend fun storedEmoji(id: org.pingme.core.model.MessageId) =
+        messages
+            .get(id)!!
+            .reactions
+            .map { it.emoji }
+            .sorted()
+
+    // Opening a chat fetches its newest page; on a slow network the page can be asked for before
+    // a double tap and saved after it (BUILD_LOG, 2026-11-05: "A test that failed once on GitHub").
+    @Test
+    fun aPageAskedForBeforeYouReactedDoesNotTakeYourReactionAway() =
+        runTest {
+            val m1 = seedForReactions()
+            connector.history = listOf(m1)
+            connector.beforeHistory = { actions.react(messages.get(m1.message.id)!!, "❤️") }
+            actions.catchUp(chatId)
+            assertEquals(listOf("❤️"), storedEmoji(m1.message.id))
+        }
+
+    @Test
+    fun aPageAskedForBeforeYouTookAReactionBackDoesNotBringItBack() =
+        runTest {
+            val m1 = seedForReactions()
+            actions.react(messages.get(m1.message.id)!!, "❤️")
+            val me = messages.selfIn(chatId)!!
+            connector.history =
+                listOf(m1.copy(message = m1.message.copy(reactions = listOf(Reaction("❤️", me, now)))))
+            connector.beforeHistory = { actions.react(messages.get(m1.message.id)!!, "❤️", remove = true) }
+            actions.catchUp(chatId)
+            assertEquals(emptyList<String>(), storedEmoji(m1.message.id))
+        }
+
+    @Test
+    fun aPageAskedForBeforeSomeoneElseReactedKeepsTheirReaction() =
+        runTest {
+            val m1 = seedForReactions()
+            connector.history = listOf(m1)
+            connector.beforeHistory = {
+                applier.apply(
+                    org.pingme.core.connector.ConnectorEvent
+                        .ReactionChanged(accountId, m1.message.id, Reaction("😮", sam().id, now), removed = false),
+                )
+            }
+            actions.catchUp(chatId)
+            assertEquals(listOf("😮"), storedEmoji(m1.message.id))
+        }
+
+    // The network's own word still counts: reactions taken away elsewhere (on the paired phone,
+    // or by the other person) before the page was asked for are gone from the page, so they go here.
+    @Test
+    fun aPageAskedForAfterTheLastReactionStillTakesAwayWhatTheNetworkRemoved() =
+        runTest {
+            val m1 = seedForReactions()
+            actions.react(messages.get(m1.message.id)!!, "❤️")
+            applier.apply(
+                org.pingme.core.connector.ConnectorEvent
+                    .ReactionChanged(accountId, m1.message.id, Reaction("👍", sam().id, now), removed = false),
+            )
+            assertEquals(listOf("❤️", "👍"), storedEmoji(m1.message.id))
+            connector.history = listOf(m1)
+            actions.catchUp(chatId)
+            assertEquals(emptyList<String>(), storedEmoji(m1.message.id))
         }
 
     @Test

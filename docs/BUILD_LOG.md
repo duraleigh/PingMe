@@ -4753,3 +4753,42 @@ contact photo stays its own choice on the card. The inbox is unchanged.
 - Test: `PickableChatTest` failed before (it got the contact photo) and passes now.
 - Not checked: whether some Instagram pictures also fail to download. The phone's log
   keeps almost nothing and the diary does not record picture downloads.
+
+### 2026-11-09, 9:25 AM: a reaction given as a chat opens no longer vanishes
+
+The overlap left for the owner on 2026-11-05 ("A test that failed once on GitHub", the double-tap
+test) is now fixed in the app. Opening a chat asks the network for its newest page; saving that page
+put each message's reactions back to the network's copy. A page asked for before a double tap (or a
+pick from the reaction bar) and saved after it erased the new heart until the network's next copy
+of the message brought it back; on a slow network (Google Messages' catch-up can take seconds) this
+could happen on the phone.
+
+- *Confirmed first:* four tests in `MessageActionsTest`, each giving or taking a reaction while the
+  page is on its way. Before the fix, three failed: your new heart erased, a heart you took back
+  brought back, and someone else's reaction that arrived meanwhile erased. The fourth (below) passed.
+- *Fixed:* every change to a message's reactions (yours, and each one the network reports as it
+  happens) is now numbered in order (`ReactionEdits`). The catch-up notes the number reached just
+  before asking for the page; on saving it, a message whose reactions changed since then keeps its
+  stored reactions, which are newer, and takes everything else (text, status, files) from the page.
+  The check and the save happen together, so a reaction cannot land between them.
+- *The network's own word still counts:* a page asked for after the last change replaces the
+  reactions as before, so a reaction taken away on the paired phone or by the other person is taken
+  away here too (test: `aPageAskedForAfterTheLastReactionStillTakesAwayWhatTheNetworkRemoved`). Live
+  removals reported by the network go through as before.
+- Taking your own reaction back or replacing it now reads the stored reactions at that moment, not
+  the copy the screen was holding, so it cannot miss one that arrived since.
+- Why numbers and not clock times: the reactions' own times come from each network's clock, and a
+  page's time and a tap's time can be the same moment on a fast phone; numbers in order cannot tie.
+- Not changed: older-history pages (scrolling up, the background backfill) only bring messages older
+  than the oldest stored, so they never cover a message you just reacted to. Pages the bridges send
+  on their own as they connect are saved as before; when those were asked for is not known here.
+- Tests: `MessageActionsTest` (four new), and `EventApplierTest`, `TapbacksTest`, `WorkersTest`,
+  `PeopleLinkerTest` all pass (67). The app's 256 tests pass, `MessageActionsScreenTest` included, and
+  `./gradlew check` passes (lint, detekt, ktlint). The test wait added on 2026-11-05 stays (it covers
+  other changes too).
+- *A full check stopped by rule 12:* the first `./gradlew check` was stopped at 9 minutes (past half
+  again its normal 2 to 4), still producing output, not frozen. Why it ran long: the day's first run (no
+  saved configuration, a minute to prepare), and a change in the service module, which nearly every
+  module builds on, so everything was rebuilt before testing. Every network's tests and checks had
+  passed by then. Run again in two pieces: the app's tests alone (2 min 15 s), then `check` for the
+  rest (2 min 19 s, what had passed was skipped).

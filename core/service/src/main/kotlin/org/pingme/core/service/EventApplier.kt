@@ -41,6 +41,7 @@ class EventApplier
         private val reactionFeed: ReactionFeed,
         private val tapbacks: Tapbacks,
         private val people: PeopleApplier,
+        private val reactionEdits: ReactionEdits,
     ) {
         suspend fun apply(event: ConnectorEvent) {
             when (event) {
@@ -101,11 +102,15 @@ class EventApplier
         private suspend fun applyReaction(event: ConnectorEvent.ReactionChanged) {
             when {
                 event.removed && event.reaction.emoji.isEmpty() -> {
-                    messages.removeReactions(event.messageId, event.reaction.senderId)
+                    reactionEdits.change(event.messageId) {
+                        messages.removeReactions(event.messageId, event.reaction.senderId)
+                    }
                 }
 
                 event.removed -> {
-                    messages.removeReaction(event.messageId, event.reaction.senderId, event.reaction.emoji)
+                    reactionEdits.change(event.messageId) {
+                        messages.removeReaction(event.messageId, event.reaction.senderId, event.reaction.emoji)
+                    }
                 }
 
                 else -> {
@@ -113,7 +118,7 @@ class EventApplier
                     // in a chat not listed) has nothing to sit on; the row would be refused anyway
                     // (owner, Gate G7: Messenger stuck on "reconnecting" over one such reaction).
                     val target = messages.get(event.messageId) ?: return
-                    messages.addReaction(event.messageId, event.reaction)
+                    reactionEdits.change(event.messageId) { messages.addReaction(event.messageId, event.reaction) }
                     // A reaction is activity: the chat moves up as it does in the network's own app.
                     chats.update(
                         target.chatId,
@@ -148,19 +153,31 @@ class EventApplier
         }
 
         /**
+         * A page the app asked the network for, with the [ReactionEdits] mark taken just before
+         * asking: reactions changed on this phone since then stay as stored (BUILD_LOG 2026-11-09).
+         */
+        suspend fun applyPage(
+            event: ConnectorEvent.HistoryBatch,
+            mark: Long,
+        ) = applyHistory(event, mark)
+
+        /**
          * Older messages land first, then the reaction texts among them become reactions on
          * what they refer to, which is now in the store (iPhone tapbacks over SMS; owner, Gate G3).
          */
-        private suspend fun applyHistory(event: ConnectorEvent.HistoryBatch) {
+        private suspend fun applyHistory(
+            event: ConnectorEvent.HistoryBatch,
+            mark: Long? = null,
+        ) {
             // A chat deleted here has nothing stored, so a history fetch would rebuild it
             // (owner, Gate G7, round 3: deleted chats came back): old pages are dropped.
             val newest = event.messages.maxOfOrNull { it.message.sentAt }
             if (newest != null && hiddenHere(event.chatId, newest)) return
             val (reactions, plain) = event.messages.partition { Tapbacks.parse(it.message.body.orEmpty()) != null }
-            plain.forEach { saveMessage(it) }
+            plain.forEach { saveMessage(it, mark) }
             reactions.forEach { snapshot ->
                 when (val reaction = tapbacks.asReaction(snapshot.message)) {
-                    null -> saveMessage(snapshot)
+                    null -> saveMessage(snapshot, mark)
                     else -> apply(reaction)
                 }
             }
@@ -327,7 +344,14 @@ class EventApplier
                 .forEach { messages.delete(it.id) }
         }
 
-        private suspend fun saveMessage(snapshot: MessageSnapshot) {
+        /**
+         * [mark]: the page this copy came from was asked for then (see [ReactionEdits]); a
+         * message whose reactions changed since keeps them, the rest of it comes from the copy.
+         */
+        private suspend fun saveMessage(
+            snapshot: MessageSnapshot,
+            mark: Long? = null,
+        ) {
             val message = withQuote(messages.keepingLocalFiles(messages.keepingHeldViewOnce(snapshot.message)))
             if (chats.get(message.chatId) == null && hiddenHere(message.chatId, message.sentAt)) return
             // Through the people step, or a message's sender would overwrite the person's
@@ -339,7 +363,14 @@ class EventApplier
                 // snapshot fills it in.
                 chats.upsert(placeholderChat(snapshot))
             }
-            messages.upsert(message)
+            if (mark == null) {
+                messages.upsert(message)
+                return
+            }
+            reactionEdits.save(message.id, mark) { storedIsNewer ->
+                val stored = if (storedIsNewer) messages.get(message.id) else null
+                messages.upsert(stored?.let { message.copy(reactions = it.reactions) } ?: message)
+            }
         }
 
         /**

@@ -37,6 +37,7 @@ class PeopleLinkerTest : ServiceTest() {
             reactionFeed,
             Tapbacks(messages),
             PeopleApplier(chats, contacts, linker, ProfilePhotos(context, contacts, scope)),
+            reactionEdits,
         )
     }
 
