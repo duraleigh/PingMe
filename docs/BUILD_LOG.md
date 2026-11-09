@@ -4792,3 +4792,12 @@ could happen on the phone.
   module builds on, so everything was rebuilt before testing. Every network's tests and checks had
   passed by then. Run again in two pieces: the app's tests alone (2 min 15 s), then `check` for the
   rest (2 min 19 s, what had passed was skipped).
+
+### 2026-11-09: merged chats show the owner's own photo (owner report, diagnosis only)
+
+Parker, Quiana, Camden Jorgensen and Cheryl Jacobsen show the owner's own contact photo.
+The start-up diary shows the first three are merged chats made on 11-08 and 11-09, with
+correct titles. Nothing on hand says which person inside them carries the photo, so the
+inbox now writes each merged chat's photo source, the photo it shows, and every person
+inside it with their contact link and pictures to the diagnostic file (`PhotoDiary.kt`,
+tag PingMePhotos). No behaviour changes. Cause and fix to follow from that list.

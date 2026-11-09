@@ -90,6 +90,7 @@ class InboxViewModel
             // A fresh inbox opens by the rule, not where it was last left (owner, 2026-10-16).
             saved[SELECTED] = null
             viewModelScope.launch { noteRecentChats() }
+            viewModelScope.launch { notePhotos(chats.all().first(), contacts.inChats().first()) }
         }
 
         /**
