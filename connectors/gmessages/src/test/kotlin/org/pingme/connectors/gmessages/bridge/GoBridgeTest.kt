@@ -47,6 +47,19 @@ class GoBridgeTest {
     }
 
     @Test
+    fun aMessageYouSentIsFromYouEvenWhenItsSenderCarriesYourContactsName() {
+        // The phone names your own sender entry by the contact holding your number, without
+        // marking it as you (owner, 2026-11-09: one entry in 73 chats).
+        bridge.conversationPage(fixture.conversationsJson).conversations.forEach(bridge::chat)
+        val sent =
+            bridge.messagePage(fixture.messagesJson("12")).messages[0].copy(
+                participantId = "2",
+                sender = GmParticipant(id = "2", number = "+15555550100", fullName = "Some Contact", isMe = false),
+            )
+        assertEquals("You", bridge.message(sent).sender?.displayName)
+    }
+
+    @Test
     fun messagesKeepTextMediaReactionsAndStatus() {
         bridge.conversationPage(fixture.conversationsJson).conversations.forEach(bridge::chat)
         val page = bridge.messagePage(fixture.messagesJson("12"))

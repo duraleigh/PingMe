@@ -359,9 +359,12 @@ class GoBridge(
             contactId = null,
         )
 
+    // A message you sent names its sender by your number's contact, without saying it is you;
+    // stored that way, you counted as the other person in 73 chats and they showed your photo
+    // (owner, 2026-11-09). Any id the chat list or the SIMs marked as yours is you.
     private fun displayName(p: GmParticipant) =
         when {
-            p.isMe -> "You"
+            p.isMe || p.id in selfIds -> "You"
             p.fullName.isNotBlank() -> p.fullName
             p.firstName.isNotBlank() -> p.firstName
             p.formattedNumber.isNotBlank() -> p.formattedNumber

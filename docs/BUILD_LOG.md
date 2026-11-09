@@ -4803,3 +4803,19 @@ inbox now writes each merged chat's photo source, the photo it shows, and every 
 inside it with their contact link and pictures to the diagnostic file, and the same for
 any chat showing a photo that three or more differently named chats share (`PhotoDiary.kt`,
 tag PingMePhotos). No behaviour changes. Cause and fix to follow from that list.
+
+**Cause found (same day).** The diary list: 73 chats (68 names) showed one contact card that
+holds the owner's own numbers and his photo. In 71 of them the entry carrying it was Google
+Messages participant "2", the owner's own SIM entry. Chat listings mark it as him (it is
+left out of every title), but a message he sent names its sender by his number's contact
+without marking it as him; storing that sender renamed his "You" entry to that contact's
+name, and it then took that card's link. Photo choice skips only entries named "You", so he
+counted as the other person.
+
+- `GoBridge.displayName`: any id the chat list or the SIM settings marked as yours is
+  "You", whatever a message's sender entry says.
+- `PeopleApplier.remember` / `ContactRepository.upsertSelf`: your own entry is stored with
+  no contact link, dropping one kept from before. The next Google Messages listing rewrites
+  participant "2" as "You", which repairs every chat at once (one shared row).
+- Tests: `GoBridgeTest.aMessageYouSentIsFromYou...`, `PeopleLinkerTest.yourOwnEntryStored...`.
+- Not changed: one Google Voice chat lists the owner's own mobile number as another person.

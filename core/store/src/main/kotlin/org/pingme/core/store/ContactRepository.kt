@@ -40,11 +40,19 @@ class ContactRepository
 
         /**
          * Writes a person as a network reports them. The phone's contact link is local, so
-         * a snapshot that carries none keeps the one already stored.
+         * a snapshot that carries none keeps the one already stored, unless [self]: your own
+         * entry is never a contact, so one an earlier build made in error goes (owner,
+         * 2026-11-09: your entry held the card with your own number and photo, and 73 chats
+         * showed it).
          */
-        suspend fun upsert(person: Person) {
+        suspend fun upsert(
+            person: Person,
+            self: Boolean = false,
+        ) {
             val kept =
-                if (person.contactId == null && person.contactName == null && person.contactPhoto == null) {
+                if (self) {
+                    person.copy(contactId = null, contactName = null, contactPhoto = null)
+                } else if (person.contactId == null && person.contactName == null && person.contactPhoto == null) {
                     personDao.get(person.id.value)?.let { old ->
                         person.copy(
                             contactId = old.contactId?.let(::ContactId),

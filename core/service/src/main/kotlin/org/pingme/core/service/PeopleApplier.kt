@@ -36,6 +36,7 @@ class PeopleApplier
          */
         suspend fun remember(person: Person) {
             linker.ensureLoaded()
+            if (person.displayName == YOU) return contacts.upsert(withLocalPhoto(person), self = true)
             contacts.upsert(linker.linked(withLocalPhoto(person)))
         }
 

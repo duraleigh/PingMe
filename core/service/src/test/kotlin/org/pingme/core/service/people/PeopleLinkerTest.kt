@@ -57,6 +57,23 @@ class PeopleLinkerTest : ServiceTest() {
         }
 
     @Test
+    fun yourOwnEntryStoredUnderAContactLosesThatContactOnceItIsYouAgain() =
+        runTest {
+            // An earlier build stored your entry by your number's contact (owner, 2026-11-09).
+            accounts.upsert(account())
+            val wrong = samByNumber().copy(id = accountId.person("2"), displayName = "Terry Sanford")
+            withBook.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(wrong)))
+            assertEquals("content://photo/42", contacts.person(wrong.id)?.contactPhoto)
+
+            withBook.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(wrong.copy(displayName = "You"))))
+            val stored = contacts.person(wrong.id)!!
+            assertEquals("You", stored.displayName)
+            assertNull(stored.contactId)
+            assertNull(stored.contactName)
+            assertNull(stored.contactPhoto)
+        }
+
+    @Test
     fun aChatTitledByANumberTakesTheContactsName() =
         runTest {
             accounts.upsert(account())
