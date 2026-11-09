@@ -4795,9 +4795,11 @@ could happen on the phone.
 
 ### 2026-11-09: merged chats show the owner's own photo (owner report, diagnosis only)
 
-Parker, Quiana, Camden Jorgensen and Cheryl Jacobsen show the owner's own contact photo.
+Parker, Quiana, Camden Jorgensen, Cheryl Jacobsen, Cheeks Parker, Ruben Studdard, Ben Cohn and
+others show the owner's own contact photo.
 The start-up diary shows the first three are merged chats made on 11-08 and 11-09, with
 correct titles. Nothing on hand says which person inside them carries the photo, so the
 inbox now writes each merged chat's photo source, the photo it shows, and every person
-inside it with their contact link and pictures to the diagnostic file (`PhotoDiary.kt`,
+inside it with their contact link and pictures to the diagnostic file, and the same for
+any chat showing a photo that three or more differently named chats share (`PhotoDiary.kt`,
 tag PingMePhotos). No behaviour changes. Cause and fix to follow from that list.
