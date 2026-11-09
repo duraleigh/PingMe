@@ -49,11 +49,14 @@ class ContactRepository
             person: Person,
             self: Boolean = false,
         ) {
+            val old = personDao.get(person.id.value)
             val kept =
-                if (self) {
-                    person.copy(contactId = null, contactName = null, contactPhoto = null)
+                // Once an entry is you it stays you: a message you sent may name you by your
+                // number's contact, and that brought your photo into 73 chats (owner, 2026-11-09).
+                if (self || old?.displayName == YOU) {
+                    person.copy(displayName = YOU, contactId = null, contactName = null, contactPhoto = null)
                 } else if (person.contactId == null && person.contactName == null && person.contactPhoto == null) {
-                    personDao.get(person.id.value)?.let { old ->
+                    old?.let { old ->
                         person.copy(
                             contactId = old.contactId?.let(::ContactId),
                             contactName = old.contactName,
@@ -136,3 +139,5 @@ class ContactRepository
             contactId: ContactId,
         ) = mergeLinkDao.delete(personId.value, contactId.value)
     }
+
+private const val YOU = "You"

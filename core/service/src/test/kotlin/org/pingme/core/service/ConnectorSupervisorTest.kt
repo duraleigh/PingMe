@@ -50,6 +50,8 @@ class ConnectorSupervisorTest : ServiceTest() {
                         clock,
                         org.pingme.core.store
                             .MergeRepository(db),
+                        org.pingme.core.store
+                            .SelfEntries(db),
                     ),
                 previews = QuietPreviews(context),
                 tapbacks = Tapbacks(messages),

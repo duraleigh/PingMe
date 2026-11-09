@@ -21,8 +21,16 @@ class StoreHousekeeping
         private val messages: MessageRepository,
         private val clock: Clock,
         private val merges: org.pingme.core.store.MergeRepository,
+        private val selves: org.pingme.core.store.SelfEntries,
     ) {
         suspend fun run() {
+            val yours =
+                selves.repair { entry ->
+                    org.pingme.core.connector.Diag
+                        .note(TAG, "Your number under another name, now You: $entry")
+                }
+            org.pingme.core.connector.Diag
+                .note(TAG, "Made $yours entr(ies) with your own number You")
             // Chats left pointing at a merged chat that is gone are in no list at all (owner,
             // 2026-11-07: Merle's and Devin's Instagram chats): they become chats of their own again.
             val freed =

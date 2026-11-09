@@ -27,6 +27,8 @@ class StoreHousekeepingTest : ServiceTest() {
                 clock,
                 org.pingme.core.store
                     .MergeRepository(db),
+                org.pingme.core.store
+                    .SelfEntries(db),
             ).run()
             assertTrue(messages.get(accountId.message("stuck"))?.status is MessageStatus.Failed)
             assertEquals(MessageStatus.Sending, messages.get(accountId.message("fresh"))?.status)

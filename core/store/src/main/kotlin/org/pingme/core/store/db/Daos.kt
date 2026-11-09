@@ -692,6 +692,27 @@ interface PersonDao {
     @Query("SELECT * FROM persons WHERE contactId = :contactId")
     fun observeByContact(contactId: String): Flow<List<PersonEntity>>
 
+    /**
+     * Entries that are you under another name: one carrying a "You" entry's number, or one
+     * inside the one-to-one chats of [many] or more differently named people, which only you
+     * can be.
+     */
+    @Query(
+        "SELECT * FROM persons WHERE displayName != 'You' AND (" +
+            "(phoneNumber IS NOT NULL AND phoneNumber IN " +
+            "(SELECT phoneNumber FROM persons WHERE displayName = 'You' AND phoneNumber IS NOT NULL)) " +
+            "OR (SELECT COUNT(DISTINCT c.title) FROM chat_participants cp JOIN chats c ON c.id = cp.chatId " +
+            "WHERE cp.personId = persons.id AND c.kind = 'DIRECT') >= :many)",
+    )
+    suspend fun youUnderAnotherName(many: Int): List<PersonEntity>
+
+    /** Makes these entries yours: named "You", with no contact link. */
+    @Query(
+        "UPDATE persons SET displayName = 'You', contactId = NULL, contactName = NULL, contactPhoto = NULL " +
+            "WHERE id IN (:ids)",
+    )
+    suspend fun makeYou(ids: List<String>)
+
     /** Everyone with a phone number: who the address book can be matched against. */
     @Query("SELECT * FROM persons WHERE phoneNumber IS NOT NULL")
     suspend fun withPhones(): List<PersonEntity>

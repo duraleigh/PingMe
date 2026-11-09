@@ -4819,3 +4819,23 @@ counted as the other person.
   participant "2" as "You", which repairs every chat at once (one shared row).
 - Tests: `GoBridgeTest.aMessageYouSentIsFromYou...`, `PeopleLinkerTest.yourOwnEntryStored...`.
 - Not changed: one Google Voice chat lists the owner's own mobile number as another person.
+
+**That fix did not take (owner, same evening: "none of the incorrect avatars has changed
+back").** The diary after install: participant "2" still stored under the contact's name.
+The Google Messages listing after the install (200 chats) never rewrote it, so "2" is not
+among the participants a listing marks as you; my assumption that it was had no proof.
+
+- `SelfEntries.repair` (start-up housekeeping): an entry is you when it carries a number a
+  "You" entry carries, on any network, or when it sits in the one-to-one chats of 5 or more
+  differently named people (only you can). Each is noted in the diary, then named "You"
+  with its contact link cleared.
+- `ContactRepository.upsert`: once an entry is "You" it stays "You", whatever a later
+  message names it, with no contact link.
+- `GoBridge`: a participant carrying one of the numbers a listing marks as yours is "You".
+- Tests: `SelfEntriesTest` (both), `GoBridgeTest.anEntryWithYourOwnNumberIsYou...`.
+
+**App icon (owner request, same day).** The owner's new logo replaces the bubble art in all
+five icon styles (Default, Light, Dark, Sunset, Forest); each keeps its background colour.
+`drawable-nodpi/ic_launcher_art.png` (432 px, the logo at 60% so it sits inside the mask)
+and `ic_launcher_art_mono.png` (white silhouette for themed icons). The old vector
+foregrounds and monochrome layer are removed (they are in git history).

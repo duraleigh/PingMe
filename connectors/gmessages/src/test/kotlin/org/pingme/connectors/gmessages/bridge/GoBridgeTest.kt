@@ -60,6 +60,18 @@ class GoBridgeTest {
     }
 
     @Test
+    fun anEntryWithYourOwnNumberIsYouWhateverItsId() {
+        // Your number listed as an ordinary person under another id (owner, 2026-11-09).
+        bridge.conversationPage(fixture.conversationsJson).conversations.forEach(bridge::chat)
+        val sent =
+            bridge.messagePage(fixture.messagesJson("12")).messages[0].copy(
+                participantId = "88",
+                sender = GmParticipant(id = "88", number = "+15555550100", fullName = "Some Contact", isMe = false),
+            )
+        assertEquals("You", bridge.message(sent).sender?.displayName)
+    }
+
+    @Test
     fun messagesKeepTextMediaReactionsAndStatus() {
         bridge.conversationPage(fixture.conversationsJson).conversations.forEach(bridge::chat)
         val page = bridge.messagePage(fixture.messagesJson("12"))
