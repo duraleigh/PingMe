@@ -4839,3 +4839,21 @@ five icon styles (Default, Light, Dark, Sunset, Forest); each keeps its backgrou
 `drawable-nodpi/ic_launcher_art.png` (432 px, the logo at 60% so it sits inside the mask)
 and `ic_launcher_art_mono.png` (white silhouette for themed icons). The old vector
 foregrounds and monochrome layer are removed (they are in git history).
+
+### 2026-11-09, 8:40 PM: received pictures slow or never shown (owner report)
+
+Quiana's two pictures stayed grey. The diary had nothing on received pictures or failed
+fetches (failures went only to the phone's short-lived log), so the cause could not be
+proven from the phone. From the code: each received picture went to Android's job queue
+with no priority (held back when the app is in the background), retried at growing gaps,
+gave up for good after five failures, and a chat opened during a retry gap queued its
+request behind the waiting try.
+
+- `MediaFetcher.now`: a received picture (and any picture shown in a chat without its
+  file) is fetched at once inside the running app; only a failure goes to the job queue,
+  which tries again (`MediaFetcher.fetch`, six tries in all). A fetch already on its way
+  is not started twice.
+- Diary (tag PingMeMedia): "fetching now (arrived / shown in a chat)", "not on the network's
+  side yet", "fetched in N ms (try n)", "failed after N ms (try n): reason".
+- Tests: `WorkersTest.aReceivedPictureIsFetchedAtOnceNotQueued`,
+  `WorkersTest.aFailedFetchIsTriedAgainThenStopsAtTheLastTry`.

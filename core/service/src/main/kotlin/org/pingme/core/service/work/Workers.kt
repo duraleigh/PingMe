@@ -90,49 +90,20 @@ class MediaDownloadWorker
     constructor(
         @Assisted context: Context,
         @Assisted params: WorkerParameters,
-        private val registry: ConnectorRegistry,
-        private val accounts: AccountRepository,
-        private val messages: MessageRepository,
-        private val keeper: org.pingme.core.service.MediaKeeper,
-        private val notifications: org.pingme.core.service.NotificationRouter,
+        private val fetcher: org.pingme.core.service.MediaFetcher,
     ) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
             val id = inputData.getString(KEY_ATTACHMENT)?.let(::AttachmentId) ?: return Result.failure()
-            val attachment = messages.attachment(id) ?: return Result.success()
-            if (attachment.localPath != null) return Result.success()
-            // The phone has not fetched it itself yet; the update that brings a reference asks again.
-            if (attachment.remoteRef == null) return Result.success()
-            val account = accounts.get(id.accountId) ?: return Result.failure()
-            val connector = registry[account.network] ?: return Result.failure()
-            val started = System.currentTimeMillis()
-            return runCatching { connector.downloadAttachment(attachment) }.fold(
-                onSuccess = { file ->
-                    messages.setAttachmentLocalPath(id, file.absolutePath)
-                    keeper.downloaded(attachment, file)
-                    notifications.pictureArrived(attachment, file)
-                    // On the phone only (no telemetry, DESIGN.md 6.5): how long media takes to come in.
-                    val took = System.currentTimeMillis() - started
-                    android.util.Log.i(TAG, "downloaded ${attachment.kind} ${file.length()} bytes in $took ms")
-                    // What the network said against what came, for "are the pictures compressed?".
-                    org.pingme.core.connector.Diag.note(
-                        TAG,
-                        "${attachment.kind}: ${file.length()} bytes here, the network says ${attachment.sizeBytes}, " +
-                            "preview only: ${attachment.isPreviewOnly}",
-                    )
-                    Result.success()
-                },
-                onFailure = {
-                    val took = System.currentTimeMillis() - started
-                    android.util.Log.w(TAG, "download of ${attachment.kind} failed after $took ms", it)
-                    if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
-                },
-            )
+            // The app's own first try already failed; these are the later ones.
+            return when (fetcher.fetch(id, attempt = runAttemptCount + 1)) {
+                org.pingme.core.service.MediaFetcher.Outcome.DONE -> Result.success()
+                org.pingme.core.service.MediaFetcher.Outcome.RETRY -> Result.retry()
+                org.pingme.core.service.MediaFetcher.Outcome.GIVE_UP -> Result.failure()
+            }
         }
 
         companion object {
             const val KEY_ATTACHMENT = "attachment"
-            const val MAX_ATTEMPTS = 5
-            private const val TAG = "PingMeMedia"
         }
     }
 

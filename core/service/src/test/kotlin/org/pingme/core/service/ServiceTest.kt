@@ -212,7 +212,7 @@ class CountingKeeper(
     settings: SettingsRepository,
     messages: MessageRepository,
     clock: kotlin.time.Clock,
-) : MediaKeeper(context, settings, messages, clock) {
+) : MediaKeeper(context, settings, messages, clock, dagger.Lazy { error("downloads are counted, not fetched") }) {
     val downloads = mutableListOf<org.pingme.core.model.AttachmentId>()
 
     override fun download(id: org.pingme.core.model.AttachmentId) {

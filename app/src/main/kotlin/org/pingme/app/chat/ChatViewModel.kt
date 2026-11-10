@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package org.pingme.app.chat
 
-import android.content.Context
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,7 +8,6 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -46,7 +44,6 @@ import org.pingme.core.model.PersonId
 import org.pingme.core.service.ChatActions
 import org.pingme.core.service.MessageActions
 import org.pingme.core.service.TypingTracker
-import org.pingme.core.service.work.Work
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
@@ -56,13 +53,18 @@ import javax.inject.Inject
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
-/** Asks for an attachment's file; a class of its own so tests can stand in for WorkManager. */
+/**
+ * Asks for an attachment's file, at once rather than behind an earlier try's retry gap
+ * (owner, 2026-11-09); a class of its own so tests can stand in for the fetch.
+ */
 open class MediaRequests
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        private val fetcher: org.pingme.core.service.MediaFetcher?,
     ) {
-        open fun download(id: AttachmentId) = Work.downloadMedia(context, id)
+        open fun download(id: AttachmentId) {
+            fetcher?.now(id, "shown in a chat")
+        }
     }
 
 data class ChatUiState(

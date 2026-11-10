@@ -11,7 +11,6 @@ import kotlinx.coroutines.withContext
 import org.pingme.core.model.Attachment
 import org.pingme.core.model.AttachmentId
 import org.pingme.core.model.Message
-import org.pingme.core.service.work.Work
 import org.pingme.core.store.MessageRepository
 import org.pingme.core.store.SettingsRepository
 import java.io.File
@@ -35,6 +34,7 @@ open class MediaKeeper
         private val settings: SettingsRepository,
         private val messages: MessageRepository,
         private val clock: Clock,
+        private val fetcher: dagger.Lazy<MediaFetcher>,
     ) {
         /**
          * A message arrived or changed: its pictures and the like download now; with the
@@ -53,8 +53,9 @@ open class MediaKeeper
                 .forEach { download(it.id) }
         }
 
+        // At once, inside the app; only a failure waits for the job queue (owner, 2026-11-09).
         protected open fun download(id: AttachmentId) {
-            Work.downloadMedia(context, id)
+            fetcher.get().now(id, "arrived")
         }
 
         /** A download finished; with the setting on, the file is kept, in the chosen folder if any. */

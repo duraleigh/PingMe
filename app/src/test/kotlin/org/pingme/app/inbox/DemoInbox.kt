@@ -201,7 +201,7 @@ class DemoInbox(
 
     /** Downloads straight through the demo connector instead of WorkManager. */
     private val media =
-        object : MediaRequests(context) {
+        object : MediaRequests(null) {
             override fun download(id: org.pingme.core.model.AttachmentId) {
                 scope.launch {
                     val attachment = messages.attachment(id) ?: return@launch

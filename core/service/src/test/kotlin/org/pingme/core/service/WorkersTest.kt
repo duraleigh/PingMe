@@ -57,7 +57,11 @@ class WorkersTest : ServiceTest() {
                     }
 
                     MediaDownloadWorker::class.java.name -> {
-                        MediaDownloadWorker(appContext, workerParameters, registry, accounts, messages, keeper, router)
+                        MediaDownloadWorker(
+                            appContext,
+                            workerParameters,
+                            MediaFetcher(appContext, registry, accounts, messages, keeper, router, scope),
+                        )
                     }
 
                     ScheduledSendWorker::class.java.name -> {
@@ -158,6 +162,56 @@ class WorkersTest : ServiceTest() {
                     .build()
             assertEquals(ListenableWorker.Result.success(), worker.doWork())
             assertEquals(file.absolutePath, messages.attachment(attachment.id)?.localPath)
+        }
+
+    private fun picture(id: String) =
+        Attachment(
+            accountId.attachment(id),
+            AttachmentKind.IMAGE,
+            "image/jpeg",
+            "$id.jpg",
+            10,
+            null,
+            "r",
+            null,
+            1,
+            1,
+            false,
+            null,
+        )
+
+    private fun fetcher() = MediaFetcher(context, registry, accounts, messages, keeper, router, scope)
+
+    @Test
+    fun aReceivedPictureIsFetchedAtOnceNotQueued() =
+        runTest {
+            // Pictures waited in the job queue for minutes, or never came (owner, 2026-11-09).
+            seed()
+            val file = temp.newFile("now.jpg")
+            val attachment = picture("now")
+            messages.upsert(messageSnapshot("m").message.copy(attachments = listOf(attachment)))
+            connector.download = { file }
+            fetcher().now(attachment.id, "test")
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                kotlinx.coroutines.withTimeout(5_000) {
+                    while (messages.attachment(attachment.id)?.localPath == null) kotlinx.coroutines.delay(20)
+                }
+            }
+            assertEquals(file.absolutePath, messages.attachment(attachment.id)?.localPath)
+        }
+
+    @Test
+    fun aFailedFetchIsTriedAgainThenStopsAtTheLastTry() =
+        runTest {
+            seed()
+            val attachment = picture("bad")
+            messages.upsert(messageSnapshot("m").message.copy(attachments = listOf(attachment)))
+            connector.download = { throw java.io.IOException("network gone") }
+            assertEquals(MediaFetcher.Outcome.RETRY, fetcher().fetch(attachment.id, attempt = 0))
+            assertEquals(
+                MediaFetcher.Outcome.GIVE_UP,
+                fetcher().fetch(attachment.id, attempt = MediaFetcher.MAX_ATTEMPTS - 1),
+            )
         }
 
     @Test
