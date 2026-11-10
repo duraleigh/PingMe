@@ -256,7 +256,11 @@ internal class GmessagesSession(
     /** The send a message from the phone answers, taken off the waiting list ([sendAnswered]). */
     private fun matchOutgoing(msg: GmMessage): Outgoing? {
         val key = sendAnswered(msg, outgoing, clock.now(), MATCH_WINDOW) ?: return null
-        Diag.note(TAG, "Phone's message ${msg.id} answers send $key (pictures=${msg.media.size})")
+        Diag.note(
+            TAG,
+            "Phone's message ${msg.id} answers send $key (pictures=${msg.media.size}, " +
+                "went as ${msg.transport}, status ${msg.statusName})",
+        )
         return outgoing.remove(key)
     }
 
@@ -385,7 +389,8 @@ internal class GmessagesSession(
             try {
                 val body =
                     GmSendRequest(conversation, tmpId, draft.body.orEmpty(), draft.replyTo?.remoteId.orEmpty(), media)
-                request { session.sendMessage(gmJson.encodeToString(GmSendRequest.serializer(), body)) }
+                val how = request { session.sendMessage(gmJson.encodeToString(GmSendRequest.serializer(), body)) }
+                Diag.note(TAG, "send tmpId=$tmpId taken by the phone ($how)")
                 null
             } catch (e: CancellationException) {
                 throw e

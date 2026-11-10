@@ -142,7 +142,7 @@ func TestSettingsListSims(t *testing.T) {
 // Fixture is the recorded session the Kotlin side replays: the shapes Go produces,
 // written as Go produces them.
 type Fixture struct {
-	Conversations ConversationPage      `json:"conversations"`
+	Conversations ConversationPage       `json:"conversations"`
 	Messages      map[string]MessagePage `json:"messages"`
 	Settings      Settings               `json:"settings"`
 	Events        []json.RawMessage      `json:"events"`
@@ -362,5 +362,45 @@ func sampleSettings() *gmproto.Settings {
 			ShowTypingIndicators: true,
 			IsDefaultSMSApp:      ptr.Ptr(true),
 		},
+	}
+}
+
+// Owner, 2026-11-10: Parker's RCS chat refused two sends (FAILURE_3) while PingMe told the
+// phone "RCS only". Only a locked chat is told that now.
+func TestAnOrdinaryRCSChatLetsThePhoneFallBackToAText(t *testing.T) {
+	rcs := convInfo{isRCS: true, autoSend: true}
+	if forceRCS(rcs, false) {
+		t.Fatal("an unlocked RCS chat must not be RCS only")
+	}
+	if !forceRCS(rcs, true) {
+		t.Fatal("a locked RCS chat stays RCS only")
+	}
+	if forceRCS(convInfo{isRCS: false, autoSend: true}, true) || forceRCS(convInfo{isRCS: true}, true) {
+		t.Fatal("a text chat, or one the phone does not send automatically, is never RCS only")
+	}
+	if got := sendWords(rcs, false, false); got != "RCS chat, not locked, phone sends automatically; the phone may fall back to a text" {
+		t.Fatalf("diary words = %q", got)
+	}
+}
+
+func TestTheNewestEncryptionLineDecidesWhetherAChatIsLocked(t *testing.T) {
+	var mark lockMark
+	locked, ok := lockChange(gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_PROTOCOL_SWITCH_RCS_TO_E2EE)
+	if !ok || !locked {
+		t.Fatal("a switch to encryption locks the chat")
+	}
+	mark = mark.after(locked, 200)
+	unlocked, ok := lockChange(gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_PROTOCOL_SWITCH_E2EE_TO_TEXT)
+	if !ok || unlocked {
+		t.Fatal("a switch away from encryption unlocks the chat")
+	}
+	if !mark.after(unlocked, 100).locked {
+		t.Fatal("an older line read later must not undo a newer one")
+	}
+	if mark.after(unlocked, 300).locked {
+		t.Fatal("a newer unlock line wins")
+	}
+	if _, ok := lockChange(gmproto.MessageStatusType_INCOMING_COMPLETE); ok {
+		t.Fatal("an ordinary message says nothing about the lock")
 	}
 }

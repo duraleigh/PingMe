@@ -4857,3 +4857,34 @@ request behind the waiting try.
   side yet", "fetched in N ms (try n)", "failed after N ms (try n): reason".
 - Tests: `WorkersTest.aReceivedPictureIsFetchedAtOnceNotQueued`,
   `WorkersTest.aFailedFetchIsTriedAgainThenStopsAtTheLastTry`.
+
+### 2026-11-10, 6:40 AM: Google Messages sends refused (owner report)
+
+"Not sent: Google Messages refused to send it" on Parker's chat, and often before. The diary
+held two Google Messages sends since the night before (2:23 AM and 6:26 AM), both to that
+chat, both refused with send status FAILURE_3 ("temporary") after all three retries. The
+connection was working both times: read markers and catch-ups for other chats went through
+in the same seconds. Google Messages writes nothing about the refusal to the phone's log.
+
+PingMe told the phone "RCS only, no plain-text fallback" (`ForceRCS`) on every RCS chat
+with automatic sending, from P3.1 on. The reference bridge has told it that only in a chat
+that has turned end-to-end encrypted since June 2024 (mautrix/gmessages 2c373db8fc). With
+RCS insisted on, the phone has no way to deliver while the other side is offline (Parker
+had just landed). This is the strongest suspect, not yet proven: the old diary did not
+record how a send was asked for. Nothing else in the send differs from the reference.
+
+- `gm.Session`: a chat is locked when the newest encryption line seen in it (a switch to
+  or from encryption, or "encrypted chat created") says so; an older page read later
+  cannot undo a newer line. Only a locked chat is sent "RCS only"; every other chat
+  leaves the choice to Google Messages, as when typing in it directly.
+- Deviation from the reference: it reads only the two one-to-one switch lines; PingMe also
+  reads the group switches and the "encrypted chat created" lines. A locked chat whose
+  encryption line is older than anything read since start-up is sent without "RCS only",
+  so the phone decides, as it does for its own sends.
+- Diary: "send tmpId=… taken by the phone (RCS chat, not locked, phone sends
+  automatically; the phone may fall back to a text)"; a refusal carries the same words
+  after Google's status; "Phone's message … answers send … (went as RCS/SMS, status …)".
+- Tests: `TestAnOrdinaryRCSChatLetsThePhoneFallBackToAText`,
+  `TestTheNewestEncryptionLineDecidesWhetherAChatIsLocked`.
+- To confirm on the phone: the next send to an offline RCS contact goes (as RCS later, or
+  as a text), and the diary shows "may fall back to a text".

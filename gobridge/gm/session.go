@@ -60,6 +60,7 @@ type Session struct {
 	sims      map[string]*gmproto.SIMCard
 	selfIDs   map[string]struct{}
 	fullMedia map[string]struct{}
+	locks     map[string]lockMark
 
 	ready             bool
 	sessionID         string
@@ -85,6 +86,7 @@ func NewSession(authJSON string, sink EventSink) (*Session, error) {
 		sims:      make(map[string]*gmproto.SIMCard),
 		selfIDs:   make(map[string]struct{}),
 		fullMedia: make(map[string]struct{}),
+		locks:     make(map[string]lockMark),
 	}
 	s.client = libgm.NewClient(auth, nil, s.log, exhttp.SensibleClientSettings)
 	s.client.SetEventHandler(s.handleEvent)
@@ -239,22 +241,26 @@ type SendRequest struct {
 
 // SendMessage sends text and/or uploaded media (from UploadMedia). The message itself
 // arrives later as a "message" event carrying the same tmpId. Transient refusals are
-// retried a few times, as the reference bridge does.
-func (s *Session) SendMessage(requestJSON string) error {
+// retried a few times, as the reference bridge does. It returns, for the diary, how the
+// phone was asked to send; a refusal carries the same words after its reason.
+func (s *Session) SendMessage(requestJSON string) (string, error) {
 	var req SendRequest
 	if err := json.Unmarshal([]byte(requestJSON), &req); err != nil {
-		return fmt.Errorf("send request is not valid JSON: %w", err)
+		return "", fmt.Errorf("send request is not valid JSON: %w", err)
 	}
 	if req.ConversationID == "" || req.TmpID == "" {
-		return errors.New("send request needs conversationId and tmpId")
+		return "", errors.New("send request needs conversationId and tmpId")
 	}
 	if req.Text == "" && len(req.Media) == 0 {
-		return errors.New("send request has nothing to send")
+		return "", errors.New("send request has nothing to send")
 	}
 	info, err := s.infoOrFetch(req.ConversationID)
 	if err != nil {
-		return err
+		return "", err
 	}
+	locked := s.locked(req.ConversationID)
+	rcsOnly := forceRCS(info, locked)
+	how := sendWords(info, locked, rcsOnly)
 	sim := s.sim(info.outgoingID)
 	payload := &gmproto.SendMessageRequest{
 		ConversationID: req.ConversationID,
@@ -266,7 +272,7 @@ func (s *Session) SendMessage(requestJSON string) error {
 		},
 		SIMPayload: sim.GetSIMData().GetSIMPayload(),
 		TmpID:      req.TmpID,
-		ForceRCS:   info.isRCS && info.autoSend,
+		ForceRCS:   rcsOnly,
 	}
 	if req.ReplyToID != "" {
 		payload.Reply = &gmproto.ReplyPayload{MessageID: req.ReplyToID}
@@ -274,7 +280,7 @@ func (s *Session) SendMessage(requestJSON string) error {
 	for _, m := range req.Media {
 		key, err := base64.StdEncoding.DecodeString(m.Key)
 		if err != nil {
-			return fmt.Errorf("media key is not base64: %w", err)
+			return "", fmt.Errorf("media key is not base64: %w", err)
 		}
 		payload.MessagePayload.MessageInfo = append(payload.MessagePayload.MessageInfo, &gmproto.MessageInfo{
 			Data: &gmproto.MessageInfo_MediaContent{MediaContent: &gmproto.MediaContent{
@@ -299,18 +305,47 @@ func (s *Session) SendMessage(requestJSON string) error {
 		s.log.Warn().Stringer("status", resp.GetStatus()).Int("attempt", attempt+1).Msg("Phone refused the send; retrying")
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return "", fmt.Errorf("%w (%s)", ctx.Err(), how)
 		case <-time.After(sendRetryBackoff[attempt]):
 		}
 		resp, err = s.client.SendMessage(ctx, payload)
 	}
 	if err != nil {
-		return wrapRequestError(err)
+		return "", fmt.Errorf("%w (%s)", wrapRequestError(err), how)
 	}
 	if resp.GetStatus() != gmproto.SendMessageResponse_SUCCESS {
-		return fmt.Errorf("%w: send status %s", ErrRejected, resp.GetStatus())
+		return "", fmt.Errorf("%w: send status %s (%s)", ErrRejected, resp.GetStatus(), how)
 	}
-	return nil
+	return how, nil
+}
+
+// forceRCS is whether the phone is told "RCS only, no plain text". Only a locked
+// (end-to-end encrypted) chat is, as the reference bridge has done since June 2024: told
+// that in an ordinary RCS chat, the phone cannot fall back to a text when the other side
+// is offline, and refuses the send (owner, 2026-11-10: Parker's chat, FAILURE_3 twice).
+func forceRCS(info convInfo, locked bool) bool {
+	return info.isRCS && info.autoSend && locked
+}
+
+// sendWords is the diary's account of how a send was asked for.
+func sendWords(info convInfo, locked, rcsOnly bool) string {
+	kind := "text chat"
+	if info.isRCS {
+		kind = "RCS chat"
+	}
+	mode := "phone sends automatically"
+	if !info.autoSend {
+		mode = "phone's send mode is not automatic"
+	}
+	lock := "not locked"
+	if locked {
+		lock = "locked"
+	}
+	choice := "the phone may fall back to a text"
+	if rcsOnly {
+		choice = "RCS only, no text fallback"
+	}
+	return fmt.Sprintf("%s, %s, %s; %s", kind, lock, mode, choice)
 }
 
 var sendRetryBackoff = []time.Duration{3 * time.Second, 8 * time.Second, 20 * time.Second}
@@ -708,6 +743,13 @@ func (s *Session) infoOrFetch(conversationID string) (convInfo, error) {
 	return s.info(conversationID), nil
 }
 
+// locked is whether the newest encryption line seen in the chat says it is locked.
+func (s *Session) locked(conversationID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.locks[conversationID].locked
+}
+
 func (s *Session) sim(participantID string) *gmproto.SIMCard {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -719,6 +761,9 @@ func (s *Session) convert(msg *gmproto.Message, info convInfo) Message {
 	out := convertMessage(msg, !info.isGroup, info.isRCS)
 	s.mu.Lock()
 	_, self := s.selfIDs[msg.GetParticipantID()]
+	if locked, ok := lockChange(msg.GetMessageStatus().GetStatus()); ok {
+		s.locks[msg.GetConversationID()] = s.locks[msg.GetConversationID()].after(locked, msg.GetTimestamp())
+	}
 	s.mu.Unlock()
 	switch out.Direction {
 	case "outgoing":

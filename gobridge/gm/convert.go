@@ -393,6 +393,40 @@ func failMessage(status gmproto.MessageStatusType) string {
 	}
 }
 
+// lockMark is the newest encryption line seen in a chat: locked or not, and when.
+type lockMark struct {
+	locked bool
+	at     int64
+}
+
+// after keeps whichever line is newer, so an old page read later cannot undo a newer one.
+func (m lockMark) after(locked bool, at int64) lockMark {
+	if at < m.at {
+		return m
+	}
+	return lockMark{locked: locked, at: at}
+}
+
+// lockChange reads the lines Google Messages puts in a chat when it becomes, or stops
+// being, end-to-end encrypted. ok is false for every other message.
+func lockChange(status gmproto.MessageStatusType) (locked, ok bool) {
+	switch status {
+	case gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_PROTOCOL_SWITCH_RCS_TO_E2EE,
+		gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_PROTOCOL_SWITCH_TEXT_TO_E2EE,
+		gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_GROUP_PROTOCOL_SWITCH_RCS_TO_E2EE,
+		gmproto.MessageStatusType_TOMBSTONE_PROTOCOL_SWITCH_TO_ENCRYPTED_RCS,
+		gmproto.MessageStatusType_TOMBSTONE_ENCRYPTED_ONE_ON_ONE_RCS_CREATED,
+		gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_ENCRYPTED_GROUP_CREATED:
+		return true, true
+	case gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_PROTOCOL_SWITCH_E2EE_TO_RCS,
+		gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_PROTOCOL_SWITCH_E2EE_TO_TEXT,
+		gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_GROUP_PROTOCOL_SWITCH_E2EE_TO_RCS:
+		return false, true
+	default:
+		return false, false
+	}
+}
+
 // shouldHide marks tombstones the reference bridge does not show: protocol switches in
 // one-to-one chats, and group-creation and theme lines everywhere.
 func shouldHide(status gmproto.MessageStatusType, isDM bool) bool {
