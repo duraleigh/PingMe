@@ -201,6 +201,40 @@ class WorkersTest : ServiceTest() {
         }
 
     @Test
+    fun aHeldPreviewIsReplacedByTheWholePicture() =
+        runTest {
+            // A 70 KB preview of a 680 KB picture stayed in the chat, unreadable (owner, 2026-11-11).
+            seed()
+            val preview = temp.newFile("preview.jpg").apply { writeBytes(ByteArray(70)) }
+            val whole = temp.newFile("whole.jpg").apply { writeBytes(ByteArray(680)) }
+            val attachment = picture("doc").copy(sizeBytes = 680, localPath = preview.absolutePath)
+            messages.upsert(messageSnapshot("m").message.copy(attachments = listOf(attachment)))
+            var asked: Attachment? = null
+            connector.download = {
+                asked = it
+                whole
+            }
+            assertEquals(MediaFetcher.Outcome.DONE, fetcher().fetch(attachment.id, attempt = 0))
+            assertEquals(null, asked?.localPath)
+            assertEquals(whole.absolutePath, messages.attachment(attachment.id)?.localPath)
+        }
+
+    @Test
+    fun aWholePictureIsNotFetchedAgainAndAFailedUpgradeKeepsThePreview() =
+        runTest {
+            seed()
+            val whole = temp.newFile("kept.jpg").apply { writeBytes(ByteArray(680)) }
+            val held = picture("kept").copy(sizeBytes = 680, localPath = whole.absolutePath)
+            val preview = temp.newFile("small.jpg").apply { writeBytes(ByteArray(70)) }
+            val small = picture("small").copy(sizeBytes = 680, localPath = preview.absolutePath)
+            messages.upsert(messageSnapshot("m").message.copy(attachments = listOf(held, small)))
+            connector.download = { throw java.io.IOException("network gone") }
+            assertEquals(MediaFetcher.Outcome.DONE, fetcher().fetch(held.id, attempt = 0))
+            assertEquals(MediaFetcher.Outcome.RETRY, fetcher().fetch(small.id, attempt = 0))
+            assertEquals(preview.absolutePath, messages.attachment(small.id)?.localPath)
+        }
+
+    @Test
     fun aFailedFetchIsTriedAgainThenStopsAtTheLastTry() =
         runTest {
             seed()

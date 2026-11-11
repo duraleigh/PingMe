@@ -9,10 +9,12 @@ import org.pingme.core.connector.ConnectorRegistry
 import org.pingme.core.connector.Diag
 import org.pingme.core.connector.accountId
 import org.pingme.core.model.AttachmentId
+import org.pingme.core.model.holdsPreview
 import org.pingme.core.model.isPreviewOnly
 import org.pingme.core.service.work.Work
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.MessageRepository
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -62,8 +64,11 @@ class MediaFetcher
             id: AttachmentId,
             attempt: Int,
         ): Outcome {
-            val attachment = messages.attachment(id) ?: return Outcome.DONE
-            if (attachment.localPath != null) return Outcome.DONE
+            val held = messages.attachment(id) ?: return Outcome.DONE
+            // A preview stays shown until the whole file replaces it; any other file is final.
+            val upgrade = held.holdsPreview
+            if (held.localPath != null && !upgrade) return Outcome.DONE
+            val attachment = held.copy(localPath = null)
             // The phone has not fetched it itself yet; the update that brings a reference asks again.
             if (attachment.remoteRef == null) {
                 Diag.note(TAG, "${id.value}: not on the network's side yet; waits for its update")
@@ -76,10 +81,22 @@ class MediaFetcher
                 onSuccess = { file ->
                     messages.setAttachmentLocalPath(id, file.absolutePath)
                     keeper.downloaded(attachment, file)
-                    notifications.pictureArrived(attachment, file)
+                    // The preview already alerted; the whole picture only replaces it.
+                    if (!upgrade) notifications.pictureArrived(attachment, file)
                     Diag.note(
                         TAG,
                         "${id.value}: ${attachment.kind} fetched in ${System.currentTimeMillis() - started} ms " +
+                            (
+                                if (upgrade) {
+                                    "in place of a ${held.localPath?.let {
+                                        File(
+                                            it,
+                                        ).length()
+                                    }}-byte preview "
+                                } else {
+                                    ""
+                                }
+                            ) +
                             "(try ${attempt + 1}), ${file.length()} bytes, the network says ${attachment.sizeBytes}, " +
                             "preview only: ${attachment.isPreviewOnly}",
                     )
@@ -91,6 +108,7 @@ class MediaFetcher
                         TAG,
                         "${id.value}: ${attachment.kind} failed after ${System.currentTimeMillis() - started} ms " +
                             "(try ${attempt + 1}): ${e::class.simpleName}: ${e.message}; " +
+                            (if (upgrade) "the preview stays shown; " else "") +
                             if (retry) "tries again" else "gives up until the chat is opened",
                     )
                     if (retry) Outcome.RETRY else Outcome.GIVE_UP

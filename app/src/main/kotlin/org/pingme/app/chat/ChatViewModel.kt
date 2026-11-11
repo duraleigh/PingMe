@@ -41,6 +41,7 @@ import org.pingme.core.model.MediaRule
 import org.pingme.core.model.Message
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.PersonId
+import org.pingme.core.model.holdsPreview
 import org.pingme.core.service.ChatActions
 import org.pingme.core.service.MessageActions
 import org.pingme.core.service.TypingTracker
@@ -717,9 +718,16 @@ class ChatViewModel
             }
         }
 
-        /** Makes sure a picture, voice note, or file is on the phone before it is shown. */
+        /**
+         * Makes sure a picture, voice note, or file is on the phone before it is shown, and that
+         * a picture held only as the network's preview is fetched whole.
+         */
         fun need(attachment: org.pingme.core.model.Attachment) {
-            if (attachment.localPath == null && requested.add(attachment.id)) media.download(attachment.id)
+            if (attachment.id in requested) return
+            if (attachment.localPath == null || attachment.holdsPreview) {
+                requested.add(attachment.id)
+                media.download(attachment.id)
+            }
         }
 
         private var typingJob: Job? = null

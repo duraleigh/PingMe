@@ -4888,3 +4888,26 @@ record how a send was asked for. Nothing else in the send differs from the refer
   `TestTheNewestEncryptionLineDecidesWhetherAChatIsLocked`.
 - To confirm on the phone: the next send to an offline RCS contact goes (as RCS later, or
   as a text), and the diary shows "may fall back to a text".
+
+### 2026-11-11, 11:15 AM: received pictures blurry and unreadable (owner report)
+
+Nicole's picture of a flight receipt came through Google Messages (RCS) unreadable in
+PingMe, sharp in Google Messages. The diary: "IMAGE fetched … 69832 bytes, the network says
+680245, preview only: true", then a second "fetching now (arrived)" with no fetch, then
+"Kept 1 file(s) … listed again without them" on every later listing.
+
+Cause, proven: Google Messages hands a picture over as a small preview first, then names
+the whole file. PingMe kept the file it already held whenever a message was listed again
+(`keepingLocalFiles`, b63a5d9, 2026-10-06, for sent photos that went blank), so the
+preview stayed as the picture's file and the fetcher, seeing a file, never fetched the
+whole one. Every Google Messages picture received since 2026-10-06 is affected.
+
+- `Attachment.holdsPreview`: a held file under half the size the network gives, once the
+  network no longer offers only the preview.
+- `MediaFetcher.fetch`: such a file is replaced by the whole one; the preview stays shown
+  until it arrives, and stays if the fetch fails (retries as before). No second
+  notification for the upgrade. Diary: "fetched … in place of a N-byte preview".
+- `ChatViewModel.need`: a picture shown in a chat while holding only its preview is
+  fetched whole, so pictures received before this fix mend when their chat is opened.
+- Tests: `WorkersTest.aHeldPreviewIsReplacedByTheWholePicture`,
+  `WorkersTest.aWholePictureIsNotFetchedAgainAndAFailedUpgradeKeepsThePreview`.
