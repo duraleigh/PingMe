@@ -4952,3 +4952,21 @@ session now writes to the diary, once each, every carrying/encryption line in a 
 ("RCS chat with …", "Texting with … (SMS/MMS)", encryption switches) and any message
 whose status speaks of encryption or failure, with its time. Once per start-up it reads
 the newest 50 messages of every chat active in the last 14 days to find them. Reads only.
+
+**Resolved, 2026-11-12 12:50 PM: the cause was in Google Messages, proven from its own log.**
+A live recording of the phone's log during a test with Nicole showed her encrypted reply
+reaching the phone and Google Messages failing to open it: `ZinniaError:
+InvalidClientCredentialAndSigningIdentity`, then "mlsGroup is null; cannot downgrade", then
+the message acknowledged to Google and dropped. The same error fired on opening the chat, so
+the phone's own messages went out unencrypted. Its encryption certificate and signing key no
+longer matched, most likely from the SIM and eSIM changes of 5–9 November (three leftover
+key sets from removed lines were listed). PingMe never touches these keys.
+
+Fix, on the phone, no PingMe change: RCS chats off, a minute, on. The log then showed new keys
+built and published (12:48:13), no credential error since, Nicole's chat repaired on opening,
+and her next two encrypted replies "Decrypted the MLS message" at 12:50:22 and 12:50:40; both
+reached PingMe (INCOMING_COMPLETE). Corrections to the entries above: the group chats
+switching E2EE to RCS at the moment of a send were the phone noticing it could not encrypt,
+not PingMe causing it; and 7ebd3a2's premise ("RCS only" keeps a chat encrypted) was wrong,
+though the setting it restores is the pre-a7548d8 behaviour and stays. The FAILURE_3 refusals
+of 10 November were probably this same fault.
