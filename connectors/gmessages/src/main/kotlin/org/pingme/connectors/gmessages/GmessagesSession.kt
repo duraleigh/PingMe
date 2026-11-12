@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -16,6 +17,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import org.pingme.connectors.gmessages.bridge.GmBridge
+import org.pingme.connectors.gmessages.bridge.GmConversation
 import org.pingme.connectors.gmessages.bridge.GmCursor
 import org.pingme.connectors.gmessages.bridge.GmError
 import org.pingme.connectors.gmessages.bridge.GmEvent
@@ -56,6 +58,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -96,9 +99,14 @@ internal class GmessagesSession(
     /** Sends waiting for the phone's copy, by tmpId. */
     private val outgoing = ConcurrentHashMap<String, Outgoing>()
     private val myReactions = ConcurrentHashMap<String, String>()
+    private val notedLines = ConcurrentHashMap.newKeySet<String>()
     private val connected = AtomicBoolean(false)
 
     @Volatile private var chats: List<ChatSnapshot>? = null
+
+    /** Every conversation listed since start-up, for [sweepChatLines]. */
+    private val recent = ConcurrentHashMap.newKeySet<GmConversation>()
+    private val swept = AtomicBoolean(false)
 
     // One listing at a time: the session and the supervisor both ask for it on connecting.
     private val listing = Mutex()
@@ -131,16 +139,7 @@ internal class GmessagesSession(
         endOfSession(event)?.let { throw it }
         when (event) {
             is GmEvent.Ready -> {
-                val first = !connected.getAndSet(true)
-                // Connected as soon as the phone says so: sending works from here, and reading
-                // through every chat first kept the bar on "reconnecting" (owner, 2026-11-01).
-                if (first) send(ConnectorEvent.State(accountId, ConnectionState.Connected))
-                if (first || event.resync) {
-                    val listed = if (first) syncChats() else listChats()
-                    listed.forEach { send(ConnectorEvent.ChatUpdated(accountId, it)) }
-                    // Conversations now folded into another chat leave no row of their own behind.
-                    go.aliases().forEach { send(ConnectorEvent.ChatRemoved(accountId, accountId.chat(it))) }
-                }
+                ready(event)
             }
 
             is GmEvent.AuthUpdated -> {
@@ -218,9 +217,24 @@ internal class GmessagesSession(
             else -> null
         }
 
+    private suspend fun ProducerScope<ConnectorEvent>.ready(event: GmEvent.Ready) {
+        val first = !connected.getAndSet(true)
+        // Connected as soon as the phone says so: sending works from here, and reading
+        // through every chat first kept the bar on "reconnecting" (owner, 2026-11-01).
+        if (first) send(ConnectorEvent.State(accountId, ConnectionState.Connected))
+        if (first || event.resync) {
+            val listed = if (first) syncChats() else listChats()
+            listed.forEach { send(ConnectorEvent.ChatUpdated(accountId, it)) }
+            // Conversations now folded into another chat leave no row of their own behind.
+            go.aliases().forEach { send(ConnectorEvent.ChatRemoved(accountId, accountId.chat(it))) }
+        }
+        if (first && swept.compareAndSet(false, true)) launch { sweepChatLines() }
+    }
+
     /** A message echoing one of our sends completes the waiting send instead of arriving as new. */
     private suspend fun ProducerScope<ConnectorEvent>.echoOrForward(event: GmEvent.Message) {
         val msg = event.message
+        noteChatLine(msg)
         val translated = go.translate(event)
         val match = matchOutgoing(msg)
         Log.i(
@@ -281,7 +295,10 @@ internal class GmessagesSession(
         while (cursor != null && pages < CHAT_PAGES) {
             val from: String = cursor
             val page = go.conversationPage(request { session.listConversations("inbox", CHAT_PAGE, from) })
-            page.conversations.filterNot(go::isGone).mapTo(found, go::chat)
+            page.conversations
+                .filterNot(go::isGone)
+                .also { recent.addAll(it) }
+                .mapTo(found, go::chat)
             cursor = page.cursor?.let { gmJson.encodeToString(GmCursor.serializer(), it) }
             pages++
         }
@@ -355,15 +372,53 @@ internal class GmessagesSession(
         conversation: String,
         limit: Int,
         cursor: GmCursor?,
-    ) = go.messagePage(
-        request {
-            session.fetchMessages(
-                conversation,
-                limit,
-                cursor?.let { gmJson.encodeToString(GmCursor.serializer(), it) }.orEmpty(),
-            )
-        },
-    )
+    ) = go
+        .messagePage(
+            request {
+                session.fetchMessages(
+                    conversation,
+                    limit,
+                    cursor?.let { gmJson.encodeToString(GmCursor.serializer(), it) }.orEmpty(),
+                )
+            },
+        ).also { page -> page.messages.forEach(::noteChatLine) }
+
+    /**
+     * Once per start-up, reads the newest page of every chat active in the last two weeks so
+     * [noteChatLine] writes down each chat's carrying and encryption lines: the owner cannot
+     * know everyone whose replies went missing (2026-11-12). Reads only; one chat at a time.
+     */
+    private suspend fun sweepChatLines() {
+        val since = (clock.now() - SWEEP_WINDOW).toEpochMilliseconds() * MICROS_PER_MILLI
+        val chosen = recent.filter { it.lastMessageAt >= since }.distinctBy { it.id }
+        Diag.note(TAG, "Chat-line sweep: ${chosen.size} chat(s) active since ${SWEEP_WINDOW.inWholeDays} days ago")
+        chosen.forEach { conv ->
+            runCatching { fetch(conv.id, SWEEP_PAGE, null) }.onFailure {
+                Diag.note(TAG, "Chat-line sweep: chat ${conv.id} not read: ${it.message}")
+            }
+        }
+        Diag.note(TAG, "Chat-line sweep done")
+    }
+
+    /**
+     * Writes to the diary, once each, the lines Google Messages puts in a chat when it changes
+     * how the chat is carried ("RCS chat with …", "Texting with … (SMS/MMS)", encryption on or
+     * off), and any message whose status speaks of encryption or failure. Encrypted replies
+     * from iPhones stopped reaching the phone around 2026-11-10 (owner, 2026-11-12); these
+     * lines show when each chat changed and what PingMe sent around then.
+     */
+    private fun noteChatLine(msg: GmMessage) {
+        val name = msg.statusName
+        val telling =
+            msg.direction == "tombstone" || "ENCRYPT" in name || "E2EE" in name || "FAIL" in name
+        if (!telling || !notedLines.add(msg.id)) return
+        val at = java.time.Instant.ofEpochMilli(msg.timestamp / MICROS_PER_MILLI)
+        val who = recent.firstOrNull { it.id == msg.conversationId }?.name.orEmpty()
+        Diag.note(
+            TAG,
+            "Chat ${msg.conversationId} '$who' line ${msg.id} at $at: $name (${msg.status}) ${msg.transport}",
+        )
+    }
 
     suspend fun send(
         chatId: ChatId,
@@ -668,6 +723,8 @@ internal class GmessagesSession(
         const val MICROS_PER_MILLI = 1000
         const val STAND_IN = "tmp/"
         val ECHO_TIMEOUT = 20.seconds
+        val SWEEP_WINDOW = 14.days
+        const val SWEEP_PAGE = 50
 
         /**
          * How long a send without a tmpId echo can still be matched by its text: a slow SMS

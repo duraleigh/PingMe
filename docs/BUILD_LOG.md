@@ -4945,3 +4945,10 @@ Messages either; her SMS replies did. So encrypted RCS from iPhones (Apple's end
 encrypted RCS, in beta since iOS 26.5) does not reach this phone at all, whatever sends
 the outgoing side. "RCS only" does not decide encryption. 7ebd3a2 stays: it is how
 PingMe sent before a7548d8. The FAILURE_3 handling question is unchanged.
+
+**Diary: Google's chat lines (2026-11-12).** To find when and in which chats encrypted
+replies stopped arriving (the owner cannot know everyone affected), the Google Messages
+session now writes to the diary, once each, every carrying/encryption line in a chat
+("RCS chat with …", "Texting with … (SMS/MMS)", encryption switches) and any message
+whose status speaks of encryption or failure, with its time. Once per start-up it reads
+the newest 50 messages of every chat active in the last 14 days to find them. Reads only.
