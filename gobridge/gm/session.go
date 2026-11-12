@@ -258,9 +258,9 @@ func (s *Session) SendMessage(requestJSON string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	locked := s.locked(req.ConversationID)
-	rcsOnly := forceRCS(info, locked)
-	how := sendWords(info, locked, rcsOnly)
+	lock := s.lock(req.ConversationID)
+	rcsOnly := forceRCS(info, lock)
+	how := sendWords(info, lock, rcsOnly)
 	sim := s.sim(info.outgoingID)
 	payload := &gmproto.SendMessageRequest{
 		ConversationID: req.ConversationID,
@@ -319,16 +319,19 @@ func (s *Session) SendMessage(requestJSON string) (string, error) {
 	return how, nil
 }
 
-// forceRCS is whether the phone is told "RCS only, no plain text". Only a locked
-// (end-to-end encrypted) chat is, as the reference bridge has done since June 2024: told
-// that in an ordinary RCS chat, the phone cannot fall back to a text when the other side
-// is offline, and refuses the send (owner, 2026-11-10: Parker's chat, FAILURE_3 twice).
-func forceRCS(info convInfo, locked bool) bool {
-	return info.isRCS && info.autoSend && locked
+// forceRCS is whether the phone is told "RCS only, no plain text". Every RCS chat is,
+// unless Google's newest line in it says it is no longer encrypted. Without it the phone
+// sends unencrypted into an encrypted chat: from 2026-11-10, when only chats known to be
+// locked were told, Parker's iPhone marked every message from PingMe "Not Encrypted" and
+// his encrypted replies never reached the phone, nor Quiana's (owner, 2026-11-12). A
+// chat's encryption line is often older than anything read since start-up, so an
+// unknown lock counts as locked.
+func forceRCS(info convInfo, lock lockMark) bool {
+	return info.isRCS && info.autoSend && !lock.unlocked()
 }
 
 // sendWords is the diary's account of how a send was asked for.
-func sendWords(info convInfo, locked, rcsOnly bool) string {
+func sendWords(info convInfo, mark lockMark, rcsOnly bool) string {
 	kind := "text chat"
 	if info.isRCS {
 		kind = "RCS chat"
@@ -337,8 +340,11 @@ func sendWords(info convInfo, locked, rcsOnly bool) string {
 	if !info.autoSend {
 		mode = "phone's send mode is not automatic"
 	}
-	lock := "not locked"
-	if locked {
+	lock := "encryption unknown"
+	switch {
+	case mark.unlocked():
+		lock = "not locked"
+	case mark.seen:
 		lock = "locked"
 	}
 	choice := "the phone may fall back to a text"
@@ -743,11 +749,11 @@ func (s *Session) infoOrFetch(conversationID string) (convInfo, error) {
 	return s.info(conversationID), nil
 }
 
-// locked is whether the newest encryption line seen in the chat says it is locked.
-func (s *Session) locked(conversationID string) bool {
+// lock is the newest encryption line seen in the chat, if any.
+func (s *Session) lock(conversationID string) lockMark {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.locks[conversationID].locked
+	return s.locks[conversationID]
 }
 
 func (s *Session) sim(participantID string) *gmproto.SIMCard {

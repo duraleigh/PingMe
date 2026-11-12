@@ -4911,3 +4911,27 @@ whole one. Every Google Messages picture received since 2026-10-06 is affected.
   fetched whole, so pictures received before this fix mend when their chat is opened.
 - Tests: `WorkersTest.aHeldPreviewIsReplacedByTheWholePicture`,
   `WorkersTest.aWholePictureIsNotFetchedAgainAndAFailedUpgradeKeepsThePreview`.
+
+### 2026-11-12, 9:45 AM: replies lost in encrypted chats (owner report), undoing part of 11-10
+
+Parker's and Quiana's replies did not arrive, nor (by the owner's account) one from Ivan.
+Google Messages itself on the phone has none of Parker's encrypted replies, only the ones
+he forced through as SMS. Parker's iPhone marks every message PingMe sent him from the
+evening of 2026-11-11 "Not Encrypted" and his replies "Encrypted". The diary shows each of
+those sends as "RCS chat, not locked …; the phone may fall back to a text": PingMe had not
+seen his chat's encryption line since start-up, so it did not send "RCS only". Quiana's
+sends were the same, and her iPhone asked her something about encryption. Ivan's send is
+older than the diary.
+
+Proven: since a7548d8, PingMe sent unencrypted into encrypted chats with iPhones. Not
+provable from the phone (Google Messages logs nothing): the step at which the other side's
+encrypted replies are lost; the timing and both chats point to the unencrypted sends.
+
+- `forceRCS`: every RCS chat with automatic sending is "RCS only" again, as before
+  a7548d8, unless Google's newest encryption line in it says it is no longer encrypted.
+  A chat with no line seen since start-up counts as locked.
+- Diary words: "locked", "not locked", or "encryption unknown".
+- Test: `TestAnRCSChatStaysRCSOnlyUnlessGoogleSaysItIsNoLongerEncrypted` (replaces the
+  11-10 one).
+- Comes back with this: a send refused while the other side is offline (FAILURE_3). How to
+  handle that is to be discussed with the owner first (owner, 2026-11-12).

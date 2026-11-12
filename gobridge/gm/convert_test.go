@@ -365,20 +365,24 @@ func sampleSettings() *gmproto.Settings {
 	}
 }
 
-// Owner, 2026-11-10: Parker's RCS chat refused two sends (FAILURE_3) while PingMe told the
-// phone "RCS only". Only a locked chat is told that now.
-func TestAnOrdinaryRCSChatLetsThePhoneFallBackToAText(t *testing.T) {
+// Owner, 2026-11-12: with "RCS only" kept for chats known to be locked, Parker's
+// encrypted chat (its encryption line older than anything read since start-up) was sent
+// unencrypted, and his encrypted replies never arrived. An unknown lock counts as locked.
+func TestAnRCSChatStaysRCSOnlyUnlessGoogleSaysItIsNoLongerEncrypted(t *testing.T) {
 	rcs := convInfo{isRCS: true, autoSend: true}
-	if forceRCS(rcs, false) {
-		t.Fatal("an unlocked RCS chat must not be RCS only")
+	if !forceRCS(rcs, lockMark{}) {
+		t.Fatal("an RCS chat with no encryption line seen must stay RCS only")
 	}
-	if !forceRCS(rcs, true) {
+	if !forceRCS(rcs, lockMark{}.after(true, 100)) {
 		t.Fatal("a locked RCS chat stays RCS only")
 	}
-	if forceRCS(convInfo{isRCS: false, autoSend: true}, true) || forceRCS(convInfo{isRCS: true}, true) {
+	if forceRCS(rcs, lockMark{}.after(false, 100)) {
+		t.Fatal("a chat Google says is no longer encrypted may fall back to a text")
+	}
+	if forceRCS(convInfo{isRCS: false, autoSend: true}, lockMark{}) || forceRCS(convInfo{isRCS: true}, lockMark{}) {
 		t.Fatal("a text chat, or one the phone does not send automatically, is never RCS only")
 	}
-	if got := sendWords(rcs, false, false); got != "RCS chat, not locked, phone sends automatically; the phone may fall back to a text" {
+	if got := sendWords(rcs, lockMark{}, true); got != "RCS chat, encryption unknown, phone sends automatically; RCS only, no text fallback" {
 		t.Fatalf("diary words = %q", got)
 	}
 }
@@ -397,8 +401,11 @@ func TestTheNewestEncryptionLineDecidesWhetherAChatIsLocked(t *testing.T) {
 	if !mark.after(unlocked, 100).locked {
 		t.Fatal("an older line read later must not undo a newer one")
 	}
-	if mark.after(unlocked, 300).locked {
+	if !mark.after(unlocked, 300).unlocked() {
 		t.Fatal("a newer unlock line wins")
+	}
+	if (lockMark{}).unlocked() {
+		t.Fatal("a chat with no line seen is not known to be unlocked")
 	}
 	if _, ok := lockChange(gmproto.MessageStatusType_INCOMING_COMPLETE); ok {
 		t.Fatal("an ordinary message says nothing about the lock")

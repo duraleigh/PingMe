@@ -393,18 +393,25 @@ func failMessage(status gmproto.MessageStatusType) string {
 	}
 }
 
-// lockMark is the newest encryption line seen in a chat: locked or not, and when.
+// lockMark is the newest encryption line seen in a chat: locked or not, and when. The
+// zero value is a chat with no line seen since start-up, whose lock is unknown.
 type lockMark struct {
+	seen   bool
 	locked bool
 	at     int64
 }
 
 // after keeps whichever line is newer, so an old page read later cannot undo a newer one.
 func (m lockMark) after(locked bool, at int64) lockMark {
-	if at < m.at {
+	if m.seen && at < m.at {
 		return m
 	}
-	return lockMark{locked: locked, at: at}
+	return lockMark{seen: true, locked: locked, at: at}
+}
+
+// unlocked is true only when Google's newest line says the chat is no longer encrypted.
+func (m lockMark) unlocked() bool {
+	return m.seen && !m.locked
 }
 
 // lockChange reads the lines Google Messages puts in a chat when it becomes, or stops

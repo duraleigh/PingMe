@@ -306,7 +306,7 @@ private class FakeSession(
 
     override fun sendMessage(requestJson: String): String {
         phone.send(gmJson.decodeFromString(GmSendRequest.serializer(), requestJson))
-        return "RCS chat, not locked, phone sends automatically; the phone may fall back to a text"
+        return "RCS chat, encryption unknown, phone sends automatically; RCS only, no text fallback"
     }
 
     override fun uploadMedia(
