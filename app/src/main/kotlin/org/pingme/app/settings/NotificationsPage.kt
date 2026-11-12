@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +31,7 @@ import org.pingme.core.ui.components.ChoiceSetting
 import org.pingme.core.ui.components.SettingsSectionHeader
 import org.pingme.core.ui.components.SwitchSetting
 import org.pingme.core.ui.R as UiR
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /**
  * Settings > Notifications (UI_DESIGN.md 6.1, 6.4, 10.6, 10.9): each network's on, silent,

@@ -2,6 +2,7 @@
 package org.pingme.app.inbox
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -60,12 +62,14 @@ import org.pingme.core.ui.R as UiR
 
 /** Where the inbox leads. */
 class InboxNavigation(
-    val onOpenChat: (ChatId) -> Unit,
+    /** The chat, and the network of the tab it was opened from, if that tab is one network's. */
+    val onOpenChat: (ChatId, org.pingme.core.model.NetworkId?) -> Unit,
     val onSearch: () -> Unit,
     val onNewChat: () -> Unit,
-    val onNewGroup: () -> Unit,
     val onFix: (Account) -> Unit,
     val menu: MenuActions,
+    /** The merge suggestions screen (owner, Phase 7). */
+    val onMergeSuggestions: () -> Unit = {},
 )
 
 /** The inbox with its view model. */
@@ -98,6 +102,7 @@ fun InboxRoute(
                 },
                 bar = BarActions(viewModel::select, viewModel::narrow),
                 onSaveBar = viewModel::setBarItems,
+                onMovePin = viewModel::movePin,
             ),
         navigation = navigation,
         reactions = viewModel.reactions,
@@ -135,6 +140,8 @@ class InboxCallbacks(
     val onSaveBar: (List<InboxBarItem?>) -> Unit,
     /** One action on every selected row (owner, Gate G3). */
     val onBulk: (List<ChatRow>, BulkAction) -> Unit = { _, _ -> },
+    /** A pinned tile dragged to a new place (owner, 2026-10-05). */
+    val onMovePin: (ChatId, Int) -> Unit = { _, _ -> },
 )
 
 /**
@@ -152,7 +159,6 @@ fun InboxScreen(
 ) {
     var holding by remember { mutableStateOf<ChatRow?>(null) }
     var editingBar by remember { mutableStateOf(false) }
-    var fabOpen by remember { mutableStateOf(false) }
     // Hold an avatar to start selecting rows; the bar above acts on all of them (owner, Gate G3).
     val selection = remember { RowSelection() }
     val selectedRows = (state.pinned + state.rows).filter { it.id in selection.ids }
@@ -163,33 +169,38 @@ fun InboxScreen(
     val wide = isWide()
     val menu = navigation.menu.withEditBar { editingBar = true }
     Row(modifier.fillMaxSize()) {
-        if (wide) InboxRail(state.bar, state.selected, state.accounts, callbacks.bar)
+        if (wide) InboxRail(state.bar, state.selected, state.accounts, callbacks.bar, more = state.more)
         Scaffold(
             topBar = {
                 InboxTop(state, callbacks, navigation, menu, selectedRows, selection::clear) { action ->
-                    if (action == BulkAction.DELETE) {
-                        selection.confirmingDelete = true
-                    } else {
-                        callbacks.onBulk(selectedRows, action)
-                        selection.clear()
-                    }
+                    selection.act(action) { callbacks.onBulk(selectedRows, it) }
                 }
             },
-            bottomBar = { if (!wide) InboxBottomBar(state.bar, state.selected, state.accounts, callbacks.bar) },
-            floatingActionButton = { NewMenu(fabOpen, { fabOpen = it }, navigation.onNewChat, navigation.onNewGroup) },
+            bottomBar = {
+                if (!wide) InboxBottomBar(state.bar, state.selected, state.accounts, callbacks.bar, more = state.more)
+            },
+            floatingActionButton = { StartChatButton(navigation.onNewChat) },
             snackbarHost = { SnackbarHost(snackbar) },
+            // Google Messages' inbox keeps the lighter #26282d; only its chat is darker (measured 2026-11-02).
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ) { padding ->
-            ChatListBody(
-                state = state,
-                flips = flips,
-                onOpen = { navigation.onOpenChat(it.id) },
-                onHold = { holding = it },
-                onSwipe = callbacks.onSwipe,
-                onFlipEnd = { flips.remove(it) },
-                contentPadding = padding,
-                selected = selection.ids,
-                onSelect = selection::toggle,
-            )
+            ListContainer(padding) {
+                ChatListBody(
+                    state = state,
+                    flips = flips,
+                    onOpen = { navigation.onOpenChat(it.id, (state.selected as? InboxBarItem.Network)?.network) },
+                    onHold = { holding = it },
+                    onSwipe = callbacks.onSwipe,
+                    onMovePin = callbacks.onMovePin,
+                    onFlipEnd = { flips.remove(it) },
+                    contentPadding =
+                        androidx.compose.foundation.layout.PaddingValues(
+                            bottom = padding.calculateBottomPadding(),
+                        ),
+                    selected = selection.ids,
+                    onSelect = selection::toggle,
+                )
+            }
         }
     }
     holding?.let { row -> ChatActionSheet(row, { callbacks.onAction(row, it) }, { holding = null }) }
@@ -233,6 +244,19 @@ private class RowSelection {
         ids = emptySet()
         confirmingDelete = false
     }
+
+    /** A bulk action now, or for Delete, the question first. */
+    fun act(
+        action: BulkAction,
+        onBulk: (BulkAction) -> Unit,
+    ) {
+        if (action == BulkAction.DELETE) {
+            confirmingDelete = true
+        } else {
+            onBulk(action)
+            clear()
+        }
+    }
 }
 
 /** Tablets and unfolded foldables: a rail and room for the chat beside the list (UI_DESIGN.md 3.7). */
@@ -241,7 +265,7 @@ private fun isWide() =
     currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
 private fun MenuActions.withEditBar(onEdit: () -> Unit) =
-    MenuActions(onAppearance, onList, onEdit, onSettings, onNotifications, onAccounts)
+    MenuActions(onAppearance, onList, onEdit, onSettings, onNotifications, onAccounts, onMergeSuggestions)
 
 /** Callbacks shared by the bottom bar and the rail. */
 class BarActions(
@@ -261,7 +285,7 @@ private fun InboxTop(
     onBulk: (BulkAction) -> Unit,
 ) {
     if (selectedRows.isNotEmpty()) {
-        SelectionBar(count = selectedRows.size, onClose = onClearSelection, onAct = onBulk)
+        SelectionBar(rows = selectedRows, onClose = onClearSelection, onAct = onBulk)
     } else {
         // Its own surface with rounded bottom corners, so the list scrolls cleanly under it (3.1).
         Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = TOP_BAR_SHAPE) {
@@ -299,7 +323,7 @@ private fun ConfirmBulkDelete(
  */
 @Composable
 private fun SelectionBar(
-    count: Int,
+    rows: List<ChatRow>,
     onClose: () -> Unit,
     onAct: (BulkAction) -> Unit,
 ) {
@@ -310,7 +334,7 @@ private fun SelectionBar(
                     Icon(painterResource(UiR.drawable.ic_close), stringResource(R.string.inbox_selection_close))
                 }
                 Text(
-                    pluralStringResource(R.plurals.selected, count, count),
+                    pluralStringResource(R.plurals.selected, rows.size, rows.size),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -321,6 +345,11 @@ private fun SelectionBar(
                 BulkButton(BulkAction.MUTE, UiR.drawable.ic_notifications_off, R.string.action_mute, onAct)
                 BulkButton(BulkAction.ARCHIVE, UiR.drawable.ic_archive, R.string.action_archive, onAct)
                 BulkButton(BulkAction.LOW_PRIORITY, UiR.drawable.ic_low_priority, R.string.action_low_priority, onAct)
+                BulkButton(BulkAction.MERGE, UiR.drawable.ic_call_merge, R.string.action_merge, onAct)
+                // Instagram's own folders: only when every picked chat has them.
+                if (rows.all { it.movesFolder }) {
+                    BulkButton(BulkAction.MOVE_GENERAL, UiR.drawable.ic_archive, R.string.action_move_general, onAct)
+                }
                 BulkButton(BulkAction.DELETE, UiR.drawable.ic_delete, R.string.action_delete, onAct)
             }
         }
@@ -348,6 +377,7 @@ private fun ChatListBody(
     contentPadding: PaddingValues,
     selected: Set<ChatId> = emptySet(),
     onSelect: (ChatRow) -> Unit = {},
+    onMovePin: (ChatId, Int) -> Unit = { _, _ -> },
 ) {
     val style = PingMeTheme.appearance.pinnedStyle
     // "Top of list" shows pinned chats as ordinary rows above the rest (UI_DESIGN.md 4.3).
@@ -357,14 +387,20 @@ private fun ChatListBody(
         androidx.compose.foundation.lazy
             .rememberLazyListState()
     androidx.compose.runtime.LaunchedEffect(Unit) { listState.scrollToItem(0) }
+    // The first pin brings its tiles in above the list: show them rather than stay on the row
+    // that was first, which left a chat just pinned out of sight (owner, 2026-11-01).
+    val anyPinned = state.pinned.isNotEmpty()
+    LaunchedEffect(anyPinned) {
+        if (anyPinned && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
+    }
     LazyColumn(Modifier.fillMaxSize().testTag(INBOX_LIST), state = listState, contentPadding = contentPadding) {
         if (state.pinned.isNotEmpty() && style != PinnedStyle.TOP_OF_LIST) {
             item(key = "pinned") {
                 Column {
                     if (style == PinnedStyle.GRID) {
-                        PinnedGrid(state.pinned, onOpen, onHold)
+                        PinnedGrid(state.pinned, onOpen, onHold, onMove = onMovePin)
                     } else {
-                        PinnedRow(state.pinned, onOpen, onHold)
+                        PinnedRow(state.pinned, onOpen, onHold, onMove = onMovePin)
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
                 }

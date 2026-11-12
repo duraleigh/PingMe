@@ -142,7 +142,7 @@ func TestSettingsListSims(t *testing.T) {
 // Fixture is the recorded session the Kotlin side replays: the shapes Go produces,
 // written as Go produces them.
 type Fixture struct {
-	Conversations ConversationPage      `json:"conversations"`
+	Conversations ConversationPage       `json:"conversations"`
 	Messages      map[string]MessagePage `json:"messages"`
 	Settings      Settings               `json:"settings"`
 	Events        []json.RawMessage      `json:"events"`
@@ -362,5 +362,52 @@ func sampleSettings() *gmproto.Settings {
 			ShowTypingIndicators: true,
 			IsDefaultSMSApp:      ptr.Ptr(true),
 		},
+	}
+}
+
+// Owner, 2026-11-12: with "RCS only" kept for chats known to be locked, Parker's
+// encrypted chat (its encryption line older than anything read since start-up) was sent
+// unencrypted, and his encrypted replies never arrived. An unknown lock counts as locked.
+func TestAnRCSChatStaysRCSOnlyUnlessGoogleSaysItIsNoLongerEncrypted(t *testing.T) {
+	rcs := convInfo{isRCS: true, autoSend: true}
+	if !forceRCS(rcs, lockMark{}) {
+		t.Fatal("an RCS chat with no encryption line seen must stay RCS only")
+	}
+	if !forceRCS(rcs, lockMark{}.after(true, 100)) {
+		t.Fatal("a locked RCS chat stays RCS only")
+	}
+	if forceRCS(rcs, lockMark{}.after(false, 100)) {
+		t.Fatal("a chat Google says is no longer encrypted may fall back to a text")
+	}
+	if forceRCS(convInfo{isRCS: false, autoSend: true}, lockMark{}) || forceRCS(convInfo{isRCS: true}, lockMark{}) {
+		t.Fatal("a text chat, or one the phone does not send automatically, is never RCS only")
+	}
+	if got := sendWords(rcs, lockMark{}, true); got != "RCS chat, encryption unknown, phone sends automatically; RCS only, no text fallback" {
+		t.Fatalf("diary words = %q", got)
+	}
+}
+
+func TestTheNewestEncryptionLineDecidesWhetherAChatIsLocked(t *testing.T) {
+	var mark lockMark
+	locked, ok := lockChange(gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_PROTOCOL_SWITCH_RCS_TO_E2EE)
+	if !ok || !locked {
+		t.Fatal("a switch to encryption locks the chat")
+	}
+	mark = mark.after(locked, 200)
+	unlocked, ok := lockChange(gmproto.MessageStatusType_MESSAGE_STATUS_TOMBSTONE_PROTOCOL_SWITCH_E2EE_TO_TEXT)
+	if !ok || unlocked {
+		t.Fatal("a switch away from encryption unlocks the chat")
+	}
+	if !mark.after(unlocked, 100).locked {
+		t.Fatal("an older line read later must not undo a newer one")
+	}
+	if !mark.after(unlocked, 300).unlocked() {
+		t.Fatal("a newer unlock line wins")
+	}
+	if (lockMark{}).unlocked() {
+		t.Fatal("a chat with no line seen is not known to be unlocked")
+	}
+	if _, ok := lockChange(gmproto.MessageStatusType_INCOMING_COMPLETE); ok {
+		t.Fatal("an ordinary message says nothing about the lock")
 	}
 }

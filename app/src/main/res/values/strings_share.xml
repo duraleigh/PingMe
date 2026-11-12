@@ -2,17 +2,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The share picker: PingMe in Android's share menu (owner, Gate G3). -->
 <resources>
-    <string name="share_title">Send to</string>
+    <string name="share_title">Share</string>
+    <string name="share_recent">Recent conversations</string>
+    <string name="share_more_recent">More recent conversations</string>
     <string name="share_search">Search chats and people</string>
-    <string name="share_note">Add a message (optional)</string>
-    <string name="share_people">People</string>
+    <string name="share_send">Send</string>
+    <string name="share_send_group">Send to a group</string>
+    <string name="share_note">Add a message</string>
     <string name="share_sending">Sending…</string>
     <string name="share_failed">Could not send</string>
-    <string name="share_pick">Pick who to send to</string>
-    <plurals name="share_send_to">
-        <item quantity="one">Send</item>
-        <item quantity="other">Send to %1$d chats, one message each</item>
-    </plurals>
     <plurals name="share_files">
         <item quantity="one">1 file</item>
         <item quantity="other">%1$d files</item>

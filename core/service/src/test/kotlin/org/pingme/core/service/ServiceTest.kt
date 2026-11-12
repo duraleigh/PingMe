@@ -19,6 +19,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.core.connector.AddressBook
 import org.pingme.core.connector.ChatSnapshot
 import org.pingme.core.connector.MessageSnapshot
 import org.pingme.core.connector.chat
@@ -35,6 +36,7 @@ import org.pingme.core.model.NetworkId
 import org.pingme.core.model.NotificationMode
 import org.pingme.core.model.Person
 import org.pingme.core.model.Transport
+import org.pingme.core.service.people.PeopleLinker
 import org.pingme.core.store.AccountRepository
 import org.pingme.core.store.ChatRepository
 import org.pingme.core.store.ContactRepository
@@ -70,6 +72,7 @@ abstract class ServiceTest {
     protected lateinit var contacts: ContactRepository
     protected lateinit var typing: TypingTracker
     protected lateinit var reactionFeed: ReactionFeed
+    protected lateinit var reactionEdits: ReactionEdits
     protected lateinit var applier: EventApplier
     protected lateinit var router: NotificationRouter
     protected lateinit var presence: org.pingme.core.service.notify.ChatPresence
@@ -93,7 +96,25 @@ abstract class ServiceTest {
         contacts = ContactRepository(db)
         typing = TypingTracker(scope)
         reactionFeed = ReactionFeed()
-        applier = EventApplier(accounts, chats, messages, contacts, typing, reactionFeed, Tapbacks(messages))
+        reactionEdits = ReactionEdits()
+        applier =
+            EventApplier(
+                accounts,
+                chats,
+                messages,
+                contacts,
+                typing,
+                reactionFeed,
+                Tapbacks(messages),
+                PeopleApplier(
+                    chats,
+                    contacts,
+                    PeopleLinker(AddressBook.None, contacts, chats),
+                    org.pingme.core.service.people
+                        .ProfilePhotos(context, contacts, scope),
+                ),
+                reactionEdits,
+            )
         presence =
             org.pingme.core.service.notify
                 .ChatPresence()
@@ -191,7 +212,7 @@ class CountingKeeper(
     settings: SettingsRepository,
     messages: MessageRepository,
     clock: kotlin.time.Clock,
-) : MediaKeeper(context, settings, messages, clock) {
+) : MediaKeeper(context, settings, messages, clock, dagger.Lazy { error("downloads are counted, not fetched") }) {
     val downloads = mutableListOf<org.pingme.core.model.AttachmentId>()
 
     override fun download(id: org.pingme.core.model.AttachmentId) {

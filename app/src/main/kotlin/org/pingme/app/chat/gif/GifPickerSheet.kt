@@ -22,7 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
@@ -46,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import org.pingme.app.R
+import org.pingme.core.ui.components.PingMeSheet
 import java.io.File
 import org.pingme.core.ui.R as UiR
 
@@ -55,14 +55,14 @@ import org.pingme.core.ui.R as UiR
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GifPickerSheet(
+internal fun GifPickerSheet(
     search: GifSearch,
     picks: GifPicks,
     onDismiss: () -> Unit,
 ) {
     val state by search.state.collectAsStateWithLifecycle()
     LaunchedEffect(search) { search.open() }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(SHEET_HEIGHT)) {
             OutlinedTextField(
                 search.typed,

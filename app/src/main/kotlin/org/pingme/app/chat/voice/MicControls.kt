@@ -29,13 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -48,12 +45,17 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.pingme.app.R
+import org.pingme.core.ui.components.HapticPlayer
+import org.pingme.core.ui.components.rememberHaptic
+import org.pingme.core.ui.theme.contentTone
+import org.pingme.core.ui.theme.deepTone
 import org.pingme.core.ui.R as UiR
 
 /**
  * The microphone (UI_DESIGN.md 5.6). Recording starts the moment it is touched. Let go quickly
  * (a tap) and it carries on hands-free in the recording bar; keep holding and it is hold to
- * talk: let go to send, slide left to cancel, slide up to lock. Asks for the microphone the
+ * talk: let go to send, slide left to cancel, slide up to lock. The trash in the recording bar
+ * stops without sending, after which letting go does nothing. Asks for the microphone the
  * first time instead of recording.
  *
  * It is a plain touch area, not a button: a button's own click handling takes the touch first,
@@ -66,7 +68,7 @@ fun MicButton(
     onTooShort: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val haptic = rememberHaptic()
     val density = LocalDensity.current
     val cancelAt = with(density) { CANCEL_DISTANCE.toPx() }
     val lockAt = with(density) { LOCK_DISTANCE.toPx() }
@@ -77,6 +79,7 @@ fun MicButton(
             PackageManager.PERMISSION_GRANTED
     }
     val label = stringResource(R.string.voice_record)
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
     Surface(
         modifier
             .size(MIC_SIZE)
@@ -99,7 +102,7 @@ fun MicButton(
                         return@awaitEachGesture
                     }
                     if (!voice.start()) return@awaitEachGesture
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    haptic.bump()
                     var moved = Offset.Zero
                     var outcome: Slide? = null
                     var liftedAt = down.uptimeMillis
@@ -115,10 +118,12 @@ fun MicButton(
                 }
             },
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
+        // The deep plum and pale sound wave of Google Messages' voice button: sampled #553f5d
+        // on the owner's phone, where Android's own container is much lighter (2026-11-02).
+        color = MaterialTheme.colorScheme.tertiaryContainer.deepTone(dark),
+        contentColor = MaterialTheme.colorScheme.tertiaryContainer.contentTone(dark),
     ) {
-        Box(contentAlignment = Alignment.Center) { Icon(painterResource(UiR.drawable.ic_mic), null) }
+        Box(contentAlignment = Alignment.Center) { Icon(painterResource(UiR.drawable.ic_graphic_eq), null) }
     }
 }
 
@@ -128,9 +133,12 @@ private enum class Slide { TAPPED, RELEASED, CANCELLED, LOCKED }
 private fun ended(
     how: Slide,
     voice: VoiceNotes,
-    haptic: HapticFeedback,
+    haptic: HapticPlayer,
     tooShort: () -> Unit,
 ) {
+    // Stopped on screen (the trash in the recording bar) while the finger was still down:
+    // lifting it is nothing, not a send and not "too short" (owner, 2026-10-15).
+    if (voice.state.value !is MicState.Recording) return
     when (how) {
         // A tap: keep recording, hands-free.
         Slide.TAPPED -> {
@@ -143,12 +151,12 @@ private fun ended(
 
         Slide.CANCELLED -> {
             voice.cancel()
-            haptic.performHapticFeedback(HapticFeedbackType.Reject)
+            haptic.reject()
         }
 
         Slide.LOCKED -> {
             voice.lock()
-            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            haptic.tick()
         }
     }
 }
@@ -176,8 +184,9 @@ fun rememberMicPermission(onGrant: () -> Unit): () -> Unit {
 }
 
 /**
- * "Voice reply" from the action sheet: once the microphone is allowed, start recording
- * locked so it is one tap from the message to talking (UI_DESIGN.md 5.6).
+ * "Voice reply" from the action sheet, and the phone's side key: once the microphone is allowed,
+ * start recording locked so it is one tap, or one press, from the message to talking
+ * (UI_DESIGN.md 5.6).
  */
 @Composable
 fun VoiceReplyStarter(voice: VoiceNotes) {
@@ -195,9 +204,10 @@ fun VoiceReplyStarter(voice: VoiceNotes) {
 }
 
 /**
- * What the composer shows while recording (UI_DESIGN.md 5.6). Held: the timer, the live
- * waveform, and "slide to cancel". Hands-free: delete, the timer and waveform, Pause or Resume,
- * and Send; while paused, the recording so far can be played back.
+ * What the composer shows while recording (UI_DESIGN.md 5.6). Held (the mic or volume up):
+ * a trash that stops without sending, the timer, the live waveform, and the lock hint.
+ * Hands-free: delete, the timer and waveform, Pause or Resume, and Send; while paused, the
+ * recording so far can be played back.
  */
 @Composable
 fun RecordingBar(
@@ -207,6 +217,7 @@ fun RecordingBar(
 ) {
     val player = rememberVoicePlayer()
     val playing by player.state.collectAsStateWithLifecycle()
+    val haptic = rememberHaptic()
     // Playback belongs to a pause: going on, sending, or deleting stops it.
     LaunchedEffect(state.paused) { if (!state.paused) player.release() }
     Row(
@@ -214,11 +225,7 @@ fun RecordingBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        if (state.locked) {
-            IconButton(voice::cancel) {
-                Icon(painterResource(UiR.drawable.ic_delete), stringResource(R.string.voice_discard))
-            }
-        }
+        Discard(state, voice, haptic)
         SoFar(state, player, playing)
         val shown = if (playing.key == SO_FAR && playing.positionMs > 0) playing.positionMs else state.elapsedMs
         Text(clock(shown), style = MaterialTheme.typography.titleMedium)
@@ -226,9 +233,29 @@ fun RecordingBar(
         if (state.locked) {
             HandsFreeEnd(state, voice)
         } else {
-            Text(stringResource(R.string.voice_slide_to_cancel), style = MaterialTheme.typography.labelLarge)
             Icon(painterResource(UiR.drawable.ic_lock), stringResource(R.string.voice_slide_up_to_lock))
         }
+    }
+}
+
+/**
+ * The trash: throws the recording away. Hands-free it is "Delete recording"; held, "Stop
+ * without sending", so a thumb still on the volume key (or the mic) can let go with nothing
+ * sent (owner, 2026-10-15: mid-sentence in the wrong chat). The haptic is the slide-to-cancel
+ * one, since this is that cancel by a tap.
+ */
+@Composable
+private fun Discard(
+    state: MicState.Recording,
+    voice: VoiceNotes,
+    haptic: HapticPlayer,
+) {
+    val label = if (state.locked) R.string.voice_discard else R.string.voice_stop_without_sending
+    IconButton({
+        voice.cancel()
+        if (!state.locked) haptic.reject()
+    }) {
+        Icon(painterResource(UiR.drawable.ic_delete), stringResource(label))
     }
 }
 
@@ -302,7 +329,7 @@ const val MIC = "mic"
 private const val SO_FAR = "recording-so-far"
 private const val MS_PER_SECOND = 1000
 private const val SECONDS_PER_MINUTE = 60
-private val MIC_SIZE = 48.dp
+private val MIC_SIZE = 56.dp
 private val BAR_HEIGHT = 64.dp
 private val CANCEL_DISTANCE = 120.dp
 private val LOCK_DISTANCE = 90.dp

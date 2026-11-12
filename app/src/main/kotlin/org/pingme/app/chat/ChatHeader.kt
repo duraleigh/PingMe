@@ -14,11 +14,16 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,10 +31,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +47,8 @@ import org.pingme.core.model.ChatKind
 import org.pingme.core.model.Message
 import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.components.Avatar
+import org.pingme.core.ui.theme.messagesBar
+import org.pingme.core.ui.theme.resized
 import org.pingme.core.ui.R as UiR
 
 /**
@@ -52,23 +61,30 @@ fun ChatHeader(
     actions: HeaderActions,
     modifier: Modifier = Modifier,
 ) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.messagesBar(androidx.compose.foundation.isSystemInDarkTheme()),
+        // The shade is not one of the theme's own, so Android cannot pair a text colour with it: said
+        // outright, or the name and icons fall back to black (owner, 2026-11-02, 5:45 AM).
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier,
+    ) {
         Row(
             Modifier
                 .statusBarsPadding()
-                .padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 8.dp),
+                .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (actions.onBack != null) {
                 IconButton(onClick = actions.onBack) {
                     Icon(painterResource(UiR.drawable.ic_arrow_back), stringResource(R.string.back))
                 }
+                Spacer(Modifier.width(8.dp))
             } else {
                 Spacer(Modifier.width(12.dp))
             }
-            TitleBlock(state, actions.onDetails, Modifier.weight(1f))
-            CallButtons(state, actions.onCall)
-            Overflow(actions)
+            TitleBlock(state, actions.onDetails, Modifier.weight(1f), actions.onProfile)
+            CallIcon(state, actions.onCall)
+            Overflow(state, actions)
         }
     }
 }
@@ -78,8 +94,17 @@ private fun TitleBlock(
     state: ChatUiState,
     onDetails: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    onProfile: (() -> Unit)? = null,
 ) {
     val details = stringResource(R.string.chat_details)
+    val profile = stringResource(R.string.chat_open_profile)
+    // The avatar opens the person's Instagram page (owner, 2026-10-05); the name still opens details.
+    val avatarModifier =
+        if (onProfile != null) {
+            Modifier.clickable(onClickLabel = profile, role = Role.Button, onClick = onProfile)
+        } else {
+            Modifier
+        }
     Row(
         modifier.then(
             if (onDetails !=
@@ -91,100 +116,87 @@ private fun TitleBlock(
             },
         ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Avatar(state.title, size = 42.dp)
-        val colours = MaterialTheme.colorScheme
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                state.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // No badge for Google Messages, the phone's own texting (owner, Gate G3).
-                state.account
-                    ?.takeIf { it.network != NetworkId.GMESSAGES }
-                    ?.let { NetworkBadge(it.network) }
-                Text(
-                    liveStatus(state),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (state.typing.isEmpty()) colours.onSurfaceVariant else colours.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+        if (state.faces.isEmpty()) {
+            Avatar(state.title, size = 40.dp, photo = state.photo, modifier = avatarModifier)
+        } else {
+            org.pingme.core.ui.components
+                .GroupAvatar(state.faces, state.title, size = 40.dp)
         }
+        // Just the name, as in Google Messages (owner, 2026-11-02): the network is on the chip in
+        // the box, and a group's count is in its details.
+        Text(
+            state.title,
+            // Measured against Google Messages on the phone: 330 wide where titleLarge made 389.
+            style = MaterialTheme.typography.titleLarge.resized(TITLE_RATIO),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
-/** "Sam is typing…", "Priya and Leo are typing…", or for groups how many are in it. */
+/** The phone icon; Video is in the menu, as in Google Messages (owner, 2026-11-02). */
 @Composable
-private fun liveStatus(state: ChatUiState): String {
-    val chat = state.chat ?: return ""
-    return when {
-        state.typing.size == 1 && chat.kind == ChatKind.DIRECT -> {
-            stringResource(R.string.inbox_typing)
-        }
-
-        state.typing.size == 1 -> {
-            stringResource(R.string.chat_one_typing, state.typing.single().substringBefore(' '))
-        }
-
-        state.typing.size > 1 -> {
-            stringResource(R.string.chat_many_typing)
-        }
-
-        chat.kind == ChatKind.GROUP -> {
-            // Everyone else plus you; a network that lists you among the members is not counted twice
-            // (owner, Gate G3: the count was one too many).
-            val others = chat.participants.count { it != state.me && state.names[it] != YOU }
-            pluralStringResource(R.plurals.chat_members, others + 1, others + 1)
-        }
-
-        else -> {
-            ""
-        }
-    }
-}
-
-private const val YOU = "You"
-
-/** RCS or SMS in a Google Messages chat follows the newest message. */
-private fun ChatUiState.lastTransport() =
-    items
-        .firstNotNullOfOrNull {
-            (it as? ChatItem.Bubble)?.message
-        }?.let(Message::transport)
-
-@Composable
-private fun RowScope.CallButtons(
+private fun CallIcon(
     state: ChatUiState,
     onCall: (Boolean) -> Unit,
 ) {
     val calls = state.capabilities?.calls ?: return
-    if (calls.audio != CallMethod.NONE) {
-        IconButton(onClick = {
-            onCall(false)
-        }) { Icon(painterResource(UiR.drawable.ic_call), stringResource(R.string.chat_call)) }
-    }
-    if (calls.video != CallMethod.NONE) {
-        IconButton(onClick = {
-            onCall(true)
-        }) { Icon(painterResource(UiR.drawable.ic_videocam), stringResource(R.string.chat_video_call)) }
+    val network = state.sendNetwork ?: state.account?.network ?: return
+    if (calls.audio != CallMethod.NONE) CallButton(network, calls.audio, video = false) { onCall(false) }
+}
+
+/** A call icon; its long-press says what the tap does on this network (UI_DESIGN.md 10.17). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CallButton(
+    network: NetworkId,
+    method: CallMethod,
+    video: Boolean,
+    onClick: () -> Unit,
+) {
+    val resources = LocalResources.current
+    val explanation = remember(network, method, video) { callExplanation(resources, network, method, video) }
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(explanation) } },
+        state = rememberTooltipState(),
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(
+                painterResource(if (video) UiR.drawable.ic_videocam else UiR.drawable.ic_call),
+                stringResource(if (video) R.string.chat_video_call else R.string.chat_call),
+            )
+        }
     }
 }
 
 @Composable
-private fun Overflow(actions: HeaderActions) {
+private fun Overflow(
+    state: ChatUiState,
+    actions: HeaderActions,
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = {
             open = true
         }) { Icon(painterResource(UiR.drawable.ic_more_vert), stringResource(R.string.chat_more)) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (state.capabilities
+                    ?.calls
+                    ?.video
+                    ?.let { it != CallMethod.NONE } == true
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.chat_video_call)) },
+                    onClick = {
+                        open = false
+                        actions.onCall(true)
+                    },
+                    leadingIcon = { Icon(painterResource(UiR.drawable.ic_videocam), null, Modifier.size(20.dp)) },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.chat_search)) },
                 onClick = {
@@ -206,3 +218,6 @@ private fun Overflow(actions: HeaderActions) {
         }
     }
 }
+
+// Measured on the phone: 495 wide on Google Messages, 513 at 0.86 (2026-11-02).
+private const val TITLE_RATIO = 0.83f

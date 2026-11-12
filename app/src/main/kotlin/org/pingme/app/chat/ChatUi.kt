@@ -17,8 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.delay
 import org.pingme.app.R
@@ -27,7 +25,7 @@ import org.pingme.core.model.Attachment
 import org.pingme.core.model.AttachmentKind
 import org.pingme.core.model.Message
 import org.pingme.core.model.TimeLimit
-import org.pingme.core.ui.theme.Haptics
+import org.pingme.core.ui.components.HapticPlayer
 import org.pingme.core.ui.theme.PingMeTheme
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
@@ -119,13 +117,12 @@ fun ChatUi.react(
     from: Offset?,
     state: ChatUiState,
     actions: ChatScreenActions,
-    haptic: HapticFeedback,
-    haptics: Haptics,
+    haptic: HapticPlayer,
 ) {
     val menu = actions.menu ?: return
     val added = menu.react(message, emoji, state.me)
     val to = chipSpot(message) ?: return
-    if (added && haptics != Haptics.OFF) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    if (added) haptic.bump()
     burst.play(
         emoji,
         if (added) BurstKind.PICKED else BurstKind.REMOVED,
@@ -276,11 +273,10 @@ fun ChatOverlays(
     state: ChatUiState,
     actions: ChatScreenActions,
     context: Context,
-    haptic: HapticFeedback,
+    haptic: HapticPlayer,
     lifted: @Composable (Message) -> Unit,
 ) {
     val network = state.account?.network
-    val haptics = PingMeTheme.appearance.haptics
     val held = ui.holding
     val heldAt = held?.let { ui.bounds[it.id.value] }
     if (held != null && heldAt != null) {
@@ -293,7 +289,7 @@ fun ChatOverlays(
             actions = ui.actionsFor(held, state, actions, context),
             onReact = { emoji, from ->
                 ui.holding = null
-                ui.react(held, emoji, from, state, actions, haptic, haptics)
+                ui.react(held, emoji, from, state, actions, haptic)
             },
             onMore = {
                 ui.holding = null
@@ -310,7 +306,7 @@ fun ChatOverlays(
             onPick = { emoji ->
                 ui.pickerFor = null
                 actions.onRememberEmoji(emoji)
-                ui.react(message, emoji, null, state, actions, haptic, haptics)
+                ui.react(message, emoji, null, state, actions, haptic)
             },
             onDismiss = { ui.pickerFor = null },
             allowed = (rule as? org.pingme.core.model.ReactionRule.Set)?.allowed?.toSet(),
@@ -347,13 +343,14 @@ private fun Sheets(
     }
     ui.infoFor?.let { InfoSheet(it, network) { ui.infoFor = null } }
     ui.forwarding?.let { targets ->
-        ForwardSheet(actions.forwardTargets, onSend = { chats -> actions.menu?.forward(targets, chats) }, onDismiss = {
-            ui.forwarding =
-                null
-        })
+        LaunchedEffect(targets) {
+            ui.forwarding = null
+            actions.onForward(targets)
+        }
     }
     ui.rescheduling?.let { waiting ->
-        org.pingme.app.chat.later.SendLaterSheet(
+        org.pingme.app.chat.later.SendLaterPicker(
+            lastUsed = actions.composer.lastScheduledAt,
             onPick = { at -> actions.menu?.reschedule(waiting, at) },
             onDismiss = { ui.rescheduling = null },
         )

@@ -8,12 +8,12 @@ import kotlin.time.Duration.Companion.seconds
 
 class BackoffTest {
     @Test
-    fun doublesFromOneSecondAndCapsAtFiveMinutes() {
-        val waits = (1..12).map { Backoff.delayFor(it) }
+    fun doublesFromOneSecondAndCapsAtAMinute() {
+        val waits = (1..9).map { Backoff.delayFor(it) }
         assertEquals(
-            listOf(1, 2, 4, 8, 16, 32, 64, 128, 256).map { it.seconds } + List(3) { 5.minutes },
+            listOf(1, 2, 4, 8, 16, 32).map { it.seconds } + List(3) { 1.minutes },
             waits,
         )
-        assertEquals(5.minutes, Backoff.delayFor(10_000))
+        assertEquals(1.minutes, Backoff.delayFor(10_000))
     }
 }

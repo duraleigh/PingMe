@@ -3,12 +3,16 @@ package org.pingme.app.chat.attach
 
 import android.net.Uri
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.pingme.core.connector.Diag
 import org.pingme.core.connector.OutgoingAttachment
 
 /**
@@ -27,8 +31,25 @@ class Outbox(
     /** How many picks are still being copied in; send waits for them. */
     val busy: StateFlow<Int> = copying.asStateFlow()
 
+    private val unread = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+
+    /**
+     * How many of a pick could not be copied in. Each is said aloud rather than dropped in
+     * silence (owner, 2026-11-02: a picture sent with text never went, and nothing said so).
+     */
+    val missed: SharedFlow<Int> = unread.asSharedFlow()
+
     /** Copies picked photos, videos, or files in, in the order picked. */
-    fun addPicked(uris: List<Uri>) = adding { uris.mapNotNull { files.copy(it) } }
+    fun addPicked(uris: List<Uri>) =
+        adding {
+            val copied = uris.mapNotNull { files.copy(it) }
+            val lost = uris.size - copied.size
+            if (lost > 0) {
+                Diag.note("PingMeOutbox", "$lost of ${uris.size} picked file(s) could not be read; not attached")
+                unread.tryEmit(lost)
+            }
+            copied
+        }
 
     fun addContact(uri: Uri) = adding { listOfNotNull(files.contact(uri)) }
 

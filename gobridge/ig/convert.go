@@ -3,6 +3,7 @@
 package ig
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 
@@ -31,7 +32,7 @@ type Thread struct {
 	Muted        bool   `json:"muted"`
 	Pinned       bool   `json:"pinned"`
 	// When the account itself last read the thread, from its read receipt; 0 when unknown.
-	ReadAt int64 `json:"readAt"`
+	ReadAt int64  `json:"readAt"`
 	Users  []User `json:"users"`
 	// Admins, by user id, for groups.
 	Admins []string `json:"admins,omitempty"`
@@ -56,18 +57,21 @@ type Message struct {
 	Sender    string `json:"sender"`
 	Timestamp int64  `json:"timestamp"`
 	// "text", "image", "video", "gif", "voice", "sticker", "share", "system", or "unsupported".
-	Kind      string      `json:"kind"`
-	Text      string      `json:"text,omitempty"`
-	Media     []Media     `json:"media,omitempty"`
-	Share     *Share      `json:"share,omitempty"`
-	Reactions []Reaction  `json:"reactions,omitempty"`
-	ReplyTo   string      `json:"replyTo,omitempty"`
-	ReplyText string      `json:"replyText,omitempty"`
-	Edited    bool        `json:"edited"`
-	ViewOnce  bool        `json:"viewOnce"`
+	Kind      string     `json:"kind"`
+	Text      string     `json:"text,omitempty"`
+	Media     []Media    `json:"media,omitempty"`
+	Share     *Share     `json:"share,omitempty"`
+	Reactions []Reaction `json:"reactions,omitempty"`
+	ReplyTo   string     `json:"replyTo,omitempty"`
+	ReplyText string     `json:"replyText,omitempty"`
+	Edited    bool       `json:"edited"`
+	ViewOnce  bool       `json:"viewOnce"`
 	// View-once media Instagram will not hand out again ("viewed", "replayed").
 	ViewOnceGone string `json:"viewOnceGone,omitempty"`
-	Unsent       bool   `json:"unsent"`
+	// What Instagram sent for a view-once message that came without a file, for the phone's
+	// diagnostic file (owner, 2026-10-05: unviewed view-once photos arrived as "gone").
+	Raw    string `json:"raw,omitempty"`
+	Unsent bool   `json:"unsent"`
 }
 
 // Media is one picture, video, GIF, voice note, or sticker: the address to fetch it from.
@@ -230,12 +234,12 @@ func fill(out *Message, msg *slidetypes.Message) {
 		}
 	case *slidetypes.MessageContentRavenImage:
 		out.Kind = "image"
-		out.ViewOnce = true
 		raven(out, content.Attachment, content.ViewMode, "image")
+		noteGone(out, msg, content.Unrecognized)
 	case *slidetypes.MessageContentRavenVideo:
 		out.Kind = "video"
-		out.ViewOnce = true
 		raven(out, content.Attachment, content.ViewMode, "video")
+		noteGone(out, msg, content.Unrecognized)
 	case *slidetypes.MessageContentAudio:
 		out.Kind = "voice"
 		for _, a := range content.AudioAttachments {
@@ -290,15 +294,50 @@ func pictureOrVideo(a *slidetypes.Attachment, kind string) Media {
 		Width: a.PreviewWidth, Height: a.PreviewHeight, ID: a.AttachmentFBID}
 }
 
+// raven is a photo or video taken in the chat's camera. Instagram sends it in one of
+// three modes: view once, allow replay, or keep in chat. The first two are ephemeral and,
+// once viewed or replayed, come without an attachment: those are gone. Anything else is
+// an ordinary photo or video; its address may be missing from the live event and is
+// then fetched by id when the file is wanted (owner, 2026-10-04: a kept video was called
+// "view-once ... no longer shows").
 func raven(out *Message, a *slidetypes.Attachment, mode slidetypes.RavenViewMode, kind string) {
-	if a == nil || a.AttachmentCDNURL == "" {
-		out.ViewOnceGone = mode.ViewType()
-		if out.ViewOnceGone == "" {
+	out.ViewOnce = mode != slidetypes.RavenViewModeKeepInChat
+	if a == nil {
+		if mode.ViewType() != "" {
+			out.ViewOnceGone = mode.ViewType()
+		} else {
 			out.ViewOnceGone = "gone"
 		}
 		return
 	}
-	out.Media = append(out.Media, pictureOrVideo(a, kind))
+	media := pictureOrVideo(a, kind)
+	if media.URL == "" {
+		media.URL = a.AttachmentCDNFallbackURL
+	}
+	if media.URL == "" && kind == "image" {
+		media.URL = a.PreviewCDNURL
+	}
+	out.Media = append(out.Media, media)
+}
+
+// noteGone keeps whatever else Instagram said about a view-once message that came without
+// a file: the fields the library does not know, on the content and on the message, plus
+// the message's content type. The phone's diagnostic file shows them, so the next such
+// message says what Instagram actually sends for an unviewed one.
+func noteGone(out *Message, msg *slidetypes.Message, content map[string]any) {
+	if out.ViewOnceGone == "" {
+		return
+	}
+	raw := map[string]any{"contentType": msg.ContentType, "typename": msg.Typename}
+	if len(content) > 0 {
+		raw["content"] = content
+	}
+	if len(msg.Unrecognized) > 0 {
+		raw["message"] = msg.Unrecognized
+	}
+	if b, err := json.Marshal(raw); err == nil {
+		out.Raw = string(b)
+	}
 }
 
 func convertShare(x *slidetypes.XMAContent) *Share {

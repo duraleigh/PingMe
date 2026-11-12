@@ -20,7 +20,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
@@ -46,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.pingme.app.R
+import org.pingme.core.ui.components.PingMeSheet
 import org.pingme.core.ui.R as UiR
 
 /**
@@ -55,7 +55,7 @@ import org.pingme.core.ui.R as UiR
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmojiPickerSheet(
+internal fun EmojiPickerSheet(
     recent: List<String>,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
@@ -68,7 +68,7 @@ fun EmojiPickerSheet(
     val grid = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     val found = remember(query) { catalog.search(query) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         Column(Modifier.padding(horizontal = 12.dp).height(SHEET_HEIGHT)) {
             OutlinedTextField(
                 query,

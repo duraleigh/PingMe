@@ -12,7 +12,17 @@ import org.pingme.core.model.PersonId
 // Conversions between core/model types and database rows. Repositories are the only callers.
 
 internal fun Person.toEntity() =
-    PersonEntity(id.value, accountId.value, displayName, phoneNumber, networkHandle, avatarPath, contactId?.value)
+    PersonEntity(
+        id.value,
+        accountId.value,
+        displayName,
+        phoneNumber,
+        networkHandle,
+        avatarPath,
+        contactId?.value,
+        contactName,
+        contactPhoto,
+    )
 
 internal fun PersonEntity.toModel() =
     Person(
@@ -23,6 +33,8 @@ internal fun PersonEntity.toModel() =
         networkHandle,
         avatarPath,
         contactId?.let(::ContactId),
+        contactName,
+        contactPhoto,
     )
 
 internal fun KeywordRule.toEntity() =

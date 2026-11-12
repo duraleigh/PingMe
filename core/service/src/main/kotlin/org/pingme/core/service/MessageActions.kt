@@ -8,10 +8,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import org.pingme.core.connector.Connector
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.ConnectorRegistry
+import org.pingme.core.connector.Diag
 import org.pingme.core.connector.OutgoingAttachment
 import org.pingme.core.connector.OutgoingMessage
 import org.pingme.core.connector.SendResult
@@ -41,6 +43,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 /**
@@ -66,6 +69,9 @@ class MessageActions
         private val settings: org.pingme.core.store.SettingsRepository,
         private val links: org.pingme.core.service.links.CleanLinks,
         private val previews: org.pingme.core.service.links.PreviewRequests,
+        private val merges: org.pingme.core.store.MergeRepository,
+        private val shareShortcuts: org.pingme.core.service.notify.ShareShortcuts,
+        private val reactionEdits: ReactionEdits,
     ) {
         private val uploads = MutableStateFlow<Map<MessageId, Float>>(emptyMap())
 
@@ -92,7 +98,54 @@ class MessageActions
             replyToName: String? = null,
             forceSms: Boolean = false,
             attachments: List<OutgoingAttachment> = emptyList(),
+        ): Message = sendTo(sendTarget(chatId), text, replyTo, replyToName, forceSms, attachments)
+
+        /**
+         * A merged chat (UI_DESIGN.md 10.15) has no network of its own: a message to it goes
+         * through one member, the default network's when it is connected, else the first
+         * connected member, else the default's. The chat screen picks its member itself; the
+         * share picker and a reply from the notification shade name the merged chat (owner,
+         * 2026-10-06: a share to a merged chat failed with "This network is not connected").
+         */
+        private suspend fun sendTarget(chatId: ChatId): ChatId {
+            if (!org.pingme.core.service.merge.Merges
+                    .isMergedId(chatId)
+            ) {
+                return chatId
+            }
+            val members = merges.members(chatId)
+            if (members.isEmpty()) return chatId
+            val preferred = chats.get(chatId)?.defaultSendAccount
+
+            suspend fun connected(member: org.pingme.core.model.Chat) =
+                accounts.get(member.accountId)?.state is org.pingme.core.model.ConnectionState.Connected
+            val chosen =
+                members.firstOrNull { it.accountId == preferred && connected(it) }
+                    ?: members.firstOrNull { connected(it) }
+                    ?: members.firstOrNull { it.accountId == preferred }
+                    ?: members.first()
+            Diag.note(TAG, "Merged chat ${chatId.value} sends through ${chosen.id.value}")
+            return chosen.id
+        }
+
+        private suspend fun sendTo(
+            chatId: ChatId,
+            text: String,
+            replyTo: Message?,
+            replyToName: String?,
+            forceSms: Boolean,
+            attachments: List<OutgoingAttachment>,
         ): Message {
+            // A network that carries one picture per message gets one message per picture:
+            // the text rides with the first (owner, 2026-10-05: Google Messages dropped the
+            // second of two screenshots sent together).
+            val limit = connectorFor(chatId)?.capabilities?.attachmentsPerMessage ?: Int.MAX_VALUE
+            if (attachments.size > limit) {
+                val pieces = attachments.chunked(limit)
+                val first = sendTo(chatId, text, replyTo, replyToName, forceSms, pieces.first())
+                pieces.drop(1).forEach { sendTo(chatId, "", null, null, forceSms, it) }
+                return first
+            }
             val network = networkOf(chatId)
             val text = cleaned(text)
             val pending =
@@ -109,6 +162,7 @@ class MessageActions
                 val at = maxOf(it.lastActivityAt, pending.sentAt)
                 it.copy(lastActivityAt = at, unreadCount = 0, readUpTo = at)
             }
+            shareShortcuts.sentTo(chatId)
             return deliver(pending, forceSms)
         }
 
@@ -139,8 +193,13 @@ class MessageActions
             connector.react(message.id, emoji, remove)
             if (connector.capabilities.reactions is ReactionRule.TextFallback) return
             val me = messages.selfIn(message.chatId) ?: message.chatId.accountId.person(SELF)
-            message.reactions.filter { it.senderId == me }.forEach { messages.removeReaction(message.id, me, it.emoji) }
-            if (!remove) messages.addReaction(message.id, Reaction(emoji, me, clock.now()))
+            // Numbered, so a page of messages already on its way cannot undo it (ReactionEdits).
+            reactionEdits.change(message.id) {
+                messages.get(message.id)?.reactions.orEmpty().filter { it.senderId == me }.forEach {
+                    messages.removeReaction(message.id, me, it.emoji)
+                }
+                if (!remove) messages.addReaction(message.id, Reaction(emoji, me, clock.now()))
+            }
         }
 
         /**
@@ -150,6 +209,8 @@ class MessageActions
         suspend fun deleteForMe(targets: List<Message>) {
             targets.map { sent.current(it) }.forEach { message ->
                 messages.delete(message.id)
+                // A message that never went is only here: there is nothing to ask the network.
+                if (message.status is MessageStatus.Failed) return@forEach
                 connectorFor(message.chatId)?.let { connector ->
                     quietly("delete") { connector.delete(message.id, forEveryone = false) }
                 }
@@ -194,6 +255,8 @@ class MessageActions
         suspend fun forward(
             message: Message,
             to: ChatId,
+            /** The words to send: the message's own, or as changed in the picker's box. */
+            text: String = message.body.orEmpty(),
         ): Message? {
             val connector = connectorFor(message.chatId)
             // Files not yet on the phone are fetched first; one that cannot be fetched is left out.
@@ -203,7 +266,6 @@ class MessageActions
                     val path = local?.path ?: quietly("download") { connector?.downloadAttachment(file)?.path }
                     path?.let { file.copy(localPath = it).asOutgoing() }
                 }
-            val text = message.body.orEmpty()
             if (text.isBlank() && files.isEmpty()) return null
             return send(to, text, attachments = files)
         }
@@ -213,7 +275,7 @@ class MessageActions
          * with a clock until then. [replacing] changes one already scheduled.
          */
         suspend fun schedule(
-            chatId: ChatId,
+            chat: ChatId,
             text: String,
             at: Instant,
             replyTo: Message? = null,
@@ -221,6 +283,7 @@ class MessageActions
             attachments: List<OutgoingAttachment> = emptyList(),
             replacing: Message? = null,
         ): Message {
+            val chatId = sendTarget(chat)
             val text = cleaned(text)
             val base =
                 replacing ?: pendingMessage(chatId, text, replyTo, replyToName, networkOf(chatId), forceSms = false)
@@ -254,6 +317,8 @@ class MessageActions
                     0,
                 ),
             )
+            // Send later's "Last used" offers this moment next time (owner, 2026-11-07).
+            settings.setLastScheduledAt(at)
             alarm.arm()
             return message
         }
@@ -308,24 +373,62 @@ class MessageActions
             return older.size >= count
         }
 
+        /**
+         * The newest page from the network, on opening a chat: what arrived while PingMe had no
+         * live connection (a dead window after an install or a restart, or a lost socket) is
+         * caught up here (owner, 2026-10-07: a message sent from the Instagram app at 2:10 AM,
+         * while PingMe lay killed, never showed). A merged chat catches up every member.
+         */
+        suspend fun catchUp(chatId: ChatId) {
+            val targets =
+                if (org.pingme.core.service.merge.Merges
+                        .isMergedId(chatId)
+                ) {
+                    merges.members(chatId).map {
+                        it.id
+                    }
+                } else {
+                    listOf(chatId)
+                }
+            targets.forEach { id ->
+                val connector = connectorFor(id) ?: return@forEach
+                // A reaction given or taken back while the page is on its way stays as given
+                // (BUILD_LOG 2026-11-09): on a slow network the page can land seconds later.
+                val mark = reactionEdits.mark()
+                val newest = quietly("catch-up") { connector.syncMessages(id, null, PAGE) } ?: return@forEach
+                Diag.note(TAG, "Catch-up for ${id.value}: ${newest.size} newest message(s) from the network")
+                applier.applyPage(ConnectorEvent.HistoryBatch(id.accountId, id, newest, complete = false), mark)
+            }
+        }
+
         private suspend fun deliver(
             pending: Message,
             forceSms: Boolean,
         ): Message {
             val connector = connectorFor(pending.chatId)
             val files = pending.attachments.mapNotNull { it.asOutgoing() }
+            // Every send is written down, so a picture that never went can be traced (owner, 2026-11-02).
+            Diag.note(
+                TAG,
+                "Sending ${pending.id.value}: ${pending.body.orEmpty().length} characters, " +
+                    "${files.size} of ${pending.attachments.size} file(s)",
+            )
             val draft = OutgoingMessage(pending.id, pending.body, files, pending.replyTo, pending.quote, forceSms)
             val result =
                 if (connector == null) {
                     SendResult.Failed("This network is not connected", retryable = true)
                 } else {
                     val report: (Float) -> Unit = { done -> uploads.update { it + (pending.id to done) } }
+                    // A send that never answers ends here, so its bubble can be tried again
+                    // instead of sitting on its clock (owner, 2026-11-01).
+                    val allowed = if (files.isEmpty()) TEXT_SEND_LIMIT else FILE_SEND_LIMIT
                     try {
-                        quietly("send") { connector.send(pending.chatId, draft, report) }
+                        withTimeoutOrNull(allowed) { quietly("send") { connector.send(pending.chatId, draft, report) } }
                     } finally {
                         uploads.update { it - pending.id }
-                    } ?: SendResult.Failed("Could not reach the network", retryable = true)
+                    } ?: SendResult.Failed("No answer from the network", retryable = true)
                 }
+            Diag.note(TAG, "Send ${pending.id.value}: ${result.diaryLine()}")
             return when (result) {
                 is SendResult.Sent -> {
                     sent.replaced(pending.id, result.message.message.id)
@@ -418,6 +521,8 @@ class MessageActions
             }
 
         companion object {
+            private val TEXT_SEND_LIMIT = 2.minutes
+            private val FILE_SEND_LIMIT = 10.minutes
             const val PAGE = 50
             private const val SELF = "me"
             private const val TAG = "PingMeMessages"
@@ -450,3 +555,10 @@ internal class SentCopies(
     /** [message] as it is now. */
     suspend fun current(message: Message): Message = sentAs[message.id]?.let { messages.get(it) } ?: message
 }
+
+/** How a send ended, for the diary: which message it became and how many files it kept. */
+private fun SendResult.diaryLine(): String =
+    when (this) {
+        is SendResult.Sent -> "sent as ${message.message.id.value} with ${message.message.attachments.size} file(s)"
+        is SendResult.Failed -> "failed: $reason"
+    }

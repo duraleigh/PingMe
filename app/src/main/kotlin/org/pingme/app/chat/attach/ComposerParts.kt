@@ -114,20 +114,36 @@ internal fun composerHooks(
     viewModel: org.pingme.app.chat.ChatViewModel,
     state: org.pingme.app.chat.ChatUiState,
     onNotice: (Int) -> Unit,
+    lastScheduledAt: kotlin.time.Instant? = null,
 ) = org.pingme.app.chat.ComposerHooks(
     outbox = viewModel.outbox,
+    lastScheduledAt = lastScheduledAt,
+    draft = viewModel.draft,
+    onDraft = viewModel::saveDraft,
     voice = viewModel.voice.takeIf { state.capabilities?.voiceNote?.let { it != MediaRule.UNSUPPORTED } == true },
     onVoiceTooShort = { onNotice(R.string.voice_too_short) },
+    volumeUpRecords = viewModel.appSettings.value.media.volumeUpRecords,
+    dictation = viewModel.dictation.takeIf { it.ready },
     gifs = viewModel.gifs.takeIf { state.capabilities?.gif?.let { it != MediaRule.UNSUPPORTED } == true },
     gifPicks =
         org.pingme.app.chat.gif
             .GifPicks(viewModel::sendGif, viewModel::sendFavourite),
     onSchedule = viewModel::schedule,
+    network = state.sendNetwork,
+    members = state.members,
+    sendVia = state.sendVia,
+    onSendVia = viewModel::sendVia,
+    showingAll = state.members.isNotEmpty() && state.filter == null,
+    onAllNetworks = { viewModel.setFilter(null) },
+    connected =
+        state.members.firstOrNull { it.chatId == state.sendVia }?.connected
+            ?: (state.account?.state is org.pingme.core.model.ConnectionState.Connected),
     onProblem = { problem ->
         onNotice(
             when (problem) {
                 AttachProblem.NO_LOCATION -> R.string.attach_no_location
                 AttachProblem.NO_CAMERA -> R.string.attach_no_camera
+                AttachProblem.UNREADABLE -> R.string.attach_unreadable
             },
         )
     },

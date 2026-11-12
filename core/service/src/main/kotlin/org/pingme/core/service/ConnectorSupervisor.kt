@@ -54,6 +54,15 @@ class ConnectorSupervisor
         // Counts network changes, so a wait that starts just after one still sees it.
         private val networkChanges = MutableStateFlow(0L)
         private var watcher: Job? = null
+        private var settling: Job? = null
+
+        /**
+         * How long the phone's network must hold still before every connection opens again. The
+         * phone's data connection is often rebuilt several times in a minute (owner, 2026-11-07:
+         * three changes in 33 seconds at 7:39 PM, each reopening every account, and WhatsApp
+         * refusing so many reconnects with "rate-overlimit"); one reconnect after it settles does.
+         */
+        internal var networkSettle: kotlin.time.Duration = NETWORK_SETTLE
 
         /** Starts following the account list. Safe to call more than once. */
         fun start() {
@@ -74,12 +83,25 @@ class ConnectorSupervisor
         }
 
         /**
-         * The phone's network changed: waiting retries go now, from the first backoff step,
-         * and a live connection is dropped and opened again at once, since the old one may
-         * be dead without saying so (owner, Gate G3: stale connections after a Wi-Fi change).
+         * The phone's network changed: once it has held still for [networkSettle], waiting retries
+         * go, from the first backoff step, and a live connection is dropped and opened again, since
+         * the old one may be dead without saying so (owner, Gate G3: stale connections after a
+         * Wi-Fi change). A change within the wait starts it again, so a burst reconnects once.
          */
         fun onNetworkChanged() {
-            networkChanges.update { it + 1 }
+            synchronized(this) {
+                settling?.cancel()
+                settling =
+                    scope.launch {
+                        kotlinx.coroutines.delay(networkSettle)
+                        org.pingme.core.connector.Diag
+                            .connection(
+                                TAG,
+                                "The phone's network held still for $networkSettle: every connection opens again",
+                            )
+                        networkChanges.update { it + 1 }
+                    }
+            }
         }
 
         private fun reconcile(all: List<Account>) =
@@ -120,6 +142,8 @@ class ConnectorSupervisor
                 attempt++
                 val wait = retryDelays.delayFor(attempt)
                 accounts.updateState(account.id, ConnectionState.Reconnecting(attempt, clock.now() + wait))
+                org.pingme.core.connector.Diag
+                    .connection(TAG, "${account.network}: $outcome, try $attempt in $wait")
                 // A network change cuts the wait short and starts the backoff over.
                 val networkCame = withTimeoutOrNull(wait) { networkChanges.first { it != seen } } != null
                 if (networkCame) attempt = 0
@@ -135,6 +159,9 @@ class ConnectorSupervisor
             var connected = false
             var networkChanged = false
             val networkAtStart = networkChanges.value
+            val started = clock.now()
+            org.pingme.core.connector.Diag
+                .connection(TAG, "${account.network}: connecting")
             return try {
                 kotlinx.coroutines.coroutineScope {
                     // A network change while connected closes the session; it is opened again at once.
@@ -145,11 +172,17 @@ class ConnectorSupervisor
                             connector.disconnect(account.id)
                         }
                     try {
-                        collectSession(account, connector, creds) { connected = true }
+                        collectSession(account, connector, creds) {
+                            connected = true
+                            org.pingme.core.connector.Diag
+                                .connection(TAG, "${account.network}: connected in ${clock.now() - started}")
+                        }
                     } finally {
                         watcher.cancel()
                     }
                 }
+                org.pingme.core.connector.Diag
+                    .connection(TAG, "${account.network}: ended by itself after ${clock.now() - started}")
                 when {
                     networkChanged && connected -> Outcome.NetworkChanged
                     connected -> Outcome.Dropped
@@ -166,6 +199,8 @@ class ConnectorSupervisor
                 // Google Messages, a socket closed while the phone slept. Logged on the
                 // phone only (no telemetry, DESIGN.md 6.5).
                 Log.w(TAG, "${account.network} connection ended; retrying", e)
+                org.pingme.core.connector.Diag
+                    .connection(TAG, "${account.network}: ended after ${clock.now() - started}: ${e.message}")
                 when {
                     networkChanged && connected -> Outcome.NetworkChanged
                     connected -> Outcome.Dropped
@@ -196,7 +231,12 @@ class ConnectorSupervisor
                     if (state == ConnectionState.Connected && !connected) {
                         connected = true
                         onConnected()
+                        val listing = clock.now()
                         val chats = connector.syncChats(account.id)
+                        org.pingme.core.connector.Diag.connection(
+                            TAG,
+                            "${account.network}: ${chats.size} chats listed in ${clock.now() - listing}",
+                        )
                         applier.applyChats(chats)
                         history.chatsArrived(chats)
                         runCatching { connector.refreshPeople(account.id) }
@@ -246,11 +286,14 @@ class ConnectorSupervisor
             deepLink: String?,
         ): Outcome {
             accounts.updateState(accountId, ConnectionState.ActionNeeded(reason, deepLink))
+            org.pingme.core.connector.Diag
+                .connection(TAG, "$accountId needs attention: $reason")
             return Outcome.ActionNeeded
         }
 
         private companion object {
             const val TAG = "PingMeSupervisor"
+            val NETWORK_SETTLE = kotlin.time.Duration.parse("15s")
         }
 
         private enum class Outcome {

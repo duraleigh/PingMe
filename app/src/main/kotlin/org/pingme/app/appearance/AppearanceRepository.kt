@@ -35,11 +35,11 @@ class AppearanceRepository
         /** The saved look. An imported font or picture that has since gone falls back to the default. */
         val appearance: Flow<Appearance> =
             settings.appearanceJson
-                .map { decodeOrDefault(it).withoutMissingFiles() }
+                .map { decodeOrDefault(it).withMessagesLook().withoutMissingFiles() }
                 .flowOn(Dispatchers.IO)
 
         suspend fun update(change: (Appearance) -> Appearance) {
-            settings.updateAppearanceJson { json -> encode(change(decodeOrDefault(json))) }
+            settings.updateAppearanceJson { json -> encode(change(decodeOrDefault(json).withMessagesLook())) }
         }
 
         /** Writes the current theme to [target] as JSON (UI_DESIGN.md 4). */
@@ -123,6 +123,47 @@ class AppearanceRepository
                 text?.let { runCatching { decode(it) }.getOrNull() } ?: Appearance()
         }
     }
+
+/**
+ * The look read off the owner's own Google Messages (2026-11-02): its colors from the wallpaper,
+ * its own deep blue bubbles with white text and no time inside, the phone's font. The picture shapes
+ * stay as the owner set them ("the one thing I don't want you to mess with", 2026-11-02), and so do
+ * PingMe's gradient and tails, which he keeps on Google Messages too (2026-11-02). Applied once per
+ * round, so anything changed in Appearance afterwards stays changed.
+ */
+fun Appearance.withMessagesLook(): Appearance =
+    when {
+        lookVersion >= MESSAGES_LOOK -> {
+            this
+        }
+
+        // Round 3 only clears the Google Messages bubble colour picked before, so its deep blue shows.
+        lookVersion == DEEP_BLUE_ONLY_FROM -> {
+            copy(networkColors = networkColors - org.pingme.core.model.NetworkId.GMESSAGES, lookVersion = MESSAGES_LOOK)
+        }
+
+        else -> {
+            fullMessagesLook()
+        }
+    }
+
+private fun Appearance.fullMessagesLook(): Appearance =
+    copy(
+        colorSource = org.pingme.core.ui.theme.ColorSource.Dynamic,
+        networkColors = networkColors - org.pingme.core.model.NetworkId.GMESSAGES,
+        bubbleCorner = null,
+        bubbleTails = true,
+        bubbleStyle = org.pingme.core.ui.theme.BubbleStyle.GRADIENT,
+        timestamps = org.pingme.core.ui.theme.TimestampMode.ON_TAP,
+        avatarSize = MESSAGES_AVATAR,
+        uiFont = org.pingme.core.ui.theme.FontChoice.System,
+        messageFont = org.pingme.core.ui.theme.FontChoice.System,
+        lookVersion = MESSAGES_LOOK,
+    )
+
+private const val MESSAGES_LOOK = 3
+private const val DEEP_BLUE_ONLY_FROM = 2
+private const val MESSAGES_AVATAR = 52f
 
 /** Drops references to font and picture files that are not on this phone. */
 fun Appearance.withoutMissingFiles(): Appearance {

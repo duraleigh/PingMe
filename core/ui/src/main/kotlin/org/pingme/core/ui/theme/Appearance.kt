@@ -31,6 +31,8 @@ data class Appearance(
     /** Shape (UI_DESIGN.md 4.2). Bubble corner radius in dp; null follows the shape family. */
     val bubbleCorner: Float? = null,
     val bubbleTails: Boolean = true,
+    /** The round of the Google Messages look applied; a choice made after that stands (owner, 2026-11-02). */
+    val lookVersion: Int = 0,
     val bubbleStyle: BubbleStyle = BubbleStyle.TONAL,
     // Layout and density (UI_DESIGN.md 4.3)
     val inboxDensity: InboxDensity = InboxDensity.COMFORTABLE,
@@ -81,7 +83,7 @@ enum class Haptics { OFF, LIGHT, STRONG }
 
 /** What a swipe on an inbox row does (UI_DESIGN.md 3.1). Each direction is set on its own. */
 @Serializable
-enum class SwipeAction { PIN, ARCHIVE, MUTE, MARK_READ, LOW_PRIORITY, DELETE, OFF }
+enum class SwipeAction { PIN, ARCHIVE, MUTE, MARK_READ, LOW_PRIORITY, MOVE_FOLDER, DELETE, OFF }
 
 /** App icon variants, switched through activity aliases (UI_DESIGN.md 4.6). */
 @Serializable
@@ -175,6 +177,10 @@ enum class ShapeFamily { ROUND, SOFT, SHARP, EXPRESSIVE }
 
 @Serializable
 sealed interface FontChoice {
+    /** The phone's own font, the nearest thing to the one Google Messages uses (owner, 2026-11-02). */
+    @Serializable
+    data object System : FontChoice
+
     @Serializable
     data class Bundled(
         val font: BundledFont,

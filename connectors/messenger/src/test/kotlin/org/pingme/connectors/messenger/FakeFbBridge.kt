@@ -29,6 +29,7 @@ class FakeFbBridge : FbBridge {
 
     override fun newSession(
         cookiesJson: String,
+        storePath: String,
         sink: FbEventSink,
     ): FbSession {
         val cookies = fbJson.decodeFromString(MapSerializer(String.serializer(), String.serializer()), cookiesJson)

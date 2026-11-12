@@ -2,6 +2,8 @@
 package org.pingme.app.chat.later
 
 import android.os.Looper
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -14,11 +16,13 @@ import androidx.compose.ui.test.performTouchInput
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.chat.COMPOSER
 import org.pingme.app.chat.ChatRoute
 import org.pingme.app.chat.ChatViewModel
@@ -33,8 +37,12 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.time.Duration
+import kotlin.time.Duration.Companion.hours
 
-/** Send later from the send button's menu, the waiting bubble, and Send now (UI_DESIGN.md 10.13). */
+/**
+ * Send later from holding Send, the waiting bubble, and Send now (UI_DESIGN.md 10.13): holding Send
+ * opens the calendar at once, with "Last used" at its bottom left (owner, 2026-11-07).
+ */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w411dp-h891dp-xhdpi")
@@ -51,6 +59,8 @@ class SendLaterScreenTest {
     @Before
     fun setUp() {
         demo = DemoInbox(temp.root)
+        // A message was scheduled earlier for two hours from now: "Last used" offers that moment.
+        runBlocking { demo.settings.setLastScheduledAt(soon) }
         demo.controls.update { it.copy(liveActivity = false) }
         runBlocking { demo.seed() }
         vm = demo.chatViewModel("sam")
@@ -83,10 +93,7 @@ class SendLaterScreenTest {
     @Test
     fun aMessageCanWaitAndThenGoAtOnce() {
         compose.onNode(hasTestTag(COMPOSER)).performTextInput("See you soon")
-        compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
-        compose.onNodeWithText("Send later").performClick()
-        compose.onNode(hasTestTag(LATER_FIELD)).performTextInput("in 2 hours")
-        compose.onNodeWithText("Schedule").performClick()
+        scheduleOnLastUsed(checkAccess = true)
         waitFor { latest().status is MessageStatus.Scheduled }
         // The wake-up is set just after the message is stored.
         waitFor { demo.alarm.armed > 0 }
@@ -105,10 +112,7 @@ class SendLaterScreenTest {
     @Test
     fun aWaitingMessageOffersItsOwnActionsAndUnschedulingDeletesIt() {
         compose.onNode(hasTestTag(COMPOSER)).performTextInput("Happy birthday")
-        compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
-        compose.onNodeWithText("Send later").performClick()
-        compose.onNode(hasTestTag(LATER_FIELD)).performTextInput("in 2 hours")
-        compose.onNodeWithText("Schedule").performClick()
+        scheduleOnLastUsed()
         waitFor { latest().status is MessageStatus.Scheduled }
         val waiting = latest()
         waitFor { compose.onAllNodesWithText("Sends ", substring = true).fetchSemanticsNodes().isNotEmpty() }
@@ -118,8 +122,83 @@ class SendLaterScreenTest {
             compose.onNodeWithText(it).assertExists()
         }
         compose.onNodeWithText("Reply").assertDoesNotExist()
+        compose.assertAccessible()
         compose.onNodeWithText("Unschedule").performClick()
         waitFor { runBlocking { demo.messages.get(waiting.id) } == null }
+    }
+
+    private val soon =
+        kotlin.time.Clock.System
+            .now() + 2.hours
+
+    // Hold Send, then Last used, then Schedule on the confirmation that shows the moment.
+    private fun scheduleOnLastUsed(checkAccess: Boolean = false) {
+        compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
+        compose.onNodeWithText("Last used").performClick()
+        compose.onNodeWithText("Sends ", substring = true).assertExists()
+        // The confirmation, as a screen reader sees it (P8.1).
+        if (checkAccess) compose.assertAccessible()
+        compose.onNodeWithText("Schedule").performClick()
+    }
+
+    @Test
+    fun holdingSendOpensTheCalendarStraightAway() {
+        compose.onNode(hasTestTag(COMPOSER)).performTextInput("See you soon")
+        compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
+        compose.onNodeWithText("Send later").assertDoesNotExist()
+        compose.onNodeWithText("Last used").assertIsEnabled()
+        compose.onNodeWithText("Cancel").assertExists()
+        // OK goes on to the clock, as before.
+        compose.onNodeWithText("OK").performClick()
+        compose.onNodeWithText("Schedule").assertExists()
+        compose.onNodeWithText("Last used").assertDoesNotExist()
+    }
+
+    @Test
+    fun goBackReturnsToTheCalendarAndCancelSchedulesNothing() {
+        compose.onNode(hasTestTag(COMPOSER)).performTextInput("See you soon")
+        compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
+        compose.onNodeWithText("Last used").performClick()
+        compose.onNodeWithText("Go back").performClick()
+        compose.onNodeWithText("OK").assertExists()
+        compose.onNodeWithText("Last used").performClick()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithText("Sends ", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("OK").assertDoesNotExist()
+        assert(latest().status !is MessageStatus.Scheduled)
+    }
+
+    @Test
+    fun lastUsedIsGreyedOutOnceItsMomentHasPassed() {
+        runBlocking {
+            demo.settings.setLastScheduledAt(
+                kotlin.time.Clock.System
+                    .now() - 1.hours,
+            )
+        }
+        waitFor {
+            vm.lastScheduled.value?.let {
+                it <
+                    kotlin.time.Clock.System
+                        .now()
+            } == true
+        }
+        compose.onNode(hasTestTag(COMPOSER)).performTextInput("See you soon")
+        compose.onNode(hasContentDescription("Send")).performTouchInput { longClick() }
+        compose.onNodeWithText("Last used").assertIsNotEnabled()
+    }
+
+    @Test
+    fun schedulingRemembersTheMomentForNextTime() {
+        compose.onNode(hasTestTag(COMPOSER)).performTextInput("First")
+        scheduleOnLastUsed()
+        waitFor { latest().status is MessageStatus.Scheduled }
+        val at = (latest().status as MessageStatus.Scheduled).at
+        assertEquals(soon.toEpochMilliseconds(), at.toEpochMilliseconds())
+        assertEquals(
+            soon.toEpochMilliseconds(),
+            runBlocking { demo.settings.lastScheduledAt.first() }?.toEpochMilliseconds(),
+        )
     }
 
     private companion object {

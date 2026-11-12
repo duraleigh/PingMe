@@ -17,6 +17,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.inbox.DemoInbox
 import org.pingme.core.model.NetworkId
 import org.pingme.core.ui.theme.Appearance
@@ -118,5 +119,10 @@ class SetupScreenTest {
     private companion object {
         const val TIMEOUT = 15_000L
         val STEP: Duration = Duration.ofMillis(50)
+    }
+
+    @Test
+    fun everyControlHasASpokenNameAndIsBigEnough() {
+        compose.assertAccessible()
     }
 }

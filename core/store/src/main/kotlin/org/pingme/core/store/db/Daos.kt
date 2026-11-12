@@ -61,6 +61,12 @@ data class SpaceUnreadRow(
     val unread: Int,
 )
 
+/** A member chat and the merged chat it belongs to (see ChatDao.observeMemberships). */
+data class MembershipRow(
+    val id: String,
+    val mergedInto: String,
+)
+
 /** One row of the unread counting rule (see ChatDao.unreadRows). */
 data class UnreadRow(
     val accountId: String,
@@ -81,6 +87,8 @@ data class LastMessageRow(
     val status: MessageStatus,
 )
 
+/** How many messages a chat holds since some time: how much it is talked in. */
+
 @Dao
 interface ChatDao {
     @Transaction
@@ -90,6 +98,15 @@ interface ChatDao {
     /** Remembers that the user deleted a chat here, so a network listing does not bring it back. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun tombstone(tombstone: ChatTombstoneEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun setFolderMove(move: ChatFolderMoveEntity)
+
+    @Query("SELECT folder FROM chat_folder_moves WHERE chatId = :chatId")
+    suspend fun folderMove(chatId: String): ChatFolder?
+
+    @Query("DELETE FROM chat_folder_moves WHERE chatId = :chatId")
+    suspend fun clearFolderMove(chatId: String)
 
     @Query("SELECT hiddenAt FROM chat_tombstones WHERE chatId = :chatId")
     suspend fun hiddenAt(chatId: String): Instant?
@@ -115,6 +132,7 @@ interface ChatDao {
         """
         SELECT c.* FROM chats c JOIN accounts a ON a.id = c.accountId
         WHERE c.isArchived = 0 AND c.isLowPriority = 0
+          AND c.mergedInto IS NULL
           AND (c.folder IS NULL OR c.folder != 'REQUESTS')
           AND (c.folder IS NULL OR c.folder != 'GENERAL' OR :showGeneral)
           AND a.showInInbox = 1
@@ -122,6 +140,79 @@ interface ChatDao {
         """,
     )
     fun observeInbox(showGeneral: Boolean): Flow<List<ChatWithParticipants>>
+
+    /** The member chats of a merged chat, newest activity first (UI_DESIGN.md 10.15). */
+    @Transaction
+    @Query("SELECT * FROM chats WHERE mergedInto = :id ORDER BY lastActivityAt DESC")
+    fun observeMembers(id: String): Flow<List<ChatWithParticipants>>
+
+    @Transaction
+    @Query("SELECT * FROM chats WHERE mergedInto = :id ORDER BY lastActivityAt DESC")
+    suspend fun members(id: String): List<ChatWithParticipants>
+
+    /** Every member chat with the merged chat it belongs to. */
+    @Query("SELECT id, mergedInto FROM chats WHERE mergedInto IS NOT NULL")
+    fun observeMemberships(): Flow<List<MembershipRow>>
+
+    @Query("UPDATE chats SET mergedInto = :parent WHERE id = :id")
+    suspend fun setMergedInto(
+        id: String,
+        parent: String?,
+    )
+
+    /** A merged chat's unread count and last activity follow its members. */
+    @Query(
+        """
+        UPDATE chats SET
+          unreadCount = (SELECT COALESCE(SUM(m.unreadCount), 0) FROM chats m WHERE m.mergedInto = :id),
+          lastActivityAt = MAX(lastActivityAt, (SELECT COALESCE(MAX(m.lastActivityAt), 0) FROM chats m WHERE m.mergedInto = :id))
+        WHERE id = :id
+        """,
+    )
+    suspend fun refreshMerged(id: String)
+
+    /** A merged chat with fewer than two members left releases the one that remains. */
+    @Query(
+        "UPDATE chats SET mergedInto = NULL WHERE mergedInto = :id " +
+            "AND (SELECT COUNT(*) FROM chats m WHERE m.mergedInto = :id) < 2",
+    )
+    suspend fun releaseLonelyMember(id: String)
+
+    /** Removes a merged chat that has no members left. */
+    @Query("DELETE FROM chats WHERE id = :id AND NOT EXISTS (SELECT 1 FROM chats m WHERE m.mergedInto = :id)")
+    suspend fun deleteIfNoMembers(id: String)
+
+    /**
+     * Members whose merged chat no longer exists go back to being chats of their own (owner,
+     * 2026-11-07: 16 Instagram chats pointed at merged chats deleted with an account, and so
+     * were in no list at all). Returns how many.
+     */
+    @Query(
+        "UPDATE chats SET mergedInto = NULL WHERE mergedInto IS NOT NULL AND mergedInto NOT IN (SELECT id FROM chats)",
+    )
+    suspend fun releaseStranded(): Int
+
+    /** The chats [releaseStranded] would free, named for the diagnostic file first. */
+    @Query(
+        "SELECT id, title, accountId, lastActivityAt FROM chats " +
+            "WHERE mergedInto IS NOT NULL AND mergedInto NOT IN (SELECT id FROM chats) ORDER BY lastActivityAt DESC",
+    )
+    suspend fun stranded(): List<StrandedChatRow>
+
+    /**
+     * Before account [gone] is removed, which takes its chats with it, each merged chat filed
+     * under it moves to a member on another account, so the merge and its other members stay.
+     */
+    @Query(
+        "UPDATE chats SET accountId = (SELECT m.accountId FROM chats m WHERE m.mergedInto = chats.id " +
+            "AND m.accountId != :gone LIMIT 1) WHERE accountId = :gone AND EXISTS " +
+            "(SELECT 1 FROM chats m WHERE m.mergedInto = chats.id AND m.accountId != :gone)",
+    )
+    suspend fun rehomeMerged(gone: String)
+
+    /** A merged chat that sent through account [gone] by default sends through its own account instead. */
+    @Query("UPDATE chats SET defaultSendAccount = accountId WHERE defaultSendAccount = :gone AND accountId != :gone")
+    suspend fun dropDefaultSendAccount(gone: String)
 
     /** Pinned chats in grid order. */
     @Transaction
@@ -144,6 +235,19 @@ interface ChatDao {
     @Query("SELECT * FROM chats WHERE accountId = :accountId ORDER BY lastActivityAt DESC")
     fun observeByAccount(accountId: String): Flow<List<ChatWithParticipants>>
 
+    /** The chats one person is in. */
+    @Transaction
+    @Query("SELECT c.* FROM chats c JOIN chat_participants cp ON cp.chatId = c.id WHERE cp.personId = :personId")
+    suspend fun withParticipant(personId: String): List<ChatWithParticipants>
+
+    /** An account's chats carrying one of these titles (a bare number, before a name was known). */
+    @Transaction
+    @Query("SELECT * FROM chats WHERE accountId = :accountId AND title IN (:titles)")
+    suspend fun titled(
+        accountId: String,
+        titles: List<String>,
+    ): List<ChatWithParticipants>
+
     /**
      * The unread counting rule (BUILD_PLAN.md P1.2, UI_DESIGN.md 6.4), grouped so every badge
      * can be summed from it: only chats that are not archived, not low priority, not muted
@@ -154,11 +258,14 @@ interface ChatDao {
         """
         SELECT c.accountId AS accountId, a.network AS network, c.spaceId AS spaceId,
                SUM(c.unreadCount) AS unread
-        FROM chats c JOIN accounts a ON a.id = c.accountId
+        FROM chats c JOIN accounts a ON a.id = c.accountId LEFT JOIN chats p ON p.id = c.mergedInto
         WHERE c.unreadCount > 0
-          AND c.isArchived = 0
-          AND c.isLowPriority = 0
-          AND NOT (c.isMuted = 1 AND (c.muteUntil IS NULL OR c.muteUntil > :now))
+          AND NOT EXISTS (SELECT 1 FROM chats m WHERE m.mergedInto = c.id)
+          AND (CASE WHEN p.id IS NULL THEN c.isArchived ELSE p.isArchived END) = 0
+          AND (CASE WHEN p.id IS NULL THEN c.isLowPriority ELSE p.isLowPriority END) = 0
+          AND NOT ((CASE WHEN p.id IS NULL THEN c.isMuted ELSE p.isMuted END) = 1
+                   AND ((CASE WHEN p.id IS NULL THEN c.muteUntil ELSE p.muteUntil END) IS NULL
+                        OR (CASE WHEN p.id IS NULL THEN c.muteUntil ELSE p.muteUntil END) > :now))
           AND (c.folder IS NULL OR c.folder != 'REQUESTS')
           AND (c.folder IS NULL OR c.folder != 'GENERAL' OR :showGeneral)
           AND a.showInInbox = 1
@@ -223,6 +330,14 @@ data class MessageWithParts(
 
 @Dao
 interface MessageDao {
+    /** The newest messages across several chats, for a merged chat's one timeline (UI_DESIGN.md 10.15). */
+    @Transaction
+    @Query("SELECT * FROM messages WHERE chatId IN (:chatIds) ORDER BY sentAt DESC, rowId DESC LIMIT :limit")
+    fun observeLatestIn(
+        chatIds: List<String>,
+        limit: Int,
+    ): Flow<List<MessageWithParts>>
+
     /** The newest [limit] messages of a chat, newest first. */
     @Transaction
     @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY sentAt DESC, rowId DESC LIMIT :limit")
@@ -249,6 +364,17 @@ interface MessageDao {
     @Query("SELECT id FROM messages WHERE chatId = :chatId ORDER BY sentAt DESC, rowId DESC LIMIT 1")
     suspend fun newestId(chatId: String): String?
 
+    /** When the chat's newest stored message was sent: what "read" must reach (owner, Gate G7, round 3). */
+    @Query("SELECT MAX(sentAt) FROM messages WHERE chatId = :chatId")
+    suspend fun newestSentAt(chatId: String): Instant?
+
+    /** Your messages still on [status] from before [before]: left behind, since a send ends in minutes. */
+    @Query("SELECT id FROM messages WHERE isOutgoing = 1 AND status = :status AND sentAt < :before")
+    suspend fun idsWithStatus(
+        status: MessageStatus,
+        before: Instant,
+    ): List<String>
+
     /** The newest message of every chat, for inbox previews (UI_DESIGN.md 3.1). */
     @Query(
         """
@@ -273,6 +399,16 @@ interface MessageDao {
         """,
     )
     fun observePinned(chatId: String): Flow<List<MessageWithParts>>
+
+    /** Pinned messages across a merged chat's members. */
+    @Transaction
+    @Query(
+        """
+        SELECT m.* FROM messages m JOIN pinned_messages p ON p.messageId = m.id
+        WHERE p.chatId IN (:chatIds) ORDER BY p.pinnedAt DESC, p.rowid DESC
+        """,
+    )
+    fun observePinnedIn(chatIds: List<String>): Flow<List<MessageWithParts>>
 
     @Upsert
     suspend fun pin(pin: PinnedMessageEntity)
@@ -314,6 +450,12 @@ interface MessageDao {
         chatId: String,
         limit: Int,
     ): Flow<List<MessageWithParts>>
+
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId IN (:chatIds) AND sentAt > :sentAt")
+    suspend fun countNewerIn(
+        chatIds: List<String>,
+        sentAt: Instant,
+    ): Int
 
     /** How many of a chat's messages are newer than [sentAt]: how far back the list must reach to show one. */
     @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND sentAt > :sentAt")
@@ -550,6 +692,54 @@ interface PersonDao {
     @Query("SELECT * FROM persons WHERE contactId = :contactId")
     fun observeByContact(contactId: String): Flow<List<PersonEntity>>
 
+    /**
+     * Entries that are you under another name: one carrying a "You" entry's number, or one
+     * inside the one-to-one chats of [many] or more differently named people, which only you
+     * can be.
+     */
+    @Query(
+        "SELECT * FROM persons WHERE displayName != 'You' AND (" +
+            "(phoneNumber IS NOT NULL AND phoneNumber IN " +
+            "(SELECT phoneNumber FROM persons WHERE displayName = 'You' AND phoneNumber IS NOT NULL)) " +
+            "OR (SELECT COUNT(DISTINCT c.title) FROM chat_participants cp JOIN chats c ON c.id = cp.chatId " +
+            "WHERE cp.personId = persons.id AND c.kind = 'DIRECT') >= :many)",
+    )
+    suspend fun youUnderAnotherName(many: Int): List<PersonEntity>
+
+    /** Makes these entries yours: named "You", with no contact link. */
+    @Query(
+        "UPDATE persons SET displayName = 'You', contactId = NULL, contactName = NULL, contactPhoto = NULL " +
+            "WHERE id IN (:ids)",
+    )
+    suspend fun makeYou(ids: List<String>)
+
+    /** Everyone with a phone number: who the address book can be matched against. */
+    @Query("SELECT * FROM persons WHERE phoneNumber IS NOT NULL")
+    suspend fun withPhones(): List<PersonEntity>
+
+    /** Everyone some chat lists, so the inbox can show their names and photos. */
+    @Query("SELECT DISTINCT p.* FROM persons p JOIN chat_participants cp ON cp.personId = p.id")
+    fun observeInChats(): Flow<List<PersonEntity>>
+
+    /** Where the network's profile photo was saved on this phone. */
+    @Query("UPDATE persons SET avatarPath = :path WHERE id = :id")
+    suspend fun setAvatar(
+        id: String,
+        path: String,
+    )
+
+    /** The phone's link for a person: the contact's lookup key, name, and photo, or none. */
+    @Query(
+        "UPDATE persons SET contactId = :contactId, contactName = :contactName, contactPhoto = :contactPhoto " +
+            "WHERE id = :id",
+    )
+    suspend fun link(
+        id: String,
+        contactId: String?,
+        contactName: String?,
+        contactPhoto: String?,
+    )
+
     @Upsert
     suspend fun upsert(person: PersonEntity)
 
@@ -618,14 +808,18 @@ interface SpaceDao {
 
 @Dao
 interface ScheduledSendDao {
-    @Query("SELECT * FROM scheduled_sends ORDER BY sendAt")
+    @Query("SELECT * FROM scheduled_sends ORDER BY sendAt, rowid")
     fun observeAll(): Flow<List<ScheduledSendEntity>>
 
     @Query("SELECT * FROM scheduled_sends WHERE chatId = :chatId ORDER BY sendAt")
     fun observeByChat(chatId: String): Flow<List<ScheduledSendEntity>>
 
-    /** Sends whose time has come, including late ones (UI_DESIGN.md 10.13). */
-    @Query("SELECT * FROM scheduled_sends WHERE sendAt <= :now ORDER BY sendAt")
+    /**
+     * Sends whose time has come, including late ones (UI_DESIGN.md 10.13). Those set for the same
+     * moment go in the order they were scheduled (owner, 2026-11-07: a second message on "Last used"
+     * goes right after the first).
+     */
+    @Query("SELECT * FROM scheduled_sends WHERE sendAt <= :now ORDER BY sendAt, rowid")
     suspend fun due(now: Instant): List<ScheduledSendEntity>
 
     @Query("SELECT * FROM scheduled_sends WHERE messageId = :messageId")
@@ -700,3 +894,11 @@ interface ChatOverridesDao {
     @Upsert
     suspend fun upsert(overrides: ChatOverridesEntity)
 }
+
+/** A chat left pointing at a merged chat that no longer exists. */
+data class StrandedChatRow(
+    val id: String,
+    val title: String,
+    val accountId: String,
+    val lastActivityAt: kotlin.time.Instant,
+)

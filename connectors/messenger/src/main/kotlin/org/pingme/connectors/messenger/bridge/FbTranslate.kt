@@ -140,7 +140,7 @@ class FbTranslate(
             displayName = displayName(user),
             phoneNumber = null,
             networkHandle = user.id,
-            avatarPath = null,
+            avatarPath = user.picture.ifEmpty { null },
             contactId = null,
         )
 

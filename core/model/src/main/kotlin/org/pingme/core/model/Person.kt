@@ -3,7 +3,11 @@ package org.pingme.core.model
 
 import kotlinx.serialization.Serializable
 
-/** A person as seen by one network account. Linked to a phone contact by [contactId]. */
+/**
+ * A person as seen by one network account. Linked to a phone contact by [contactId]
+ * (UI_DESIGN.md 10.18): the link is made on the phone, never sent by a network, and the
+ * contact's name and photo ride along so every screen can show them.
+ */
 @Serializable
 data class Person(
     val id: PersonId,
@@ -13,7 +17,17 @@ data class Person(
     val networkHandle: String,
     val avatarPath: String?,
     val contactId: ContactId?,
-)
+    /** The matched contact's name, when the phone's address book has this person. */
+    val contactName: String? = null,
+    /** The matched contact's photo, as a content address the phone can load. */
+    val contactPhoto: String? = null,
+) {
+    /** The name to show: the contact's first, then the network's (UI_DESIGN.md 10.18). */
+    val name: String get() = contactName ?: displayName
+
+    /** The photo to show: the contact's first, then the network's profile photo. */
+    val photo: String? get() = contactPhoto ?: avatarPath
+}
 
 /** A named group of chats shown as one unit (UI_DESIGN.md 10.4). */
 @Serializable

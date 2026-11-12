@@ -59,7 +59,7 @@ internal fun messengerLoginFlow(
         val userId = cookies.getValue("c_user")
         try {
             // Opening a session checks the cookies are complete; the connector connects later.
-            withContext(Dispatchers.IO) { bridge.newSession(json) { } }
+            withContext(Dispatchers.IO) { bridge.newSession(json, "") { } }
         } catch (e: CancellationException) {
             throw e
         } catch (

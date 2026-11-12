@@ -14,11 +14,13 @@ import org.pingme.core.connector.OutgoingMessage
 import org.pingme.core.connector.SendResult
 import org.pingme.core.connector.chat
 import org.pingme.core.connector.message
+import org.pingme.core.connector.person
 import org.pingme.core.model.AttachmentKind
 import org.pingme.core.model.MessageKind
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Quote
+import org.pingme.core.model.Reaction
 import org.pingme.core.store.PinnedMessageRepository
 import java.io.File
 import kotlin.time.Duration.Companion.hours
@@ -44,7 +46,15 @@ class MessageActionsTest : ServiceTest() {
                 .CleanLinks
                 .fromAssets(context),
             QuietPreviews(context),
+            merged,
+            org.pingme.core.service.notify
+                .ShareShortcuts(context, chats),
+            reactionEdits,
         )
+    }
+    private val merged by lazy {
+        org.pingme.core.store
+            .MergeRepository(db)
     }
     private val scheduledSends by lazy {
         org.pingme.core.store
@@ -64,6 +74,59 @@ class MessageActionsTest : ServiceTest() {
         accounts.upsert(account())
         applier.applyChats(listOf(chatSnapshot(unread = 2)))
     }
+
+    @Test
+    fun aMessageToAMergedChatGoesThroughAConnectedMember() =
+        runTest {
+            // The share picker and the notification shade name the merged chat itself (owner,
+            // 2026-10-06: a share to one failed with "This network is not connected").
+            val other =
+                org.pingme.core.model
+                    .AccountId("wa")
+            accounts.upsert(account())
+            accounts.upsert(
+                org.pingme.core.model.Account(
+                    other,
+                    NetworkId.DEMO,
+                    "WhatsApp",
+                    0,
+                    org.pingme.core.model.ConnectionState.Connected,
+                    true,
+                    org.pingme.core.model.NotificationMode.NORMAL,
+                    "cred",
+                ),
+            )
+            applier.applyChats(listOf(chatSnapshot("c1")))
+            val samOnWa = sam().copy(id = other.person("sam"), accountId = other, displayName = "+15555550123")
+            applier.applyChats(
+                listOf(
+                    chatSnapshot("w1", title = "+15555550123").copy(
+                        id = other.chat("w1"),
+                        accountId = other,
+                        participants = listOf(samOnWa),
+                    ),
+                ),
+            )
+            val mergedId =
+                org.pingme.core.service.merge
+                    .Merges(chats, merged, contacts)
+                    .merge(listOf(accountId.chat("c1"), other.chat("w1")))
+            connector.sendResult = { draft ->
+                SendResult.Sent(messageSnapshot("net-m", body = draft.body!!, outgoing = true))
+            }
+            val sent = actions.send(mergedId, "Through a member")
+            assertTrue("sent on a member's network, not the merged row", sent.chatId != mergedId)
+            assertTrue(sent.chatId == accountId.chat("c1") || sent.chatId == other.chat("w1"))
+            assertFalse("the member's connector took it", sent.status is MessageStatus.Failed)
+            assertEquals(
+                "Through a member",
+                messages
+                    .latest(sent.chatId, 5)
+                    .first()
+                    .first()
+                    .body,
+            )
+        }
 
     @Test
     fun aSentMessageReplacesItsPendingBubble() =
@@ -123,6 +186,32 @@ class MessageActionsTest : ServiceTest() {
             connector.sendResult = { SendResult.Sent(messageSnapshot("net-2", body = "Hello", outgoing = true)) }
             actions.retry(failed)
             assertEquals(listOf("net-2"), messages.latest(chatId, 10).first().map { it.id.value.substringAfter('/') })
+        }
+
+    @Test
+    fun aNetworkThatCarriesOnePictureAMessageGetsOneMessagePerPicture() =
+        runTest {
+            // Google Messages keeps one picture per message and drops the rest (owner,
+            // 2026-10-05: two screenshots sent, one arrived).
+            seed()
+            connector.capabilities = connector.capabilities.copy(attachmentsPerMessage = 1)
+            val one = File.createTempFile("one", ".jpg").apply { writeBytes(ByteArray(PHOTO_BYTES)) }
+            val two = File.createTempFile("two", ".jpg").apply { writeBytes(ByteArray(PHOTO_BYTES)) }
+            val files =
+                listOf(one, two).map { OutgoingAttachment(it.path, "image/jpeg", AttachmentKind.IMAGE, it.name, null) }
+            val drafts = mutableListOf<OutgoingMessage>()
+            connector.sendResult = { draft ->
+                drafts += draft
+                SendResult.Failed("No signal", retryable = true)
+            }
+            val first = actions.send(chatId, "two options", attachments = files)
+            assertEquals(2, drafts.size)
+            assertEquals("two options", drafts[0].body)
+            assertEquals(listOf(files[0]), drafts[0].attachments)
+            assertEquals(null, drafts[1].body)
+            assertEquals(listOf(files[1]), drafts[1].attachments)
+            assertEquals("two options", first.body)
+            assertEquals(1, first.attachments.size)
         }
 
     @Test
@@ -222,6 +311,85 @@ class MessageActionsTest : ServiceTest() {
             assertEquals(listOf("😂"), latest().reactions.map { it.emoji })
             actions.react(latest(), "😂", remove = true)
             assertTrue(latest().reactions.isEmpty())
+        }
+
+    /** Two stored messages: Sam's "m1" and one of yours, so the store knows who you are. */
+    private suspend fun seedForReactions(): org.pingme.core.connector.MessageSnapshot {
+        seed()
+        val m1 = messageSnapshot("m1")
+        applier.apply(
+            org.pingme.core.connector.ConnectorEvent
+                .NewMessage(accountId, m1),
+        )
+        applier.apply(
+            org.pingme.core.connector.ConnectorEvent
+                .NewMessage(accountId, messageSnapshot("mine", outgoing = true)),
+        )
+        return m1
+    }
+
+    private suspend fun storedEmoji(id: org.pingme.core.model.MessageId) =
+        messages
+            .get(id)!!
+            .reactions
+            .map { it.emoji }
+            .sorted()
+
+    // Opening a chat fetches its newest page; on a slow network the page can be asked for before
+    // a double tap and saved after it (BUILD_LOG, 2026-11-05: "A test that failed once on GitHub").
+    @Test
+    fun aPageAskedForBeforeYouReactedDoesNotTakeYourReactionAway() =
+        runTest {
+            val m1 = seedForReactions()
+            connector.history = listOf(m1)
+            connector.beforeHistory = { actions.react(messages.get(m1.message.id)!!, "❤️") }
+            actions.catchUp(chatId)
+            assertEquals(listOf("❤️"), storedEmoji(m1.message.id))
+        }
+
+    @Test
+    fun aPageAskedForBeforeYouTookAReactionBackDoesNotBringItBack() =
+        runTest {
+            val m1 = seedForReactions()
+            actions.react(messages.get(m1.message.id)!!, "❤️")
+            val me = messages.selfIn(chatId)!!
+            connector.history =
+                listOf(m1.copy(message = m1.message.copy(reactions = listOf(Reaction("❤️", me, now)))))
+            connector.beforeHistory = { actions.react(messages.get(m1.message.id)!!, "❤️", remove = true) }
+            actions.catchUp(chatId)
+            assertEquals(emptyList<String>(), storedEmoji(m1.message.id))
+        }
+
+    @Test
+    fun aPageAskedForBeforeSomeoneElseReactedKeepsTheirReaction() =
+        runTest {
+            val m1 = seedForReactions()
+            connector.history = listOf(m1)
+            connector.beforeHistory = {
+                applier.apply(
+                    org.pingme.core.connector.ConnectorEvent
+                        .ReactionChanged(accountId, m1.message.id, Reaction("😮", sam().id, now), removed = false),
+                )
+            }
+            actions.catchUp(chatId)
+            assertEquals(listOf("😮"), storedEmoji(m1.message.id))
+        }
+
+    // The network's own word still counts: reactions taken away elsewhere (on the paired phone,
+    // or by the other person) before the page was asked for are gone from the page, so they go here.
+    @Test
+    fun aPageAskedForAfterTheLastReactionStillTakesAwayWhatTheNetworkRemoved() =
+        runTest {
+            val m1 = seedForReactions()
+            actions.react(messages.get(m1.message.id)!!, "❤️")
+            applier.apply(
+                org.pingme.core.connector.ConnectorEvent
+                    .ReactionChanged(accountId, m1.message.id, Reaction("👍", sam().id, now), removed = false),
+            )
+            assertEquals(listOf("❤️", "👍"), storedEmoji(m1.message.id))
+            connector.history = listOf(m1)
+            actions.catchUp(chatId)
+            assertEquals(emptyList<String>(), storedEmoji(m1.message.id))
         }
 
     @Test

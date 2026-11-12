@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -37,6 +36,7 @@ import org.pingme.app.chat.attach.iconFor
 import org.pingme.app.chat.search.SearchType
 import org.pingme.core.model.Message
 import java.io.File
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /**
  * Media, links, and files from this chat (UI_DESIGN.md 3.4): the newest few of each, and

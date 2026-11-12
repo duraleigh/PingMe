@@ -125,6 +125,22 @@ class TelegramTranslate(
         users[user.id] = user
     }
 
+    private val avatars = HashMap<Long, String>()
+
+    @Synchronized
+    fun learnAvatar(
+        userId: Long,
+        path: String,
+    ) {
+        avatars[userId] = path
+    }
+
+    @Synchronized
+    fun hasAvatar(userId: Long) = userId in avatars
+
+    /** The small profile photo's file id, or 0 when the user has none. */
+    fun photoFileId(userId: Long): Int = users[userId]?.profilePhoto?.small?.id ?: 0
+
     @Synchronized
     fun rememberMembers(
         chatId: Long,
@@ -230,7 +246,8 @@ class TelegramTranslate(
             displayName = if (user.id == ownId) "You" else displayName(user.id),
             phoneNumber = user.phoneNumber.takeIf { it.isNotEmpty() }?.let { "+$it" },
             networkHandle = user.phoneNumber.takeIf { it.isNotEmpty() }?.let { "+$it" } ?: user.id.toString(),
-            avatarPath = null,
+            // The profile photo once downloaded to this phone (owner, 2026-10-05).
+            avatarPath = avatars[user.id],
             contactId = null,
         )
 

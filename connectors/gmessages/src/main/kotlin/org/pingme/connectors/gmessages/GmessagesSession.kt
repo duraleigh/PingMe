@@ -9,11 +9,15 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import org.pingme.connectors.gmessages.bridge.GmBridge
+import org.pingme.connectors.gmessages.bridge.GmConversation
 import org.pingme.connectors.gmessages.bridge.GmCursor
 import org.pingme.connectors.gmessages.bridge.GmError
 import org.pingme.connectors.gmessages.bridge.GmEvent
@@ -27,6 +31,7 @@ import org.pingme.core.connector.ActionNeededException
 import org.pingme.core.connector.ChatSnapshot
 import org.pingme.core.connector.ConnectorEvent
 import org.pingme.core.connector.CredentialStore
+import org.pingme.core.connector.Diag
 import org.pingme.core.connector.MessageSnapshot
 import org.pingme.core.connector.OutgoingAttachment
 import org.pingme.core.connector.OutgoingMessage
@@ -53,6 +58,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -93,28 +99,25 @@ internal class GmessagesSession(
     /** Sends waiting for the phone's copy, by tmpId. */
     private val outgoing = ConcurrentHashMap<String, Outgoing>()
     private val myReactions = ConcurrentHashMap<String, String>()
+    private val notedLines = ConcurrentHashMap.newKeySet<String>()
     private val connected = AtomicBoolean(false)
 
     @Volatile private var chats: List<ChatSnapshot>? = null
 
-    /**
-     * One send: what went out, so the phone's copy can be matched by its tmpId, or, when the
-     * phone drops that, by text and time. [waiter] is set while [send] waits; [standIn] once
-     * a stand-in message has been shown instead.
-     */
-    private class Outgoing(
-        val conversation: String,
-        val text: String,
-        val sentAt: Instant,
-        @Volatile var waiter: CompletableDeferred<MessageSnapshot>?,
-        @Volatile var standIn: MessageId? = null,
-    )
+    /** Every conversation listed since start-up, for [sweepChatLines]. */
+    private val recent = ConcurrentHashMap.newKeySet<GmConversation>()
+    private val swept = AtomicBoolean(false)
+
+    // One listing at a time: the session and the supervisor both ask for it on connecting.
+    private val listing = Mutex()
 
     /** Connects, then streams events until [close] or a failure. */
     fun flow(): Flow<ConnectorEvent> =
         channelFlow {
             try {
+                val opening = clock.now()
                 request { session.connect() }
+                Diag.connection(TAG, "Connection opened in ${clock.now() - opening}; waiting for the phone")
                 for (event in events) {
                     when (event) {
                         is GmEvent -> handle(event)
@@ -132,16 +135,11 @@ internal class GmessagesSession(
     }
 
     private suspend fun ProducerScope<ConnectorEvent>.handle(event: GmEvent) {
+        noteForDiary(event)
         endOfSession(event)?.let { throw it }
         when (event) {
             is GmEvent.Ready -> {
-                val first = !connected.getAndSet(true)
-                if (first || event.resync) {
-                    listChats().forEach { send(ConnectorEvent.ChatUpdated(accountId, it)) }
-                    // Conversations now folded into another chat leave no row of their own behind.
-                    go.aliases().forEach { send(ConnectorEvent.ChatRemoved(accountId, accountId.chat(it))) }
-                }
-                if (first) send(ConnectorEvent.State(accountId, ConnectionState.Connected))
+                ready(event)
             }
 
             is GmEvent.AuthUpdated -> {
@@ -192,6 +190,24 @@ internal class GmessagesSession(
         return listOf(ConnectorEvent.ChatUpdated(accountId, chat)) + go.translate(event)
     }
 
+    /** What the connection itself said, for the connection diary (owner, 2026-11-01). */
+    private fun noteForDiary(event: GmEvent) {
+        val line =
+            when (event) {
+                is GmEvent.Ready -> "The phone is ready (resync=${event.resync})"
+                is GmEvent.Inactive -> "Another web client took over: ${event.reason}"
+                is GmEvent.Phone -> if (event.responding) "The phone answers again" else "The phone stopped answering"
+                is GmEvent.TemporaryError -> "Temporary error: ${event.error}"
+                is GmEvent.Recovered -> "Recovered"
+                is GmEvent.NoData -> "Nothing has arrived for a long while"
+                is GmEvent.Fatal -> "Fatal: ${event.error}"
+                is GmEvent.Reconnect -> "Stalled: never became ready"
+                is GmEvent.LoggedOut -> "Logged out: ${event.reason}"
+                else -> return
+            }
+        Diag.connection(TAG, line)
+    }
+
     /** The events that end the session: unpaired needs the user; the rest get a reconnect. */
     private fun endOfSession(event: GmEvent): Exception? =
         when (event) {
@@ -201,9 +217,24 @@ internal class GmessagesSession(
             else -> null
         }
 
+    private suspend fun ProducerScope<ConnectorEvent>.ready(event: GmEvent.Ready) {
+        val first = !connected.getAndSet(true)
+        // Connected as soon as the phone says so: sending works from here, and reading
+        // through every chat first kept the bar on "reconnecting" (owner, 2026-11-01).
+        if (first) send(ConnectorEvent.State(accountId, ConnectionState.Connected))
+        if (first || event.resync) {
+            val listed = if (first) syncChats() else listChats()
+            listed.forEach { send(ConnectorEvent.ChatUpdated(accountId, it)) }
+            // Conversations now folded into another chat leave no row of their own behind.
+            go.aliases().forEach { send(ConnectorEvent.ChatRemoved(accountId, accountId.chat(it))) }
+        }
+        if (first && swept.compareAndSet(false, true)) launch { sweepChatLines() }
+    }
+
     /** A message echoing one of our sends completes the waiting send instead of arriving as new. */
     private suspend fun ProducerScope<ConnectorEvent>.echoOrForward(event: GmEvent.Message) {
         val msg = event.message
+        noteChatLine(msg)
         val translated = go.translate(event)
         val match = matchOutgoing(msg)
         Log.i(
@@ -236,23 +267,15 @@ internal class GmessagesSession(
         }
     }
 
-    /**
-     * The send a message from the phone belongs to: by its tmpId, or, when the phone did
-     * not keep that, the oldest recent send of the same text in the same chat.
-     */
+    /** The send a message from the phone answers, taken off the waiting list ([sendAnswered]). */
     private fun matchOutgoing(msg: GmMessage): Outgoing? {
-        if (!msg.fromMe) return null
-        val byTag = msg.tmpId.takeIf { it.isNotEmpty() }?.let { outgoing.remove(it) }
-        val now = clock.now()
-        val byText = {
-            outgoing.entries
-                .filter { (_, o) ->
-                    o.conversation == msg.conversationId && o.text == msg.text && now - o.sentAt < MATCH_WINDOW
-                }.minByOrNull { (_, o) -> o.sentAt }
-                ?.key
-                ?.let { outgoing.remove(it) }
-        }
-        return byTag ?: byText()
+        val key = sendAnswered(msg, outgoing, clock.now(), MATCH_WINDOW) ?: return null
+        Diag.note(
+            TAG,
+            "Phone's message ${msg.id} answers send $key (pictures=${msg.media.size}, " +
+                "went as ${msg.transport}, status ${msg.statusName})",
+        )
+        return outgoing.remove(key)
     }
 
     private fun snapshotOf(event: ConnectorEvent): MessageSnapshot =
@@ -263,14 +286,19 @@ internal class GmessagesSession(
         }
 
     /** The inbox's chats, freshly listed. */
-    suspend fun listChats(): List<ChatSnapshot> {
+    suspend fun listChats(): List<ChatSnapshot> = listing.withLock { listNow() }
+
+    private suspend fun listNow(): List<ChatSnapshot> {
         val found = ArrayList<ChatSnapshot>()
         var cursor: String? = ""
         var pages = 0
         while (cursor != null && pages < CHAT_PAGES) {
             val from: String = cursor
             val page = go.conversationPage(request { session.listConversations("inbox", CHAT_PAGE, from) })
-            page.conversations.filterNot(go::isGone).mapTo(found, go::chat)
+            page.conversations
+                .filterNot(go::isGone)
+                .also { recent.addAll(it) }
+                .mapTo(found, go::chat)
             cursor = page.cursor?.let { gmJson.encodeToString(GmCursor.serializer(), it) }
             pages++
         }
@@ -278,7 +306,7 @@ internal class GmessagesSession(
     }
 
     /** The chats from the last listing, or a fresh one. */
-    suspend fun syncChats(): List<ChatSnapshot> = chats ?: listChats()
+    suspend fun syncChats(): List<ChatSnapshot> = listing.withLock { chats ?: listNow() }
 
     /**
      * Up to [limit] messages older than [before] (the newest when null), newest first. A chat
@@ -344,15 +372,53 @@ internal class GmessagesSession(
         conversation: String,
         limit: Int,
         cursor: GmCursor?,
-    ) = go.messagePage(
-        request {
-            session.fetchMessages(
-                conversation,
-                limit,
-                cursor?.let { gmJson.encodeToString(GmCursor.serializer(), it) }.orEmpty(),
-            )
-        },
-    )
+    ) = go
+        .messagePage(
+            request {
+                session.fetchMessages(
+                    conversation,
+                    limit,
+                    cursor?.let { gmJson.encodeToString(GmCursor.serializer(), it) }.orEmpty(),
+                )
+            },
+        ).also { page -> page.messages.forEach(::noteChatLine) }
+
+    /**
+     * Once per start-up, reads the newest page of every chat active in the last two weeks so
+     * [noteChatLine] writes down each chat's carrying and encryption lines: the owner cannot
+     * know everyone whose replies went missing (2026-11-12). Reads only; one chat at a time.
+     */
+    private suspend fun sweepChatLines() {
+        val since = (clock.now() - SWEEP_WINDOW).toEpochMilliseconds() * MICROS_PER_MILLI
+        val chosen = recent.filter { it.lastMessageAt >= since }.distinctBy { it.id }
+        Diag.note(TAG, "Chat-line sweep: ${chosen.size} chat(s) active since ${SWEEP_WINDOW.inWholeDays} days ago")
+        chosen.forEach { conv ->
+            runCatching { fetch(conv.id, SWEEP_PAGE, null) }.onFailure {
+                Diag.note(TAG, "Chat-line sweep: chat ${conv.id} not read: ${it.message}")
+            }
+        }
+        Diag.note(TAG, "Chat-line sweep done")
+    }
+
+    /**
+     * Writes to the diary, once each, the lines Google Messages puts in a chat when it changes
+     * how the chat is carried ("RCS chat with …", "Texting with … (SMS/MMS)", encryption on or
+     * off), and any message whose status speaks of encryption or failure. Encrypted replies
+     * from iPhones stopped reaching the phone around 2026-11-10 (owner, 2026-11-12); these
+     * lines show when each chat changed and what PingMe sent around then.
+     */
+    private fun noteChatLine(msg: GmMessage) {
+        val name = msg.statusName
+        val telling =
+            msg.direction == "tombstone" || "ENCRYPT" in name || "E2EE" in name || "FAIL" in name
+        if (!telling || !notedLines.add(msg.id)) return
+        val at = java.time.Instant.ofEpochMilli(msg.timestamp / MICROS_PER_MILLI)
+        val who = recent.firstOrNull { it.id == msg.conversationId }?.name.orEmpty()
+        Diag.note(
+            TAG,
+            "Chat ${msg.conversationId} '$who' line ${msg.id} at $at: $name (${msg.status}) ${msg.transport}",
+        )
+    }
 
     suspend fun send(
         chatId: ChatId,
@@ -369,14 +435,17 @@ internal class GmessagesSession(
                 upload(file).also { progress((i + 1).toFloat() / draft.attachments.size) }
             }
         val waiter = CompletableDeferred<MessageSnapshot>()
-        val record = Outgoing(conversation, draft.body.orEmpty(), clock.now(), waiter)
+        val record = Outgoing(conversation, draft.body.orEmpty(), media.size, clock.now(), waiter)
         outgoing[tmpId] = record
-        Log.i(TAG, "send tmpId=$tmpId conv=$conversation chars=${draft.body.orEmpty().length} media=${media.size}")
+        val said = "send tmpId=$tmpId conv=$conversation chars=${draft.body.orEmpty().length} media=${media.size}"
+        Log.i(TAG, said)
+        Diag.note(TAG, said)
         val refused =
             try {
                 val body =
                     GmSendRequest(conversation, tmpId, draft.body.orEmpty(), draft.replyTo?.remoteId.orEmpty(), media)
-                request { session.sendMessage(gmJson.encodeToString(GmSendRequest.serializer(), body)) }
+                val how = request { session.sendMessage(gmJson.encodeToString(GmSendRequest.serializer(), body)) }
+                Diag.note(TAG, "send tmpId=$tmpId taken by the phone ($how)")
                 null
             } catch (e: CancellationException) {
                 throw e
@@ -385,6 +454,7 @@ internal class GmessagesSession(
             ) {
                 outgoing.remove(tmpId)
                 Log.w(TAG, "send tmpId=$tmpId refused", e)
+                Diag.note(TAG, "send tmpId=$tmpId refused: ${e.message}")
                 SendResult.Failed(sendFailure(e), retryable = GmError.codeOf(e) != GmError.REJECTED)
             }
         // Waited on a real-time dispatcher: the echo comes from the bridge's own thread, and a
@@ -402,6 +472,7 @@ internal class GmessagesSession(
             echoed == null
         ) {
             Log.i(TAG, "send tmpId=$tmpId: no echo in $ECHO_TIMEOUT, showing a stand-in")
+            Diag.note(TAG, "send tmpId=$tmpId: no answer from the phone in $ECHO_TIMEOUT, showing a stand-in")
         }
         val sent = echoed?.keepingFiles(draft) ?: standIn(chatId, conversation, draft, media, tmpId, record)
         return refused ?: SendResult.Sent(sent)
@@ -538,17 +609,38 @@ internal class GmessagesSession(
         groupName: String,
     ): ChatId {
         val json =
-            request {
-                session.getOrCreateConversation(
-                    gmJson.encodeToString(ListSerializer(String.serializer()), numbers),
-                    groupName,
-                )
+            try {
+                request {
+                    session.getOrCreateConversation(
+                        gmJson.encodeToString(ListSerializer(String.serializer()), numbers),
+                        groupName,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                throw inWords(e, numbers.size)
             }
         val conversation = go.conversation(json)
         // Registered now, so the id is the folded chat's; the event tells the store about it.
         val chat = go.chat(conversation)
         events.trySend(GmEvent.Conversation(conversation))
         return chat.id
+    }
+
+    /** The whole answer goes to the diary; the owner gets it in words (owner, 2026-11-01). */
+    private fun inWords(
+        e: Exception,
+        people: Int,
+    ): Exception {
+        Diag.note(TAG, "No conversation for $people number(s): ${e.message}")
+        return if (GmError.codeOf(e) == GmError.REJECTED) {
+            IOException(if (people > 1) GROUP_REFUSED else CHAT_REFUSED, e)
+        } else {
+            e
+        }
     }
 
     /** Downloads an attachment's file (full size, or the thumbnail while the phone uploads the rest). */
@@ -608,17 +700,31 @@ internal class GmessagesSession(
             GmError.PHONE_NOT_RESPONDING -> "The phone did not answer. Check Google Messages is open and online."
             GmError.NOT_CONNECTED -> "Not connected to Google Messages"
             GmError.REJECTED -> "Google Messages refused to send it"
-            else -> "Could not send: ${e.message.orEmpty().substringAfter(": ")}"
+            else -> sendTrouble(e.message.orEmpty())
         }
+
+    /** In plain words (owner, 2026-11-01: "Could not send: http2: timeout awaiting response headers"). */
+    private fun sendTrouble(detail: String): String {
+        Log.w(TAG, "send failed: $detail")
+        return if ("timeout" in detail || "deadline" in detail) {
+            "Google didn't answer in time"
+        } else {
+            "Could not send: ${detail.substringAfter(": ")}"
+        }
+    }
 
     private companion object {
         const val TAG = "PingMeGmessages"
+        const val GROUP_REFUSED = "Google Messages wouldn't make this group"
+        const val CHAT_REFUSED = "Google Messages wouldn't start this chat"
         const val CHAT_PAGE = 50
         const val CHAT_PAGES = 4
         const val SEARCH_PAGES = 20
         const val MICROS_PER_MILLI = 1000
         const val STAND_IN = "tmp/"
         val ECHO_TIMEOUT = 20.seconds
+        val SWEEP_WINDOW = 14.days
+        const val SWEEP_PAGE = 50
 
         /**
          * How long a send without a tmpId echo can still be matched by its text: a slow SMS

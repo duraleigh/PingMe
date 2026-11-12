@@ -12,6 +12,7 @@ import org.pingme.core.connector.message
 import org.pingme.core.connector.person
 import org.pingme.core.model.Attachment
 import org.pingme.core.model.AttachmentKind
+import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ConnectionState
 import org.pingme.core.model.MessageStatus
 import org.pingme.core.model.Reaction
@@ -54,6 +55,20 @@ class EventApplierTest : ServiceTest() {
             assertEquals(now + 1.minutes, chat.lastActivityAt)
             assertEquals(false, chat.isArchived)
             assertEquals("hi", messages.get(accountId.message("m1"))?.body)
+        }
+
+    // Owner, 2026-10-04: Instagram chats "vanished" after a reaction. The network re-sent the
+    // thread with a stale time and the chat sank to that old place in the list.
+    @Test
+    fun aListingNeverMovesAChatEarlierAndAReactionLiftsIt() =
+        runTest {
+            seed()
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m1", sentAt = now + 5.minutes)))
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot().copy(lastActivityAt = now)))
+            assertEquals(now + 5.minutes, chats.get(chatId)?.lastActivityAt)
+            val liked = Reaction("❤️", sam().id, now + 9.minutes)
+            applier.apply(ConnectorEvent.ReactionChanged(accountId, accountId.message("m1"), liked, removed = false))
+            assertEquals(now + 9.minutes, chats.get(chatId)?.lastActivityAt)
         }
 
     @Test
@@ -156,6 +171,91 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun aPeopleListNamesOneToOneChatsStillTitledByTheirNumber() =
+        runTest {
+            // WhatsApp never lists one-to-one chats again, so a chat stored before the names
+            // came kept its number for good (owner, Gate G7, round 2).
+            seed()
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("c1", title = "+15555550123")))
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("named", title = "Sam (work)")))
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam())))
+            assertEquals("Sam Ortiz", chats.get(accountId.chat("c1"))?.title)
+            assertEquals("the chat already had a name", "Sam (work)", chats.get(accountId.chat("named"))?.title)
+        }
+
+    @Test
+    fun aChatMadeFromYourOwnMessageIsNamedByThePeopleListToo() =
+        runTest {
+            // Such a chat lists nobody; the person's address is the chat's (owner, Gate G7, round 3).
+            accounts.upsert(account())
+            applier.apply(
+                ConnectorEvent.NewMessage(accountId, messageSnapshot("o", chatRemote = "sam", outgoing = true)),
+            )
+            chats.update(accountId.chat("sam")) { it.copy(title = "+15555550123") }
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam().copy(phoneNumber = "+15555550123"))))
+            val chat = chats.get(accountId.chat("sam"))!!
+            assertEquals("Sam Ortiz", chat.title)
+            assertEquals(listOf(sam().id), chat.participants)
+            // A chat titled by the number alone, under some other id, is found by the number.
+            applier.apply(
+                ConnectorEvent.ChatUpdated(
+                    accountId,
+                    chatSnapshot("odd", title = "15555550123").copy(participants = emptyList()),
+                ),
+            )
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam().copy(phoneNumber = "+15555550123"))))
+            assertEquals("Sam Ortiz", chats.get(accountId.chat("odd"))?.title)
+        }
+
+    @Test
+    fun aPeopleListWithoutANameLeavesTheNumberAlone() =
+        runTest {
+            seed()
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("c1", title = "+15555550123")))
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam().copy(displayName = "+15555550123"))))
+            assertEquals("+15555550123", chats.get(accountId.chat("c1"))?.title)
+        }
+
+    @Test
+    fun theNetworksNobodyPlaceholderChatGoesWithThePeopleList() =
+        runTest {
+            seed()
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("0@s.whatsapp.net", title = "+0")))
+            applier.apply(ConnectorEvent.PeopleUpdated(accountId, listOf(sam())))
+            assertNull(chats.get(accountId.chat("0@s.whatsapp.net")))
+            // And a later listing of it is ignored.
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot("0@s.whatsapp.net", title = "+0")))
+            assertNull(chats.get(accountId.chat("0@s.whatsapp.net")))
+        }
+
+    @Test
+    fun historyForAChatDeletedHereDoesNotBringItBack() =
+        runTest {
+            // Deleted chats hold no messages, so the backfill fetched their history and rebuilt
+            // them (owner, Gate G7, round 3: the code chats came back unread).
+            seed()
+            chats.hide(accountId.chat("c1"), now)
+            chats.delete(accountId.chat("c1"))
+            val old = now - kotlin.time.Duration.parse("1h")
+            val page = listOf(messageSnapshot("h1", sentAt = old), messageSnapshot("h2", sentAt = old))
+            applier.apply(ConnectorEvent.HistoryBatch(accountId, accountId.chat("c1"), page, complete = true))
+            assertNull(chats.get(accountId.chat("c1")))
+            assertNull(messages.get(accountId.message("h1")))
+            // Something genuinely new brings it back, as before.
+            applier.apply(
+                ConnectorEvent.NewMessage(
+                    accountId,
+                    messageSnapshot(
+                        "n1",
+                        sentAt =
+                            now + kotlin.time.Duration.parse("1m"),
+                    ),
+                ),
+            )
+            assertEquals(1, chats.get(accountId.chat("c1"))?.unreadCount)
+        }
+
+    @Test
     fun yourOwnMessageForAnUnknownChatNeverNamesTheChatYou() =
         runTest {
             accounts.upsert(account())
@@ -248,6 +348,48 @@ class EventApplierTest : ServiceTest() {
         }
 
     @Test
+    fun aHeldViewOncePictureSurvivesTheNetworkListingItAsGone() =
+        runTest {
+            seed()
+            val held =
+                Attachment(
+                    accountId.attachment("c1/v1/0"),
+                    AttachmentKind.IMAGE,
+                    "image/jpeg",
+                    null,
+                    0,
+                    "/data/v1.jpg",
+                    "ref",
+                    null,
+                    null,
+                    null,
+                    true,
+                    null,
+                )
+            val first = messageSnapshot("v1")
+            applier.apply(
+                ConnectorEvent.NewMessage(
+                    accountId,
+                    first.copy(
+                        message =
+                            first.message.copy(
+                                body = null,
+                                kind = org.pingme.core.model.MessageKind.IMAGE,
+                                attachments = listOf(held),
+                            ),
+                    ),
+                ),
+            )
+            applier.apply(
+                ConnectorEvent.NewMessage(accountId, messageSnapshot("v1", body = "A view-once photo that is gone")),
+            )
+            val stored = messages.get(accountId.message("v1"))!!
+            assertEquals(listOf(held), stored.attachments)
+            assertEquals(org.pingme.core.model.MessageKind.IMAGE, stored.kind)
+            assertNull(stored.body)
+        }
+
+    @Test
     fun aMessageForAnUnknownChatStillLands() =
         runTest {
             accounts.upsert(account())
@@ -314,6 +456,74 @@ class EventApplierTest : ServiceTest() {
             applier.apply(ConnectorEvent.MessageUpdated(accountId, standIn))
             applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("778", body = "Other", outgoing = true)))
             assertEquals("On my way", messages.get(accountId.message("tmp/abc"))!!.body)
+        }
+
+    @Test
+    fun aSentPictureListedAgainWithoutItsFileKeepsIt() =
+        runTest {
+            // Google Messages hands a sent message back on every status change, each copy
+            // naming only the network's file (owner, 2026-10-06: blank purple bubbles).
+            seed()
+            val file =
+                Attachment(
+                    accountId.attachment("real/0"),
+                    AttachmentKind.IMAGE,
+                    "image/jpeg",
+                    "p.jpg",
+                    3,
+                    "/data/p.jpg",
+                    null,
+                    null,
+                    null,
+                    null,
+                    false,
+                    null,
+                )
+            val sent =
+                messageSnapshot("real", body = "", outgoing = true).let {
+                    it.copy(message = it.message.copy(attachments = listOf(file)))
+                }
+            applier.apply(ConnectorEvent.NewMessage(accountId, sent))
+            val again = sent.copy(message = sent.message.copy(attachments = listOf(file.copy(localPath = null))))
+            applier.apply(ConnectorEvent.MessageUpdated(accountId, again))
+            applier.apply(ConnectorEvent.MessageUpdated(accountId, again))
+            assertEquals(
+                "/data/p.jpg",
+                messages
+                    .get(accountId.message("real"))!!
+                    .attachments
+                    .single()
+                    .localPath,
+            )
+            // A copy whose attachment id changed still keeps the file by position.
+            val renamed =
+                sent.copy(
+                    message =
+                        sent.message.copy(
+                            attachments = listOf(file.copy(id = accountId.attachment("real/x"), localPath = null)),
+                        ),
+                )
+            applier.apply(ConnectorEvent.MessageUpdated(accountId, renamed))
+            assertEquals(
+                "/data/p.jpg",
+                messages
+                    .get(accountId.message("real"))!!
+                    .attachments
+                    .single()
+                    .localPath,
+            )
+        }
+
+    @Test
+    fun aChatListedAgainWithoutAFolderStaysWhereItIs() =
+        runTest {
+            seed()
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot().copy(folder = ChatFolder.GENERAL)))
+            assertEquals(ChatFolder.GENERAL, chats.get(chatId)!!.folder)
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot()))
+            assertEquals(ChatFolder.GENERAL, chats.get(chatId)!!.folder)
+            applier.apply(ConnectorEvent.ChatUpdated(accountId, chatSnapshot().copy(folder = ChatFolder.PRIMARY)))
+            assertEquals(ChatFolder.PRIMARY, chats.get(chatId)!!.folder)
         }
 
     @Test
