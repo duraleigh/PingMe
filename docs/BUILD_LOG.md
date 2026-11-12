@@ -4935,3 +4935,13 @@ encrypted replies are lost; the timing and both chats point to the unencrypted s
   11-10 one).
 - Comes back with this: a send refused while the other side is offline (FAILURE_3). How to
   handle that is to be discussed with the owner first (owner, 2026-11-12).
+
+**Correction, same day 10:55 AM: PingMe is not the cause.** After 7ebd3a2 both sends to
+Quiana went "RCS only" (diary, 10:34 and 10:36) and her iPhone still marked them "Not
+Encrypted". The owner then sent from the Google Messages app itself, PingMe not involved:
+that chat shows "RCS chat with Quiana" (no encryption) on the phone, and her encrypted
+reply ("It doesn't say either", marked Encrypted on her iPhone) never reached Google
+Messages either; her SMS replies did. So encrypted RCS from iPhones (Apple's end-to-end
+encrypted RCS, in beta since iOS 26.5) does not reach this phone at all, whatever sends
+the outgoing side. "RCS only" does not decide encryption. 7ebd3a2 stays: it is how
+PingMe sent before a7548d8. The FAILURE_3 handling question is unchanged.
