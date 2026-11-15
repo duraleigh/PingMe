@@ -23,7 +23,9 @@ import org.junit.runner.RunWith
 import org.pingme.app.inbox.DemoInbox
 import org.pingme.core.connector.chat
 import org.pingme.core.model.AccountId
+import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
+import org.pingme.core.model.ChatKind
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.GraphicsMode
@@ -88,6 +90,85 @@ class ShareViewModelTest {
                 .first { it.key == sam.value },
         )
         return vm
+    }
+
+    /**
+     * Quiet chats and Instagram's General and Requests are never offered, searched for or not
+     * (owner, 2026-11-15: a request marked as spam was in the share list).
+     */
+    @Test
+    fun quietGeneralAndRequestChatsAreNotOffered() {
+        val quiet = demo.account.id.chat("quiet-one")
+        val general = demo.account.id.chat("general-one")
+        val request = demo.account.id.chat("request-one")
+        val primary = demo.account.id.chat("primary-one")
+        runBlocking {
+            val base = demo.chats.get(sam)!!.copy(isPinned = false, pinOrder = null)
+            demo.chats.upsert(base.copy(id = quiet, title = "Zed Quiet", isLowPriority = true))
+            demo.chats.upsert(base.copy(id = general, title = "Zed General", folder = ChatFolder.GENERAL))
+            demo.chats.upsert(base.copy(id = request, title = "Zed Request", folder = ChatFolder.REQUESTS))
+            demo.chats.upsert(base.copy(id = primary, title = "Zed Primary", folder = ChatFolder.PRIMARY))
+        }
+        val vm = picker(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "hi"))
+        waitFor {
+            vm.state.value.chats
+                .any { it.key == primary.value }
+        }
+
+        fun keys() =
+            vm.state.value.chats
+                .map { it.key }
+        assertTrue(sam.value in keys())
+        assertTrue(listOf(quiet, general, request).none { it.value in keys() })
+        vm.search("Zed")
+        waitFor { keys() == listOf(primary.value) }
+    }
+
+    /** The person in a chat that is not offered is not listed under the chats as a person either. */
+    @Test
+    fun thePersonInAQuietChatIsNotListedAsAPerson() {
+        val before = picker(Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "hi"))
+        waitFor {
+            before.state.value.people
+                .isNotEmpty()
+        }
+        val everyone =
+            before.state.value.people
+                .map { it.person.id }
+        val (chat, person) =
+            runBlocking {
+                demo.chats
+                    .all()
+                    .first()
+                    .filter { it.kind == ChatKind.DIRECT && it.mergedInto == null }
+                    .firstNotNullOf { c -> c.participants.firstOrNull { it in everyone }?.let { c to it } }
+            }
+        runBlocking { demo.chats.upsert(chat.copy(isLowPriority = true)) }
+        waitFor {
+            before.state.value.people
+                .none { it.person.id == person }
+        }
+        assertTrue(
+            before.state.value.chats
+                .none { it.key == chat.id.value },
+        )
+    }
+
+    /** A share aimed at one chat from Android's own share pop-up still reaches it, whatever its folder. */
+    @Test
+    fun theChatAShareWasAimedAtStaysEvenInGeneral() {
+        runBlocking { demo.chats.upsert(demo.chats.get(sam)!!.copy(folder = ChatFolder.GENERAL)) }
+        val vm =
+            picker(
+                Intent(Intent.ACTION_SEND)
+                    .putExtra(Intent.EXTRA_TEXT, "hi")
+                    .putExtra(Intent.EXTRA_SHORTCUT_ID, sam.value),
+            )
+        assertTrue(
+            vm.state.value.chats
+                .any { it.key == sam.value },
+        )
+        assertTrue(sam.value in vm.state.value.picked)
     }
 
     /** A merged chat stands for its members, so neither member is listed beside it (owner, 2026-10-10). */

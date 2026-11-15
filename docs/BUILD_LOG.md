@@ -4970,3 +4970,22 @@ switching E2EE to RCS at the moment of a send were the phone noticing it could n
 not PingMe causing it; and 7ebd3a2's premise ("RCS only" keeps a chat encrypted) was wrong,
 though the setting it restores is the pre-a7548d8 behaviour and stays. The FAILURE_3 refusals
 of 10 November were probably this same fault.
+
+### 2026-11-15, 1:00 PM: Share and Forward offered quiet, General and Requests chats (owner request)
+
+"The share and forward screens should never include any chats that are in the low
+priority/quiet section... nor ... any Instagram chats in the general nor request folders."
+His screenshot of Share listed an Instagram request marked as spam. Share and Forward are
+one picker (`ShareViewModel`).
+
+- `ShareViewModel.offered`: a chat is listed only when it is not Quiet and not in General or
+  Requests; a search does not find the others either.
+- The other person in a one-to-one chat that is not offered is left out of the people list
+  under the chats too, so the same name does not come back there.
+- Kept on purpose: the chat a share was aimed at from Android's own share pop-up (its face
+  was tapped there) stays listed and picked whatever its folder, or that share would go
+  nowhere.
+- Not changed: which chats get a face in Android's own share pop-up (`ShareShortcuts`,
+  and the shortcut a notification publishes). To ask the owner.
+- Tests: `ShareViewModelTest.quietGeneralAndRequestChatsAreNotOffered`,
+  `thePersonInAQuietChatIsNotListedAsAPerson`, `theChatAShareWasAimedAtStaysEvenInGeneral`.

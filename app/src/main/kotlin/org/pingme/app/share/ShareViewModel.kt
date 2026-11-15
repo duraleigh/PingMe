@@ -27,6 +27,7 @@ import org.pingme.core.connector.Diag
 import org.pingme.core.model.Account
 import org.pingme.core.model.AccountId
 import org.pingme.core.model.Chat
+import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Person
@@ -138,14 +139,47 @@ class ShareViewModel
                         .mapNotNull { chat ->
                             networks[chat.accountId]?.let { target(chat, it, newest(chat, chatList, last), people) }
                         }.filter { q.isEmpty() || it.title.contains(q, ignoreCase = true) }
-                Triple(f.copy(chats = rows), accountList, q)
-            }.flatMapLatest { (f, accountList, q) ->
+                Listed(f.copy(chats = rows), accountList, q, leftOutPeople(chatList, people))
+            }.flatMapLatest { listed ->
                 // Everyone, A to Z, under the recent chats, as in Google Messages; a search narrows them.
-                val startable = accountList.filter { registry[it.network]?.capabilities?.startConversation == true }
-                combine(peopleOn(startable, contacts, q), flowOf(f)) { found, st ->
-                    st.copy(people = found).let { it.copy(canGroup = groupFor(it) != null) }
+                val startable =
+                    listed.accounts.filter { registry[it.network]?.capabilities?.startConversation == true }
+                combine(peopleOn(startable, contacts, listed.query), flowOf(listed.form)) { found, st ->
+                    st
+                        .copy(people = found.filter { it.person.id !in listed.leftOut })
+                        .let { it.copy(canGroup = groupFor(it) != null) }
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER), form.value)
+
+        /** One reading of the store: the form with its chats, and what the people list needs. */
+        private data class Listed(
+            val form: ShareUiState,
+            val accounts: List<Account>,
+            val query: String,
+            val leftOut: Set<org.pingme.core.model.PersonId>,
+        )
+
+        /**
+         * Whether a chat may be offered: not a Quiet one, and not in Instagram's General or
+         * Requests (owner, 2026-11-15: "The share and forward screens should never include"
+         * them; a request marked as spam was in the list). The chat a share was aimed at from
+         * Android's own share pop-up stays, or that share would have nowhere to go.
+         */
+        private fun offered(chat: Chat): Boolean =
+            chat.id.value == payload?.chatKey ||
+                (!chat.isLowPriority && chat.folder != ChatFolder.GENERAL && chat.folder != ChatFolder.REQUESTS)
+
+        /** The other person in each one-to-one chat that is not offered: not listed as a person either. */
+        private fun leftOutPeople(
+            chatList: List<Chat>,
+            people: Map<org.pingme.core.model.PersonId, Person>,
+        ): Set<org.pingme.core.model.PersonId> =
+            chatList
+                // A member of a merged chat goes by the merged chat, which is offered or not itself.
+                .filter { it.kind == org.pingme.core.model.ChatKind.DIRECT && it.mergedInto == null && !offered(it) }
+                .flatMap { it.participants }
+                .filter { people[it]?.displayName != YOU }
+                .toSet()
 
         /**
          * A chat's newest message; a merged chat has none of its own, so the newest across its
@@ -216,7 +250,7 @@ class ShareViewModel
          */
         private fun rank(chatList: List<Chat>): List<Chat> =
             chatList
-                .filter { !it.isArchived && it.mergedInto == null }
+                .filter { !it.isArchived && it.mergedInto == null && offered(it) }
                 .distinctBy { it.id }
                 .sortedByDescending { it.lastActivityAt }
 
