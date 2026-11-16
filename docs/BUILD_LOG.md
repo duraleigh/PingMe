@@ -4989,3 +4989,28 @@ one picker (`ShareViewModel`).
   and the shortcut a notification publishes). To ask the owner.
 - Tests: `ShareViewModelTest.quietGeneralAndRequestChatsAreNotOffered`,
   `thePersonInAQuietChatIsNotListedAsAPerson`, `theChatAShareWasAimedAtStaysEvenInGeneral`.
+
+### 2026-11-16, 3:00 PM: "Not connected to Google Messages" while shown connected (owner report): the 11-12 sweep
+
+10:26 AM, a send to Nicole: "Not sent: Not connected to Google Messages", with the account
+shown as connected. The connection record: at 10:24:24 the phone's network had changed and
+"every connection opens again"; Telegram, WhatsApp, Messenger and Instagram each ended and
+reconnected within seconds, three times over the next eight minutes. Google Messages logged
+nothing until 11:14:24, fifty minutes later. The diary for that stretch is one line a minute:
+"Chat-line sweep: chat N not read: context deadline exceeded".
+
+Cause, proven: the diagnostic sweep added in 72e8f7d ran as a child of the session's event
+flow. Asked to close while the sweep was still going, the flow could not end until the sweep
+had tried every remaining chat, each waiting out a 60-second timeout on the closed
+connection. Until then the supervisor could not start the next connection: nothing sent,
+nothing received through PingMe, and the last state shown stayed "connected".
+
+- The sweep is removed (it had served its purpose on 11-12). `noteChatLine` stays: it only
+  writes down lines that pass by anyway.
+- Not proven, the diary had rolled over: the 10:10 "The phone did not answer" sends to
+  Ruben. The connection record shows the Wi-Fi joined at 9:49 passing data badly (a timeout
+  at 9:50, "Nothing has arrived for a long while" at 10:08) and the phone answering again
+  ten seconds after it switched to mobile data at 10:11.
+- Open, to discuss with the owner before building: a send during a reconnect fails at once
+  instead of waiting; a "phone did not answer" send that the phone sends later leaves both
+  a sent copy and a "Not sent" copy.

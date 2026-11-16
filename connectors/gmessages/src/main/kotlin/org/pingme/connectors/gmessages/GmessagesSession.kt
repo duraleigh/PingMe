@@ -9,7 +9,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -58,7 +57,6 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -104,9 +102,8 @@ internal class GmessagesSession(
 
     @Volatile private var chats: List<ChatSnapshot>? = null
 
-    /** Every conversation listed since start-up, for [sweepChatLines]. */
+    /** Every conversation listed since start-up, for the names in [noteChatLine]. */
     private val recent = ConcurrentHashMap.newKeySet<GmConversation>()
-    private val swept = AtomicBoolean(false)
 
     // One listing at a time: the session and the supervisor both ask for it on connecting.
     private val listing = Mutex()
@@ -228,7 +225,6 @@ internal class GmessagesSession(
             // Conversations now folded into another chat leave no row of their own behind.
             go.aliases().forEach { send(ConnectorEvent.ChatRemoved(accountId, accountId.chat(it))) }
         }
-        if (first && swept.compareAndSet(false, true)) launch { sweepChatLines() }
     }
 
     /** A message echoing one of our sends completes the waiting send instead of arriving as new. */
@@ -382,23 +378,6 @@ internal class GmessagesSession(
                 )
             },
         ).also { page -> page.messages.forEach(::noteChatLine) }
-
-    /**
-     * Once per start-up, reads the newest page of every chat active in the last two weeks so
-     * [noteChatLine] writes down each chat's carrying and encryption lines: the owner cannot
-     * know everyone whose replies went missing (2026-11-12). Reads only; one chat at a time.
-     */
-    private suspend fun sweepChatLines() {
-        val since = (clock.now() - SWEEP_WINDOW).toEpochMilliseconds() * MICROS_PER_MILLI
-        val chosen = recent.filter { it.lastMessageAt >= since }.distinctBy { it.id }
-        Diag.note(TAG, "Chat-line sweep: ${chosen.size} chat(s) active since ${SWEEP_WINDOW.inWholeDays} days ago")
-        chosen.forEach { conv ->
-            runCatching { fetch(conv.id, SWEEP_PAGE, null) }.onFailure {
-                Diag.note(TAG, "Chat-line sweep: chat ${conv.id} not read: ${it.message}")
-            }
-        }
-        Diag.note(TAG, "Chat-line sweep done")
-    }
 
     /**
      * Writes to the diary, once each, the lines Google Messages puts in a chat when it changes
@@ -723,8 +702,6 @@ internal class GmessagesSession(
         const val MICROS_PER_MILLI = 1000
         const val STAND_IN = "tmp/"
         val ECHO_TIMEOUT = 20.seconds
-        val SWEEP_WINDOW = 14.days
-        const val SWEEP_PAGE = 50
 
         /**
          * How long a send without a tmpId echo can still be matched by its text: a slow SMS
