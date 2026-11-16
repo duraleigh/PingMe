@@ -5014,3 +5014,40 @@ nothing received through PingMe, and the last state shown stayed "connected".
 - Open, to discuss with the owner before building: a send during a reconnect fails at once
   instead of waiting; a "phone did not answer" send that the phone sends later leaves both
   a sent copy and a "Not sent" copy.
+
+### 2026-11-16, 4:30 PM: sends held through a reconnect; a late-sent message takes its "Not sent" bubble's place (owner: "Yes, build both")
+
+**A send in the seconds of a reconnect.** A network change closes every connection and
+opens it again; a send in that gap found no connection and failed at once. Every connector
+answered the same way, so the fix is shared:
+
+- `SendResult.Failed.notConnected`: set by each connector when it has no live connection,
+  which also means nothing left the phone.
+- `MessageActions.throughAReconnect`: such a send stays "sending" and is tried again every
+  2 seconds until the connection is back, and fails only after 90 seconds (46 tries). An
+  account that is signed out or switched off is not waited for.
+- Google Messages: a connection still waiting for the phone is not sent on; each try waits
+  up to 2 seconds for the phone's "ready" (`GmessagesSession.awaitReady`).
+
+**"The phone did not answer", then the phone sends it.** libgm returns "phone did not
+respond" (60 seconds) and "client disconnected before response" after Google has taken the
+request, so the phone can still send the message. PingMe dropped the send from its watch
+list, and the phone's copy arrived as a second message beside the "Not sent" bubble.
+
+- `GmessagesSession.handOver`: on those two answers (and on a send cut short) the send
+  stays on the watch list, pointing at its pending message (`Outgoing.watchFor`); the
+  phone's copy then removes the "Not sent" bubble and takes its place, by the same path a
+  stand-in is replaced. This is what the reference bridge does (it keeps the pending entry
+  on ErrPhoneNotResponding).
+- The watch list now belongs to the connector, per account, so the copy is still matched
+  after a network change has made a new session. It does not survive PingMe being
+  restarted. Entries older than a day are dropped.
+- `GmessagesSession.alreadySent`: "Try again" on such a send first reads the chat's newest
+  messages; when the phone's copy is there, nothing is sent a second time.
+- A closing session no longer cancels sends waiting for their copy; each keeps its own
+  20-second wait and the next connection can answer it.
+- Tests: `MessageActionsTest` (3: waits and goes, fails in the end, signed-out not waited
+  for), `LateSendTest` (4: the copy takes the bubble's place, also on the next connection,
+  Try again does not send twice, nothing handed over without a connection).
+- Not covered: the same late-copy handling for the other networks; only Google Messages
+  has shown it.

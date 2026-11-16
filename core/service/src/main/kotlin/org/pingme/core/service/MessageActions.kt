@@ -3,6 +3,7 @@ package org.pingme.core.service
 
 import android.util.Log
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +22,7 @@ import org.pingme.core.connector.UnsupportedCapabilityException
 import org.pingme.core.connector.accountId
 import org.pingme.core.connector.message
 import org.pingme.core.connector.person
+import org.pingme.core.model.AccountId
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.Message
 import org.pingme.core.model.MessageId
@@ -44,6 +46,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
@@ -418,15 +421,7 @@ class MessageActions
                 if (connector == null) {
                     SendResult.Failed("This network is not connected", retryable = true)
                 } else {
-                    val report: (Float) -> Unit = { done -> uploads.update { it + (pending.id to done) } }
-                    // A send that never answers ends here, so its bubble can be tried again
-                    // instead of sitting on its clock (owner, 2026-11-01).
-                    val allowed = if (files.isEmpty()) TEXT_SEND_LIMIT else FILE_SEND_LIMIT
-                    try {
-                        withTimeoutOrNull(allowed) { quietly("send") { connector.send(pending.chatId, draft, report) } }
-                    } finally {
-                        uploads.update { it - pending.id }
-                    } ?: SendResult.Failed("No answer from the network", retryable = true)
+                    throughAReconnect(pending) { handOver(connector, pending, draft) }
                 }
             Diag.note(TAG, "Send ${pending.id.value}: ${result.diaryLine()}")
             return when (result) {
@@ -443,6 +438,57 @@ class MessageActions
                 }
             }
         }
+
+        /** One try at sending; a send that never answers ends here, so its bubble can be tried again. */
+        private suspend fun handOver(
+            connector: org.pingme.core.connector.Connector,
+            pending: Message,
+            draft: OutgoingMessage,
+        ): SendResult {
+            val report: (Float) -> Unit = { done -> uploads.update { it + (pending.id to done) } }
+            // Instead of sitting on its clock (owner, 2026-11-01).
+            val allowed = if (draft.attachments.isEmpty()) TEXT_SEND_LIMIT else FILE_SEND_LIMIT
+            return try {
+                withTimeoutOrNull(allowed) { quietly("send") { connector.send(pending.chatId, draft, report) } }
+            } finally {
+                uploads.update { it - pending.id }
+            } ?: SendResult.Failed("No answer from the network", retryable = true)
+        }
+
+        /**
+         * A network change closes every connection and opens it again, a few seconds in which a
+         * send found no connection and failed at once: "Not sent: Not connected to Google
+         * Messages" (owner, 2026-11-16). Nothing has left the phone when a network says it has
+         * no connection, so the message stays "sending" and is tried again until the connection
+         * is back, and fails only when it has not come back in [RECONNECT_HOLD]. An account that
+         * is signed out or switched off is not waited for.
+         */
+        private suspend fun throughAReconnect(
+            pending: Message,
+            attempt: suspend () -> SendResult,
+        ): SendResult {
+            var result = attempt()
+            var tries = 1
+            val most = (RECONNECT_HOLD / RECONNECT_STEP).toInt()
+            while (result.foundNoConnection() && tries <= most && reconnects(pending.chatId.accountId)) {
+                if (tries ==
+                    1
+                ) {
+                    Diag.note(TAG, "Send ${pending.id.value}: no connection this moment; held for the reconnect")
+                }
+                delay(RECONNECT_STEP)
+                result = attempt()
+                tries++
+            }
+            if (tries > 1) Diag.note(TAG, "Send ${pending.id.value}: tried $tries times over a reconnect")
+            return result
+        }
+
+        private fun SendResult.foundNoConnection() = this is SendResult.Failed && notConnected
+
+        /** Whether the account is one that connects by itself: not signed out, not switched off. */
+        private suspend fun reconnects(accountId: AccountId): Boolean =
+            accounts.get(accountId)?.state?.wantsConnection() == true
 
         private suspend fun pendingMessage(
             chatId: ChatId,
@@ -522,6 +568,10 @@ class MessageActions
 
         companion object {
             private val TEXT_SEND_LIMIT = 2.minutes
+
+            /** How long a send waits for a dropped connection to come back, and how often it looks. */
+            private val RECONNECT_HOLD = 90.seconds
+            private val RECONNECT_STEP = 2.seconds
             private val FILE_SEND_LIMIT = 10.minutes
             const val PAGE = 50
             private const val SELF = "me"

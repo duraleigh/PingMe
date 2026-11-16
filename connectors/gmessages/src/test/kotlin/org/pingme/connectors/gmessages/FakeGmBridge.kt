@@ -80,6 +80,19 @@ class FakePhone(
     val sentTexts = ConcurrentHashMap<String, MutableList<String>>()
     val typingSent = AtomicInteger()
     val readMarks = ConcurrentHashMap<String, String>()
+
+    /** While true, a send reaches the phone but its answer is lost; [sendUnanswered] has the phone send them. */
+    @Volatile var answersLost = false
+    internal val unanswered = java.util.concurrent.CopyOnWriteArrayList<GmSendRequest>()
+    val sendRequests = AtomicInteger()
+
+    /** The phone sends what it was handed while its answers were being lost; [quietly] without telling. */
+    fun sendUnanswered(quietly: Boolean = false) {
+        val held = unanswered.toList()
+        unanswered.clear()
+        held.forEach { send(it, tell = !quietly) }
+    }
+
     private val ids = AtomicInteger()
 
     @Volatile var sink: GmEventSink? = null
@@ -165,7 +178,10 @@ class FakePhone(
     private fun other(conversationId: String): GmParticipant =
         conversations.getValue(conversationId).participants.first { !it.isMe && it.isVisible }
 
-    internal fun send(request: GmSendRequest): GmMessage {
+    internal fun send(
+        request: GmSendRequest,
+        tell: Boolean = true,
+    ): GmMessage {
         val message =
             GmMessage(
                 id = "${BASE_ID + ids.incrementAndGet()}",
@@ -186,7 +202,7 @@ class FakePhone(
             )
         messages.getOrPut(request.conversationId) { mutableListOf() }.add(0, message)
         if (request.text.isNotEmpty()) sentTexts.getOrPut(request.conversationId) { mutableListOf() }.add(request.text)
-        emit(GmEvent.Message(message))
+        if (tell) emit(GmEvent.Message(message))
         return message
     }
 
@@ -305,7 +321,14 @@ private class FakeSession(
     }
 
     override fun sendMessage(requestJson: String): String {
-        phone.send(gmJson.decodeFromString(GmSendRequest.serializer(), requestJson))
+        val request = gmJson.decodeFromString(GmSendRequest.serializer(), requestJson)
+        phone.sendRequests.incrementAndGet()
+        // Google has the request, but the phone's answer never comes back.
+        if (phone.answersLost) {
+            phone.unanswered += request
+            error("PHONE_NOT_RESPONDING: the phone did not answer")
+        }
+        phone.send(request)
         return "RCS chat, encryption unknown, phone sends automatically; RCS only, no text fallback"
     }
 

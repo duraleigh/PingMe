@@ -21,7 +21,18 @@ internal class Outgoing(
     val sentAt: Instant,
     @Volatile var waiter: CompletableDeferred<MessageSnapshot>?,
     @Volatile var standIn: MessageId? = null,
-)
+) {
+    /**
+     * The send failed without the phone's answer, or was cut short, yet Google may have taken
+     * it and the phone can still send it: its copy then takes the place of [pending], the
+     * "Not sent" bubble, as it would a stand-in's (owner, 2026-11-16: a sent copy and a
+     * "Not sent" copy of the same message).
+     */
+    fun watchFor(pending: MessageId) {
+        waiter = null
+        standIn = pending
+    }
+}
 
 /**
  * Which waiting send, by its tmpId, a message from the phone is the copy of; null when none.

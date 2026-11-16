@@ -95,7 +95,7 @@ class FbPageConnector(
         progress: (Float) -> Unit,
     ): SendResult =
         sessions[chatId.accountId]?.send(chatId, draft, progress)
-            ?: SendResult.Failed("The Page is not connected", retryable = true)
+            ?: SendResult.Failed("The Page is not connected", retryable = true, notConnected = true)
 
     /** Meta's Page API has no reactions: the emoji goes as a short text, as SMS does (UI_DESIGN.md 5.4). */
     override suspend fun react(

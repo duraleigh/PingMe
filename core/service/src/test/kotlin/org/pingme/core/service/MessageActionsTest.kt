@@ -174,6 +174,62 @@ class MessageActionsTest : ServiceTest() {
             assertEquals(null, messages.get(sent.id))
         }
 
+    /** Owner, 2026-11-16: "Not sent: Not connected to Google Messages" in the seconds of a reconnect. */
+    @Test
+    fun aSendThatFindsNoConnectionWaitsForItAndGoes() =
+        runTest {
+            seed()
+            var tries = 0
+            connector.sendResult = {
+                tries++
+                if (tries < 4) {
+                    SendResult.Failed("Not connected to Demo", retryable = true, notConnected = true)
+                } else {
+                    SendResult.Sent(messageSnapshot("net-9", body = "Hello", outgoing = true))
+                }
+            }
+            val sent = actions.send(chatId, "Hello")
+            assertEquals(4, tries)
+            assertEquals("net-9", sent.id.value.substringAfter('/'))
+            assertEquals(listOf("net-9"), messages.latest(chatId, 10).first().map { it.id.value.substringAfter('/') })
+        }
+
+    @Test
+    fun aConnectionThatDoesNotComeBackFailsTheSendInTheEnd() =
+        runTest {
+            seed()
+            var tries = 0
+            connector.sendResult = {
+                tries++
+                SendResult.Failed("Not connected to Demo", retryable = true, notConnected = true)
+            }
+            val failed = actions.send(chatId, "Hello")
+            assertEquals(MessageStatus.Failed("Not connected to Demo"), failed.status)
+            // The first try, then one every two seconds for a minute and a half.
+            assertEquals(46, tries)
+        }
+
+    @Test
+    fun aSignedOutAccountIsNotWaitedFor() =
+        runTest {
+            accounts.upsert(
+                account(
+                    state =
+                        org.pingme.core.model.ConnectionState
+                            .ActionNeeded("Sign in again", null),
+                ),
+            )
+            applier.applyChats(listOf(chatSnapshot()))
+            var tries = 0
+            connector.sendResult = {
+                tries++
+                SendResult.Failed("Not connected to Demo", retryable = true, notConnected = true)
+            }
+            val failed = actions.send(chatId, "Hello")
+            assertEquals(MessageStatus.Failed("Not connected to Demo"), failed.status)
+            assertEquals(1, tries)
+        }
+
     @Test
     fun aFailedSendStaysWithItsReasonAndCanBeRetried() =
         runTest {

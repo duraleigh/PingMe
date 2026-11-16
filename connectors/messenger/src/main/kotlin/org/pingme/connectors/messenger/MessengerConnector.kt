@@ -108,7 +108,7 @@ class MessengerConnector(
         progress: (Float) -> Unit,
     ): SendResult =
         sessions[chatId.accountId]?.send(chatId, draft, progress)
-            ?: SendResult.Failed("Not connected to Messenger", retryable = true)
+            ?: SendResult.Failed("Not connected to Messenger", retryable = true, notConnected = true)
 
     override suspend fun react(
         messageId: MessageId,
