@@ -70,7 +70,7 @@ internal fun LoginFixPreview() =
             LoginStep.Fix(
                 "default",
                 "Make Google Messages your default SMS app",
-                "PingMe receives texts through Google Messages, so it has to be the phone's SMS app.",
+                "Parley receives texts through Google Messages, so it has to be the phone's SMS app.",
                 "Open default apps",
                 "settings:android.settings.MANAGE_DEFAULT_APPS_SETTINGS",
             ),

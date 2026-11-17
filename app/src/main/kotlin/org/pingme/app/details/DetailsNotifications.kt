@@ -3,7 +3,6 @@ package org.pingme.app.details
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +22,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /** Mute for a while, and this chat's own sound and vibration (UI_DESIGN.md 3.4, 6.1). */
 @Composable

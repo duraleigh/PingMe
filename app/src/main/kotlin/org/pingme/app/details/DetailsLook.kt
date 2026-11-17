@@ -7,7 +7,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,6 +34,7 @@ import org.pingme.core.ui.theme.ChatLook
 import org.pingme.core.ui.theme.ChatWallpaper
 import org.pingme.core.ui.theme.with
 import kotlin.math.roundToInt
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /**
  * This chat's look (UI_DESIGN.md 3.4, 4): its bubble colour, bubble style, wallpaper, and

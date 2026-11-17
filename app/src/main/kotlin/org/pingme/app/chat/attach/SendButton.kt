@@ -19,8 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -28,12 +26,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
-import org.pingme.core.ui.theme.Haptics
+import org.pingme.core.ui.components.rememberHaptic
 import org.pingme.core.ui.theme.PingMeTheme
 import org.pingme.core.ui.R as UiR
 
 /**
- * The send button (UI_DESIGN.md 2.2, 3.2): tap to send; press and hold for Send later (10.13).
+ * The send button (UI_DESIGN.md 2.2, 3.2): tap to send; press and hold to open Send later's calendar
+ * straight away (10.13; owner, 2026-11-07: no "Send later" button to tap first).
  * One button: the owner found the Expressive split button too easy to mis-tap (Gate G1). There
  * is no Send as SMS: Google Messages does not let a paired device choose it (owner, 2026-10-01).
  */
@@ -47,9 +46,7 @@ fun SendButton(
     val label = stringResource(R.string.chat_send)
     val moreLabel = stringResource(R.string.chat_send_options)
     val more = onSendLater != null
-    var open by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
-    val haptics = PingMeTheme.appearance.haptics
+    val haptic = rememberHaptic()
     val colours = IconButtonDefaults.filledIconButtonColors()
     Box(modifier) {
         Box(
@@ -65,8 +62,8 @@ fun SendButton(
                     onLongClick =
                         if (more) {
                             {
-                                if (haptics != Haptics.OFF) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                open = true
+                                haptic.tick()
+                                onSendLater?.invoke()
                             }
                         } else {
                             null
@@ -81,29 +78,7 @@ fun SendButton(
                 tint = if (enabled) colours.contentColor else colours.disabledContentColor,
             )
         }
-        SendOptions(open, { open = false }, onSendLater)
     }
 }
 
-/** What holding Send offers: Send later (10.13). */
-@Composable
-private fun SendOptions(
-    open: Boolean,
-    onClose: () -> Unit,
-    onSendLater: (() -> Unit)?,
-) {
-    DropdownMenu(open, onClose) {
-        onSendLater?.let { later ->
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.later_title)) },
-                leadingIcon = { Icon(painterResource(UiR.drawable.ic_schedule_send), null) },
-                onClick = {
-                    onClose()
-                    later()
-                },
-            )
-        }
-    }
-}
-
-private val SEND_SIZE = 52.dp
+private val SEND_SIZE = 56.dp

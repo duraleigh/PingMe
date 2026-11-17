@@ -29,6 +29,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- The connections come back after a restart and after an update (owner, 2026-10-07). -->
+        <receiver
+            android:name=".ConnectionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Reply and Mark read from a notification (UI_DESIGN.md 6.2). -->
         <receiver
             android:name=".notify.NotificationActionReceiver"

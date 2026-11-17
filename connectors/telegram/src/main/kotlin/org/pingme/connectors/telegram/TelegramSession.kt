@@ -49,6 +49,7 @@ internal class TelegramSession(
     private val updates = Channel<Any>(Channel.UNLIMITED)
     val go = TelegramTranslate(accountId)
     private val client: TelegramClient = bridge.newClient { updates.trySend(it) }
+    private val photos = TelegramPhotos(accountId, client, dir, go) { updates.trySend(it) }
     private val connected = AtomicBoolean(false)
     private val loaded = AtomicBoolean(false)
 
@@ -69,6 +70,7 @@ internal class TelegramSession(
 
     fun close() {
         updates.close()
+        photos.close()
     }
 
     @Suppress("CyclomaticComplexMethod", "LongMethod") // One branch per TDLib update that matters.
@@ -84,6 +86,7 @@ internal class TelegramSession(
 
             is TdApi.UpdateUser -> {
                 go.remember(update.user)
+                photos.soon(update.user.id)
             }
 
             is TdApi.UpdateChatPosition -> {
@@ -221,7 +224,7 @@ internal class TelegramSession(
             is TdApi.AuthorizationStateWaitCode,
             is TdApi.AuthorizationStateWaitPassword,
             -> {
-                throw ActionNeededException("Telegram has signed PingMe out. Sign in again.", TELEGRAM_PACKAGE)
+                throw ActionNeededException("Telegram has signed Parley out. Sign in again.", TELEGRAM_PACKAGE)
             }
 
             is TdApi.AuthorizationStateClosed -> {
@@ -717,5 +720,5 @@ internal fun tdlibParameters(
         "en",
         "Android",
         "",
-        "PingMe",
+        "Parley",
     )

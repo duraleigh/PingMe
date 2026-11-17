@@ -30,6 +30,9 @@ class GvoiceContractTest : ConnectorContractTest() {
         override fun answer(step: LoginStep): LoginResponse? =
             when (step) {
                 is LoginStep.OpenWebView -> {
+                    // It must start signed out, or a Google account already in the browser is taken
+                    // for this one (owner, 2026-11-05).
+                    check(step.freshSession) { "Google Voice's sign-in must start signed out" }
                     LoginResponse.Cookies(
                         mapOf(
                             "SID" to "s",

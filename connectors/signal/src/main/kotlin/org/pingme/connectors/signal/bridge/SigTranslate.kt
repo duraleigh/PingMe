@@ -176,6 +176,14 @@ class SigTranslate(
     private fun me(): Person =
         Person(personId(ownId.ifEmpty { "me" }), accountId, "You", ownPhone.ifEmpty { null }, ownId, null, null)
 
+    private val avatars = HashMap<String, String>()
+
+    /** Keeps an avatar path seen on any listing of this person, so later views carry it too. */
+    @Synchronized
+    fun learnAvatars(members: List<SigMember>) {
+        members.forEach { if (it.avatar.isNotEmpty()) avatars[it.id] = it.avatar }
+    }
+
     private fun person(member: SigMember): Person =
         Person(
             id = personId(member.id),
@@ -183,7 +191,7 @@ class SigTranslate(
             displayName = displayName(member),
             phoneNumber = member.phone.ifEmpty { null },
             networkHandle = member.phone.ifEmpty { member.id },
-            avatarPath = null,
+            avatarPath = member.avatar.ifEmpty { null } ?: avatars[member.id],
             contactId = null,
         )
 

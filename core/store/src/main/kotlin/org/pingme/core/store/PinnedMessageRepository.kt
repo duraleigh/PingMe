@@ -34,5 +34,9 @@ class PinnedMessageRepository
             at: Instant,
         ) = dao.pin(PinnedMessageEntity(message.id.value, message.chatId.value, at))
 
+        /** Pinned messages across a merged chat's members. */
+        fun pinnedIn(chatIds: List<ChatId>): Flow<List<Message>> =
+            dao.observePinnedIn(chatIds.map { it.value }).map { rows -> rows.map { it.toModel() } }
+
         suspend fun unpin(id: MessageId) = dao.unpin(id.value)
     }

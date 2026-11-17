@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +21,7 @@ import org.pingme.core.ui.components.ChoiceSetting
 import org.pingme.core.ui.components.SettingsSectionHeader
 import org.pingme.core.ui.components.SwitchSetting
 import org.pingme.core.ui.R as UiR
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /**
  * Settings > Privacy (UI_DESIGN.md 10.3, 10.10, 10.11, 10.12): read receipts and typing with

@@ -99,7 +99,7 @@ class InstagramConnector(
         progress: (Float) -> Unit,
     ): SendResult =
         sessions[chatId.accountId]?.send(chatId, draft, progress)
-            ?: SendResult.Failed("Not connected to Instagram", retryable = true)
+            ?: SendResult.Failed("Not connected to Instagram", retryable = true, notConnected = true)
 
     override suspend fun react(
         messageId: MessageId,
@@ -150,11 +150,10 @@ class InstagramConnector(
     override suspend fun block(chatId: ChatId): Unit =
         throw UnsupportedCapabilityException("Block people in Instagram itself")
 
-    /** Instagram's web interface offers no move between Primary and General; the app does it. */
     override suspend fun moveFolder(
         chatId: ChatId,
         folder: ChatFolder,
-    ): Unit = throw UnsupportedCapabilityException("Move chats between Primary and General in Instagram itself")
+    ): Unit = session(chatId.accountId).moveFolder(chatId, folder)
 
     override suspend fun respondToRequest(
         chatId: ChatId,

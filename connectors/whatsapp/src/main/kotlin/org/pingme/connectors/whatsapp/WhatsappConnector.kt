@@ -92,7 +92,7 @@ class WhatsappConnector(
         progress: (Float) -> Unit,
     ): SendResult =
         sessions[chatId.accountId]?.send(chatId, draft, progress)
-            ?: SendResult.Failed("Not connected to WhatsApp", retryable = true)
+            ?: SendResult.Failed("Not connected to WhatsApp", retryable = true, notConnected = true)
 
     override suspend fun react(
         messageId: MessageId,

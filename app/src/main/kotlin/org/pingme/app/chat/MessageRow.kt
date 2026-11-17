@@ -3,6 +3,7 @@ package org.pingme.app.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -77,7 +78,7 @@ fun MessageRow(
     Row(
         modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = if (item.lastInGroup) 3.dp else 1.dp),
+            .padding(horizontal = 8.dp, vertical = if (item.lastInGroup) 3.dp else 1.dp),
         horizontalArrangement = if (outgoing) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom,
     ) {
@@ -86,10 +87,11 @@ fun MessageRow(
             Spacer(Modifier.width(8.dp))
         }
         Column(bubbleModifier, horizontalAlignment = if (outgoing) Alignment.End else Alignment.Start) {
+            val network = context.networkFor(message)
             MessageBubble(
                 text = bodyText(message, context.cleanLink),
                 outgoing = outgoing,
-                network = context.network,
+                network = network,
                 transport = message.transport,
                 lastInGroup = item.lastInGroup,
                 header = { BubbleTop(item, context, sender) },
@@ -98,13 +100,28 @@ fun MessageRow(
                     if (showTime || message.status is MessageStatus.Failed ||
                         message.status is MessageStatus.Scheduled
                     ) {
-                        Footer(message, context.network)
+                        Footer(message, network, context.marksNetwork)
                     }
                 },
             )
-            if (message.reactions.isNotEmpty()) Reactions(message)
-            (message.status as? MessageStatus.Failed)?.let { FailedRow(it.reason) { context.onRetry(message) } }
+            if (message.reactions.isNotEmpty()) Reactions(message, context)
+            NewestMarks(message, context, showTime)
+            (message.status as? MessageStatus.Failed)?.let {
+                FailedRow(it.reason, { context.onRetry(message) }, { context.onDelete(message) })
+            }
         }
+    }
+}
+
+/** The marks sit under your newest message, outside it, as in Google Messages (owner, 2026-11-02). */
+@Composable
+private fun NewestMarks(
+    message: Message,
+    context: RowContext,
+    showTime: Boolean,
+) {
+    if (!showTime && message.id == context.newestMine) {
+        Box(Modifier.padding(top = 4.dp, end = 8.dp)) { StatusMark(message.status) }
     }
 }
 
@@ -161,6 +178,7 @@ private fun bodyText(
 private fun Footer(
     message: Message,
     network: NetworkId,
+    badge: Boolean,
 ) {
     val deleted = message.deletedForEveryone || message.kind == MessageKind.DELETED
     Row(
@@ -186,6 +204,11 @@ private fun Footer(
             style = MaterialTheme.typography.labelSmall,
             color = LocalContentColor.current.copy(alpha = FADED),
         )
+        // In a merged chat the network sits beside the time and ticks, nowhere else (owner, Phase 7).
+        if (badge) {
+            org.pingme.app.inbox
+                .NetworkBadge(network)
+        }
         val oldWay = network == NetworkId.GMESSAGES && message.transport != Transport.RCS
         when {
             message.status is MessageStatus.Failed || message.status is MessageStatus.Scheduled -> {

@@ -49,12 +49,13 @@ fun ExactAlarmAsk(onDismiss: () -> Unit) {
 }
 
 /**
- * The Send later sheet, and after the first pick without the permission, the ask above.
+ * The Send later picker, and after the first pick without the permission, the ask above.
  * Asked once per chat screen; declined, scheduling still works through the fallback job.
  */
 @Composable
 fun LaterSheetWithAsk(
     open: Boolean,
+    lastUsed: kotlin.time.Instant?,
     onSchedule: (kotlin.time.Instant) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -64,7 +65,8 @@ fun LaterSheetWithAsk(
         .rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     val context = LocalContext.current
     if (open) {
-        SendLaterSheet(
+        SendLaterPicker(
+            lastUsed = lastUsed,
             onPick = { at ->
                 onSchedule(at)
                 if (!asked && !canScheduleExactly(context)) {

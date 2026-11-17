@@ -12,7 +12,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,7 +21,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.pingme.app.R
+import org.pingme.core.model.ChatFolder
 import org.pingme.core.ui.components.Avatar
+import org.pingme.core.ui.components.PingMeSheet
 import org.pingme.core.ui.R as UiR
 
 /**
@@ -31,20 +32,25 @@ import org.pingme.core.ui.R as UiR
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatActionSheet(
+internal fun ChatActionSheet(
     row: ChatRow,
     onAction: (ChatAction) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val chat = row.chat
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PingMeSheet(onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
             Row(
                 Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Avatar(row.title, size = 40.dp)
+                if (row.faces.isEmpty()) {
+                    Avatar(row.title, size = 40.dp, photo = row.photo)
+                } else {
+                    org.pingme.core.ui.components
+                        .GroupAvatar(row.faces, row.title, size = 40.dp)
+                }
                 Column {
                     Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                     Text(
@@ -115,5 +121,15 @@ private fun sheetItems(row: ChatRow): List<Triple<ChatAction, Int, Int>> {
             if (chat.isObscured) R.string.action_unobscure else R.string.action_obscure,
         ),
         Triple(ChatAction.DELETE, UiR.drawable.ic_delete, R.string.action_delete),
-    )
+    ).let { items ->
+        if (!row.movesFolder) return@let items
+        val move =
+            Triple(
+                ChatAction.MOVE_FOLDER,
+                UiR.drawable.ic_archive,
+                if (chat.folder == ChatFolder.GENERAL) R.string.action_move_primary else R.string.action_move_general,
+            )
+        // Near the top: it is why many Instagram chats get pressed at all (owner, 2026-11-01).
+        listOf(move) + items
+    }
 }

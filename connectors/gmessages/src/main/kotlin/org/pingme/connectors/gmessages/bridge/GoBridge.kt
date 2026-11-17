@@ -51,6 +51,14 @@ class GoBridge(
     /** The account's own participant IDs: one per SIM, plus every "me" entry in a chat. */
     private val selfIds = HashSet<String>()
 
+    // Your own numbers, from the entries the chat list marks as you; an entry with one is you.
+    private val selfNumbers = HashSet<String>()
+
+    private fun isYourNumber(number: String): Boolean {
+        val digits = number.filter(Char::isDigit)
+        return digits.length >= MIN_NUMBER_DIGITS && digits.takeLast(LOCAL_NUMBER_DIGITS) in selfNumbers
+    }
+
     /**
      * RCS, SMS, and MMS with the same person are one thread (owner, Gate G3): the phone can
      * keep two conversations for one number, and PingMe shows both under the oldest one's
@@ -158,7 +166,10 @@ class GoBridge(
     fun chat(conv: GmConversation): ChatSnapshot {
         conversations[conv.id] = conv
         latestAt[conv.id] = maxOf(latestAt[conv.id] ?: 0L, conv.lastMessageAt)
-        conv.participants.filter { it.isMe }.forEach { selfIds += it.id }
+        conv.participants.filter { it.isMe }.forEach {
+            selfIds += it.id
+            selfNumbers += it.number.filter(Char::isDigit).takeLast(LOCAL_NUMBER_DIGITS)
+        }
         val canonical = fold(conv)
         val group = groupOf(conv.id).mapNotNull { conversations[it] }
         val visible = conv.participants.filter { it.isVisible }
@@ -359,9 +370,12 @@ class GoBridge(
             contactId = null,
         )
 
+    // A message you sent names its sender by your number's contact, without saying it is you;
+    // stored that way, you counted as the other person in 73 chats and they showed your photo
+    // (owner, 2026-11-09). Any id the chat list or the SIMs marked as yours is you.
     private fun displayName(p: GmParticipant) =
         when {
-            p.isMe -> "You"
+            p.isMe || p.id in selfIds || isYourNumber(p.number) -> "You"
             p.fullName.isNotBlank() -> p.fullName
             p.firstName.isNotBlank() -> p.firstName
             p.formattedNumber.isNotBlank() -> p.formattedNumber

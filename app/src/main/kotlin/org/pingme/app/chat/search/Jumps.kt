@@ -19,7 +19,7 @@ import kotlin.time.Instant
  */
 class Jumps(
     private val scope: CoroutineScope,
-    private val chatId: ChatId,
+    private val chatIds: StateFlow<List<ChatId>>,
     private val messages: MessageRepository,
     private val search: ChatSearchRepository,
     private val reach: (Int) -> Unit,
@@ -31,7 +31,7 @@ class Jumps(
 
     fun to(message: Message) {
         scope.launch {
-            reach(search.countNewer(message) + PAGE)
+            reach(search.countNewerIn(chatIds.value, message.sentAt) + PAGE)
             waiting.value = message.id
         }
     }
@@ -39,8 +39,9 @@ class Jumps(
     /** The first message on or after [day]. */
     fun toDate(day: Instant) {
         scope.launch {
-            val id = search.firstFrom(chatId, day) ?: return@launch
-            messages.get(id)?.let(::to)
+            // The first message on or after the day in any member chat.
+            val first = chatIds.value.mapNotNull { search.firstFrom(it, day) }.mapNotNull { messages.get(it) }
+            first.minByOrNull { it.sentAt }?.let(::to)
         }
     }
 

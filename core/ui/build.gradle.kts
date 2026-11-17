@@ -22,6 +22,7 @@ dependencies {
     api(libs.androidx.compose.ui)
     api(libs.androidx.compose.material3)
     api(libs.androidx.compose.ui.tooling.preview)
+    api(libs.coil.compose)
     implementation(libs.materialkolor)
     implementation(libs.materialkolor.utilities)
     implementation(libs.kotlinx.serialization.json)

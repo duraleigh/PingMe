@@ -49,7 +49,7 @@ private suspend fun LoginScope.ready(checks: GmessagesChecks): Boolean =
         LoginStep.Fix(
             "install",
             "Install Google Messages",
-            "PingMe receives RCS and texts through Google Messages, which is not on this phone.",
+            "Parley receives RCS and texts through Google Messages, which is not on this phone.",
             "Get it from Google Play",
             "market:$GOOGLE_MESSAGES_PACKAGE",
         )
@@ -58,7 +58,7 @@ private suspend fun LoginScope.ready(checks: GmessagesChecks): Boolean =
             LoginStep.Fix(
                 "default",
                 "Make Google Messages your default SMS app",
-                "PingMe receives texts through Google Messages, so it has to be the phone's SMS app. " +
+                "Parley receives texts through Google Messages, so it has to be the phone's SMS app. " +
                     "Open default apps, choose SMS app, and pick Messages.",
                 "Open default apps",
                 "settings:android.settings.MANAGE_DEFAULT_APPS_SETTINGS",

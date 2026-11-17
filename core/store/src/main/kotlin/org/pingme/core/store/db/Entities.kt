@@ -85,6 +85,16 @@ data class ChatTombstoneEntity(
     val hiddenAt: Instant,
 )
 
+/**
+ * A chat the owner moved to Primary or General here when Instagram would not move it: the
+ * network's own idea of its folder does not put it back (owner, 2026-11-01).
+ */
+@Entity(tableName = "chat_folder_moves")
+data class ChatFolderMoveEntity(
+    @PrimaryKey val chatId: String,
+    val folder: ChatFolder,
+)
+
 @Entity(
     tableName = "chat_participants",
     primaryKeys = ["chatId", "personId"],
@@ -268,6 +278,8 @@ data class PersonEntity(
     val networkHandle: String,
     val avatarPath: String?,
     val contactId: String?,
+    val contactName: String? = null,
+    val contactPhoto: String? = null,
 )
 
 @Entity(tableName = "spaces", indices = [Index("accountId")])

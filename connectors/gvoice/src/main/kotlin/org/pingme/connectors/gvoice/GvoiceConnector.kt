@@ -89,7 +89,7 @@ class GvoiceConnector(
         progress: (Float) -> Unit,
     ): SendResult =
         sessions[chatId.accountId]?.send(chatId, draft, progress)
-            ?: SendResult.Failed("Not connected to Google Voice", retryable = true)
+            ?: SendResult.Failed("Not connected to Google Voice", retryable = true, notConnected = true)
 
     /** No reactions on Google Voice: one goes out as a text naming the message (UI_DESIGN.md 5.4). */
     override suspend fun react(
@@ -187,7 +187,7 @@ class GvoiceConnector(
                 createGroup = false,
                 block = true,
                 multiAccount = true,
-                calls = CallRule(CallMethod.OPEN_APP, CallMethod.NONE),
+                calls = CallRule(CallMethod.APP_DIALER, CallMethod.NONE),
             )
     }
 }

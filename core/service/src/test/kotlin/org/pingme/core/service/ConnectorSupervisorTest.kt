@@ -44,11 +44,19 @@ class ConnectorSupervisorTest : ServiceTest() {
                 history = history,
                 clock = clock,
                 retryDelays = { delays(it) },
-                housekeeping = StoreHousekeeping(messages, clock),
+                housekeeping =
+                    StoreHousekeeping(
+                        messages,
+                        clock,
+                        org.pingme.core.store
+                            .MergeRepository(db),
+                        org.pingme.core.store
+                            .SelfEntries(db),
+                    ),
                 previews = QuietPreviews(context),
                 tapbacks = Tapbacks(messages),
                 scope = scope,
-            )
+            ).apply { networkSettle = kotlin.time.Duration.ZERO }
         runBlocking { credentials.save("cred", byteArrayOf(1)) }
     }
 
@@ -170,6 +178,34 @@ class ConnectorSupervisorTest : ServiceTest() {
             eventually { state() == ConnectionState.Connected && connector.connects.get() == 1 }
             supervisor.onNetworkChanged()
             eventually { connector.connects.get() == 2 }
+        }
+
+    /**
+     * A burst of network changes reopens a live connection once, after the network holds still
+     * (owner, 2026-11-07: three changes in 33 seconds each reopened every account).
+     */
+    @Test
+    fun aBurstOfNetworkChangesReconnectsOnceAfterItSettles() =
+        runBlocking {
+            supervisor.networkSettle = 400.milliseconds
+            delays = { 10.minutes }
+            connector.sessions +=
+                {
+                    emit(ConnectorEvent.State(accountId, ConnectionState.Connected))
+                    connector.closed.first()
+                }
+            accounts.upsert(account())
+            supervisor.start()
+            eventually { state() == ConnectionState.Connected && connector.connects.get() == 1 }
+            repeat(3) {
+                supervisor.onNetworkChanged()
+                kotlinx.coroutines.delay(100.milliseconds)
+            }
+            // Still within the wait: nothing reopened yet.
+            assertEquals(1, connector.connects.get())
+            eventually { connector.connects.get() == 2 }
+            kotlinx.coroutines.delay(800.milliseconds)
+            assertEquals(2, connector.connects.get())
         }
 
     @Test

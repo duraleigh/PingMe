@@ -66,6 +66,12 @@ sealed interface AvatarSource {
         val accountId: AccountId,
     ) : AvatarSource
 
+    /** A picture the owner picked for a group, kept in the app's own storage (owner, 2026-11-01). */
+    @Serializable
+    data class Picture(
+        val path: String,
+    ) : AvatarSource
+
     /** A coloured tile with initials in the chosen shape. */
     @Serializable
     data object Initials : AvatarSource

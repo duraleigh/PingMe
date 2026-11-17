@@ -70,8 +70,11 @@ interface GmSession {
         cursorJson: String,
     ): String
 
-    /** Takes a [GmSendRequest]; the message comes back as an event with the same tmpId. */
-    fun sendMessage(requestJson: String)
+    /**
+     * Takes a [GmSendRequest]; the message comes back as an event with the same tmpId.
+     * Returns, for the diary, how the phone was asked to send it.
+     */
+    fun sendMessage(requestJson: String): String
 
     /** Returns the [GmMedia] to put in a send request. */
     fun uploadMedia(

@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Google Messages through its Google account pairing (BUILD_PLAN.md P3.2, DESIGN.md 5.2,
@@ -65,6 +66,9 @@ class GmessagesConnector(
 
     private val sessions = ConcurrentHashMap<AccountId, GmessagesSession>()
 
+    /** Each account's sends still waiting for the phone's copy; kept from one connection to the next. */
+    private val sends = ConcurrentHashMap<AccountId, ConcurrentHashMap<String, Outgoing>>()
+
     override fun loginFlow(): LoginFlow = gmessagesLoginFlow(bridge, checks, credentials)
 
     override suspend fun connect(
@@ -72,7 +76,16 @@ class GmessagesConnector(
         creds: Credentials,
     ): Flow<ConnectorEvent> {
         sessions.remove(account.id)?.close()
-        val session = GmessagesSession(account.id, bridge, creds.secret.decodeToString(), creds.ref, credentials, clock)
+        val session =
+            GmessagesSession(
+                account.id,
+                bridge,
+                creds.secret.decodeToString(),
+                creds.ref,
+                credentials,
+                clock,
+                sends.getOrPut(account.id) { ConcurrentHashMap() },
+            )
         sessions[account.id] = session
         return session.flow().onCompletion { sessions.remove(account.id, session) }
     }
@@ -93,9 +106,13 @@ class GmessagesConnector(
         chatId: ChatId,
         draft: OutgoingMessage,
         progress: (Float) -> Unit,
-    ): SendResult =
-        sessions[chatId.accountId]?.send(chatId, draft, progress)
-            ?: SendResult.Failed("Not connected to Google Messages", retryable = true)
+    ): SendResult {
+        // No connection, or one still waiting for the phone: nothing is handed over, and the
+        // send is held for the connection instead (owner, 2026-11-16).
+        val session = sessions[chatId.accountId]?.takeIf { it.awaitReady(READY_WAIT) }
+        return session?.send(chatId, draft, progress)
+            ?: SendResult.Failed("Not connected to Google Messages", retryable = true, notConnected = true)
+    }
 
     override suspend fun react(
         messageId: MessageId,
@@ -190,6 +207,9 @@ class GmessagesConnector(
     companion object {
         private const val MIN_NUMBER_DIGITS = 3
 
+        /** How long one try at sending waits for a connection just opened to hear from the phone. */
+        private val READY_WAIT = 2.seconds
+
         /** What RCS through Google Messages can do (UI_DESIGN.md 8). */
         val CAPABILITIES =
             Capabilities(
@@ -209,6 +229,8 @@ class GmessagesConnector(
                 block = false,
                 multiAccount = false,
                 calls = CallRule(CallMethod.DIALER, CallMethod.MEET),
+                // One picture per message, as the Messages app itself sends them.
+                attachmentsPerMessage = 1,
             )
     }
 }

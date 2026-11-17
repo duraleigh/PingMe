@@ -36,6 +36,14 @@ type Thread struct {
 
 	threadType table.ThreadType
 	members    map[int64]*User
+	// The web thread key (0 for a chat the encrypted channel started before the web
+	// listing named it) and the chat's id on the encrypted channel (0 when not encrypted).
+	fbKey int64
+	jid   int64
+	// Messages from the channel not yet marked read there.
+	waUnread []waRef
+	// Whether the web side was asked once for history under both of the chat's ids.
+	askedWeb bool
 }
 
 // User is a person on Messenger.
@@ -156,6 +164,13 @@ func (t *Thread) merge(old *Thread) {
 		t.threadType = old.threadType
 		t.IsGroup = old.IsGroup
 	}
+	if t.jid == 0 {
+		t.jid = old.jid
+	}
+	if t.fbKey == 0 {
+		t.fbKey = old.fbKey
+	}
+	t.waUnread = append(t.waUnread, old.waUnread...)
 	for key, user := range old.members {
 		if _, known := t.members[key]; !known {
 			t.members[key] = user
@@ -189,6 +204,12 @@ func (t *Thread) addMessages(messages []Message) {
 // view fills the users from the members and the people table, with the account itself first.
 func (t *Thread) view(own int64, people map[int64]*User) Thread {
 	out := *t
+	if t.jid != 0 {
+		// Shown under its id on the encrypted channel: the other person's id for a
+		// one-to-one chat, which is also what the channel's messages name.
+		out.ID = id(t.jid)
+		out.MoreBefore = false
+	}
 	out.Users = []User{}
 	out.Admins = []string{}
 	if own != 0 {
@@ -215,11 +236,12 @@ func (t *Thread) view(own int64, people map[int64]*User) Thread {
 		out.Users = append(out.Users, member)
 	}
 	if !t.IsGroup {
-		// A one-to-one thread's key is the other person's id, and its name and picture are theirs.
-		other, _ := strconv.ParseInt(t.ID, 10, 64)
+		// A one-to-one thread's shown id is the other person's id (the web key, or the id on
+		// the encrypted channel), and its name and picture are theirs.
+		other, _ := strconv.ParseInt(out.ID, 10, 64)
 		found := false
 		for i := range out.Users {
-			if out.Users[i].ID == t.ID {
+			if out.Users[i].ID == out.ID {
 				found = true
 				if out.Users[i].Name == "" {
 					out.Users[i].Name = t.Title
@@ -230,7 +252,7 @@ func (t *Thread) view(own int64, people map[int64]*User) Thread {
 			}
 		}
 		if !found && other != 0 && other != own {
-			out.Users = append(out.Users, User{ID: t.ID, Name: t.Title, Picture: t.ImageURL})
+			out.Users = append(out.Users, User{ID: out.ID, Name: t.Title, Picture: t.ImageURL})
 		}
 	}
 	for _, key := range keys {

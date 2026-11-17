@@ -64,13 +64,13 @@ fun MessageBubble(
     val tailPad = if (tail) BubbleShape.TAIL_WIDTH else 0.dp
     Column(
         modifier
-            .widthIn(max = 300.dp)
+            .widthIn(max = 322.dp)
             .clip(shape)
             .background(styled.background)
             .let { if (styled.border != null) it.border(1.dp, styled.border, shape) else it }
             .padding(
-                start = 14.dp + if (outgoing) 0.dp else tailPad,
-                end = 14.dp + if (outgoing) tailPad else 0.dp,
+                start = 16.dp + if (outgoing) 0.dp else tailPad,
+                end = 16.dp + if (outgoing) tailPad else 0.dp,
                 top = 8.dp,
                 bottom = 8.dp,
             ),

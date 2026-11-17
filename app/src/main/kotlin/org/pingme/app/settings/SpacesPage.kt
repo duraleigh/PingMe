@@ -15,7 +15,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -43,6 +42,7 @@ import org.pingme.core.ui.components.SettingsSectionHeader
 import org.pingme.core.ui.components.SwitchSetting
 import java.util.UUID
 import org.pingme.core.ui.R as UiR
+import org.pingme.core.ui.components.SettingRow as ListItem
 
 /**
  * Settings > Spaces and the bottom bar (UI_DESIGN.md 10.4): the spaces from the networks,

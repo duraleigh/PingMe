@@ -10,6 +10,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.pingme.core.connector.Diag
 import org.pingme.core.model.ChatId
 import org.pingme.core.service.ApplicationScope
 import org.pingme.core.service.ChatActions
@@ -42,9 +43,15 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 ?.toString()
                 ?.trim()
         val pending = goAsync()
+        // Every step goes to the diagnostic file (owner, 2026-10-05: a reply from the shade
+        // took the notification down and sent nothing).
+        Diag.note(TAG, "${intent.action} for ${chatId.value}: ${reply?.length ?: 0} characters")
         scope.launch {
             try {
-                if (intent.action == ACTION_REPLY && !reply.isNullOrEmpty()) messages.send(chatId, reply)
+                if (intent.action == ACTION_REPLY && !reply.isNullOrEmpty()) {
+                    val sent = messages.send(chatId, reply)
+                    Diag.note(TAG, "Reply to ${chatId.value} is ${sent.id.value}: ${sent.status}")
+                }
                 // Either way the chat is read now, which also takes the notification down.
                 chats.setRead(chatId, read = true)
             } catch (e: CancellationException) {
@@ -53,6 +60,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
                 Log.w(TAG, "notification action ${intent.action} failed", e)
+                Diag.note(TAG, "${intent.action} for ${chatId.value} failed: $e")
             } finally {
                 pending.finish()
             }

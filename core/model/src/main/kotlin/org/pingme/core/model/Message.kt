@@ -142,3 +142,25 @@ enum class LinkPreviewSource {
     NETWORK,
     LOCAL,
 }
+
+/**
+ * Whether the file here is only the network's small preview, with the full one still on its way.
+ * Google Messages hands a picture over that way first (owner, Gate G3); its reference then has
+ * an empty media id.
+ */
+val Attachment.isPreviewOnly: Boolean
+    get() = remoteRef?.contains("\"mediaId\":\"\"") == true
+
+/**
+ * Whether the file held is only the network's preview although the whole file is now on
+ * offer: less than half the size the network gives. A file PingMe holds is kept when a
+ * message is listed again (EventApplier), so the full picture that follows Google
+ * Messages' preview was never fetched: a 70 KB preview of a 680 KB picture stayed in the
+ * chat, unreadable (owner, 2026-11-11: "these images are being compressed and degraded").
+ */
+val Attachment.holdsPreview: Boolean
+    get() {
+        val path = localPath ?: return false
+        if (isPreviewOnly || sizeBytes <= 0) return false
+        return java.io.File(path).length() * 2 < sizeBytes
+    }

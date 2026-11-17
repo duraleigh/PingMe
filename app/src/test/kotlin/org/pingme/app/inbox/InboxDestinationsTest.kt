@@ -20,6 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.core.connector.chat
 import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
@@ -77,6 +78,7 @@ class InboxDestinationsTest {
             }
         }
         waitForText("Casey Nguyen")
+        compose.assertAccessible()
         compose.onNodeWithText("Accept").performClick()
         val casey = demo.account.id.chat("casey")
         waitFor { runBlocking { demo.chats.get(casey)?.folder } == ChatFolder.PRIMARY }
@@ -96,6 +98,7 @@ class InboxDestinationsTest {
             }
         }
         waitForText("Dad")
+        compose.assertAccessible()
         compose.onNodeWithText("Dad").performClick()
         assertEquals(listOf(demo.account.id.chat("dad")), opened)
     }
@@ -106,6 +109,7 @@ class InboxDestinationsTest {
         compose.setContent { PingMeTheme { SearchRoute({}, { opened += it }, viewModel = vm) } }
         compose.onNode(hasSetTextAction()).performTextInput("seat")
         waitForText("I saved you a seat")
+        compose.assertAccessible()
         compose.onNodeWithText("I saved you a seat").performClick()
         assertEquals(listOf(demo.account.id.chat("sam")), opened)
     }
@@ -117,8 +121,13 @@ class InboxDestinationsTest {
         }
         waitForText("Name, number, or username")
         compose.onNode(hasSetTextAction()).performTextInput("+15550123")
-        waitForText("Start a chat with +15550123")
-        compose.onNodeWithText("Start a chat with +15550123").performClick()
+        waitForText("Add +15550123")
+        compose.assertAccessible()
+        // Into the To box first, then Next, as in Google Messages (owner, 2026-11-02).
+        compose.onNodeWithText("Add +15550123").performClick()
+        waitFor { compose.onAllNodes(hasText("Next") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(true, opened.isEmpty())
+        compose.onNodeWithText("Next").performSemanticsAction(SemanticsActions.OnClick)
         waitFor { opened.isNotEmpty() }
         assertEquals("+15550123", runBlocking { demo.chats.get(opened.single())?.title })
     }
@@ -129,15 +138,69 @@ class InboxDestinationsTest {
         compose.setContent {
             PingMeTheme { NewChatRoute({}, { opened += it }, viewModel = vm) }
         }
-        waitForText("Group name")
-        compose.onNodeWithText("Group name").performTextInput("Trip")
+        waitForText("Name, number, or username")
+        // The people in their rows are audited too, once they have arrived.
+        waitFor {
+            vm.state.value.suggestions
+                .isNotEmpty()
+        }
+        waitFor {
+            compose
+                .onAllNodesWithText(
+                    vm.state.value.suggestions
+                        .first()
+                        .name,
+                ).fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.waitForIdle()
+        compose.assertAccessible()
         compose.onNodeWithText("Name, number, or username").performTextInput("ana")
         waitForText("Add ana")
+        // Audited once the list has followed what was typed: nobody in the demo matches "ana".
+        waitFor {
+            vm.state.value.suggestions
+                .isEmpty()
+        }
+        compose.waitForIdle()
+        compose.assertAccessible()
         compose.onNodeWithText("Add ana").performClick()
-        // The button turns on once the member shows as a chip.
-        waitFor { compose.onAllNodes(hasText("Make the group") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        // People first, then the name, as in Google Messages (owner, 2026-11-01).
+        waitFor { compose.onAllNodes(hasText("Next") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Next").performSemanticsAction(SemanticsActions.OnClick)
+        waitForText("Group name")
+        compose.onNodeWithText("Group name").performTextInput("Trip")
+        // The button turns on once there is a name: the demo network wants one, as most do.
+        waitFor { compose.onAllNodes(hasText("Done") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         // Through the button's own click action, so a layout still settling cannot move the tap.
-        compose.onNodeWithText("Make the group").performSemanticsAction(SemanticsActions.OnClick)
+        compose.onNodeWithText("Done").performSemanticsAction(SemanticsActions.OnClick)
+        waitFor { opened.isNotEmpty() }
+        val group = runBlocking { demo.chats.get(opened.single()) }!!
+        assertEquals("Trip" to ChatKind.GROUP, group.title to group.kind)
+    }
+
+    /** Two people in the To box are a group, reached from New chat itself (owner, 2026-11-02). */
+    @Test
+    fun twoPeopleInTheToBoxMakeAGroup() {
+        val vm = demo.newChatViewModel(group = false)
+        compose.setContent {
+            PingMeTheme { NewChatRoute({}, { opened += it }, viewModel = vm) }
+        }
+        waitForText("Name, number, or username")
+        compose.onNodeWithText("Name, number, or username").performTextInput("+15550123")
+        waitForText("Add +15550123")
+        compose.onNodeWithText("Add +15550123").performClick()
+        waitForText("Anyone else?")
+        compose.onNodeWithText("Anyone else?").performTextInput("+15550124")
+        waitForText("Add +15550124")
+        compose.onNodeWithText("Add +15550124").performClick()
+        waitForText("New group chat")
+        assertEquals(true, opened.isEmpty())
+        compose.onNodeWithText("Next").performSemanticsAction(SemanticsActions.OnClick)
+        waitForText("Group name")
+        compose.onNodeWithText("Group name").performTextInput("Trip")
+        waitFor { compose.onAllNodes(hasText("Done") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Done").performSemanticsAction(SemanticsActions.OnClick)
         waitFor { opened.isNotEmpty() }
         val group = runBlocking { demo.chats.get(opened.single()) }!!
         assertEquals("Trip" to ChatKind.GROUP, group.title to group.kind)

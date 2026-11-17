@@ -17,6 +17,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.inbox.DemoInbox
 import org.pingme.core.connector.chat
 import org.pingme.core.ui.theme.Appearance
@@ -94,5 +95,10 @@ class ObscuredScreenTest {
         const val TIMEOUT = 15_000L
         const val HIDDEN = "Hidden message"
         val STEP: Duration = Duration.ofMillis(50)
+    }
+
+    @Test
+    fun everyControlHasASpokenNameAndIsBigEnough() {
+        compose.assertAccessible()
     }
 }

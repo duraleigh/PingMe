@@ -2,5 +2,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The demo build's name, so it is told apart from the real app beside it. -->
 <resources>
-    <string name="app_name" translatable="false">PingMe Demo</string>
+    <string name="app_name" translatable="false">Parley Demo</string>
 </resources>

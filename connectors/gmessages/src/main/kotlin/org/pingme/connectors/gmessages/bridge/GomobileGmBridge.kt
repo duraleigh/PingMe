@@ -64,7 +64,7 @@ private class GomobileSession(
         cursorJson: String,
     ): String = session.fetchMessages(conversationId, count.toLong(), cursorJson)
 
-    override fun sendMessage(requestJson: String) = session.sendMessage(requestJson)
+    override fun sendMessage(requestJson: String): String = session.sendMessage(requestJson)
 
     override fun uploadMedia(
         path: String,

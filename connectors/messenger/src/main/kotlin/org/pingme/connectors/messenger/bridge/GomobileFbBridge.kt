@@ -16,8 +16,9 @@ class GomobileFbBridge
     constructor() : FbBridge {
         override fun newSession(
             cookiesJson: String,
+            storePath: String,
             sink: FbEventSink,
-        ): FbSession = GomobileSession(Fb.newSession(cookiesJson) { sink.onEvent(it) })
+        ): FbSession = GomobileSession(Fb.newSession(cookiesJson, storePath) { sink.onEvent(it) })
     }
 
 @Suppress("TooManyFunctions") // One function per bridge call; that is the contract.

@@ -22,7 +22,7 @@ func (r *recorder) OnEvent(raw string) {
 func newTestSession(t *testing.T) (*Session, *recorder) {
 	t.Helper()
 	sink := &recorder{}
-	s, err := NewSession(`{"xs":"x","c_user":"1000","datr":"d"}`, sink)
+	s, err := NewSession(`{"xs":"x","c_user":"1000","datr":"d"}`, "", sink)
 	if err != nil {
 		t.Fatalf("session: %v", err)
 	}
@@ -47,7 +47,7 @@ func sub(t *testing.T, event map[string]any, key string) map[string]any {
 }
 
 func TestMissingCookiesAreRefused(t *testing.T) {
-	if _, err := NewSession(`{"xs":"x"}`, nil); err == nil {
+	if _, err := NewSession(`{"xs":"x"}`, "", nil); err == nil {
 		t.Fatal("a sign-in without c_user and datr was accepted")
 	}
 }
@@ -307,5 +307,39 @@ func TestSessionViewsAndCookies(t *testing.T) {
 	}
 	if _, err := s.SendText("1", "hi", ""); err == nil {
 		t.Fatal("a send went through without a connection")
+	}
+}
+
+// Facebook re-sends the inbox as a delete row plus an upsert row for the same thread; that
+// is not a deletion (the owner's whole Messenger inbox vanished this way, 2026-10-04).
+func TestDeleteWithUpsertInSameBatchKeepsTheThread(t *testing.T) {
+	s, sink := newTestSession(t)
+	s.applyTable(&table.LSTable{
+		LSDeletePartialThread: []*table.LSDeletePartialThread{{ThreadKey: 1}, {ThreadKey: 2}},
+		LSDeleteThread:        []*table.LSDeleteThread{{ThreadKey: 3}},
+		LSUpdateOrInsertThread: []*table.LSUpdateOrInsertThread{
+			{ThreadKey: 1, ThreadType: table.ONE_TO_ONE, ThreadName: "Ann Lee", LastActivityTimestampMs: 5},
+		},
+		LSDeleteThenInsertThread: []*table.LSDeleteThenInsertThread{
+			{ThreadKey: 2, ThreadType: table.GROUP_THREAD, ThreadName: "Band", LastActivityTimestampMs: 4},
+		},
+	}, true)
+	got := kinds(sink.events)
+	if len(got) != 3 || got[0] != "threadGone" || got[1] != "thread" || got[2] != "thread" {
+		t.Fatalf("events: %v", got)
+	}
+	if sink.events[0]["thread"] != "3" {
+		t.Fatalf("gone: %v", sink.events[0])
+	}
+	listed, err := s.Threads()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var threads []Thread
+	if err := json.Unmarshal([]byte(listed), &threads); err != nil {
+		t.Fatal(err)
+	}
+	if len(threads) != 2 || threads[0].Title != "Ann Lee" || threads[1].Title != "Band" {
+		t.Fatalf("threads: %s", listed)
 	}
 }

@@ -17,6 +17,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.pingme.app.assertAccessible
 import org.pingme.app.chat.ChatRoute
 import org.pingme.app.chat.ChatViewModel
 import org.pingme.app.inbox.DemoInbox
@@ -82,10 +83,15 @@ class GifScreenTest {
         }
 
     private fun pickFromTrending() {
-        compose.onNode(hasContentDescription("GIF")).performClick()
+        // GIFs live in the + menu (owner, 2026-10-03).
+        compose.onNode(hasContentDescription("Attach")).performClick()
+        waitFor { hasText("GIF") }
+        compose.onNodeWithText("GIF").performClick()
         waitFor { hasText("No favourites yet. Hold a GIF to keep it here.") }
         compose.onNodeWithText("Trending").performClick()
         waitFor { compose.onAllNodes(hasTestTag(GIF_GRID)).fetchSemanticsNodes().isNotEmpty() }
+        // The GIF picker with its grid, as a screen reader sees it (P8.1).
+        compose.assertAccessible()
         compose.onNode(hasTestTag(GIF_GRID)).onChildAt(0).performClick()
     }
 

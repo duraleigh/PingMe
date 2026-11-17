@@ -4,7 +4,7 @@
     <string name="channel_connection">Connection</string>
     <string name="channel_messages">Messages</string>
     <string name="channel_keyword">Keyword: %1$s</string>
-    <string name="connection_notification_title">PingMe is connected</string>
+    <string name="connection_notification_title">Parley is connected</string>
     <string name="notification_new_message">New message</string>
     <string name="notification_summary">New messages</string>
     <string name="notification_you">You</string>

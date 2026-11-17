@@ -32,6 +32,38 @@ val NetworkId.displayName: String
             NetworkId.DEMO -> "Demo"
         }
 
+/**
+ * A network's name on the bottom bar: one short word where the full name would wrap (owner,
+ * 2026-11-02, to save room). Everywhere else the full [displayName] stands.
+ */
+val NetworkId.tabName: String
+    get() =
+        when (this) {
+            NetworkId.GMESSAGES -> "Messages"
+            NetworkId.GVOICE -> "Voice"
+            NetworkId.MESSENGER -> "Facebook"
+            else -> displayName
+        }
+
+/**
+ * A plain line icon per network for the bottom bar and the account chips, in the same
+ * style as All, Low priority, and More (owner, 2026-10-03: the coloured circles were
+ * gaudy). Material Symbols that say what the network is for; no brand logos are bundled.
+ */
+@androidx.annotation.DrawableRes
+fun NetworkId.lineIcon(): Int =
+    when (this) {
+        NetworkId.GMESSAGES, NetworkId.SMS -> org.pingme.core.ui.R.drawable.ic_sms
+        NetworkId.WHATSAPP -> org.pingme.core.ui.R.drawable.ic_call
+        NetworkId.TELEGRAM -> org.pingme.core.ui.R.drawable.ic_send
+        NetworkId.SIGNAL -> org.pingme.core.ui.R.drawable.ic_lock
+        NetworkId.GVOICE -> org.pingme.core.ui.R.drawable.ic_keyboard_voice
+        NetworkId.INSTAGRAM -> org.pingme.core.ui.R.drawable.ic_photo_camera
+        NetworkId.MESSENGER -> org.pingme.core.ui.R.drawable.ic_chat
+        NetworkId.FBPAGE -> org.pingme.core.ui.R.drawable.ic_work
+        NetworkId.DEMO -> org.pingme.core.ui.R.drawable.ic_celebration
+    }
+
 /** The short badge on an inbox row and in the chat header (UI_DESIGN.md 10.1). */
 fun badgeLabel(network: NetworkId): String =
     when (network) {
@@ -92,10 +124,23 @@ fun timeLabel(
     val days = ChronoUnit.DAYS.between(then.toLocalDate(), today)
     val pattern =
         when {
-            days == 0L -> return DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale).format(then)
-            days < WEEK -> "EEE"
-            then.year == today.year -> DateFormat.getBestDateTimePattern(locale, "MMMd")
-            else -> return DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale).format(then)
+            days == 0L -> {
+                return org.pingme.app.chat.PhoneClock
+                    .formatter(locale)
+                    .format(then)
+            }
+
+            days < WEEK -> {
+                "EEE"
+            }
+
+            then.year == today.year -> {
+                DateFormat.getBestDateTimePattern(locale, "MMMd")
+            }
+
+            else -> {
+                return DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale).format(then)
+            }
         }
     return DateTimeFormatter.ofPattern(pattern, locale).format(then)
 }

@@ -19,6 +19,7 @@ import (
 	"go.mau.fi/mautrix-gmessages/pkg/libgm/gmproto"
 	"go.mau.fi/util/exhttp"
 	"go.mau.fi/util/ptr"
+	"google.golang.org/protobuf/proto"
 )
 
 // EventSink receives every event as one JSON object. Kotlin implements it. Calls come
@@ -36,6 +37,9 @@ var (
 )
 
 const requestTimeout = 60 * time.Second
+
+// mediaTimeout is how long one file may take to upload or download.
+const mediaTimeout = 10 * time.Minute
 
 // What the session remembers about a conversation, for sending.
 type convInfo struct {
@@ -56,6 +60,7 @@ type Session struct {
 	sims      map[string]*gmproto.SIMCard
 	selfIDs   map[string]struct{}
 	fullMedia map[string]struct{}
+	locks     map[string]lockMark
 
 	ready             bool
 	sessionID         string
@@ -81,6 +86,7 @@ func NewSession(authJSON string, sink EventSink) (*Session, error) {
 		sims:      make(map[string]*gmproto.SIMCard),
 		selfIDs:   make(map[string]struct{}),
 		fullMedia: make(map[string]struct{}),
+		locks:     make(map[string]lockMark),
 	}
 	s.client = libgm.NewClient(auth, nil, s.log, exhttp.SensibleClientSettings)
 	s.client.SetEventHandler(s.handleEvent)
@@ -235,22 +241,26 @@ type SendRequest struct {
 
 // SendMessage sends text and/or uploaded media (from UploadMedia). The message itself
 // arrives later as a "message" event carrying the same tmpId. Transient refusals are
-// retried a few times, as the reference bridge does.
-func (s *Session) SendMessage(requestJSON string) error {
+// retried a few times, as the reference bridge does. It returns, for the diary, how the
+// phone was asked to send; a refusal carries the same words after its reason.
+func (s *Session) SendMessage(requestJSON string) (string, error) {
 	var req SendRequest
 	if err := json.Unmarshal([]byte(requestJSON), &req); err != nil {
-		return fmt.Errorf("send request is not valid JSON: %w", err)
+		return "", fmt.Errorf("send request is not valid JSON: %w", err)
 	}
 	if req.ConversationID == "" || req.TmpID == "" {
-		return errors.New("send request needs conversationId and tmpId")
+		return "", errors.New("send request needs conversationId and tmpId")
 	}
 	if req.Text == "" && len(req.Media) == 0 {
-		return errors.New("send request has nothing to send")
+		return "", errors.New("send request has nothing to send")
 	}
 	info, err := s.infoOrFetch(req.ConversationID)
 	if err != nil {
-		return err
+		return "", err
 	}
+	lock := s.lock(req.ConversationID)
+	rcsOnly := forceRCS(info, lock)
+	how := sendWords(info, lock, rcsOnly)
 	sim := s.sim(info.outgoingID)
 	payload := &gmproto.SendMessageRequest{
 		ConversationID: req.ConversationID,
@@ -262,7 +272,7 @@ func (s *Session) SendMessage(requestJSON string) error {
 		},
 		SIMPayload: sim.GetSIMData().GetSIMPayload(),
 		TmpID:      req.TmpID,
-		ForceRCS:   info.isRCS && info.autoSend,
+		ForceRCS:   rcsOnly,
 	}
 	if req.ReplyToID != "" {
 		payload.Reply = &gmproto.ReplyPayload{MessageID: req.ReplyToID}
@@ -270,7 +280,7 @@ func (s *Session) SendMessage(requestJSON string) error {
 	for _, m := range req.Media {
 		key, err := base64.StdEncoding.DecodeString(m.Key)
 		if err != nil {
-			return fmt.Errorf("media key is not base64: %w", err)
+			return "", fmt.Errorf("media key is not base64: %w", err)
 		}
 		payload.MessagePayload.MessageInfo = append(payload.MessagePayload.MessageInfo, &gmproto.MessageInfo{
 			Data: &gmproto.MessageInfo_MediaContent{MediaContent: &gmproto.MediaContent{
@@ -295,18 +305,53 @@ func (s *Session) SendMessage(requestJSON string) error {
 		s.log.Warn().Stringer("status", resp.GetStatus()).Int("attempt", attempt+1).Msg("Phone refused the send; retrying")
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return "", fmt.Errorf("%w (%s)", ctx.Err(), how)
 		case <-time.After(sendRetryBackoff[attempt]):
 		}
 		resp, err = s.client.SendMessage(ctx, payload)
 	}
 	if err != nil {
-		return wrapRequestError(err)
+		return "", fmt.Errorf("%w (%s)", wrapRequestError(err), how)
 	}
 	if resp.GetStatus() != gmproto.SendMessageResponse_SUCCESS {
-		return fmt.Errorf("%w: send status %s", ErrRejected, resp.GetStatus())
+		return "", fmt.Errorf("%w: send status %s (%s)", ErrRejected, resp.GetStatus(), how)
 	}
-	return nil
+	return how, nil
+}
+
+// forceRCS is whether the phone is told "RCS only, no plain text". Every RCS chat is,
+// unless Google's newest line in it says it is no longer encrypted. Without it the phone
+// sends unencrypted into an encrypted chat: from 2026-11-10, when only chats known to be
+// locked were told, Parker's iPhone marked every message from PingMe "Not Encrypted" and
+// his encrypted replies never reached the phone, nor Quiana's (owner, 2026-11-12). A
+// chat's encryption line is often older than anything read since start-up, so an
+// unknown lock counts as locked.
+func forceRCS(info convInfo, lock lockMark) bool {
+	return info.isRCS && info.autoSend && !lock.unlocked()
+}
+
+// sendWords is the diary's account of how a send was asked for.
+func sendWords(info convInfo, mark lockMark, rcsOnly bool) string {
+	kind := "text chat"
+	if info.isRCS {
+		kind = "RCS chat"
+	}
+	mode := "phone sends automatically"
+	if !info.autoSend {
+		mode = "phone's send mode is not automatic"
+	}
+	lock := "encryption unknown"
+	switch {
+	case mark.unlocked():
+		lock = "not locked"
+	case mark.seen:
+		lock = "locked"
+	}
+	choice := "the phone may fall back to a text"
+	if rcsOnly {
+		choice = "RCS only, no text fallback"
+	}
+	return fmt.Sprintf("%s, %s, %s; %s", kind, lock, mode, choice)
 }
 
 var sendRetryBackoff = []time.Duration{3 * time.Second, 8 * time.Second, 20 * time.Second}
@@ -321,7 +366,9 @@ func (s *Session) UploadMedia(path, fileName, mime string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	content, err := s.client.UploadMedia(data, fileName, mime)
+	ctx, cancel := context.WithTimeout(s.log.WithContext(context.Background()), mediaTimeout)
+	defer cancel()
+	content, err := s.client.UploadMedia(ctx, data, fileName, mime)
 	if err != nil {
 		return "", wrapRequestError(err)
 	}
@@ -334,7 +381,9 @@ func (s *Session) DownloadMedia(mediaID, keyBase64, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("media key is not base64: %w", err)
 	}
-	reader, err := s.client.DownloadMedia(mediaID, key)
+	ctx, cancel := context.WithTimeout(s.log.WithContext(context.Background()), mediaTimeout)
+	defer cancel()
+	reader, err := s.client.DownloadMedia(ctx, mediaID, key)
 	if err != nil {
 		return wrapRequestError(err)
 	}
@@ -454,17 +503,20 @@ func (s *Session) GetOrCreateConversation(numbersJSON, groupName string) (string
 		// 2 is what the reference bridge sends for a contact's number.
 		req.Numbers[i] = &gmproto.ContactNumber{MysteriousInt: 2, Number: n, Number2: n}
 	}
-	if len(numbers) > 1 {
-		req.RCSGroupName = ptr.NonZero(groupName)
-	}
 	ctx, cancel := s.requestContext()
 	defer cancel()
+	// Asked without the name first, as the Messages app does: a group someone in it cannot
+	// have over RCS comes back as a plain group, which has no shared name. Answers 2 and 4,
+	// which no list of Google's answers names, came back when the name went with the first
+	// ask (owner, 2026-11-01), so the name also gets its own try before giving up.
 	resp, err := s.client.GetOrCreateConversation(ctx, req)
 	if err == nil && resp.GetStatus() == gmproto.GetOrCreateConversationResponse_CREATE_RCS {
-		if req.RCSGroupName == nil {
-			req.RCSGroupName = ptr.Ptr("")
-		}
+		req.RCSGroupName = ptr.Ptr(groupName)
 		req.CreateRCSGroup = ptr.Ptr(true)
+		resp, err = s.client.GetOrCreateConversation(ctx, req)
+	} else if err == nil && resp.GetConversation().GetConversationID() == "" && len(numbers) > 1 && groupName != "" {
+		s.log.Warn().Stringer("status", resp.GetStatus()).Msg("No group without its name; asking with it")
+		req.RCSGroupName = ptr.Ptr(groupName)
 		resp, err = s.client.GetOrCreateConversation(ctx, req)
 	}
 	if err != nil {
@@ -472,7 +524,9 @@ func (s *Session) GetOrCreateConversation(numbersJSON, groupName string) (string
 	}
 	conv := resp.GetConversation()
 	if conv.GetConversationID() == "" {
-		return "", fmt.Errorf("%w: no conversation came back (status %s)", ErrRejected, resp.GetStatus())
+		raw, _ := proto.Marshal(resp)
+		return "", fmt.Errorf("%w: no conversation came back (status %s, %d people, answer %s)",
+			ErrRejected, resp.GetStatus(), len(numbers), base64.StdEncoding.EncodeToString(raw))
 	}
 	s.remember(conv)
 	return marshal(convertConversation(conv))
@@ -695,6 +749,13 @@ func (s *Session) infoOrFetch(conversationID string) (convInfo, error) {
 	return s.info(conversationID), nil
 }
 
+// lock is the newest encryption line seen in the chat, if any.
+func (s *Session) lock(conversationID string) lockMark {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.locks[conversationID]
+}
+
 func (s *Session) sim(participantID string) *gmproto.SIMCard {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -706,6 +767,9 @@ func (s *Session) convert(msg *gmproto.Message, info convInfo) Message {
 	out := convertMessage(msg, !info.isGroup, info.isRCS)
 	s.mu.Lock()
 	_, self := s.selfIDs[msg.GetParticipantID()]
+	if locked, ok := lockChange(msg.GetMessageStatus().GetStatus()); ok {
+		s.locks[msg.GetConversationID()] = s.locks[msg.GetConversationID()].after(locked, msg.GetTimestamp())
+	}
 	s.mu.Unlock()
 	switch out.Direction {
 	case "outgoing":

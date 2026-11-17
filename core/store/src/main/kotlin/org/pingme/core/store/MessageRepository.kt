@@ -56,6 +56,10 @@ class MessageRepository
                 }
             }
 
+        /** Your messages still "sending" from before [before]. */
+        suspend fun stuckSending(before: Instant): List<MessageId> =
+            dao.idsWithStatus(MessageStatus.Sending, before).map(::MessageId)
+
         /** Who "you" are in [chatId], known once you have sent anything there. */
         suspend fun selfIn(chatId: ChatId): PersonId? = dao.selfSenderId(chatId.value)?.let(::PersonId)
 
@@ -65,6 +69,13 @@ class MessageRepository
             limit: Int,
         ): Flow<List<Message>> = dao.observeLatest(chatId.value, limit).map { rows -> rows.map { it.toModel() } }
 
+        /** The newest [limit] messages across several chats, newest first (a merged chat's timeline). */
+        fun latestIn(
+            chatIds: List<ChatId>,
+            limit: Int,
+        ): Flow<List<Message>> =
+            dao.observeLatestIn(chatIds.map { it.value }, limit).map { rows -> rows.map { it.toModel() } }
+
         fun message(id: MessageId): Flow<Message?> = dao.observe(id.value).map { it?.toModel() }
 
         suspend fun get(id: MessageId): Message? = dao.get(id.value)?.toModel()
@@ -73,6 +84,9 @@ class MessageRepository
         suspend fun oldest(chatId: ChatId): MessageId? = dao.oldestId(chatId.value)?.let(::MessageId)
 
         suspend fun newest(chatId: ChatId): MessageId? = dao.newestId(chatId.value)?.let(::MessageId)
+
+        /** When the chat's newest stored message was sent, or null with nothing stored. */
+        suspend fun newestSentAt(chatId: ChatId): Instant? = dao.newestSentAt(chatId.value)
 
         /** How many messages from other people came after [since]. */
         suspend fun incomingSince(

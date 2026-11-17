@@ -39,6 +39,11 @@ private class GomobileSession(
 
     override fun thread(fbid: String): String = session.thread(fbid)
 
+    override fun mediaUrl(
+        fbid: String,
+        attachmentId: String,
+    ): String = session.mediaURL(fbid, attachmentId)
+
     override fun messages(
         fbid: String,
         olderThan: String,
@@ -90,6 +95,11 @@ private class GomobileSession(
     ) = session.setTyping(fbid, typing)
 
     override fun acceptRequest(fbid: String) = session.acceptRequest(fbid)
+
+    override fun moveThread(
+        fbid: String,
+        folder: String,
+    ): String = session.moveThread(fbid, folder)
 
     override fun deleteThread(fbid: String) = session.deleteThread(fbid)
 

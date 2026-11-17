@@ -2,6 +2,4 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <resources>
     <color name="ic_launcher_background">#2F3DB5</color>
-    <color name="ic_launcher_bubble">#FFFFFF</color>
-    <color name="ic_launcher_ping">#FF6D5A</color>
 </resources>

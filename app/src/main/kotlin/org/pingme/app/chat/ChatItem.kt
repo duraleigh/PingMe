@@ -4,6 +4,7 @@ package org.pingme.app.chat
 import org.pingme.core.model.Message
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaInstant
 
@@ -24,11 +25,15 @@ sealed interface ChatItem {
         override val key: String = message.id.value,
     ) : ChatItem
 
-    /** "Today", "Yesterday", or the date, above the first message of each day. */
+    /**
+     * "Wednesday • 20:14" above the first message of each day and after a long quiet stretch, as
+     * in Google Messages (owner, 2026-11-01). [at] is null where only the date is known.
+     */
     data class Day(
         val date: LocalDate,
+        val at: kotlin.time.Instant? = null,
     ) : ChatItem {
-        override val key get() = "day-$date"
+        override val key get() = if (at == null) "day-$date" else "day-$date-${at.toEpochMilliseconds()}"
     }
 
     /** Above the first message that was unread when the chat opened. */
@@ -68,7 +73,9 @@ fun chatItems(
                 key = key,
             )
         if (message.id.value == firstUnreadId) items += ChatItem.NewMessages
-        if (older == null || older.day(zone) != day) items += ChatItem.Day(day)
+        if (older == null || older.day(zone) != day || message.sentAt - older.sentAt >= QUIET_GAP) {
+            items += ChatItem.Day(day, message.sentAt)
+        }
     }
     return items
 }
@@ -86,6 +93,7 @@ private fun together(
 private fun Message.day(zone: ZoneId) = sentAt.toJavaInstant().atZone(zone).toLocalDate()
 
 private val GROUP_GAP = 5.minutes
+private val QUIET_GAP = 1.hours
 
 /** The oldest incoming message among the newest [unread] incoming ones: where "New messages" goes. */
 fun firstUnread(

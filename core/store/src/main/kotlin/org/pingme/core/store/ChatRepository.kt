@@ -40,6 +40,8 @@ data class UnreadTotals(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
+// One function per thing asked of a chat; the list reads as one.
+@Suppress("TooManyFunctions")
 class ChatRepository
     @Inject
     constructor(
@@ -76,7 +78,11 @@ class ChatRepository
         /** Pinned chats in grid order. */
         suspend fun pinned(): List<Chat> = dao.pinned().map { it.toModel() }
 
-        suspend fun upsert(chat: Chat) = dao.upsert(chat.toEntity(), chat.participantEntities())
+        /** Writes a chat; a member's merged chat follows it (unread count, last activity). */
+        suspend fun upsert(chat: Chat) {
+            dao.upsert(chat.toEntity(), chat.participantEntities())
+            chat.mergedInto?.let { dao.refreshMerged(it.value) }
+        }
 
         /** Reads, changes, and writes one chat atomically (pin, mute, archive, ...). */
         suspend fun update(
@@ -93,7 +99,16 @@ class ChatRepository
                 }
             }
 
-        suspend fun delete(id: ChatId) = dao.delete(id.value)
+        /** Deletes a chat; a merged chat left with one member releases it and goes. */
+        suspend fun delete(id: ChatId) {
+            val parent = dao.get(id.value)?.chat?.mergedInto
+            dao.delete(id.value)
+            if (parent != null) {
+                dao.releaseLonelyMember(parent)
+                dao.deleteIfNoMembers(parent)
+                dao.refreshMerged(parent)
+            }
+        }
 
         /** The user deleted the chat here at [at]: the network's listing of it is ignored until something newer. */
         suspend fun hide(
@@ -102,6 +117,19 @@ class ChatRepository
         ) = dao.tombstone(ChatTombstoneEntity(id.value, at))
 
         suspend fun hiddenAt(id: ChatId): Instant? = dao.hiddenAt(id.value)
+
+        /** Keeps the chat in [folder] here, whatever the network lists it under. */
+        suspend fun setFolderMove(
+            id: ChatId,
+            folder: ChatFolder,
+        ) = dao.setFolderMove(
+            org.pingme.core.store.db
+                .ChatFolderMoveEntity(id.value, folder),
+        )
+
+        suspend fun folderMove(id: ChatId): ChatFolder? = dao.folderMove(id.value)
+
+        suspend fun clearFolderMove(id: ChatId) = dao.clearFolderMove(id.value)
 
         suspend fun unhide(id: ChatId) = dao.unhide(id.value)
 

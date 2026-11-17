@@ -109,5 +109,6 @@ fun SwipeAction.label() =
         SwipeAction.MARK_READ -> R.string.swipe_mark_read
         SwipeAction.LOW_PRIORITY -> R.string.swipe_low_priority
         SwipeAction.DELETE -> R.string.swipe_delete
+        SwipeAction.MOVE_FOLDER -> R.string.swipe_move_folder
         SwipeAction.OFF -> R.string.swipe_off
     }

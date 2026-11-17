@@ -74,9 +74,15 @@ sealed interface SendResult {
         val message: MessageSnapshot,
     ) : SendResult
 
-    /** Not sent. [retryable] failures show a retry button (UI_DESIGN.md 3.2). */
+    /**
+     * Not sent. [retryable] failures show a retry button (UI_DESIGN.md 3.2). [notConnected]
+     * says nothing left the phone because the network has no live connection this moment, as
+     * in the seconds a network change takes to reconnect: the send is held and tried again
+     * instead of failing (owner, 2026-11-16).
+     */
     data class Failed(
         val reason: String,
         val retryable: Boolean,
+        val notConnected: Boolean = false,
     ) : SendResult
 }

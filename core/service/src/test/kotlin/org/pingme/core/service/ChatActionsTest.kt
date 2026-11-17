@@ -16,6 +16,7 @@ import org.pingme.core.connector.chat
 import org.pingme.core.connector.message
 import org.pingme.core.connector.person
 import org.pingme.core.model.AvatarSource
+import org.pingme.core.model.ChatFolder
 import org.pingme.core.model.ChatId
 import org.pingme.core.model.NetworkId
 import org.pingme.core.model.Reaction
@@ -34,6 +35,8 @@ class ChatActionsTest : ServiceTest() {
             applier,
             settings,
             router,
+            org.pingme.core.store
+                .MergeRepository(db),
         )
     }
 
@@ -69,6 +72,33 @@ class ChatActionsTest : ServiceTest() {
             actions.setPinned(ids[0], false)
             assertNull(chat(ids[0]).pinOrder)
             assertTrue("a freed slot can be used", actions.setPinned(ids[12], true))
+        }
+
+    @Test
+    fun aPinHiddenInsideAMergedChatDoesNotCountTowardTwelve() =
+        runTest {
+            val ids = seed(13)
+            ids.take(12).forEach { assertTrue(actions.setPinned(it, true)) }
+            // One pinned chat is folded into a merged chat: its pin flag stays but shows nowhere.
+            chats.update(ids[0]) { it.copy(mergedInto = ids[1]) }
+            assertTrue("the hidden pin frees its slot", actions.setPinned(ids[12], true))
+            assertTrue(chat(ids[12]).isPinned)
+        }
+
+    @Test
+    fun readStaysReadWhenTheNetworksChatTimeIsOlderThanItsNewestMessage() =
+        runTest {
+            // Google Messages' chat time trailed its newest message, so every sync counted that
+            // message as unread again (owner, Gate G7, round 3: Eric and Tracy).
+            val id = seed().single()
+            val later = now + kotlin.time.Duration.parse("1s") + kotlin.time.Duration.parse("1ms")
+            applier.apply(ConnectorEvent.NewMessage(accountId, messageSnapshot("m1", sentAt = later)))
+            applier.applyChats(listOf(chatSnapshot(remote = "c1", unread = 1)))
+            actions.setRead(id, true)
+            assertEquals(0, chat(id).unreadCount)
+            // The network lists the chat again, still "unread", with its older chat time.
+            applier.applyChats(listOf(chatSnapshot(remote = "c1", unread = 1)))
+            assertEquals(0, chat(id).unreadCount)
         }
 
     @Test
@@ -182,5 +212,32 @@ class ChatActionsTest : ServiceTest() {
             }
             actions.setRead(id, read = true)
             assertEquals(1, connector.readMarkers.size)
+        }
+
+    /** When Instagram will not move a chat, it moves here and stays through listings (owner, 2026-11-01). */
+    @Test
+    fun aChatInstagramWillNotMoveStaysWhereItWasPutHere() =
+        runTest {
+            accounts.upsert(account())
+            val id = accountId.chat("c1")
+            applier.applyChats(listOf(chatSnapshot().copy(folder = ChatFolder.PRIMARY)))
+            connector.moveFails = true
+            actions.moveFolder(id, ChatFolder.GENERAL)
+            assertEquals(ChatFolder.GENERAL, chats.get(id)?.folder)
+            applier.applyChats(listOf(chatSnapshot().copy(folder = ChatFolder.PRIMARY)))
+            assertEquals(ChatFolder.GENERAL, chats.get(id)?.folder)
+        }
+
+    /** A move Instagram made leaves Instagram in charge of the folder afterwards. */
+    @Test
+    fun aChatInstagramMovedFollowsInstagramAfterwards() =
+        runTest {
+            accounts.upsert(account())
+            val id = accountId.chat("c1")
+            applier.applyChats(listOf(chatSnapshot().copy(folder = ChatFolder.PRIMARY)))
+            actions.moveFolder(id, ChatFolder.GENERAL)
+            assertEquals(ChatFolder.GENERAL, chats.get(id)?.folder)
+            applier.applyChats(listOf(chatSnapshot().copy(folder = ChatFolder.PRIMARY)))
+            assertEquals(ChatFolder.PRIMARY, chats.get(id)?.folder)
         }
 }

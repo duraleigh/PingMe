@@ -32,7 +32,7 @@ import org.pingme.core.model.Transport
 fun ThemeSample(modifier: Modifier = Modifier) {
     Surface(modifier) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("PingMe", style = PingMeTheme.headline)
+            Text("Parley", style = PingMeTheme.headline)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 repeat(PINNED_SAMPLES) { index ->
                     Box(
