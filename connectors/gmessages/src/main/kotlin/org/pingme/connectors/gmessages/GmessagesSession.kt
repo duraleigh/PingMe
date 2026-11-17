@@ -220,7 +220,7 @@ internal class GmessagesSession(
     /** The events that end the session: unpaired needs the user; the rest get a reconnect. */
     private fun endOfSession(event: GmEvent): Exception? =
         when (event) {
-            is GmEvent.LoggedOut -> loggedOut("Google Messages has unpaired PingMe (${event.reason}). Pair again.")
+            is GmEvent.LoggedOut -> loggedOut("Google Messages has unpaired Parley (${event.reason}). Pair again.")
             is GmEvent.Fatal -> IOException("Google Messages connection failed: ${event.error}")
             is GmEvent.Reconnect -> IOException("Google Messages connection stalled; reconnecting")
             else -> null

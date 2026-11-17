@@ -105,7 +105,7 @@ internal class MessengerSession(
 
             is FbEvent.LoggedOut -> {
                 throw ActionNeededException(
-                    "Messenger signed PingMe out (${event.error}). Sign in again.",
+                    "Messenger signed Parley out (${event.error}). Sign in again.",
                     MESSENGER_PACKAGE,
                 )
             }
@@ -313,7 +313,7 @@ internal class MessengerSession(
             ) {
                 if (FbError.codeOf(e) == FbError.LOGGED_OUT) {
                     events.trySend(FbEvent.LoggedOut(e.message.orEmpty()))
-                    throw ActionNeededException("Messenger signed PingMe out. Sign in again.", MESSENGER_PACKAGE)
+                    throw ActionNeededException("Messenger signed Parley out. Sign in again.", MESSENGER_PACKAGE)
                 }
                 throw e
             }

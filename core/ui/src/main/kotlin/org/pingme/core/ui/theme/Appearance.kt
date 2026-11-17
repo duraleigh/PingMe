@@ -213,7 +213,7 @@ enum class ThemePreset(
     val displayName: String,
     val seed: Int,
 ) {
-    PINGME("PingMe", 0xFF5A3FCF.toInt()),
+    PINGME("Parley", 0xFF5A3FCF.toInt()),
     VIOLET("Violet", 0xFF6750A4.toInt()),
     OCEAN("Ocean", 0xFF006A6A.toInt()),
     FOREST("Forest", 0xFF386A20.toInt()),

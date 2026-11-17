@@ -149,7 +149,7 @@ internal fun reasonFor(message: String): String =
         }
 
         "429" in message || "rate" in message.lowercase() -> {
-            "Signal asked PingMe to wait before linking again. Try in a few minutes."
+            "Signal asked Parley to wait before linking again. Try in a few minutes."
         }
 
         message.isBlank() -> {
@@ -161,7 +161,7 @@ internal fun reasonFor(message: String): String =
         }
     }
 
-private const val DEVICE_NAME = "PingMe"
+private const val DEVICE_NAME = "Parley"
 private const val LINK_TIMEOUT_MS = 6 * 50 * 1000L
 
 private const val QR_HINT =

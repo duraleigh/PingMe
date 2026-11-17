@@ -115,7 +115,7 @@ internal class GvoiceSession(
 
             is GvEvent.LoggedOut -> {
                 throw ActionNeededException(
-                    "Google has signed PingMe out of Google Voice. Sign in again.",
+                    "Google has signed Parley out of Google Voice. Sign in again.",
                     GVOICE_PACKAGE,
                 )
             }
@@ -301,7 +301,7 @@ internal class GvoiceSession(
                 if (GvError.codeOf(e) == GvError.LOGGED_OUT) {
                     events.trySend(GvEvent.LoggedOut(e.message.orEmpty()))
                     throw ActionNeededException(
-                        "Google has signed PingMe out of Google Voice. Sign in again.",
+                        "Google has signed Parley out of Google Voice. Sign in again.",
                         GVOICE_PACKAGE,
                     )
                 }

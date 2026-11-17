@@ -148,11 +148,11 @@ internal class WhatsappSession(
     private fun endOfSession(event: WaEvent): Exception? =
         when (event) {
             is WaEvent.LoggedOut -> {
-                loggedOut("WhatsApp has unlinked PingMe (${event.reason}). Link it again.")
+                loggedOut("WhatsApp has unlinked Parley (${event.reason}). Link it again.")
             }
 
             is WaEvent.ClientOutdated -> {
-                loggedOut("WhatsApp no longer accepts this version of PingMe. Update PingMe.")
+                loggedOut("WhatsApp no longer accepts this version of Parley. Update Parley.")
             }
 
             is WaEvent.TemporaryBan -> {

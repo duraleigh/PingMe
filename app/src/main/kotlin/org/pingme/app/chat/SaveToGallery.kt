@@ -13,9 +13,9 @@ import java.io.File
 import java.io.IOException
 
 /**
- * Copies a picture or video into the phone's Photos under a "PingMe" album (owner, Gate G2:
- * the viewer's download button). Pictures and GIFs go to Pictures/PingMe, videos to
- * Movies/PingMe, through the media store, so no storage permission is needed.
+ * Copies a picture or video into the phone's Photos under a "Parley" album (owner, Gate G2:
+ * the viewer's download button). Pictures and GIFs go to Pictures/Parley, videos to
+ * Movies/Parley, through the media store, so no storage permission is needed.
  */
 suspend fun saveToGallery(
     context: Context,
@@ -32,7 +32,7 @@ suspend fun saveToGallery(
 }
 
 /**
- * Copies a voice note, sound, or file into the phone's Downloads under a "PingMe" folder,
+ * Copies a voice note, sound, or file into the phone's Downloads under a "Parley" folder,
  * through the media store, so no storage permission is needed (owner, Gate G3: the hold
  * menu's "Save" on a voice note).
  */
@@ -75,7 +75,7 @@ private suspend fun copyOut(
         }
     }
 
-/** A name for a file that came without one: "PingMe voice note 2026-10-02 21-15.m4a" and the like. */
+/** A name for a file that came without one: "Parley voice note 2026-10-02 21-15.m4a" and the like. */
 private fun savedName(
     attachment: Attachment,
     source: File,
@@ -98,11 +98,11 @@ private fun savedName(
                 .getSingleton()
                 .getExtensionFromMimeType(attachment.mimeType)
             ?: "bin"
-    return "PingMe $what $stamp.$extension"
+    return "Parley $what $stamp.$extension"
 }
 
-/** "Pictures/PingMe" or "Movies/PingMe": the album Photos shows them under. */
+/** "Pictures/Parley" or "Movies/Parley": the album Photos shows them under. */
 fun albumPath(video: Boolean): String =
     (if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES) + File.separator + ALBUM
 
-const val ALBUM = "PingMe"
+const val ALBUM = "Parley"

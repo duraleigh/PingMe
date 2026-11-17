@@ -15,9 +15,9 @@
     <string name="chat_send_options">More ways to send</string>
     <string name="media_play_video">Play video</string>
     <string name="media_save">Save to Photos</string>
-    <string name="media_saved">Saved to the PingMe album in Photos</string>
+    <string name="media_saved">Saved to the Parley album in Photos</string>
     <string name="media_save_failed">Could not save it</string>
-    <string name="media_saved_downloads">Saved to the PingMe folder in Downloads</string>
+    <string name="media_saved_downloads">Saved to the Parley folder in Downloads</string>
     <string name="media_location">Location</string>
     <string name="media_contact">Contact</string>
     <string name="voice_record">Record a voice note: tap to record hands-free, or hold to talk</string>

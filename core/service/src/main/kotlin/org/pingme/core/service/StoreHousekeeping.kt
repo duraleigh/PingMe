@@ -56,6 +56,6 @@ class StoreHousekeeping
             const val TAG = "PingMeHousekeeping"
             val STAND_IN_AGE = 10.minutes
             val STUCK_AFTER = 2.minutes
-            const val LEFT_BEHIND = "PingMe closed before this went"
+            const val LEFT_BEHIND = "Parley closed before this went"
         }
     }

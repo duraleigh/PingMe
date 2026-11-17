@@ -114,7 +114,7 @@ internal class SignalSession(
 
             is SigEvent.LoggedOut -> {
                 throw ActionNeededException(
-                    "Signal has unlinked PingMe (${event.reason}). Link it again.",
+                    "Signal has unlinked Parley (${event.reason}). Link it again.",
                     SIGNAL_PACKAGE,
                 )
             }

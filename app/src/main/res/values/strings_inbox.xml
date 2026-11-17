@@ -86,7 +86,7 @@
     <string name="inbox_bulk_archived">Archived %1$s chats</string>
     <string name="inbox_bulk_low_priority">Moved %1$s chats to low priority</string>
     <string name="inbox_bulk_deleted">Deleted %1$s chats</string>
-    <string name="inbox_bulk_delete_note">They leave PingMe. Messages on the network itself stay.</string>
+    <string name="inbox_bulk_delete_note">They leave Parley. Messages on the network itself stay.</string>
     <plurals name="inbox_bulk_delete_title">
         <item quantity="one">Delete this chat?</item>
         <item quantity="other">Delete %1$d chats?</item>
@@ -129,15 +129,15 @@
     <string name="new_chat_who">Name, number, or username</string>
     <string name="new_chat_start">Start a chat with %1$s</string>
     <string name="new_chat_failed">That did not work. Check the number or name and try again.</string>
-    <string name="new_chat_no_accounts">None of your accounts can start new chats from PingMe.</string>
-    <string name="new_group_no_accounts">None of your accounts can make groups from PingMe.</string>
+    <string name="new_chat_no_accounts">None of your accounts can start new chats from Parley.</string>
+    <string name="new_group_no_accounts">None of your accounts can make groups from Parley.</string>
     <string name="new_group_name">Group name</string>
     <string name="new_group_name_optional">Group name (optional)</string>
     <string name="new_group_next">Next</string>
     <string name="details_call">Call</string>
     <string name="details_video">Video</string>
     <string name="group_icon_pick">Pick a picture for this group</string>
-    <string name="group_icon_note">The picture shows in PingMe, not to the others in the group.</string>
+    <string name="group_icon_note">The picture shows in Parley, not to the others in the group.</string>
     <string name="action_move_general">Move to General</string>
     <string name="action_move_primary">Move to Primary</string>
     <string name="inbox_moved_general">Moved to General</string>
@@ -175,14 +175,14 @@
     <string name="chat_video_call">Video call</string>
     <string name="chat_one_typing">%1$s is typing…</string>
     <string name="chat_many_typing">Several people are typing…</string>
-    <string name="voice_note_shortcut">PingMe voice note</string>
+    <string name="voice_note_shortcut">Parley voice note</string>
     <string name="dictation_listening">Listening… let go to write it out</string>
     <string name="dictation_writing">Writing it out…</string>
     <string name="dictation_failed">Dictation failed: %1$s</string>
     <string name="dictation_nothing_heard">nothing was heard. Is another app using the microphone?</string>
     <string name="chat_calls_unavailable">This chat can\'t place calls from this phone</string>
     <string name="chat_call_opened_app">Opened %1$s: nothing more direct worked</string>
-    <string name="chat_call_opened_dialer">Opened the dialer with the number. Allow phone calls for PingMe and it will dial at once.</string>
+    <string name="chat_call_opened_dialer">Opened the dialer with the number. Allow phone calls for Parley and it will dial at once.</string>
     <string name="chat_call_no_calls">%1$s lets no other app start its calls. Opened the chat there: the call buttons are at its top.</string>
     <string name="chat_call_needs_sync">Opened %1$s to this person. To call straight from here, let %1$s see your contacts, then try again.</string>
     <string name="chat_call_how_dialer">Calls the number in the phone\'s dialer</string>
@@ -269,5 +269,5 @@
         <item quantity="other">%d minutes</item>
     </plurals>
     <string name="new_chat_allow_contacts">Show your contacts who are on Signal</string>
-    <string name="new_chat_allow_contacts_note">PingMe reads your address book and asks Signal which numbers are on it. Names and numbers stay on this phone.</string>
+    <string name="new_chat_allow_contacts_note">Parley reads your address book and asks Signal which numbers are on it. Names and numbers stay on this phone.</string>
 </resources>

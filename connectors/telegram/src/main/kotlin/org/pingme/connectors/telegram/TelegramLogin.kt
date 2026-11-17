@@ -202,7 +202,7 @@ internal fun reasonFor(e: Exception): String {
         "PASSWORD_HASH_INVALID" in message -> "That password did not work."
         "PHONE_NUMBER_INVALID" in message -> "That is not a full number with a country code."
         "PHONE_NUMBER_BANNED" in message -> "Telegram has banned that number."
-        "FLOOD" in message -> "Telegram asked PingMe to wait before trying again. Try in a while."
+        "FLOOD" in message -> "Telegram asked Parley to wait before trying again. Try in a while."
         "API_ID_INVALID" in message -> "This build's Telegram app credentials are wrong."
         else -> "Telegram could not sign in: ${message.substringAfter(": ")}"
     }

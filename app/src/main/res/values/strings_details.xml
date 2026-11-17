@@ -4,7 +4,7 @@
 <resources>
     <string name="details_title">Chat details</string>
     <string name="details_rename">Change name</string>
-    <string name="details_rename_hint">Name shown in PingMe</string>
+    <string name="details_rename_hint">Name shown in Parley</string>
     <string name="details_rename_note">Only changes the name here. Your contacts and the network keep theirs.</string>
     <string name="details_contact_card">Contact card</string>
     <string name="details_add_contact">Add to contacts</string>
@@ -67,7 +67,7 @@
     <string name="details_archive">Archive chat</string>
     <string name="details_unarchive">Unarchive chat</string>
     <string name="details_block">Block</string>
-    <string name="details_block_confirm">Block %1$s on %2$s? They will not be able to message you there, and the chat leaves PingMe.</string>
+    <string name="details_block_confirm">Block %1$s on %2$s? They will not be able to message you there, and the chat leaves Parley.</string>
     <string name="details_delete">Delete chat</string>
     <string name="details_delete_confirm">Delete this chat and its messages from this phone? %1$s keeps its own copy.</string>
 </resources>

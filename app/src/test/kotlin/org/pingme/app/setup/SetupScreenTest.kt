@@ -87,7 +87,7 @@ class SetupScreenTest {
     @Test
     fun theFirstNetworkShowsItsRiskAndStartsItsLogin() {
         skipToNetworks()
-        assertTrue(shown("Pretend messages to try PingMe. Nothing leaves your phone."))
+        assertTrue(shown("Pretend messages to try Parley. Nothing leaves your phone."))
         tap("Demo")
         assertEquals(listOf(NetworkId.DEMO), logins)
     }

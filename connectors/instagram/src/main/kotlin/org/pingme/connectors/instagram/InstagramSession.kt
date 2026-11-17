@@ -115,7 +115,7 @@ internal class InstagramSession(
 
             is IgEvent.LoggedOut -> {
                 throw ActionNeededException(
-                    "Instagram signed PingMe out (${event.error}). Sign in again.",
+                    "Instagram signed Parley out (${event.error}). Sign in again.",
                     INSTAGRAM_PACKAGE,
                 )
             }
@@ -617,7 +617,7 @@ internal class InstagramSession(
             ) {
                 if (IgError.codeOf(e) == IgError.LOGGED_OUT) {
                     events.trySend(IgEvent.LoggedOut(e.message.orEmpty()))
-                    throw ActionNeededException("Instagram signed PingMe out. Sign in again.", INSTAGRAM_PACKAGE)
+                    throw ActionNeededException("Instagram signed Parley out. Sign in again.", INSTAGRAM_PACKAGE)
                 }
                 throw e
             }

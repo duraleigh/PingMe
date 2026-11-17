@@ -129,7 +129,7 @@ internal object DemoSeed {
                 PICTURE -> DemoMedia.png(PICTURE_SIZE, PICTURE_SIZE, colours[0], colours[1])
                 VOICE -> DemoMedia.wav(VOICE_MS)
                 GIF -> DemoMedia.gif(GIF_SIZE, colours.take(GIF_FRAMES), GIF_FRAME_CS)
-                FILE -> "PingMe demo file.\nNothing real is in here.\n".toByteArray()
+                FILE -> "Parley demo file.\nNothing real is in here.\n".toByteArray()
             }
         }
     }

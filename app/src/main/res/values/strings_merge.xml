@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <resources>
     <string name="merge_suggestions_title">Same person, more than one network</string>
-    <string name="merge_suggestions_note">PingMe found chats that look like the same person. Nothing is merged until you say so. Take out any chat that does not belong, add any that do, then merge.</string>
+    <string name="merge_suggestions_note">Parley found chats that look like the same person. Nothing is merged until you say so. Take out any chat that does not belong, add any that do, then merge.</string>
     <string name="merge_suggestions_empty">No suggestions right now. You can merge any chats yourself: hold an avatar in the inbox, pick the chats, and tap Merge.</string>
     <string name="merge_reason_contact">Same contact</string>
     <string name="merge_reason_number">Same phone number</string>

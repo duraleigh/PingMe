@@ -79,7 +79,7 @@ fun BackupPage(
             modifier =
                 Modifier.clickable(
                     enabled = ready,
-                ) { save.launch("pingme-backup-${LocalDate.now()}$EXTENSION") },
+                ) { save.launch("parley-backup-${LocalDate.now()}$EXTENSION") },
         )
         ListItem(
             headlineContent = { Text(stringResource(R.string.backup_restore)) },
@@ -155,4 +155,4 @@ fun restartApp(context: Context) {
 }
 
 private const val MIME = "application/octet-stream"
-private const val EXTENSION = ".pingme"
+private const val EXTENSION = ".parley"

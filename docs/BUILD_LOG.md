@@ -5051,3 +5051,25 @@ list, and the phone's copy arrived as a second message beside the "Not sent" bub
   Try again does not send twice, nothing handed over without a connection).
 - Not covered: the same late-copy handling for the other networks; only Google Messages
   has shown it.
+
+### 2026-11-17: the app is shown as "Parley" (owner: "Yes, visible name")
+
+The owner is renaming the app to Parley. Only the name he sees changes in this step; the
+project, its code names, the diary tags and the hidden app ID (`org.pingme.app`) stay
+"PingMe", so nothing stored is lost and no network has to be linked again.
+
+- Every shown string: the label under the icon (`app_name`; the demo build is "Parley
+  Demo"), 40 texts in the strings files, and the sign-in, unlink and wait notices in the
+  connectors.
+- New saves go to a "Parley" album in Photos and a "Parley" folder in Downloads, and are
+  named "Parley voice note …"; files already saved stay where they are.
+- A backup is offered as `parley-backup-<date>.parley` and an exported theme as
+  `parley-theme.json`. Older `.pingme` backups still open: a backup is known by what is in
+  it, not by its name.
+- The built-in colour preset is shown as "Parley"; it is still stored as `PINGME`, so a
+  saved choice holds.
+- Signal's linked-device name and the name Telegram is given are "Parley" from the next
+  link or connection on. The name Telegram shows as the app comes from the owner's own
+  Telegram key registration, not from here.
+- Left as PingMe on purpose: diary lines and tags (they are searched by name when
+  diagnosing), file and database names on the phone, the code, the docs before this entry.

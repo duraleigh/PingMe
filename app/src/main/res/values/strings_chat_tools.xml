@@ -24,7 +24,7 @@
     <string name="later_tomorrow_same">Tomorrow at this time</string>
     <string name="later_next_monday">Next Monday morning</string>
     <string name="later_exact_title">Send on the minute?</string>
-    <string name="later_exact_body">Android only lets PingMe send a scheduled message at the exact time if you allow it under Alarms and reminders. Without that, the message may go a few minutes late, or wait until the phone wakes up.</string>
+    <string name="later_exact_body">Android only lets Parley send a scheduled message at the exact time if you allow it under Alarms and reminders. Without that, the message may go a few minutes late, or wait until the phone wakes up.</string>
     <string name="later_exact_allow">Allow</string>
     <string name="later_exact_not_now">Not now</string>
     <string name="later_schedule">Schedule</string>

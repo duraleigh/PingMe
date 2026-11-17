@@ -224,7 +224,7 @@ internal class TelegramSession(
             is TdApi.AuthorizationStateWaitCode,
             is TdApi.AuthorizationStateWaitPassword,
             -> {
-                throw ActionNeededException("Telegram has signed PingMe out. Sign in again.", TELEGRAM_PACKAGE)
+                throw ActionNeededException("Telegram has signed Parley out. Sign in again.", TELEGRAM_PACKAGE)
             }
 
             is TdApi.AuthorizationStateClosed -> {
@@ -720,5 +720,5 @@ internal fun tdlibParameters(
         "en",
         "Android",
         "",
-        "PingMe",
+        "Parley",
     )

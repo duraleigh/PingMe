@@ -121,8 +121,8 @@ class SettingsScreenTest {
         show(SettingsPage.ACCOUNTS)
         compose.assertAccessible()
         tap("Add account")
-        waitFor { shown("Pretend messages to try PingMe. Nothing leaves your phone.") }
-        tap("Pretend messages to try PingMe. Nothing leaves your phone.")
+        waitFor { shown("Pretend messages to try Parley. Nothing leaves your phone.") }
+        tap("Pretend messages to try Parley. Nothing leaves your phone.")
         waitFor { logins == listOf(NetworkId.DEMO to null) }
     }
 
@@ -260,7 +260,7 @@ class SettingsScreenTest {
     fun allMediaCanBeSaved() {
         show(SettingsPage.STORAGE)
         compose.assertAccessible()
-        assertTrue(shown("Inside PingMe"))
+        assertTrue(shown("Inside Parley"))
         tap("Save all incoming media")
         tap("Write out voice notes")
         waitFor {
@@ -336,7 +336,7 @@ class SettingsScreenTest {
         compose.assertAccessible()
         val file = temp.newFile("notes.txt").apply { writeText("shopping list") }
         vm.restoreFrom(android.net.Uri.fromFile(file), "")
-        waitFor { shown("That file is not a PingMe backup.") }
+        waitFor { shown("That file is not a Parley backup.") }
         assertEquals(0, restarts)
     }
 

@@ -122,7 +122,7 @@
     <string name="appearance_exported">Theme saved</string>
     <string name="appearance_export_failed">The theme could not be saved</string>
     <string name="appearance_imported">Theme applied</string>
-    <string name="appearance_import_failed">That file is not a PingMe theme</string>
+    <string name="appearance_import_failed">That file is not a Parley theme</string>
 
     <string name="picker_hue">Hue</string>
     <string name="picker_colourfulness">Colourfulness</string>

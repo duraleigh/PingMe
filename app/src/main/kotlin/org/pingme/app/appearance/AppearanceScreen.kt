@@ -170,7 +170,7 @@ fun AppearanceScreen(
     }
 }
 
-private const val EXPORT_NAME = "pingme-theme.json"
+private const val EXPORT_NAME = "parley-theme.json"
 private val FONT_TYPES =
     arrayOf(
         "font/ttf",
